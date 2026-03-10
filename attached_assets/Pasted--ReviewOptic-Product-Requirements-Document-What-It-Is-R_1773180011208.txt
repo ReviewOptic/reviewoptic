@@ -1,0 +1,191 @@
+# ReviewOptic - Product Requirements Document
+
+## What It Is
+ReviewOptic is an automated review generation and management platform for local service businesses. It sends review requests via email, WhatsApp, or SMS at the optimal moment (right after job completion), follows up automatically with non-responders, filters negative feedback flagging to the business to follow up with customer, and publishes positive reviews to social media. The product exists because service providers are losing customers to competitors with better online reviews—not because their work is worse, but because they're inconsistent at asking for and capturing feedback.
+
+## Target User
+**Primary User: The Overworked Service Business Owner**
+
+Meet Sarah, who runs a residential cleaning company with 4 employees. Her day starts at 6am reviewing the job schedule, fielding client calls, and putting out fires. By 5pm, she's exhausted. She *knows* she should be asking her 8-10 daily customers for Google reviews, but she forgets 80% of the time. When she does remember, it feels awkward—like she's begging. She's sent a few text messages asking for reviews, but following up with people who said "sure, I'll do it tonight" and never did? That feels desperate.
+
+Sarah currently has 23 Google reviews (3.8 stars because one angry customer tanked her average). Her competitor down the street has 147 reviews at 4.7 stars and is winning jobs Sarah quotes on. She's tried reminder apps, sticky notes, asking her cleaners to request reviews (they don't). She's looked at Podium and Birdeye but they cost $300-500/month and feel like overkill.
+
+Sarah wants a simple system: finish a job, click a button, and let something else handle the awkward asking and chasing. She'll pay $49-99/month for this if it actually works.
+
+**Secondary Users:**
+- Plumbers, electricians, HVAC technicians
+- Personal trainers, mobile hairdressers, photographers
+- Small trades businesses with 1-20 employees
+
+## Core Problem
+Service businesses lose customers to better-reviewed competitors because requesting reviews is awkward, forgettable, and nobody follows up when customers don't deliver on their promise to leave one.
+
+## Unique Value Proposition
+Unlike generic CRM tools or expensive enterprise review platforms, ReviewOptic combines three things no competitor does well together:
+
+1. **Sentiment Pre-Screen Filter**: Before routing customers to Google/Facebook, we ask "How was your experience?" Unhappy customers get redirected to private feedback. Happy customers get the review link. This protects your rating from impulsive 1-star reviews.
+
+2. **The 'Golden Hour' Trigger**: One click when a job completes. Request goes out within 60 minutes while the experience is fresh—when review completion rates are 3x higher than next-day requests.
+
+3. **Video Testimonial Capture**: Not just text reviews—capture video testimonials customers can record on their phone, which you can use on your website and social media. Competitors focus only on Google/Facebook stars.
+
+4. **Review-to-Social Auto-Publisher**: New 5-star review comes in? Automatically create and post a branded graphic to your Facebook/Instagram/LinkedIn. Turn reviews into marketing content without lifting a finger.
+
+---
+
+## MVP Features (Build These First)
+
+### 1. Customer Database with Manual Entry & CSV Import
+**What the user does:** Clicks "Add Customer" button, enters name, email, phone number, service date, and optional notes. Alternatively, clicks "Import CSV", uploads a file, maps columns to fields (name, email, phone), and confirms import.
+**What the system does:** Validates email format and phone number format. Creates customer record with status "pending_request". For CSV: parses file, shows preview of first 5 rows with column mapping dropdowns, displays count of valid/invalid rows, imports valid rows on confirmation.
+**It works when:** User can add a single customer in under 30 seconds; CSV import of 100 customers completes in under 10 seconds; duplicate emails are flagged but not rejected (user chooses to skip or update).
+
+### 2. The 'Golden Hour' Trigger
+**What the user does:** From customer list or detail page, clicks "Job Complete - Send Request" button. Optionally sets a delay (send now, 1 hour, 2 hours, custom time).
+**What the system does:** Queues review request for specified time. Sends request via user's chosen default channel (email, SMS, or WhatsApp). Logs timestamp and channel in customer record. Updates customer status to "request_sent".
+**It works when:** Request sends within 60 seconds of scheduled time; user receives confirmation toast "Request scheduled for [time]"; customer record shows sent status immediately.
+
+### 3. Automated Review Request Sending (Email, SMS, WhatsApp)
+**What the user does:** Sets up message templates in Settings. Chooses default channel. Triggers send via Golden Hour button.
+**What the system does:** 
+- **Email**: Sends via SendGrid/Resend with business branding, personalized message, and review link button
+- **SMS**: Sends via Twilio with shortened message and link
+- **WhatsApp**: Sends via Twilio WhatsApp API with message and link
+Personalizes with {{customer_name}}, {{business_name}}, {{service_type}} merge tags.
+**It works when:** Email delivers to inbox (not spam) with working review link; SMS delivers within 30 seconds; WhatsApp shows delivered/read receipts in dashboard.
+
+### 4. Sentiment Pre-Screen Filter
+**What the user does:** Nothing—this is automatic in the review request flow.
+**What the system does:** Review link first takes customer to a landing page asking "How would you rate your experience with [Business]?" with 5-star selector. 
+- **4-5 stars**: Shows "Thank you! Would you share this on Google?" with direct review link
+- **1-3 stars**: Shows "We're sorry to hear that. Tell us what went wrong so we can make it right." with private feedback form. Does NOT show Google/Facebook link.
+Business owner sees private feedback in dashboard marked as "Private - Needs Response".
+**It works when:** 5-star clicker lands on Google review page within 2 clicks; 2-star clicker never sees Google link; private feedback appears in dashboard within 10 seconds of submission.
+
+### 5. Direct Review Link Routing (Google & Facebook)
+**What the user does:** In Settings > Review Platforms, pastes their Google Business Profile review link and Facebook page review link.
+**What the system does:** Validates links are correct format. On sentiment screen, displays buttons for each connected platform. Tracks which platform customer clicked.
+**It works when:** Clicking Google button opens Google review modal pre-populated with 5 stars (on mobile: opens Google Maps app); clicking Facebook opens Facebook review page.
+
+### 6. Automated Follow-Up Reminders
+**What the user does:** In Settings > Follow-Ups, configures: enable/disable auto follow-up, days until first follow-up (default 3), days until second follow-up (default 7), max follow-ups (default 2).
+**What the system does:** Tracks if customer clicked review link. If no click after X days, sends follow-up message using follow-up template. Updates customer status to "follow_up_1_sent". After max follow-ups with no action, marks as "no_response" and stops.
+**It works when:** First follow-up sends exactly 3 days after initial request (if configured); customer who completed review does NOT receive follow-up; customer record shows complete follow-up history timeline.
+
+### 7. Customizable Message Templates
+**What the user does:** Goes to Settings > Templates. Sees default templates for: Initial Request (Email), Initial Request (SMS), Initial Request (WhatsApp), Follow-Up 1, Follow-Up 2. Clicks Edit, modifies text, uses merge tag buttons to insert {{customer_name}}, {{business_name}}, {{review_link}}. Saves.
+**What the system does:** Stores templates per business. Shows character count for SMS (max 160). Shows preview with sample data filled in. Validates all required merge tags ({{review_link}}) are present.
+**It works when:** Edited template is used in next request; SMS template shows warning if over 160 characters; preview accurately reflects final message.
+
+### 8. Central Reviews Dashboard
+**What the user does:** Logs in and sees Dashboard as home screen.
+**What the system does:** Displays:
+- **Stats cards**: Total requests sent (this month), Requests pending response, Reviews received (this month), Response rate %, Average star rating
+- **Recent activity feed**: Last 10 events (request sent, review received, follow-up sent, private feedback received)
+- **Action items**: Customers needing follow-up, Private feedback needing response
+- **Reviews received**: List of recent reviews with star rating, platform, customer name, snippet of text
+**It works when:** Dashboard loads in under 2 seconds; stats update within 1 minute of new activity; clicking any item navigates to detail view.
+
+### 9. Review Request Tracking
+**What the user does:** Goes to Customers page, sees status column showing: Pending, Request Sent, Clicked, Review Completed, No Response, Do Not Contact.
+**What the system does:** Updates status automatically based on: request sent timestamp, link click tracking (via redirect tracking), review detection (manual confirmation or webhook if available). Shows filter buttons to view customers by status.
+**It works when:** Status changes from "Request Sent" to "Clicked" within 5 seconds of customer clicking link; user can filter to see only "No Response" customers.
+
+### 10. Do Not Contact Flagging
+**What the user does:** On customer row or detail page, clicks "Do Not Contact" toggle or button.
+**What the system does:** Sets customer status to "do_not_contact". Immediately cancels any pending follow-ups. Excludes from all future bulk sends. Shows visual indicator (red badge) on customer row.
+**It works when:** Flagged customer does not receive scheduled follow-up; attempting to send request to flagged customer shows warning modal requiring confirmation.
+
+### 11. Basic Analytics
+**What the user does:** Clicks "Analytics" in navigation.
+**What the system does:** Displays:
+- **Line chart**: Requests sent vs. reviews received over last 30/60/90 days (toggle)
+- **Funnel**: Requests Sent → Clicked → Reviews Completed (with percentages)
+- **Breakdown by channel**: Email vs. SMS vs. WhatsApp performance
+- **Best performing day/time**: When requests get highest response
+**It works when:** Charts render in under 2 seconds; data matches actual request/review counts; date range toggle updates charts without page reload.
+
+### 12. Website Review Widget
+**What the user does:** Goes to Settings > Widget. Sees embed code. Copies JavaScript snippet. Optionally configures: number of reviews to show (3-10), minimum stars to display (4 or 5), layout (carousel or grid).
+**What the system does:** Generates unique embed code with business ID. Widget fetches and displays recent reviews matching filters. Updates automatically when new reviews are added. Styled to match light/dark mode of host website.
+**It works when:** Pasting embed code on any website displays reviews within 2 seconds; only reviews matching star filter appear; widget is responsive on mobile.
+
+### 13. Voice Note / Video Review Requests
+**What the user does:** When creating a request template, chooses message type: Text, Voice Note, or Video. For Voice/Video: records using device microphone/camera (mobile) or uploads file (desktop). Saves as template.
+**What the system does:** Stores media file (max 30 seconds voice, 60 seconds video). For email: embeds playable media. For SMS/WhatsApp: sends as MMS/media message. Voice note plays inline; video shows thumbnail with play button.
+**It works when:** Voice note plays in email client without download; WhatsApp video message displays correctly on recipient's phone; media under file size limits (5MB voice, 25MB video).
+
+---
+
+## Pages & Navigation
+
+**Navigation Structure:**
+Top nav bar (desktop) / Bottom tab bar (mobile) with: Dashboard, Customers, Templates, Analytics, Settings
+
+### 1. Dashboard (Home)
+**Shows:** Stats cards (Requests This Month, Pending, Reviews Received, Response Rate, Avg Rating), Recent Activity feed (last 10 events with timestamp and type icon), Action Items section (pending follow-ups count, private feedback count), Quick Actions buttons (Add Customer, Send Bulk Request)
+**Key actions:** Click activity item → Customer detail; Click action item count → Filtered customer list; Quick action buttons
+
+### 2. Customers List
+**Shows:** Searchable/filterable table with columns: Name, Email, Phone, Status (color-coded badge), Last Activity, Actions (Send Request, View, Do Not Contact toggle)
+**Key actions:** Add Customer button → Modal form; Import CSV button → Import flow; Click row → Customer Detail; Filter dropdown (All, Pending, Sent, Clicked, Completed, No Response, Do Not Contact); Bulk select → Bulk Send Request
+
+### 3. Customer Detail
+**Shows:** Customer info (name, email, phone, notes), Status badge, Activity Timeline (all events chronologically: added, request sent, clicked, follow-ups, review received), Review content if completed, Private feedback if submitted
+**Key actions:** Edit customer info; Send Request (with channel selector); Mark Do Not Contact; Add Note; Delete Customer
+
+### 4. Add Customer Modal
+**Shows:** Form fields: Name (required), Email (required), Phone (optional but required for SMS/WhatsApp), Service Date (optional), Notes (optional)
+**Key actions:** Save → Creates customer, closes modal; Save & Send Request → Creates customer, immediately queues request
+
+### 5. CSV Import Flow
+**Shows:** Step 1: File upload area (drag/drop or browse); Step 2: Column mapping (dropdown for each detected column → our fields); Step 3: Preview (first 5 rows, valid/invalid counts, error reasons for invalid rows); Step 4: Confirmation
+**Key actions:** Upload file; Map columns; Review preview; Confirm Import; Cancel at any step
+
+### 6. Templates
+**Shows:** List of templates by type: Initial Request (Email, SMS, WhatsApp), Follow-Up 1, Follow-Up 2. Each shows preview snippet and Edit button.
+**Key actions:** Edit → Opens editor modal; Reset to Default; Create Custom Template
+
+### 7. Template Editor Modal
+**Shows:** Template name, Message type (Text/Voice/Video), Rich text editor (email) or plain text (SMS/WhatsApp), Merge tag buttons ({{customer_name}}, {{business_name}}, {{review_link}}), Character count for SMS, Preview pane with sample data
+**Key actions:** Insert merge tag; Record voice/video (opens recorder); Preview; Save; Cancel
+
+### 8. Analytics
+**Shows:** Date range toggle (30/60/90 days), Line chart (Requests vs Reviews over time), Funnel visualization (Sent → Clicked → Completed with percentages), Channel breakdown table (Email/SMS/WhatsApp: sent, clicked, completed, rate), Best Time insight card
+**Key actions:** Toggle date range; Export CSV of analytics data
+
+### 9. Settings
+**Shows:** Tabbed interface with sub-pages:
+- **Profile**: Business name, email, logo upload
+- **Review Platforms**: Google review link input, Checkatrade review link input, Trustist review link input, Trustpilot review link input, Tripadvisor review link input, Facebook review link input, Yelp review link input, Yell.com review link input, Which? review link input, Mybuilder review link input, connection status indicators
+- **Channels**: Email settings (from name, reply-to), SMS/WhatsApp (phone number verification), default channel selector
+- **Follow-Ups**: Enable toggle, timing configuration (days until follow-up 1, follow-up 2), max follow-ups
+- **Widget**: Configuration options, embed code display with copy button
+- **Appearance**: Theme toggle (Light/Dark/System)
+- **Billing**: Current plan, usage, upgrade options
+
+**Key actions:** Save changes per section; Test connection (for review platforms); Copy embed code; Change theme
+
+### 10. Private Feedback Inbox
+**Shows:** List of private feedback submissions (from sentiment pre-screen failures): Customer name, Rating given, Feedback text, Date, Response status (New/Responded)
+**Key actions:** Click to expand full feedback; Mark as Responded; Reply (generates email to customer)
+
+### 11. Sentiment Pre-Screen Landing Page (Customer-Facing, Not in Nav)
+**Shows:** Business logo, "How was your experience with [Business Name]?", 5-star selector, Submit button
+**After submission:** 4-5 stars → "Thanks! Share your experience on Google/Facebook/Checkatrade/Trustist/Trustpilot/Tripadvisor/Yelp/Yell.com/Which?/Mybuilder with platform buttons; 1-3 stars → "We'd love to make this right. What happened?" with text area and Submit
+
+### 12. Auth Pages
+- **Login**: Email, Password, Login button, "Forgot Password" link, "Sign Up" link
+- **Sign Up**: Business Name, Name, Email, Password, Confirm Password, Sign Up button
+- **Forgot Password**: Email input, Send Reset Link button
+- **Reset Password**: New Password, Confirm Password, Reset button
+
+---
+
+## Data Model
+
+### users
+- id: uuid, primary key
+- email: string, unique, not null
+- password_hash: string, not null
+- created_at
