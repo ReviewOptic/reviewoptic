@@ -61,6 +61,8 @@ export interface IStorage {
     responseRate: number;
     avgRating: number;
   }>;
+  markNoResponse(): Promise<number>;
+  sendFollowUps(): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -191,6 +193,74 @@ export class DatabaseStorage implements IStorage {
       ? Math.round((allReviews.reduce((s, r) => s + r.stars, 0) / allReviews.length) * 10) / 10
       : 0;
     return { requestsThisMonth, pendingRequests, reviewsThisMonth, responseRate, avgRating };
+  }
+
+  async markNoResponse(): Promise<number> {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 14);
+    // Find customers whose earliest sentAt is older than 14 days
+    const stale = await db
+      .select({ customerId: reviewRequests.customerId })
+      .from(reviewRequests)
+      .where(and(eq(customers.status, "request_sent"), sql`${reviewRequests.sentAt} < ${cutoff}`))
+      .innerJoin(customers, eq(reviewRequests.customerId, customers.id))
+      .groupBy(reviewRequests.customerId)
+      .having(sql`min(${reviewRequests.sentAt}) < ${cutoff}`);
+    if (stale.length === 0) return 0;
+    const ids = stale.map(r => r.customerId);
+    const result = await db
+      .update(customers)
+      .set({ status: "no_response" })
+      .where(sql`${customers.id} = ANY(${ids}) AND ${customers.status} = 'request_sent'`)
+      .returning();
+    return result.length;
+  }
+
+  async sendFollowUps(): Promise<number> {
+    const now = new Date();
+    const day3cutoff = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+    const day7cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    // Get all customers still waiting (not clicked, not reviewed, not opted out)
+    const eligible = await db.select().from(customers).where(
+      and(eq(customers.status, "request_sent"), eq(customers.doNotContact, false))
+    );
+
+    let sent = 0;
+    for (const customer of eligible) {
+      const requests = await db.select().from(reviewRequests)
+        .where(and(eq(reviewRequests.customerId, customer.id), sql`${reviewRequests.sentAt} IS NOT NULL`))
+        .orderBy(reviewRequests.sentAt);
+
+      const sentCount = requests.length;
+      const firstSentAt = requests[0]?.sentAt;
+      if (!firstSentAt) continue;
+
+      const shouldSendSecond = sentCount === 1 && firstSentAt <= day3cutoff;
+      const shouldSendThird  = sentCount === 2 && firstSentAt <= day7cutoff;
+
+      if (shouldSendSecond || shouldSendThird) {
+        const followUpNum = sentCount + 1;
+        await db.insert(reviewRequests).values({
+          id: randomUUID(),
+          customerId: customer.id,
+          status: "sent",
+          channel: customer.channel,
+          sentAt: now,
+          followUpCount: sentCount,
+        });
+        await this.createActivity({
+          id: randomUUID(),
+          type: "request_sent",
+          customerId: customer.id,
+          customerName: customer.name,
+          message: `Follow-up #${followUpNum} sent automatically to ${customer.name} via ${customer.channel}`,
+          metadata: "{}",
+        });
+        sent++;
+      }
+    }
+    return sent;
   }
 }
 

@@ -145,8 +145,8 @@ export default function CustomerDetail() {
   return (
     <div className="px-6 py-7 max-w-4xl mx-auto">
       {/* Back button */}
-      <button onClick={() => navigate("/customers")} className="flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground mb-5 transition-colors" data-testid="link-back">
-        <ArrowLeft className="w-4 h-4" /> Back to Customers
+      <button onClick={() => window.history.back()} className="flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground mb-5 transition-colors" data-testid="link-back">
+        <ArrowLeft className="w-4 h-4" /> Back
       </button>
 
       {/* Header */}

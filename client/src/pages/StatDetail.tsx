@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow, format, startOfMonth, endOfMonth, subMonths } from "date-fns";
-import type { Customer, Review, PrivateFeedback } from "@shared/schema";
+import type { Customer, Review, PrivateFeedback, ReviewRequest } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -61,7 +61,7 @@ function inPeriod(date: Date, period: PeriodKey, customFrom?: Date, customTo?: D
 // ─────────────────────────────────────────────
 // VIEW: Requests
 // ─────────────────────────────────────────────
-function RequestsView({ customers }: { customers: Customer[] }) {
+function RequestsView({ customers = [], reviewRequests = [] }: { customers: Customer[]; reviewRequests: ReviewRequest[] }) {
   const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
   const [period, setPeriod] = useState<PeriodKey>("this_month");
@@ -77,10 +77,10 @@ function RequestsView({ customers }: { customers: Customer[] }) {
     const matchesPeriod = inPeriod(d, period, fromDate, toDate);
     const matchesSearch = !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.email.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === "all" || c.status === statusFilter;
-    return matchesPeriod && matchesSearch && matchesStatus;
+    return c.status !== "pending_request" && matchesPeriod && matchesSearch && matchesStatus;
   });
 
-  const statuses = ["all", "pending_request", "request_sent", "clicked", "review_completed", "no_response"];
+  const statuses = ["all", "request_sent", "clicked", "review_completed", "no_response"];
 
   return (
     <div className="space-y-5">
@@ -88,7 +88,7 @@ function RequestsView({ customers }: { customers: Customer[] }) {
       <div className="grid grid-cols-3 gap-3">
         {[
           { label: "Sent", value: filtered.filter(c => c.status !== "pending_request").length, color: "text-primary" },
-          { label: "Clicked", value: filtered.filter(c => c.status === "clicked" || c.status === "review_completed").length, color: "text-purple-600" },
+          { label: "Clicked", value: filtered.filter(c => c.status === "clicked").length, color: "text-purple-600" },
           { label: "Reviewed", value: filtered.filter(c => c.status === "review_completed").length, color: "text-green-600" },
         ].map(s => (
           <div key={s.label} className="rounded-xl bg-muted/40 px-4 py-3 text-center">
@@ -144,6 +144,9 @@ function RequestsView({ customers }: { customers: Customer[] }) {
               <span className={cn("text-[11px] font-medium px-2 py-0.5 rounded-full", statusConfig[c.status]?.color || "bg-muted text-muted-foreground")}>
                 {statusConfig[c.status]?.label || c.status}
               </span>
+              <span className="text-[11px] text-muted-foreground hidden sm:block">
+                {reviewRequests.filter(r => r.customerId === c.id && r.sentAt).length} sent
+              </span>
               <span className="text-[11px] text-muted-foreground hidden sm:block">{format(new Date(c.createdAt), "MMM d")}</span>
               <ArrowRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
             </div>
@@ -157,7 +160,7 @@ function RequestsView({ customers }: { customers: Customer[] }) {
 // ─────────────────────────────────────────────
 // VIEW: Pending
 // ─────────────────────────────────────────────
-function PendingView({ customers }: { customers: Customer[] }) {
+function PendingView({ customers = [] }: { customers: Customer[] }) {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const [search, setSearch] = useState("");
@@ -265,7 +268,7 @@ function PendingView({ customers }: { customers: Customer[] }) {
 // ─────────────────────────────────────────────
 // VIEW: Reviews
 // ─────────────────────────────────────────────
-function ReviewsView({ reviews, customers }: { reviews: Review[]; customers: Customer[] }) {
+function ReviewsView({ reviews = [], customers = [] }: { reviews: Review[]; customers: Customer[] }) {
   const [period, setPeriod] = useState<PeriodKey>("this_month");
   const [starFilter, setStarFilter] = useState(0);
   const [platformFilter, setPlatformFilter] = useState("all");
@@ -372,7 +375,7 @@ function ReviewsView({ reviews, customers }: { reviews: Review[]; customers: Cus
 // ─────────────────────────────────────────────
 // VIEW: Response Rate
 // ─────────────────────────────────────────────
-function ResponseRateView({ customers, reviews }: { customers: Customer[]; reviews: Review[] }) {
+function ResponseRateView({ customers = [], reviews = [] }: { customers: Customer[]; reviews: Review[] }) {
   const [period, setPeriod] = useState<PeriodKey>("this_month");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
@@ -450,7 +453,7 @@ function ResponseRateView({ customers, reviews }: { customers: Customer[]; revie
 // ─────────────────────────────────────────────
 // VIEW: Avg Rating
 // ─────────────────────────────────────────────
-function AvgRatingView({ reviews, customers }: { reviews: Review[]; customers: Customer[] }) {
+function AvgRatingView({ reviews = [], customers = [] }: { reviews: Review[]; customers: Customer[] }) {
   const [period, setPeriod] = useState<PeriodKey>("all_time");
   const [platformFilter, setPlatformFilter] = useState("all");
   const [customFrom, setCustomFrom] = useState("");
@@ -570,6 +573,7 @@ export default function StatDetail() {
 
   const { data: customers = [], isLoading: customersLoading } = useQuery<Customer[]>({ queryKey: ["/api/customers"] });
   const { data: reviews = [], isLoading: reviewsLoading } = useQuery<Review[]>({ queryKey: ["/api/reviews"] });
+  const { data: reviewRequests = [] } = useQuery<ReviewRequest[]>({ queryKey: ["/api/review-requests"] });
 
   const config = viewConfig[view];
   const isLoading = customersLoading || reviewsLoading;
@@ -603,7 +607,7 @@ export default function StatDetail() {
         </div>
       ) : (
         <>
-          {view === "requests" && <RequestsView customers={customers} />}
+          {view === "requests" && <RequestsView customers={customers} reviewRequests={reviewRequests} />}
           {view === "pending" && <PendingView customers={customers} />}
           {view === "reviews" && <ReviewsView reviews={reviews} customers={customers} />}
           {view === "response-rate" && <ResponseRateView customers={customers} reviews={reviews} />}

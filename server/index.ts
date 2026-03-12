@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seedDatabase } from "./seed";
+import { storage } from "./storage";
 
 const app = express();
 const httpServer = createServer(app);
@@ -63,6 +64,16 @@ app.use((req, res, next) => {
 (async () => {
   await seedDatabase().catch(console.error);
   await registerRoutes(httpServer, app);
+
+  // Automated follow-ups and no-response checks
+  const runScheduledChecks = async () => {
+    const followUps = await storage.sendFollowUps().catch(console.error);
+    if (followUps) log(`Sent ${followUps} automated follow-up(s)`);
+    const noResponse = await storage.markNoResponse().catch(console.error);
+    if (noResponse) log(`Marked ${noResponse} customer(s) as no_response`);
+  };
+  await runScheduledChecks();
+  setInterval(runScheduledChecks, 60 * 60 * 1000); // re-run every hour
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

@@ -24,7 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Customer } from "@shared/schema";
+import type { Customer, ReviewRequest } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 
@@ -207,6 +207,7 @@ export default function Customers() {
   const [, navigate] = useLocation();
 
   const { data: customers, isLoading } = useQuery<Customer[]>({ queryKey: ["/api/customers"] });
+  const { data: allRequests = [] } = useQuery<ReviewRequest[]>({ queryKey: ["/api/review-requests"] });
 
   const toggleDncMutation = useMutation({
     mutationFn: async (customer: Customer) =>
@@ -306,6 +307,7 @@ export default function Customers() {
                 <th className="text-left px-4 py-3 text-[11.5px] font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Email</th>
                 <th className="text-left px-4 py-3 text-[11.5px] font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Service</th>
                 <th className="text-left px-4 py-3 text-[11.5px] font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                <th className="text-left px-4 py-3 text-[11.5px] font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Requests</th>
                 <th className="text-left px-4 py-3 text-[11.5px] font-semibold text-muted-foreground uppercase tracking-wider hidden lg:table-cell">Added</th>
                 <th className="px-4 py-3 w-12"></th>
               </tr>
@@ -318,13 +320,14 @@ export default function Customers() {
                     <td className="px-4 py-3 hidden sm:table-cell"><Skeleton className="h-4 w-40" /></td>
                     <td className="px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-28" /></td>
                     <td className="px-4 py-3"><Skeleton className="h-5 w-20" /></td>
+                    <td className="px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-8" /></td>
                     <td className="px-4 py-3 hidden lg:table-cell"><Skeleton className="h-4 w-24" /></td>
                     <td className="px-4 py-3"><Skeleton className="h-7 w-7" /></td>
                   </tr>
                 ))
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-16 text-center text-muted-foreground">
+                  <td colSpan={7} className="px-4 py-16 text-center text-muted-foreground">
                     <Users className="w-8 h-8 mx-auto mb-2 opacity-40" />
                     <p className="text-[13px]">{search || statusFilter !== "all" ? "No customers match your filters" : "No customers yet. Add your first customer!"}</p>
                     {!search && statusFilter === "all" && (
@@ -361,6 +364,11 @@ export default function Customers() {
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={customer.status} doNotContact={customer.doNotContact} />
+                    </td>
+                    <td className="px-4 py-3 hidden md:table-cell">
+                      <span className="text-[13px] text-muted-foreground">
+                        {allRequests.filter(r => r.customerId === customer.id && r.sentAt).length}
+                      </span>
                     </td>
                     <td className="px-4 py-3 hidden lg:table-cell">
                       <span className="text-[12px] text-muted-foreground">
