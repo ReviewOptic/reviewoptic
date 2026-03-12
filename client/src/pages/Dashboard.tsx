@@ -67,7 +67,6 @@ function getDailyQuote() {
 }
 
 export default function Dashboard() {
-  const [tileStyle, setTileStyle] = useState(1);
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const { data: stats, isLoading: statsLoading } = useQuery<{
