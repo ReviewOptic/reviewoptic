@@ -12,6 +12,7 @@ import Templates from "@/pages/Templates";
 import Analytics from "@/pages/Analytics";
 import SettingsPage from "@/pages/Settings";
 import ReviewLanding from "@/pages/ReviewLanding";
+import StatDetail from "@/pages/StatDetail";
 
 function Router() {
   return (
@@ -24,6 +25,7 @@ function Router() {
             <Route path="/customers/:id" component={CustomerDetail} />
             <Route path="/customers" component={Customers} />
             <Route path="/templates" component={Templates} />
+            <Route path="/stat/:view" component={StatDetail} />
             <Route path="/analytics" component={Analytics} />
             <Route path="/settings" component={SettingsPage} />
             <Route component={NotFound} />

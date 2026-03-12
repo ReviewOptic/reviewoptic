@@ -8,6 +8,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
@@ -68,6 +69,7 @@ function getDailyQuote() {
 
 export default function Dashboard() {
   const [, navigate] = useLocation();
+  const [statModal, setStatModal] = useState<string | null>(null);
   const { toast } = useToast();
   const { data: stats, isLoading: statsLoading } = useQuery<{
     requestsThisMonth: number; pendingRequests: number; reviewsThisMonth: number;
@@ -96,46 +98,11 @@ export default function Dashboard() {
   });
 
   const statCards = [
-    {
-      label: "Requests This Month",
-      value: stats?.requestsThisMonth ?? 0,
-      icon: Send,
-      color: "text-primary",
-      bg: "bg-primary/10",
-      suffix: "",
-    },
-    {
-      label: "Pending Response",
-      value: stats?.pendingRequests ?? 0,
-      icon: Clock,
-      color: "text-amber-600",
-      bg: "bg-amber-100 dark:bg-amber-900/20",
-      suffix: "",
-    },
-    {
-      label: "Reviews This Month",
-      value: stats?.reviewsThisMonth ?? 0,
-      icon: Star,
-      color: "text-green-600",
-      bg: "bg-green-100 dark:bg-green-900/20",
-      suffix: "",
-    },
-    {
-      label: "Response Rate",
-      value: stats?.responseRate ?? 0,
-      icon: TrendingUp,
-      color: "text-purple-600",
-      bg: "bg-purple-100 dark:bg-purple-900/20",
-      suffix: "%",
-    },
-    {
-      label: "Avg. Star Rating",
-      value: stats?.avgRating ?? 0,
-      icon: Star,
-      color: "text-amber-500",
-      bg: "bg-amber-50 dark:bg-amber-900/20",
-      suffix: "★",
-    },
+    { label: "Requests This Month", value: stats?.requestsThisMonth ?? 0, icon: Send, color: "text-primary", bg: "bg-primary/10", suffix: "", path: "/stat/requests" },
+    { label: "Pending Response", value: stats?.pendingRequests ?? 0, icon: Clock, color: "text-amber-600", bg: "bg-amber-100 dark:bg-amber-900/20", suffix: "", path: "/stat/pending" },
+    { label: "Reviews This Month", value: stats?.reviewsThisMonth ?? 0, icon: Star, color: "text-green-600", bg: "bg-green-100 dark:bg-green-900/20", suffix: "", path: "/stat/reviews" },
+    { label: "Response Rate", value: stats?.responseRate ?? 0, icon: TrendingUp, color: "text-purple-600", bg: "bg-purple-100 dark:bg-purple-900/20", suffix: "%", path: "/stat/response-rate" },
+    { label: "Avg. Star Rating", value: stats?.avgRating ?? 0, icon: Star, color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-900/20", suffix: "★", path: "/stat/avg-rating" },
   ];
 
   return (
@@ -155,7 +122,11 @@ export default function Dashboard() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         {statCards.map((s, i) => (
-          <div key={i} className="flex items-center gap-3 bg-muted/40 rounded-xl px-4 py-4">
+          <div
+            key={i}
+            onClick={() => !statsLoading && navigate(s.path)}
+            className="flex items-center gap-3 bg-muted/40 rounded-xl px-4 py-4 cursor-pointer hover:bg-muted/70 transition-colors"
+          >
             {statsLoading ? <Skeleton className="h-12 w-full" /> : (
               <>
                 <div className={cn("flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full", s.bg)}>
@@ -353,6 +324,7 @@ export default function Dashboard() {
           </Card>
         </div>
       </div>
+
     </div>
   );
 }
