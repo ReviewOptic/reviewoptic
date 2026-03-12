@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import {
@@ -153,30 +154,111 @@ export default function Dashboard() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-        {statCards.map((s, i) => (
-          <Card key={i} className="border-card-border" data-testid={`stat-${s.label.toLowerCase().replace(/\s/g, '-')}`}>
-            <CardContent className="p-4">
-              {statsLoading ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-20" />
-                  <Skeleton className="h-8 w-16" />
-                </div>
-              ) : (
-                <>
-                  <div className={cn("inline-flex items-center justify-center w-8 h-8 rounded-lg mb-3", s.bg)}>
-                    <s.icon className={cn("w-4 h-4", s.color)} />
-                  </div>
-                  <div className="text-2xl font-bold text-foreground">
-                    {s.value}{s.suffix}
-                  </div>
-                  <div className="text-[12px] text-muted-foreground mt-0.5 font-medium">{s.label}</div>
-                </>
-              )}
-            </CardContent>
-          </Card>
+      {/* Tile Style Picker — remove once chosen */}
+      <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/60 border border-dashed border-border w-fit text-[12px] text-muted-foreground">
+        <span className="font-medium">Preview tiles:</span>
+        {[1,2,3,4,5].map(n => (
+          <button key={n} onClick={() => setTileStyle(n)}
+            className={cn("w-6 h-6 rounded font-semibold text-[11px] transition-colors",
+              tileStyle === n ? "bg-primary text-primary-foreground" : "bg-background border border-border hover:bg-muted")}>
+            {n}
+          </button>
         ))}
       </div>
+
+      {/* Style 1 — Current: card with icon box, large number, label below */}
+      {tileStyle === 1 && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          {statCards.map((s, i) => (
+            <Card key={i} className="border-card-border">
+              <CardContent className="p-4">
+                {statsLoading ? <div className="space-y-2"><Skeleton className="h-4 w-20" /><Skeleton className="h-8 w-16" /></div> : (
+                  <>
+                    <div className={cn("inline-flex items-center justify-center w-8 h-8 rounded-lg mb-3", s.bg)}>
+                      <s.icon className={cn("w-4 h-4", s.color)} />
+                    </div>
+                    <div className="text-2xl font-bold text-foreground">{s.value}{s.suffix}</div>
+                    <div className="text-[12px] text-muted-foreground mt-0.5 font-medium">{s.label}</div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Style 2 — Horizontal: icon left, number + label stacked right, no card border */}
+      {tileStyle === 2 && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          {statCards.map((s, i) => (
+            <div key={i} className="flex items-center gap-3 bg-muted/40 rounded-xl px-4 py-4">
+              {statsLoading ? <Skeleton className="h-12 w-full" /> : (
+                <>
+                  <div className={cn("flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full", s.bg)}>
+                    <s.icon className={cn("w-5 h-5", s.color)} />
+                  </div>
+                  <div>
+                    <div className="text-xl font-bold text-foreground leading-none">{s.value}{s.suffix}</div>
+                    <div className="text-[11.5px] text-muted-foreground mt-1 leading-tight">{s.label}</div>
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Style 3 — Bold coloured cards: full colour background, white text */}
+      {tileStyle === 3 && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          {statCards.map((s, i) => (
+            <div key={i} className={cn("rounded-xl px-4 py-4", s.bg)}>
+              {statsLoading ? <Skeleton className="h-12 w-full" /> : (
+                <>
+                  <s.icon className={cn("w-4 h-4 mb-2 opacity-80", s.color)} />
+                  <div className={cn("text-2xl font-extrabold leading-none", s.color)}>{s.value}{s.suffix}</div>
+                  <div className="text-[11.5px] text-muted-foreground mt-1.5 font-medium">{s.label}</div>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Style 4 — Minimal list row: all 5 in a single horizontal pill bar */}
+      {tileStyle === 4 && (
+        <div className="flex flex-wrap gap-0 rounded-xl border border-card-border overflow-hidden divide-x divide-border">
+          {statCards.map((s, i) => (
+            <div key={i} className="flex-1 min-w-[120px] flex flex-col items-center justify-center py-4 px-3 bg-card hover:bg-muted/30 transition-colors text-center">
+              {statsLoading ? <Skeleton className="h-10 w-16" /> : (
+                <>
+                  <div className={cn("text-2xl font-bold", s.color)}>{s.value}{s.suffix}</div>
+                  <div className="text-[11px] text-muted-foreground mt-1 font-medium leading-tight">{s.label}</div>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Style 5 — Large number top, coloured label stripe at bottom */}
+      {tileStyle === 5 && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          {statCards.map((s, i) => (
+            <div key={i} className="rounded-xl border border-card-border bg-card overflow-hidden">
+              {statsLoading ? <Skeleton className="h-20 w-full" /> : (
+                <>
+                  <div className="px-4 pt-4 pb-3">
+                    <div className="text-3xl font-extrabold text-foreground tracking-tight">{s.value}{s.suffix}</div>
+                    <div className="text-[12px] text-muted-foreground mt-1 font-medium">{s.label}</div>
+                  </div>
+                  <div className={cn("h-1.5 w-full", s.bg.replace("/10", "").replace("/20", ""))} />
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Activity Feed */}
