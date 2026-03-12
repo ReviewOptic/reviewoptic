@@ -251,3 +251,36 @@ Your job is to be the developer they would hire if they could afford a great one
 
 **Lessons learned:**
 - When user says "see more detail" on a UI element, clarify whether they want a modal or a full page before building — they may have a strong preference
+
+### Session — 2026-03-12 (third session)
+
+**Tasks completed:**
+- Added custom date range filter ("Custom Range" period pill + from/to date inputs) to all 5 stat detail views
+- Fixed stat card number mismatches — dashboard was counting from `reviewRequests` table, detail pages from `customers` table; unified all 5 stats to use `customers`/`reviews` tables directly
+- Fixed "Requests This Month" to count only customers where a request was actually sent (status ≠ `pending_request`), so dashboard number matches the detail page "Sent" count
+- Fixed "Clicked" summary card to exclude `review_completed` customers (no double-counting with Reviewed)
+- Removed `pending_request` customers from the Requests detail list (they shouldn't appear in a "sent" view)
+- Added `no_response` auto-transition: customers in `request_sent` status for 14+ days since first `sentAt` automatically move to `no_response` — runs on server start and every hour
+- Built automated follow-up sending: 2nd request sent after `followUp1Days`, 3rd after `followUp2Days` (both read from Settings), respects `followUpEnabled` and `maxFollowUps`
+- Added "Requests sent" count per customer — visible as a column on the Customers page and inline on the Requests stat detail list
+- Changed CustomerDetail back button to use `window.history.back()` so it returns to whatever page the user came from (not always `/customers`)
+- Added "Response Required" badge (red) on Requests detail page for customers with `no_response` status who also have private feedback
+
+**Fixes applied:**
+- `requestsThisMonth` stat was counting from `reviewRequests` table (sent emails) instead of `customers` table — fixed to match detail page
+- `pendingRequests` stat was counting from `reviewRequests` table — fixed to count customers with `status = request_sent && !doNotContact`
+- `responseRate` stat was using `reviewRequests` click data — fixed to use customer statuses (sent vs review_completed)
+- 14-day no-response clock was starting from `customer.createdAt` — fixed to start from first `sentAt` in `reviewRequests`
+
+**Issues discovered:**
+- None active at end of session
+
+**Notes for next session:**
+- Automated follow-ups create `reviewRequests` records but don't yet send real emails/SMS — that integration is still pending
+- `landing.html` still a bare-bones placeholder
+- Follow-up timing is fully driven by Settings → Follow-Ups sliders (`followUp1Days`, `followUp2Days`, `maxFollowUps`, `followUpEnabled`)
+- "Response Required" badge only shows on the Requests stat detail page, not on the main Customers list
+
+**Lessons learned:**
+- Always check that dashboard stat numbers and detail page numbers use the same data source and same filter logic before shipping
+- When adding a visual indicator (e.g. coloured border), confirm with user before committing — they may only want part of the change
