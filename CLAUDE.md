@@ -223,3 +223,31 @@ Your job is to be the developer they would hire if they could afford a great one
 - Dashboard header is now dynamic — greeting + daily quote both in place
 - `landing.html` still a bare-bones placeholder — may want to style it to match the app at some point
 - No active bugs or broken features at end of session
+
+### Session — 2026-03-12 (second session)
+
+**Tasks completed:**
+- Made all 5 dashboard stat cards clickable — each navigates to a dedicated detail page
+- Created `client/src/pages/StatDetail.tsx` — a single page handling 5 views via `/stat/:view` URL:
+  - `/stat/requests` — customers list with period + status filters and summary bar
+  - `/stat/pending` — pending customers with per-row Follow-up button and confirm step
+  - `/stat/reviews` — reviews list with star, platform, and period filters
+  - `/stat/response-rate` — visual funnel (sent → clicked → reviewed) with period filter and quick links
+  - `/stat/avg-rating` — headline average, star breakdown bars, platform/period filters, recent reviews list
+- Registered `/stat/:view` route in `App.tsx`
+- Stat cards on dashboard now have hover effect (cursor + background change) to indicate they're clickable
+
+**Fixes applied:**
+- Initially built stat card detail as dialogs — user asked for full pages instead, rebuilt as dedicated route
+
+**Issues discovered:**
+- None
+
+**Notes for next session:**
+- All 5 stat card drill-down pages are live and working
+- The "Follow-up" button on the Pending page calls the send-request API — worth testing with a real customer
+- `landing.html` still a bare-bones placeholder
+- No active bugs or broken features at end of session
+
+**Lessons learned:**
+- When user says "see more detail" on a UI element, clarify whether they want a modal or a full page before building — they may have a strong preference
