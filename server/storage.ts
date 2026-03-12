@@ -152,12 +152,10 @@ export class DatabaseStorage implements IStorage {
     return s;
   }
   async upsertSettings(data: Partial<InsertSettings>): Promise<Settings> {
-    const values = { id: "default", ...data };
-    const [s] = await db.insert(settings)
-      .values(values)
-      .onConflictDoUpdate({ target: settings.id, set: data })
-      .returning();
-    return s;
+    const [updated] = await db.update(settings).set(data).where(eq(settings.id, "default")).returning();
+    if (updated) return updated;
+    const [inserted] = await db.insert(settings).values({ id: "default", ...data }).returning();
+    return inserted;
   }
   async getUser(id: string): Promise<User | undefined> {
     const [u] = await db.select().from(users).where(eq(users.id, id));
