@@ -67,7 +67,6 @@ function getDailyQuote() {
 }
 
 export default function Dashboard() {
-  const [headerStyle, setHeaderStyle] = useState(1);
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const { data: stats, isLoading: statsLoading } = useQuery<{
@@ -148,14 +147,8 @@ export default function Dashboard() {
           <p className="text-[13.5px] text-muted-foreground mt-0.5 italic">{getDailyQuote()}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate("/customers")} data-testid="button-add-customer">
-            <Plus className="w-3.5 h-3.5" />
-            Add Customer
-          </Button>
-          <Button size="sm" className="gap-1.5" onClick={() => navigate("/customers")} data-testid="button-send-request">
-            <Zap className="w-3.5 h-3.5" />
-            Golden Hour
-          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate("/customers")} data-testid="button-add-customer"><Plus className="w-3.5 h-3.5" />Add Customer</Button>
+          <Button size="sm" className="gap-1.5" onClick={() => navigate("/customers")} data-testid="button-send-request"><Zap className="w-3.5 h-3.5" />Golden Hour</Button>
         </div>
       </div>
 
