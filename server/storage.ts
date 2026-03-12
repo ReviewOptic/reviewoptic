@@ -180,7 +180,7 @@ export class DatabaseStorage implements IStorage {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const allCustomers = await db.select().from(customers);
-    const requestsThisMonth = allCustomers.filter(c => c.createdAt >= monthStart).length;
+    const requestsThisMonth = allCustomers.filter(c => c.createdAt >= monthStart && c.status !== "pending_request").length;
     const pendingRequests = allCustomers.filter(c => c.status === "request_sent" && !c.doNotContact).length;
     const allReviews = await db.select().from(reviews);
     const reviewsThisMonth = allReviews.filter(r => r.createdAt >= monthStart).length;
