@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { ActivityLog, Customer, PrivateFeedback, Review } from "@shared/schema";
+import type { ActivityLog, Customer, PrivateFeedback, Review, Settings } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 
 const activityIcons: Record<string, React.ReactNode> = {
@@ -78,6 +78,7 @@ export default function Dashboard() {
   const { data: customers } = useQuery<Customer[]>({ queryKey: ["/api/customers"] });
   const { data: feedback } = useQuery<PrivateFeedback[]>({ queryKey: ["/api/private-feedback"] });
   const { data: reviews } = useQuery<Review[]>({ queryKey: ["/api/reviews"] });
+  const { data: settings } = useQuery<Settings>({ queryKey: ["/api/settings"] });
 
   const pendingFollowUp = customers?.filter(c => c.status === "request_sent" && !c.doNotContact) || [];
   const unrespondedFeedback = feedback?.filter(f => !f.responded) || [];
@@ -141,7 +142,7 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">{getGreeting()}</h1>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">{getGreeting()}{settings?.ownerName ? `, ${settings.ownerName}` : ""}!</h1>
           <p className="text-[13.5px] text-muted-foreground mt-0.5 italic">{getDailyQuote()}</p>
         </div>
         <div className="flex gap-2">

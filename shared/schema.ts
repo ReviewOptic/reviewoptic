@@ -69,6 +69,7 @@ export const templates = pgTable("templates", {
 
 export const settings = pgTable("settings", {
   id: varchar("id").primaryKey().default("default"),
+  ownerName: text("owner_name").notNull().default(""),
   businessName: text("business_name").notNull().default("My Business"),
   businessEmail: text("business_email").notNull().default(""),
   googleReviewLink: text("google_review_link").notNull().default(""),

@@ -160,8 +160,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(s || {});
   });
   app.patch("/api/settings", async (req, res) => {
-    const s = await storage.upsertSettings(req.body);
-    res.json(s);
+    try {
+      console.log("PATCH /api/settings body:", JSON.stringify(req.body));
+      const s = await storage.upsertSettings(req.body);
+      console.log("PATCH /api/settings result:", JSON.stringify(s));
+      res.json(s);
+    } catch (err) {
+      console.error("Failed to save settings:", err);
+      res.status(500).json({ message: "Failed to save settings" });
+    }
   });
 
   // Stats

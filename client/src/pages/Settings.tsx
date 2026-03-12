@@ -31,6 +31,7 @@ export default function Settings() {
   const { data: settings, isLoading } = useQuery<SettingsType>({ queryKey: ["/api/settings"] });
   const [copied, setCopied] = useState(false);
   const [form, setForm] = useState({
+    ownerName: "",
     businessName: "",
     businessEmail: "",
     googleReviewLink: "",
@@ -48,6 +49,7 @@ export default function Settings() {
   useEffect(() => {
     if (settings) {
       setForm({
+        ownerName: settings.ownerName || "",
         businessName: settings.businessName || "",
         businessEmail: settings.businessEmail || "",
         googleReviewLink: settings.googleReviewLink || "",
@@ -117,6 +119,15 @@ export default function Settings() {
               <CardDescription className="text-[12.5px]">This info is used in your message templates</CardDescription>
             </CardHeader>
             <CardContent className="space-y-5 pb-5">
+              <div className="space-y-1.5">
+                <Label className="text-[12.5px]">Your Name</Label>
+                <Input
+                  value={form.ownerName}
+                  onChange={e => setForm(f => ({ ...f, ownerName: e.target.value }))}
+                  placeholder="e.g. Sarah"
+                  data-testid="input-owner-name"
+                />
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-[12.5px]">Business Name</Label>
