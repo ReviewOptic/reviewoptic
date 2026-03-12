@@ -179,13 +179,14 @@ export class DatabaseStorage implements IStorage {
   }> {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const allRequests = await db.select().from(reviewRequests);
-    const requestsThisMonth = allRequests.filter(r => r.createdAt >= monthStart).length;
-    const pendingRequests = allRequests.filter(r => r.status === "sent" || r.status === "pending").length;
+    const allCustomers = await db.select().from(customers);
+    const requestsThisMonth = allCustomers.filter(c => c.createdAt >= monthStart).length;
+    const pendingRequests = allCustomers.filter(c => c.status === "request_sent" && !c.doNotContact).length;
     const allReviews = await db.select().from(reviews);
     const reviewsThisMonth = allReviews.filter(r => r.createdAt >= monthStart).length;
-    const clickedOrReviewed = allRequests.filter(r => r.clickedAt || r.status === "completed").length;
-    const responseRate = allRequests.length > 0 ? Math.round((clickedOrReviewed / allRequests.length) * 100) : 0;
+    const sent = allCustomers.filter(c => c.status !== "pending_request").length;
+    const reviewed = allCustomers.filter(c => c.status === "review_completed").length;
+    const responseRate = sent > 0 ? Math.round((reviewed / sent) * 100) : 0;
     const avgRating = allReviews.length > 0
       ? Math.round((allReviews.reduce((s, r) => s + r.stars, 0) / allReviews.length) * 10) / 10
       : 0;
