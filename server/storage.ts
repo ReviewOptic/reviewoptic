@@ -217,11 +217,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async sendFollowUps(): Promise<number> {
-    const now = new Date();
-    const day3cutoff = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
-    const day7cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const s = await this.getSettings();
+    if (!s?.followUpEnabled) return 0;
 
-    // Get all customers still waiting (not clicked, not reviewed, not opted out)
+    const followUp1Days = s.followUp1Days ?? 3;
+    const followUp2Days = s.followUp2Days ?? 7;
+    const maxFollowUps  = s.maxFollowUps  ?? 2;
+
+    const now = new Date();
+    const cutoff1 = new Date(now.getTime() - followUp1Days * 24 * 60 * 60 * 1000);
+    const cutoff2 = new Date(now.getTime() - followUp2Days * 24 * 60 * 60 * 1000);
+
     const eligible = await db.select().from(customers).where(
       and(eq(customers.status, "request_sent"), eq(customers.doNotContact, false))
     );
@@ -234,13 +240,13 @@ export class DatabaseStorage implements IStorage {
 
       const sentCount = requests.length;
       const firstSentAt = requests[0]?.sentAt;
-      if (!firstSentAt) continue;
+      if (!firstSentAt || sentCount > maxFollowUps) continue;
 
-      const shouldSendSecond = sentCount === 1 && firstSentAt <= day3cutoff;
-      const shouldSendThird  = sentCount === 2 && firstSentAt <= day7cutoff;
+      const shouldSendNext =
+        (sentCount === 1 && firstSentAt <= cutoff1) ||
+        (sentCount === 2 && maxFollowUps >= 2 && firstSentAt <= cutoff2);
 
-      if (shouldSendSecond || shouldSendThird) {
-        const followUpNum = sentCount + 1;
+      if (shouldSendNext) {
         await db.insert(reviewRequests).values({
           id: randomUUID(),
           customerId: customer.id,
@@ -254,7 +260,7 @@ export class DatabaseStorage implements IStorage {
           type: "request_sent",
           customerId: customer.id,
           customerName: customer.name,
-          message: `Follow-up #${followUpNum} sent automatically to ${customer.name} via ${customer.channel}`,
+          message: `Follow-up #${sentCount + 1} sent automatically to ${customer.name} via ${customer.channel}`,
           metadata: "{}",
         });
         sent++;

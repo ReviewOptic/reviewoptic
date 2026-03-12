@@ -61,7 +61,7 @@ function inPeriod(date: Date, period: PeriodKey, customFrom?: Date, customTo?: D
 // ─────────────────────────────────────────────
 // VIEW: Requests
 // ─────────────────────────────────────────────
-function RequestsView({ customers = [], reviewRequests = [] }: { customers: Customer[]; reviewRequests: ReviewRequest[] }) {
+function RequestsView({ customers = [], reviewRequests = [], privateFeedback = [] }: { customers: Customer[]; reviewRequests: ReviewRequest[]; privateFeedback: PrivateFeedback[] }) {
   const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
   const [period, setPeriod] = useState<PeriodKey>("this_month");
@@ -134,15 +134,21 @@ function RequestsView({ customers = [], reviewRequests = [] }: { customers: Cust
             <Send className="w-8 h-8 mx-auto mb-2 opacity-30" />
             <p className="text-sm">No customers match these filters.</p>
           </div>
-        ) : filtered.map(c => (
+        ) : filtered.map(c => {
+          const hasFeedback = privateFeedback.some(f => f.customerId === c.id);
+          const responseRequired = c.status === "no_response" && hasFeedback;
+          const badge = responseRequired
+            ? { label: "Response Required", color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" }
+            : statusConfig[c.status] || { label: c.status, color: "bg-muted text-muted-foreground" };
+          return (
           <div key={c.id} onClick={() => navigate(`/customers/${c.id}`)} className="flex items-center justify-between p-3 rounded-lg border border-border/60 bg-card hover:bg-accent cursor-pointer transition-colors">
             <div className="flex-1 min-w-0">
               <p className="text-[13.5px] font-medium">{c.name}</p>
               <p className="text-[12px] text-muted-foreground">{c.email}</p>
             </div>
             <div className="flex items-center gap-3">
-              <span className={cn("text-[11px] font-medium px-2 py-0.5 rounded-full", statusConfig[c.status]?.color || "bg-muted text-muted-foreground")}>
-                {statusConfig[c.status]?.label || c.status}
+              <span className={cn("text-[11px] font-medium px-2 py-0.5 rounded-full", badge.color)}>
+                {badge.label}
               </span>
               <span className="text-[11px] text-muted-foreground hidden sm:block">
                 {reviewRequests.filter(r => r.customerId === c.id && r.sentAt).length} sent
@@ -151,7 +157,8 @@ function RequestsView({ customers = [], reviewRequests = [] }: { customers: Cust
               <ArrowRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -574,6 +581,7 @@ export default function StatDetail() {
   const { data: customers = [], isLoading: customersLoading } = useQuery<Customer[]>({ queryKey: ["/api/customers"] });
   const { data: reviews = [], isLoading: reviewsLoading } = useQuery<Review[]>({ queryKey: ["/api/reviews"] });
   const { data: reviewRequests = [] } = useQuery<ReviewRequest[]>({ queryKey: ["/api/review-requests"] });
+  const { data: privateFeedback = [] } = useQuery<PrivateFeedback[]>({ queryKey: ["/api/private-feedback"] });
 
   const config = viewConfig[view];
   const isLoading = customersLoading || reviewsLoading;
@@ -607,7 +615,7 @@ export default function StatDetail() {
         </div>
       ) : (
         <>
-          {view === "requests" && <RequestsView customers={customers} reviewRequests={reviewRequests} />}
+          {view === "requests" && <RequestsView customers={customers} reviewRequests={reviewRequests} privateFeedback={privateFeedback} />}
           {view === "pending" && <PendingView customers={customers} />}
           {view === "reviews" && <ReviewsView reviews={reviews} customers={customers} />}
           {view === "response-rate" && <ResponseRateView customers={customers} reviews={reviews} />}
