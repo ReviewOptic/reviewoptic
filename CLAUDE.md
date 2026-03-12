@@ -185,11 +185,41 @@ Your job is to be the developer they would hire if they could afford a great one
 
 ### Session — 2026-03-11
 
-**What we did:**
+**Tasks completed:**
 - Created `CLAUDE.md` with working rules and session start checklist
-- Created `landing.html` — a simple one-page HTML file with the "ReviewOptic" heading
-- Found and changed the star logo box colour from blue to green in `client/src/components/Layout.tsx` (both desktop sidebar and mobile header), then reverted it back to blue on user request
+- Created `landing.html` — simple one-page HTML with the "ReviewOptic" heading
+- Connected the project to GitHub (`https://github.com/ReviewOptic/reviewoptic`) and pushed all code
+
+**Fixes applied:**
+- Changed star logo box colour from blue to green, then reverted to blue on user request
+
+**Issues discovered:**
+- GitHub token was shared in plain chat — user was advised to revoke it and generate a new one. A fresh token will be needed before the next push to GitHub.
+- The `main` branch had no remote tracking set up initially — now fixed, tracking `origin/main`
+
+**Notes for next session:**
+- Confirm GitHub token has been revoked and a new one created
+- `landing.html` is a bare-bones placeholder — may need styling to match the app
+- No active bugs or broken features at end of session
 
 **Lessons learned:**
 - When user asks to undo, revert exactly what was changed — nothing more, nothing less
 - Always check for duplicate instances of a UI element (e.g. desktop + mobile) before calling a change done
+- Never ask the user to paste sensitive tokens in chat — find a safer alternative next time
+
+### Session — 2026-03-12
+
+**Tasks completed:**
+- Added time-of-day greeting to dashboard header: "Good morning / Good afternoon / Good evening" based on user's local time
+- Added rotating daily inspirational quote beneath the greeting, themed around great service and earning reviews (8 quotes, cycles daily)
+
+**Fixes applied:**
+- None
+
+**Issues discovered:**
+- None
+
+**Notes for next session:**
+- Dashboard header is now dynamic — greeting + daily quote both in place
+- `landing.html` still a bare-bones placeholder — may want to style it to match the app at some point
+- No active bugs or broken features at end of session

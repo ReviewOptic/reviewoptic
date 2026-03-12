@@ -42,6 +42,29 @@ function StarRating({ stars }: { stars: number }) {
   );
 }
 
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+const inspirationalQuotes = [
+  "Every great review starts with a great experience.",
+  "Happy customers don't just come back — they bring others with them.",
+  "The best marketing is a customer who can't stop talking about you.",
+  "One five-star review is worth a thousand ads.",
+  "Service is not what you do, it's who you are.",
+  "A satisfied customer is the best business strategy of all.",
+  "Excellence is not a skill — it's an attitude.",
+  "Your reputation is built one customer at a time.",
+];
+
+function getDailyQuote() {
+  const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
+  return inspirationalQuotes[dayOfYear % inspirationalQuotes.length];
+}
+
 export default function Dashboard() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
@@ -118,8 +141,8 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">Dashboard</h1>
-          <p className="text-[13.5px] text-muted-foreground mt-0.5">Welcome back — here's what's happening</p>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">{getGreeting()}</h1>
+          <p className="text-[13.5px] text-muted-foreground mt-0.5 italic">{getDailyQuote()}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate("/customers")} data-testid="button-add-customer">
