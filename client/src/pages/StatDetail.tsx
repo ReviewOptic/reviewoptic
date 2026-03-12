@@ -33,14 +33,26 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   no_response: { label: "No Response", color: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400" },
 };
 
-type PeriodKey = "this_month" | "last_month" | "all_time";
+type PeriodKey = "this_month" | "last_month" | "all_time" | "custom";
 
 function periodLabel(p: PeriodKey) {
-  return p === "this_month" ? "This Month" : p === "last_month" ? "Last Month" : "All Time";
+  if (p === "this_month") return "This Month";
+  if (p === "last_month") return "Last Month";
+  if (p === "custom") return "Custom Range";
+  return "All Time";
 }
 
-function inPeriod(date: Date, period: PeriodKey) {
+function inPeriod(date: Date, period: PeriodKey, customFrom?: Date, customTo?: Date) {
   if (period === "all_time") return true;
+  if (period === "custom") {
+    if (customFrom && date < customFrom) return false;
+    if (customTo) {
+      const end = new Date(customTo);
+      end.setHours(23, 59, 59, 999);
+      if (date > end) return false;
+    }
+    return true;
+  }
   const now = new Date();
   const base = period === "last_month" ? subMonths(now, 1) : now;
   return date >= startOfMonth(base) && date <= endOfMonth(base);
@@ -54,10 +66,15 @@ function RequestsView({ customers }: { customers: Customer[] }) {
   const [search, setSearch] = useState("");
   const [period, setPeriod] = useState<PeriodKey>("this_month");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+
+  const fromDate = customFrom ? new Date(customFrom) : undefined;
+  const toDate = customTo ? new Date(customTo) : undefined;
 
   const filtered = customers.filter(c => {
     const d = new Date(c.createdAt);
-    const matchesPeriod = inPeriod(d, period);
+    const matchesPeriod = inPeriod(d, period, fromDate, toDate);
     const matchesSearch = !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.email.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === "all" || c.status === statusFilter;
     return matchesPeriod && matchesSearch && matchesStatus;
@@ -87,13 +104,20 @@ function RequestsView({ customers }: { customers: Customer[] }) {
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
           <Input placeholder="Search customers..." className="pl-8 h-8 text-sm" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <div className="flex gap-1.5">
-          {(["this_month", "last_month", "all_time"] as PeriodKey[]).map(p => (
+        <div className="flex gap-1.5 flex-wrap">
+          {(["this_month", "last_month", "all_time", "custom"] as PeriodKey[]).map(p => (
             <button key={p} onClick={() => setPeriod(p)} className={cn("px-3 py-1 rounded-full text-[12px] font-medium border transition-colors", period === p ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-accent")}>
               {periodLabel(p)}
             </button>
           ))}
         </div>
+        {period === "custom" && (
+          <div className="flex items-center gap-2 w-full">
+            <Input type="date" className="h-8 text-sm flex-1" value={customFrom} onChange={e => setCustomFrom(e.target.value)} />
+            <span className="text-[12px] text-muted-foreground flex-shrink-0">to</span>
+            <Input type="date" className="h-8 text-sm flex-1" value={customTo} onChange={e => setCustomTo(e.target.value)} />
+          </div>
+        )}
         <div className="flex gap-1.5 flex-wrap">
           {statuses.map(s => (
             <button key={s} onClick={() => setStatusFilter(s)} className={cn("px-2.5 py-1 rounded-full text-[11.5px] font-medium border transition-colors", statusFilter === s ? "bg-foreground text-background border-foreground" : "border-border text-muted-foreground hover:bg-accent")}>
@@ -138,8 +162,14 @@ function PendingView({ customers }: { customers: Customer[] }) {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [sendTo, setSendTo] = useState<Customer | null>(null);
+  const [period, setPeriod] = useState<PeriodKey>("all_time");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
 
-  const pending = customers.filter(c => c.status === "request_sent" && !c.doNotContact);
+  const fromDate = customFrom ? new Date(customFrom) : undefined;
+  const toDate = customTo ? new Date(customTo) : undefined;
+
+  const pending = customers.filter(c => c.status === "request_sent" && !c.doNotContact && inPeriod(new Date(c.createdAt), period, fromDate, toDate));
   const filtered = pending.filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.email.toLowerCase().includes(search.toLowerCase()));
 
   const sendMutation = useMutation({
@@ -163,10 +193,26 @@ function PendingView({ customers }: { customers: Customer[] }) {
         </p>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-        <Input placeholder="Search..." className="pl-8 h-8 text-sm" value={search} onChange={e => setSearch(e.target.value)} />
+      {/* Filters */}
+      <div className="space-y-2">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+          <Input placeholder="Search..." className="pl-8 h-8 text-sm" value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+        <div className="flex gap-1.5 flex-wrap">
+          {(["all_time", "this_month", "last_month", "custom"] as PeriodKey[]).map(p => (
+            <button key={p} onClick={() => setPeriod(p)} className={cn("px-3 py-1 rounded-full text-[12px] font-medium border transition-colors", period === p ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-accent")}>
+              {periodLabel(p)}
+            </button>
+          ))}
+        </div>
+        {period === "custom" && (
+          <div className="flex items-center gap-2">
+            <Input type="date" className="h-8 text-sm flex-1" value={customFrom} onChange={e => setCustomFrom(e.target.value)} />
+            <span className="text-[12px] text-muted-foreground flex-shrink-0">to</span>
+            <Input type="date" className="h-8 text-sm flex-1" value={customTo} onChange={e => setCustomTo(e.target.value)} />
+          </div>
+        )}
       </div>
 
       {/* List */}
@@ -224,6 +270,11 @@ function ReviewsView({ reviews, customers }: { reviews: Review[]; customers: Cus
   const [starFilter, setStarFilter] = useState(0);
   const [platformFilter, setPlatformFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+
+  const fromDate = customFrom ? new Date(customFrom) : undefined;
+  const toDate = customTo ? new Date(customTo) : undefined;
 
   const platforms = ["all", ...Array.from(new Set(reviews.map(r => r.platform)))];
 
@@ -231,7 +282,7 @@ function ReviewsView({ reviews, customers }: { reviews: Review[]; customers: Cus
     const d = new Date(r.createdAt);
     const customer = customers.find(c => c.id === r.customerId);
     return (
-      inPeriod(d, period) &&
+      inPeriod(d, period, fromDate, toDate) &&
       (starFilter === 0 || r.stars === starFilter) &&
       (platformFilter === "all" || r.platform === platformFilter) &&
       (!search || customer?.name.toLowerCase().includes(search.toLowerCase()) || r.reviewText.toLowerCase().includes(search.toLowerCase()))
@@ -265,12 +316,19 @@ function ReviewsView({ reviews, customers }: { reviews: Review[]; customers: Cus
           <Input placeholder="Search name or review text..." className="pl-8 h-8 text-sm" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         <div className="flex flex-wrap gap-1.5">
-          {(["this_month", "last_month", "all_time"] as PeriodKey[]).map(p => (
+          {(["this_month", "last_month", "all_time", "custom"] as PeriodKey[]).map(p => (
             <button key={p} onClick={() => setPeriod(p)} className={cn("px-3 py-1 rounded-full text-[12px] font-medium border transition-colors", period === p ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-accent")}>
               {periodLabel(p)}
             </button>
           ))}
         </div>
+        {period === "custom" && (
+          <div className="flex items-center gap-2">
+            <Input type="date" className="h-8 text-sm flex-1" value={customFrom} onChange={e => setCustomFrom(e.target.value)} />
+            <span className="text-[12px] text-muted-foreground flex-shrink-0">to</span>
+            <Input type="date" className="h-8 text-sm flex-1" value={customTo} onChange={e => setCustomTo(e.target.value)} />
+          </div>
+        )}
         <div className="flex flex-wrap gap-1.5">
           {[0, 5, 4, 3, 2, 1].map(s => (
             <button key={s} onClick={() => setStarFilter(s)} className={cn("px-2.5 py-1 rounded-full text-[12px] font-medium border transition-colors", starFilter === s ? "bg-amber-500 text-white border-amber-500" : "border-border text-muted-foreground hover:bg-accent")}>
@@ -316,9 +374,14 @@ function ReviewsView({ reviews, customers }: { reviews: Review[]; customers: Cus
 // ─────────────────────────────────────────────
 function ResponseRateView({ customers, reviews }: { customers: Customer[]; reviews: Review[] }) {
   const [period, setPeriod] = useState<PeriodKey>("this_month");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const [, navigate] = useLocation();
 
-  const periodCustomers = customers.filter(c => inPeriod(new Date(c.createdAt), period));
+  const fromDate = customFrom ? new Date(customFrom) : undefined;
+  const toDate = customTo ? new Date(customTo) : undefined;
+
+  const periodCustomers = customers.filter(c => inPeriod(new Date(c.createdAt), period, fromDate, toDate));
   const sent = periodCustomers.filter(c => c.status !== "pending_request").length;
   const clicked = periodCustomers.filter(c => c.status === "clicked" || c.status === "review_completed").length;
   const reviewed = periodCustomers.filter(c => c.status === "review_completed").length;
@@ -339,12 +402,21 @@ function ResponseRateView({ customers, reviews }: { customers: Customer[]; revie
       </div>
 
       {/* Period filter */}
-      <div className="flex gap-1.5">
-        {(["this_month", "last_month", "all_time"] as PeriodKey[]).map(p => (
-          <button key={p} onClick={() => setPeriod(p)} className={cn("px-3 py-1 rounded-full text-[12px] font-medium border transition-colors", period === p ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-accent")}>
-            {periodLabel(p)}
-          </button>
-        ))}
+      <div className="space-y-2">
+        <div className="flex gap-1.5 flex-wrap">
+          {(["this_month", "last_month", "all_time", "custom"] as PeriodKey[]).map(p => (
+            <button key={p} onClick={() => setPeriod(p)} className={cn("px-3 py-1 rounded-full text-[12px] font-medium border transition-colors", period === p ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-accent")}>
+              {periodLabel(p)}
+            </button>
+          ))}
+        </div>
+        {period === "custom" && (
+          <div className="flex items-center gap-2">
+            <Input type="date" className="h-8 text-sm flex-1" value={customFrom} onChange={e => setCustomFrom(e.target.value)} />
+            <span className="text-[12px] text-muted-foreground flex-shrink-0">to</span>
+            <Input type="date" className="h-8 text-sm flex-1" value={customTo} onChange={e => setCustomTo(e.target.value)} />
+          </div>
+        )}
       </div>
 
       {/* Funnel */}
@@ -381,12 +453,17 @@ function ResponseRateView({ customers, reviews }: { customers: Customer[]; revie
 function AvgRatingView({ reviews, customers }: { reviews: Review[]; customers: Customer[] }) {
   const [period, setPeriod] = useState<PeriodKey>("all_time");
   const [platformFilter, setPlatformFilter] = useState("all");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const [, navigate] = useLocation();
+
+  const fromDate = customFrom ? new Date(customFrom) : undefined;
+  const toDate = customTo ? new Date(customTo) : undefined;
 
   const platforms = ["all", ...Array.from(new Set(reviews.map(r => r.platform)))];
 
   const filtered = reviews.filter(r =>
-    inPeriod(new Date(r.createdAt), period) &&
+    inPeriod(new Date(r.createdAt), period, fromDate, toDate) &&
     (platformFilter === "all" || r.platform === platformFilter)
   );
 
@@ -401,17 +478,30 @@ function AvgRatingView({ reviews, customers }: { reviews: Review[]; customers: C
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-1.5">
-        {(["this_month", "last_month", "all_time"] as PeriodKey[]).map(p => (
-          <button key={p} onClick={() => setPeriod(p)} className={cn("px-3 py-1 rounded-full text-[12px] font-medium border transition-colors", period === p ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-accent")}>
-            {periodLabel(p)}
-          </button>
-        ))}
-        {platforms.length > 1 && platforms.map(p => (
-          <button key={p} onClick={() => setPlatformFilter(p)} className={cn("px-2.5 py-1 rounded-full text-[12px] font-medium border transition-colors capitalize", platformFilter === p ? "bg-foreground text-background border-foreground" : "border-border text-muted-foreground hover:bg-accent")}>
-            {p === "all" ? "All Platforms" : p}
-          </button>
-        ))}
+      <div className="space-y-2">
+        <div className="flex flex-wrap gap-1.5">
+          {(["this_month", "last_month", "all_time", "custom"] as PeriodKey[]).map(p => (
+            <button key={p} onClick={() => setPeriod(p)} className={cn("px-3 py-1 rounded-full text-[12px] font-medium border transition-colors", period === p ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-accent")}>
+              {periodLabel(p)}
+            </button>
+          ))}
+        </div>
+        {period === "custom" && (
+          <div className="flex items-center gap-2">
+            <Input type="date" className="h-8 text-sm flex-1" value={customFrom} onChange={e => setCustomFrom(e.target.value)} />
+            <span className="text-[12px] text-muted-foreground flex-shrink-0">to</span>
+            <Input type="date" className="h-8 text-sm flex-1" value={customTo} onChange={e => setCustomTo(e.target.value)} />
+          </div>
+        )}
+        {platforms.length > 1 && (
+          <div className="flex flex-wrap gap-1.5">
+            {platforms.map(p => (
+              <button key={p} onClick={() => setPlatformFilter(p)} className={cn("px-2.5 py-1 rounded-full text-[12px] font-medium border transition-colors capitalize", platformFilter === p ? "bg-foreground text-background border-foreground" : "border-border text-muted-foreground hover:bg-accent")}>
+                {p === "all" ? "All Platforms" : p}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Star breakdown */}
