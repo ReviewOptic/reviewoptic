@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import {
@@ -67,6 +66,7 @@ function getDailyQuote() {
 }
 
 export default function Dashboard() {
+  const [tileStyle, setTileStyle] = useState(1);
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const { data: stats, isLoading: statsLoading } = useQuery<{
