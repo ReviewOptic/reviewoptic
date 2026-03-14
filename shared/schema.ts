@@ -5,7 +5,7 @@ import { z } from "zod";
 export const customers = pgTable("customers", {
   id: varchar("id").primaryKey(),
   name: text("name").notNull(),
-  email: text("email").notNull(),
+  email: text("email").notNull().default(""),
   phone: text("phone").notNull().default(""),
   serviceDate: text("service_date").notNull().default(""),
   serviceType: text("service_type").notNull().default(""),
@@ -64,6 +64,8 @@ export const templates = pgTable("templates", {
   subject: text("subject").notNull().default(""),
   body: text("body").notNull(),
   isDefault: boolean("is_default").notNull().default(false),
+  videoUrl: text("video_url").notNull().default(""),
+  audioUrl: text("audio_url").notNull().default(""),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
@@ -72,8 +74,16 @@ export const settings = pgTable("settings", {
   ownerName: text("owner_name").notNull().default(""),
   businessName: text("business_name").notNull().default("My Business"),
   businessEmail: text("business_email").notNull().default(""),
+  facebookProfileUrl: text("facebook_profile_url").notNull().default(""),
+  instagramUrl: text("instagram_url").notNull().default(""),
+  xUrl: text("x_url").notNull().default(""),
+  linkedinUrl: text("linkedin_url").notNull().default(""),
   googleReviewLink: text("google_review_link").notNull().default(""),
   facebookReviewLink: text("facebook_review_link").notNull().default(""),
+  trustpilotLink: text("trustpilot_link").notNull().default(""),
+  tripadvisorLink: text("tripadvisor_link").notNull().default(""),
+  checkatradeLink: text("checkatrade_link").notNull().default(""),
+  mybuilderLink: text("mybuilder_link").notNull().default(""),
   defaultChannel: text("default_channel").notNull().default("email"),
   followUpEnabled: boolean("follow_up_enabled").notNull().default(true),
   followUp1Days: integer("follow_up_1_days").notNull().default(3),
@@ -82,6 +92,16 @@ export const settings = pgTable("settings", {
   widgetMinStars: integer("widget_min_stars").notNull().default(4),
   widgetCount: integer("widget_count").notNull().default(5),
   widgetLayout: text("widget_layout").notNull().default("grid"),
+  facebookAppId: text("facebook_app_id").notNull().default(""),
+  facebookAppSecret: text("facebook_app_secret").notNull().default(""),
+  linkedinClientId: text("linkedin_client_id").notNull().default(""),
+  linkedinClientSecret: text("linkedin_client_secret").notNull().default(""),
+  facebookPageAccessToken: text("facebook_page_access_token").notNull().default(""),
+  facebookPageId: text("facebook_page_id").notNull().default(""),
+  linkedinAccessToken: text("linkedin_access_token").notNull().default(""),
+  linkedinOrganizationId: text("linkedin_organization_id").notNull().default(""),
+  socialPostEnabled: boolean("social_post_enabled").notNull().default(false),
+  socialPostMessage: text("social_post_message").notNull().default("⭐ We just received a {stars}★ review! Thank you {customer_name}!"),
 });
 
 export const insertCustomerSchema = createInsertSchema(customers).omit({ createdAt: true });

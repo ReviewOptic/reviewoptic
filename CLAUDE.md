@@ -284,3 +284,42 @@ Your job is to be the developer they would hire if they could afford a great one
 **Lessons learned:**
 - Always check that dashboard stat numbers and detail page numbers use the same data source and same filter logic before shipping
 - When adding a visual indicator (e.g. coloured border), confirm with user before committing — they may only want part of the change
+
+### Session — 2026-03-14
+
+**Tasks completed:**
+- Dashboard: capped Recent Activity to 5 items, made rows more compact (single line, smaller icon)
+- Dashboard: removed Golden Hour button
+- Add Customer form: made email OR phone compulsory (not both) — updated frontend disabled logic and server-side validation
+- Templates: added video recording (camera + mic) to all template types — records in browser, uploads to server, saved as `videoUrl`
+- Templates: added voice note recording (mic only) — uploads to server, saved as `audioUrl`
+- Templates: added Text / Video / Voice Note mode toggle — selecting video or voice hides the text body/subject fields
+- Settings → Review Platforms: added Trustpilot, TripAdvisor, Checkatrade, MyBuilder alongside existing Google and Facebook
+- Settings → Business: added Social Media Profiles section (Facebook, Instagram, LinkedIn) — moved to Social tab later in session
+- Settings → Social (new tab): created with Social Media Profiles card, Connected Accounts card (Facebook, Instagram via Facebook, LinkedIn), auto-post toggle, and message template
+- Facebook + LinkedIn OAuth: built full OAuth flow — `GET /auth/facebook`, `GET /auth/facebook/callback`, `GET /auth/linkedin`, `GET /auth/linkedin/callback`, disconnect endpoints
+- Auto-post to social: when a 4 or 5 star review comes in, automatically posts to connected Facebook Page and/or LinkedIn Company Page using customisable message template with `{stars}` and `{customer_name}` merge tags
+- API credentials (Facebook App ID/Secret, LinkedIn Client ID/Secret) moved to Replit Secrets (environment variables) — removed from Settings UI entirely
+- Instagram shown as "Connected via Facebook" in Connected Accounts — no separate OAuth needed
+- Analytics: added Reviews by Platform bar chart at the bottom of the Analytics page
+
+**Fixes applied:**
+- Removed X (Twitter) from Social Media Profiles list (user decision — X API costs $100/mo)
+- Corrected OAuth architecture: app credentials are server env vars, users only see Connect/Disconnect buttons
+
+**Issues discovered:**
+- Multi-user/multi-tenant architecture not yet built — currently one shared settings record for everything. This must be built before selling to multiple businesses. Each business needs their own account with their own social tokens, review platform links, etc.
+- Real email/SMS sending still not wired up — automated follow-ups and review requests don't send actual messages yet
+- Facebook OAuth app is in development mode — needs Meta app review before real users can connect their pages
+- LinkedIn `r_organization_social` scope may need additional approval from LinkedIn
+- Facebook/LinkedIn access tokens expire (~60 days) — token refresh not yet built
+
+**Notes for next session:**
+- **Priority: multi-user accounts** — most critical thing before going live with paying customers
+- Video personalisation with ElevenLabs voice cloning is parked as a premium feature for the pricing page
+- `landing.html` still a bare-bones placeholder
+- OAuth redirect URIs are currently hardcoded to `http://localhost:5000` — need updating to production URL when deployed
+
+**Lessons learned:**
+- Always clarify who owns/uses a feature before building — "post reviews to social" meant business users posting to their own pages, not the app owner posting to theirs
+- Never ask the user to paste API secrets in chat — direct them to Replit Secrets or environment variables instead

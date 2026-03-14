@@ -2,6 +2,81 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { randomUUID } from "crypto";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import type { Review, Customer, Settings } from "@shared/schema";
+
+const uploadsDir = path.join(process.cwd(), "uploads");
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+async function postReviewToSocial(review: Review, customer: Customer, settings: Settings) {
+  if (!settings.socialPostEnabled) return;
+  const message = settings.socialPostMessage
+    .replace("{stars}", String(review.stars))
+    .replace("{customer_name}", customer.name);
+
+  if (settings.facebookPageAccessToken && settings.facebookPageId) {
+    try {
+      await fetch(`https://graph.facebook.com/v18.0/${settings.facebookPageId}/feed`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message, access_token: settings.facebookPageAccessToken }),
+      });
+    } catch (err) {
+      console.error("Facebook post error:", err);
+    }
+  }
+
+  if (settings.linkedinAccessToken && settings.linkedinOrganizationId) {
+    try {
+      await fetch("https://api.linkedin.com/v2/ugcPosts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${settings.linkedinAccessToken}`,
+        },
+        body: JSON.stringify({
+          author: `urn:li:organization:${settings.linkedinOrganizationId}`,
+          lifecycleState: "PUBLISHED",
+          specificContent: {
+            "com.linkedin.ugc.ShareContent": {
+              shareCommentary: { text: message },
+              shareMediaCategory: "NONE",
+            },
+          },
+          visibility: { "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC" },
+        }),
+      });
+    } catch (err) {
+      console.error("LinkedIn post error:", err);
+    }
+  }
+}
+
+const videoUpload = multer({
+  storage: multer.diskStorage({
+    destination: uploadsDir,
+    filename: (_req, _file, cb) => cb(null, `${randomUUID()}.webm`),
+  }),
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith("video/")) cb(null, true);
+    else cb(new Error("Only video files allowed"));
+  },
+});
+
+const audioUpload = multer({
+  storage: multer.diskStorage({
+    destination: uploadsDir,
+    filename: (_req, _file, cb) => cb(null, `${randomUUID()}.webm`),
+  }),
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith("audio/") || file.mimetype.startsWith("video/")) cb(null, true);
+    else cb(new Error("Only audio files allowed"));
+  },
+});
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
   // Customers
@@ -15,6 +90,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(c);
   });
   app.post("/api/customers", async (req, res) => {
+    if (!req.body.name) return res.status(400).json({ message: "Name is required" });
+    if (!req.body.email && !req.body.phone) return res.status(400).json({ message: "Email or phone number is required" });
     const c = await storage.createCustomer(req.body);
     await storage.createActivity({
       id: randomUUID(),
@@ -105,6 +182,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         message: `${customer.name} left a ${req.body.stars}-star review on ${req.body.platform}`,
         metadata: JSON.stringify({ stars: req.body.stars, platform: req.body.platform }),
       });
+      // Auto-post to social if review is 4 or 5 stars
+      if (review.stars >= 4) {
+        const settings = await storage.getSettings();
+        if (settings) {
+          postReviewToSocial(review, customer, settings).catch(err =>
+            console.error("Social post failed:", err)
+          );
+        }
+      }
     }
     res.json(review);
   });
@@ -152,6 +238,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const t = await storage.updateTemplate(req.params.id, req.body);
     if (!t) return res.status(404).json({ message: "Not found" });
     res.json(t);
+  });
+  app.post("/api/templates/upload-video", videoUpload.single("video"), (req, res) => {
+    if (!req.file) return res.status(400).json({ message: "No video uploaded" });
+    res.json({ url: `/uploads/${req.file.filename}` });
+  });
+  app.post("/api/templates/upload-audio", audioUpload.single("audio"), (req, res) => {
+    if (!req.file) return res.status(400).json({ message: "No audio uploaded" });
+    res.json({ url: `/uploads/${req.file.filename}` });
   });
 
   // Settings
@@ -232,6 +326,115 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       customerName: customers[i]?.name || "Anonymous",
     }));
     res.json({ reviews: result, businessName: settings?.businessName || "My Business" });
+  });
+
+  // Facebook OAuth
+  let oauthState = "";
+
+  app.get("/auth/facebook", async (req, res) => {
+    const appId = process.env.FACEBOOK_APP_ID;
+    if (!appId) return res.status(400).send("Facebook App ID not configured on the server.");
+    oauthState = randomUUID();
+    const params = new URLSearchParams({
+      client_id: appId,
+      redirect_uri: "http://localhost:5000/auth/facebook/callback",
+      scope: "pages_manage_posts,pages_read_engagement,pages_show_list",
+      state: oauthState,
+      response_type: "code",
+    });
+    res.redirect(`https://www.facebook.com/v18.0/dialog/oauth?${params}`);
+  });
+
+  app.get("/auth/facebook/callback", async (req, res) => {
+    const { code, state } = req.query as { code: string; state: string };
+    if (state !== oauthState) return res.status(400).send("Invalid OAuth state.");
+    const appId = process.env.FACEBOOK_APP_ID;
+    const appSecret = process.env.FACEBOOK_APP_SECRET;
+    if (!appId || !appSecret) return res.status(500).send("Facebook credentials not configured on server.");
+    try {
+      const tokenRes = await fetch(`https://graph.facebook.com/v18.0/oauth/access_token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          client_id: appId,
+          client_secret: appSecret,
+          redirect_uri: "http://localhost:5000/auth/facebook/callback",
+          code,
+        }),
+      });
+      const tokenData = await tokenRes.json() as { access_token: string };
+      const pagesRes = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${tokenData.access_token}`);
+      const pagesData = await pagesRes.json() as { data: Array<{ access_token: string; id: string }> };
+      if (!pagesData.data?.length) return res.status(400).send("No Facebook Pages found on this account.");
+      const page = pagesData.data[0];
+      await storage.upsertSettings({ facebookPageAccessToken: page.access_token, facebookPageId: page.id });
+      res.redirect("http://localhost:5000/?tab=settings&connected=facebook");
+    } catch (err) {
+      console.error("Facebook OAuth error:", err);
+      res.status(500).send("Facebook OAuth failed. Check server logs.");
+    }
+  });
+
+  app.delete("/api/social/facebook", async (req, res) => {
+    await storage.upsertSettings({ facebookPageAccessToken: "", facebookPageId: "" });
+    res.json({ success: true });
+  });
+
+  // LinkedIn OAuth
+  app.get("/auth/linkedin", async (req, res) => {
+    const clientId = process.env.LINKEDIN_CLIENT_ID;
+    if (!clientId) return res.status(400).send("LinkedIn Client ID not configured on the server.");
+    oauthState = randomUUID();
+    const params = new URLSearchParams({
+      response_type: "code",
+      client_id: clientId,
+      redirect_uri: "http://localhost:5000/auth/linkedin/callback",
+      scope: "w_member_social,r_organization_social",
+      state: oauthState,
+    });
+    res.redirect(`https://www.linkedin.com/oauth/v2/authorization?${params}`);
+  });
+
+  app.get("/auth/linkedin/callback", async (req, res) => {
+    const { code, state } = req.query as { code: string; state: string };
+    if (state !== oauthState) return res.status(400).send("Invalid OAuth state.");
+    const clientId = process.env.LINKEDIN_CLIENT_ID;
+    const clientSecret = process.env.LINKEDIN_CLIENT_SECRET;
+    if (!clientId || !clientSecret) return res.status(500).send("LinkedIn credentials not configured on server.");
+    try {
+      const tokenRes = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          grant_type: "authorization_code",
+          code,
+          client_id: clientId,
+          client_secret: clientSecret,
+          redirect_uri: "http://localhost:5000/auth/linkedin/callback",
+        }),
+      });
+      const tokenData = await tokenRes.json() as { access_token: string };
+      const orgsRes = await fetch("https://api.linkedin.com/v2/organizationAcls?q=roleAssignee&role=ADMINISTRATOR", {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+      });
+      const orgsData = await orgsRes.json() as { elements: Array<{ organization: string }> };
+      let orgId = "";
+      if (orgsData.elements?.length) {
+        // URN format: "urn:li:organization:12345"
+        const urn = orgsData.elements[0].organization;
+        orgId = urn.split(":").pop() || "";
+      }
+      await storage.upsertSettings({ linkedinAccessToken: tokenData.access_token, linkedinOrganizationId: orgId });
+      res.redirect("http://localhost:5000/?tab=settings&connected=linkedin");
+    } catch (err) {
+      console.error("LinkedIn OAuth error:", err);
+      res.status(500).send("LinkedIn OAuth failed. Check server logs.");
+    }
+  });
+
+  app.delete("/api/social/linkedin", async (req, res) => {
+    await storage.upsertSettings({ linkedinAccessToken: "", linkedinOrganizationId: "" });
+    res.json({ success: true });
   });
 
   return httpServer;

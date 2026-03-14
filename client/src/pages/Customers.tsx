@@ -77,12 +77,13 @@ function AddCustomerDialog({ open, onClose }: { open: boolean; onClose: () => vo
               <Input id="name" placeholder="Sarah Johnson" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} data-testid="input-customer-name" />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="phone" className="text-[12.5px]">Phone</Label>
+              <Label htmlFor="phone" className="text-[12.5px]">Phone *</Label>
               <Input id="phone" placeholder="+1 555 000 0000" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} data-testid="input-customer-phone" />
             </div>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="email" className="text-[12.5px]">Email *</Label>
+            <p className="text-[11px] text-muted-foreground -mt-0.5">Email or phone required</p>
             <Input id="email" type="email" placeholder="sarah@example.com" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} data-testid="input-customer-email" />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -116,7 +117,7 @@ function AddCustomerDialog({ open, onClose }: { open: boolean; onClose: () => vo
           <Button
             size="sm"
             onClick={() => mutation.mutate(form)}
-            disabled={!form.name || !form.email || mutation.isPending}
+            disabled={!form.name || (!form.email && !form.phone) || mutation.isPending}
             data-testid="button-submit-customer"
           >
             {mutation.isPending ? "Adding..." : "Add Customer"}

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { TrendingUp, Send, Eye, Star, Mail, MessageSquare, BarChart2 } from "lucide-react";
+import type { Review } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -47,6 +48,19 @@ function FunnelBar({ label, value, max, color, icon, pct }: {
 
 export default function Analytics() {
   const [days, setDays] = useState(30);
+  const { data: reviews } = useQuery<Review[]>({ queryKey: ["/api/reviews"] });
+
+  const platformData = Object.entries(
+    (reviews || []).reduce((acc, r) => {
+      const p = r.platform || "unknown";
+      acc[p] = (acc[p] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>)
+  ).map(([name, value]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), value }))
+   .sort((a, b) => b.value - a.value);
+
+  const PLATFORM_COLORS = ["hsl(217 91% 60%)", "hsl(142 60% 45%)", "hsl(262 80% 60%)", "hsl(32 95% 55%)", "hsl(0 72% 55%)", "hsl(197 71% 52%)"];
+
   const { data, isLoading } = useQuery<AnalyticsData>({
     queryKey: ["/api/analytics", days],
     queryFn: async () => {
@@ -258,6 +272,52 @@ export default function Analytics() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Reviews by Platform */}
+      <Card className="border-card-border">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-[15px] font-semibold">Reviews by Platform</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {platformData.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground">
+              <Star className="w-7 h-7 mx-auto mb-2 opacity-40" />
+              <p className="text-[12.5px]">No reviews yet</p>
+            </div>
+          ) : (
+            <>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={platformData} margin={{ top: 5, right: 10, bottom: 5, left: -10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--popover))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                    }}
+                  />
+                  <Bar dataKey="value" radius={[4, 4, 0, 0]} name="Reviews">
+                    {platformData.map((_, i) => (
+                      <Cell key={i} fill={PLATFORM_COLORS[i % PLATFORM_COLORS.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+              <div className="flex flex-wrap gap-4 justify-center mt-3">
+                {platformData.map((d, i) => (
+                  <div key={d.name} className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: PLATFORM_COLORS[i] }} />
+                    <span className="text-[12px] text-muted-foreground">{d.name}: <strong className="text-foreground">{d.value}</strong></span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

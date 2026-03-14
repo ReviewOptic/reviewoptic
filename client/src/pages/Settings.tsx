@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
-import { Save, ExternalLink, Copy, Check, Globe, Bell, FileCode, Star } from "lucide-react";
+import { Save, ExternalLink, Copy, Check, Globe, Bell, FileCode, Star, Share2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,8 +34,16 @@ export default function Settings() {
     ownerName: "",
     businessName: "",
     businessEmail: "",
+    facebookProfileUrl: "",
+    instagramUrl: "",
+    xUrl: "",
+    linkedinUrl: "",
     googleReviewLink: "",
     facebookReviewLink: "",
+    trustpilotLink: "",
+    tripadvisorLink: "",
+    checkatradeLink: "",
+    mybuilderLink: "",
     defaultChannel: "email",
     followUpEnabled: true,
     followUp1Days: 3,
@@ -44,6 +52,8 @@ export default function Settings() {
     widgetMinStars: 4,
     widgetCount: 5,
     widgetLayout: "grid",
+    socialPostEnabled: false,
+    socialPostMessage: "⭐ We just received a {stars}★ review! Thank you {customer_name}!",
   });
 
   useEffect(() => {
@@ -52,8 +62,16 @@ export default function Settings() {
         ownerName: settings.ownerName || "",
         businessName: settings.businessName || "",
         businessEmail: settings.businessEmail || "",
+        facebookProfileUrl: settings.facebookProfileUrl || "",
+        instagramUrl: settings.instagramUrl || "",
+        xUrl: settings.xUrl || "",
+        linkedinUrl: settings.linkedinUrl || "",
         googleReviewLink: settings.googleReviewLink || "",
         facebookReviewLink: settings.facebookReviewLink || "",
+        trustpilotLink: settings.trustpilotLink || "",
+        tripadvisorLink: settings.tripadvisorLink || "",
+        checkatradeLink: settings.checkatradeLink || "",
+        mybuilderLink: settings.mybuilderLink || "",
         defaultChannel: settings.defaultChannel || "email",
         followUpEnabled: settings.followUpEnabled ?? true,
         followUp1Days: settings.followUp1Days ?? 3,
@@ -62,6 +80,8 @@ export default function Settings() {
         widgetMinStars: settings.widgetMinStars ?? 4,
         widgetCount: settings.widgetCount ?? 5,
         widgetLayout: settings.widgetLayout || "grid",
+        socialPostEnabled: settings.socialPostEnabled ?? false,
+        socialPostMessage: settings.socialPostMessage || "⭐ We just received a {stars}★ review! Thank you {customer_name}!",
       });
     }
   }, [settings]);
@@ -109,6 +129,7 @@ export default function Settings() {
           <TabsTrigger value="platforms" className="text-[12.5px]" data-testid="tab-platforms">Review Platforms</TabsTrigger>
           <TabsTrigger value="followup" className="text-[12.5px]" data-testid="tab-followup">Follow-Ups</TabsTrigger>
           <TabsTrigger value="widget" className="text-[12.5px]" data-testid="tab-widget">Widget</TabsTrigger>
+          <TabsTrigger value="social" className="text-[12.5px]" data-testid="tab-social">Social</TabsTrigger>
         </TabsList>
 
         {/* Business Info */}
@@ -174,42 +195,33 @@ export default function Settings() {
               <CardTitle className="text-[15px]">Review Platforms</CardTitle>
               <CardDescription className="text-[12.5px]">Add links where customers can leave reviews. Happy customers (4-5 stars) will be directed here.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-5 pb-5">
-              <div className="space-y-1.5">
-                <Label className="text-[12.5px]">Google Business Review Link</Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={form.googleReviewLink}
-                    onChange={e => setForm(f => ({ ...f, googleReviewLink: e.target.value }))}
-                    placeholder="https://g.page/r/..."
-                    className="flex-1"
-                    data-testid="input-google-link"
-                  />
-                  {form.googleReviewLink && (
-                    <Button variant="outline" size="icon" className="h-9 w-9 flex-shrink-0" onClick={() => window.open(form.googleReviewLink, "_blank")}>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </Button>
-                  )}
+            <CardContent className="space-y-4 pb-5">
+              <p className="text-[12px] text-muted-foreground">Add at least one. Happy customers will be directed to whichever platforms you've filled in.</p>
+              {[
+                { label: "Google Business", key: "googleReviewLink", placeholder: "https://g.page/r/..." },
+                { label: "Facebook Page", key: "facebookReviewLink", placeholder: "https://www.facebook.com/..." },
+                { label: "Trustpilot", key: "trustpilotLink", placeholder: "https://www.trustpilot.com/review/..." },
+                { label: "TripAdvisor", key: "tripadvisorLink", placeholder: "https://www.tripadvisor.co.uk/..." },
+                { label: "Checkatrade", key: "checkatradeLink", placeholder: "https://www.checkatrade.com/trades/..." },
+                { label: "MyBuilder", key: "mybuilderLink", placeholder: "https://www.mybuilder.com/..." },
+              ].map(({ label, key, placeholder }) => (
+                <div key={key} className="space-y-1.5">
+                  <Label className="text-[12.5px]">{label}</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={(form as any)[key]}
+                      onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                      placeholder={placeholder}
+                      className="flex-1"
+                    />
+                    {(form as any)[key] && (
+                      <Button variant="outline" size="icon" className="h-9 w-9 flex-shrink-0" onClick={() => window.open((form as any)[key], "_blank")}>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                <p className="text-[11.5px] text-muted-foreground">Find this in your Google Business Profile dashboard → Get more reviews</p>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[12.5px]">Facebook Page Review Link</Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={form.facebookReviewLink}
-                    onChange={e => setForm(f => ({ ...f, facebookReviewLink: e.target.value }))}
-                    placeholder="https://www.facebook.com/..."
-                    className="flex-1"
-                    data-testid="input-facebook-link"
-                  />
-                  {form.facebookReviewLink && (
-                    <Button variant="outline" size="icon" className="h-9 w-9 flex-shrink-0" onClick={() => window.open(form.facebookReviewLink, "_blank")}>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </Button>
-                  )}
-                </div>
-              </div>
+              ))}
               <div className="p-3 rounded-lg bg-green-50/50 dark:bg-green-900/10 border border-green-200/50 dark:border-green-900/30">
                 <p className="text-[12.5px] text-green-700 dark:text-green-400 font-medium">Sentiment Pre-Screen Filter</p>
                 <p className="text-[12px] text-muted-foreground mt-0.5">
@@ -359,6 +371,184 @@ export default function Settings() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+        {/* Social Auto-Post */}
+        <TabsContent value="social">
+          <div className="space-y-4">
+
+            {/* Social Media Profiles */}
+            <Card className="border-card-border">
+              <CardHeader>
+                <CardTitle className="text-[15px]">Social Media Profiles</CardTitle>
+                <CardDescription className="text-[12.5px]">Add your business profile links for each platform.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 pb-5">
+                {[
+                  { label: "Facebook", key: "facebookProfileUrl", placeholder: "https://www.facebook.com/yourbusiness" },
+                  { label: "Instagram", key: "instagramUrl", placeholder: "https://www.instagram.com/yourbusiness" },
+                  { label: "LinkedIn", key: "linkedinUrl", placeholder: "https://www.linkedin.com/company/yourbusiness" },
+                ].map(({ label, key, placeholder }) => (
+                  <div key={key} className="flex items-center gap-2">
+                    <span className="text-[12px] text-muted-foreground w-24 flex-shrink-0">{label}</span>
+                    <Input
+                      value={(form as any)[key]}
+                      onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                      placeholder={placeholder}
+                      className="flex-1 text-[13px]"
+                    />
+                    {(form as any)[key] && (
+                      <Button variant="outline" size="icon" className="h-9 w-9 flex-shrink-0" onClick={() => window.open((form as any)[key], "_blank")}>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Connected Accounts */}
+            <Card className="border-card-border">
+              <CardHeader>
+                <CardTitle className="text-[15px]">Connected Accounts</CardTitle>
+                <CardDescription className="text-[12.5px]">
+                  Connect your Facebook Page and LinkedIn Company Page to auto-post when a 4 or 5 star review is received.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5 pb-5">
+                {/* Facebook row */}
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
+                      <Share2 className="w-4 h-4 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-[13.5px] font-medium">Facebook</p>
+                      {settings?.facebookPageAccessToken ? (
+                        <p className="text-[12px] text-green-600 font-medium">Connected</p>
+                      ) : (
+                        <p className="text-[12px] text-muted-foreground">Not connected</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    {settings?.facebookPageAccessToken ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-[12px] text-destructive border-destructive/30 hover:bg-destructive/5"
+                        onClick={async () => {
+                          await fetch("/api/social/facebook", { method: "DELETE" });
+                          queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+                        }}
+                      >
+                        Disconnect
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-[12px]"
+                        onClick={() => window.location.href = "/auth/facebook"}
+                      >
+                        Connect Facebook
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="border-t border-border" />
+
+                {/* Instagram row */}
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 flex items-center justify-center flex-shrink-0">
+                      <Share2 className="w-4 h-4 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-[13.5px] font-medium">Instagram</p>
+                      {settings?.facebookPageAccessToken ? (
+                        <p className="text-[12px] text-green-600 font-medium">Connected via Facebook</p>
+                      ) : (
+                        <p className="text-[12px] text-muted-foreground">Connects automatically with Facebook</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t border-border" />
+
+                {/* LinkedIn row */}
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-sky-700 flex items-center justify-center flex-shrink-0">
+                      <Share2 className="w-4 h-4 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-[13.5px] font-medium">LinkedIn</p>
+                      {settings?.linkedinAccessToken ? (
+                        <p className="text-[12px] text-green-600 font-medium">Connected</p>
+                      ) : (
+                        <p className="text-[12px] text-muted-foreground">Not connected</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    {settings?.linkedinAccessToken ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-[12px] text-destructive border-destructive/30 hover:bg-destructive/5"
+                        onClick={async () => {
+                          await fetch("/api/social/linkedin", { method: "DELETE" });
+                          queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+                        }}
+                      >
+                        Disconnect
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-[12px]"
+                        onClick={() => window.location.href = "/auth/linkedin"}
+                      >
+                        Connect LinkedIn
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="border-t border-border" />
+
+                {/* Auto-post toggle */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[13.5px] font-medium">Auto-Post Reviews</p>
+                    <p className="text-[12px] text-muted-foreground">Automatically post to connected accounts when a 4 or 5 star review is received</p>
+                  </div>
+                  <Switch
+                    checked={form.socialPostEnabled}
+                    onCheckedChange={v => setForm(f => ({ ...f, socialPostEnabled: v }))}
+                  />
+                </div>
+
+                {/* Message template */}
+                {form.socialPostEnabled && (
+                  <div className="space-y-1.5">
+                    <Label className="text-[12.5px]">Post Message Template</Label>
+                    <Input
+                      value={form.socialPostMessage}
+                      onChange={e => setForm(f => ({ ...f, socialPostMessage: e.target.value }))}
+                      placeholder="⭐ We just received a {stars}★ review! Thank you {customer_name}!"
+                    />
+                    <p className="text-[11.5px] text-muted-foreground">
+                      Use <code className="bg-muted px-1 rounded text-[11px]">{"{stars}"}</code> and <code className="bg-muted px-1 rounded text-[11px]">{"{customer_name}"}</code> as placeholders.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useState } from "react";
-import { Edit2, Save, X, FileText, Mail, MessageSquare, RefreshCw } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Edit2, Save, X, FileText, Mail, MessageSquare, Video, Mic, StopCircle, RotateCcw, CheckCircle2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,14 +23,267 @@ const channelIcons: Record<string, React.ReactNode> = {
   whatsapp: <MessageSquare className="w-3.5 h-3.5 text-green-500" />,
 };
 
+function VideoRecorder({ currentUrl, onSaved }: { currentUrl: string; onSaved: (url: string) => void }) {
+  const { toast } = useToast();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const [state, setState] = useState<"idle" | "previewing" | "recording" | "recorded" | "uploading">("idle");
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [savedUrl, setSavedUrl] = useState(currentUrl || "");
+
+  useEffect(() => {
+    if (currentUrl) setSavedUrl(currentUrl);
+  }, [currentUrl]);
+
+  const startPreview = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.muted = true;
+        videoRef.current.play();
+      }
+      setState("previewing");
+    } catch {
+      toast({ title: "Camera access denied", description: "Allow camera and microphone to record a video.", variant: "destructive" });
+    }
+  };
+
+  const startRecording = () => {
+    const stream = (videoRef.current?.srcObject as MediaStream);
+    if (!stream) return;
+    chunksRef.current = [];
+    const mr = new MediaRecorder(stream, { mimeType: "video/webm" });
+    mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+    mr.onstop = () => {
+      const blob = new Blob(chunksRef.current, { type: "video/webm" });
+      const url = URL.createObjectURL(blob);
+      setPreviewUrl(url);
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+        videoRef.current.src = url;
+        videoRef.current.muted = false;
+        videoRef.current.load();
+      }
+      stream.getTracks().forEach(t => t.stop());
+      setState("recorded");
+    };
+    mr.start();
+    mediaRecorderRef.current = mr;
+    setState("recording");
+  };
+
+  const stopRecording = () => mediaRecorderRef.current?.stop();
+
+  const reset = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+    if (videoRef.current) { videoRef.current.src = ""; videoRef.current.srcObject = null; }
+    setState("idle");
+  };
+
+  const uploadVideo = async () => {
+    if (!previewUrl) return;
+    setState("uploading");
+    try {
+      const blob = new Blob(chunksRef.current, { type: "video/webm" });
+      const formData = new FormData();
+      formData.append("video", blob, "recording.webm");
+      const res = await fetch("/api/templates/upload-video", { method: "POST", body: formData });
+      if (!res.ok) throw new Error();
+      const { url } = await res.json();
+      setSavedUrl(url);
+      onSaved(url);
+      toast({ title: "Video saved" });
+      setState("idle");
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    } catch {
+      toast({ title: "Upload failed", variant: "destructive" });
+      setState("recorded");
+    }
+  };
+
+  return (
+    <div className="space-y-3 p-3 rounded-lg border border-border bg-muted/30">
+      <div className="flex items-center justify-between">
+        <Label className="text-[12.5px] flex items-center gap-1.5"><Video className="w-3.5 h-3.5" /> Video Message</Label>
+        {savedUrl && state === "idle" && (
+          <span className="text-[11px] text-green-600 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Video saved</span>
+        )}
+      </div>
+
+      {savedUrl && state === "idle" && (
+        <video src={savedUrl} controls className="w-full max-h-40 rounded-lg bg-black" />
+      )}
+
+      {state !== "idle" && (
+        <video ref={videoRef} className="w-full max-h-48 rounded-lg bg-black" playsInline autoPlay={state === "previewing" || state === "recording"} controls={state === "recorded"} />
+      )}
+
+      <div className="flex gap-2 flex-wrap">
+        {state === "idle" && (
+          <Button size="sm" variant="outline" className="text-[12px] h-7 gap-1.5" onClick={startPreview}>
+            <Video className="w-3.5 h-3.5" /> {savedUrl ? "Re-record" : "Record Video"}
+          </Button>
+        )}
+        {state === "previewing" && (
+          <Button size="sm" className="text-[12px] h-7 gap-1.5 bg-red-500 hover:bg-red-600" onClick={startRecording}>
+            <StopCircle className="w-3.5 h-3.5" /> Start Recording
+          </Button>
+        )}
+        {state === "recording" && (
+          <Button size="sm" className="text-[12px] h-7 gap-1.5" onClick={stopRecording} variant="destructive">
+            <StopCircle className="w-3.5 h-3.5" /> Stop Recording
+          </Button>
+        )}
+        {(state === "recorded" || state === "uploading") && (
+          <>
+            <Button size="sm" className="text-[12px] h-7 gap-1.5" onClick={uploadVideo} disabled={state === "uploading"}>
+              <Save className="w-3.5 h-3.5" /> {state === "uploading" ? "Uploading..." : "Save Video"}
+            </Button>
+            <Button size="sm" variant="outline" className="text-[12px] h-7 gap-1.5" onClick={reset} disabled={state === "uploading"}>
+              <RotateCcw className="w-3.5 h-3.5" /> Retake
+            </Button>
+          </>
+        )}
+      </div>
+      <p className="text-[11px] text-muted-foreground">Video will be attached when sending via WhatsApp or SMS.</p>
+    </div>
+  );
+}
+
+function AudioRecorder({ currentUrl, onSaved }: { currentUrl: string; onSaved: (url: string) => void }) {
+  const { toast } = useToast();
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const [state, setState] = useState<"idle" | "recording" | "recorded" | "uploading">("idle");
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [savedUrl, setSavedUrl] = useState(currentUrl || "");
+  const [duration, setDuration] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => { if (currentUrl) setSavedUrl(currentUrl); }, [currentUrl]);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      chunksRef.current = [];
+      const mr = new MediaRecorder(stream);
+      mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      mr.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        const url = URL.createObjectURL(blob);
+        setPreviewUrl(url);
+        stream.getTracks().forEach(t => t.stop());
+        setState("recorded");
+        if (timerRef.current) clearInterval(timerRef.current);
+      };
+      mr.start();
+      mediaRecorderRef.current = mr;
+      setDuration(0);
+      timerRef.current = setInterval(() => setDuration(d => d + 1), 1000);
+      setState("recording");
+    } catch {
+      toast({ title: "Microphone access denied", description: "Allow microphone access to record a voice note.", variant: "destructive" });
+    }
+  };
+
+  const stopRecording = () => mediaRecorderRef.current?.stop();
+
+  const reset = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+    setDuration(0);
+    setState("idle");
+  };
+
+  const upload = async () => {
+    if (!previewUrl) return;
+    setState("uploading");
+    try {
+      const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+      const formData = new FormData();
+      formData.append("audio", blob, "voice-note.webm");
+      const res = await fetch("/api/templates/upload-audio", { method: "POST", body: formData });
+      if (!res.ok) throw new Error();
+      const { url } = await res.json();
+      setSavedUrl(url);
+      onSaved(url);
+      toast({ title: "Voice note saved" });
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+      setState("idle");
+    } catch {
+      toast({ title: "Upload failed", variant: "destructive" });
+      setState("recorded");
+    }
+  };
+
+  const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+
+  return (
+    <div className="space-y-3 p-3 rounded-lg border border-border bg-muted/30">
+      <div className="flex items-center justify-between">
+        <Label className="text-[12.5px] flex items-center gap-1.5"><Mic className="w-3.5 h-3.5" /> Voice Note</Label>
+        {savedUrl && state === "idle" && (
+          <span className="text-[11px] text-green-600 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Voice note saved</span>
+        )}
+      </div>
+
+      {savedUrl && state === "idle" && (
+        <audio src={savedUrl} controls className="w-full h-10" />
+      )}
+
+      {previewUrl && state === "recorded" && (
+        <audio src={previewUrl} controls className="w-full h-10" />
+      )}
+
+      {state === "recording" && (
+        <div className="flex items-center gap-2 text-red-500">
+          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+          <span className="text-[12px] font-mono">Recording {fmt(duration)}</span>
+        </div>
+      )}
+
+      <div className="flex gap-2 flex-wrap">
+        {state === "idle" && (
+          <Button size="sm" variant="outline" className="text-[12px] h-7 gap-1.5" onClick={startRecording}>
+            <Mic className="w-3.5 h-3.5" /> {savedUrl ? "Re-record" : "Start Recording"}
+          </Button>
+        )}
+        {state === "recording" && (
+          <Button size="sm" variant="destructive" className="text-[12px] h-7 gap-1.5" onClick={stopRecording}>
+            <StopCircle className="w-3.5 h-3.5" /> Stop
+          </Button>
+        )}
+        {(state === "recorded" || state === "uploading") && (
+          <>
+            <Button size="sm" className="text-[12px] h-7 gap-1.5" onClick={upload} disabled={state === "uploading"}>
+              <Save className="w-3.5 h-3.5" /> {state === "uploading" ? "Uploading..." : "Save Voice Note"}
+            </Button>
+            <Button size="sm" variant="outline" className="text-[12px] h-7 gap-1.5" onClick={reset} disabled={state === "uploading"}>
+              <RotateCcw className="w-3.5 h-3.5" /> Retake
+            </Button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function TemplateEditor({ template, onCancel }: { template: Template; onCancel: () => void }) {
   const { toast } = useToast();
   const [subject, setSubject] = useState(template.subject);
   const [body, setBody] = useState(template.body);
+  const [videoUrl, setVideoUrl] = useState(template.videoUrl || "");
+  const [audioUrl, setAudioUrl] = useState(template.audioUrl || "");
+  const [mode, setMode] = useState<"text" | "video" | "audio">(template.videoUrl ? "video" : template.audioUrl ? "audio" : "text");
   const [bodyEl, setBodyEl] = useState<HTMLTextAreaElement | null>(null);
 
   const mutation = useMutation({
-    mutationFn: async () => apiRequest("PATCH", `/api/templates/${template.id}`, { subject, body }),
+    mutationFn: async () => apiRequest("PATCH", `/api/templates/${template.id}`, { subject, body, videoUrl, audioUrl }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/templates"] });
       toast({ title: "Template saved" });
@@ -64,56 +317,90 @@ function TemplateEditor({ template, onCancel }: { template: Template; onCancel: 
 
   return (
     <div className="space-y-4">
-      {template.channel === "email" && (
-        <div className="space-y-1.5">
-          <Label className="text-[12.5px]">Subject Line</Label>
-          <Input value={subject} onChange={e => setSubject(e.target.value)} placeholder="Email subject..." className="text-[13px]" data-testid="input-template-subject" />
-        </div>
+      {/* Mode toggle */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setMode("text")}
+          className={cn("flex-1 py-1.5 rounded-lg text-[12.5px] font-medium border transition-colors", mode === "text" ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted")}
+        >
+          Text
+        </button>
+        <button
+          onClick={() => setMode("video")}
+          className={cn("flex-1 py-1.5 rounded-lg text-[12.5px] font-medium border transition-colors flex items-center justify-center gap-1.5", mode === "video" ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted")}
+        >
+          <Video className="w-3.5 h-3.5" /> Video
+        </button>
+        <button
+          onClick={() => setMode("audio")}
+          className={cn("flex-1 py-1.5 rounded-lg text-[12.5px] font-medium border transition-colors flex items-center justify-center gap-1.5", mode === "audio" ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted")}
+        >
+          <Mic className="w-3.5 h-3.5" /> Voice Note
+        </button>
+      </div>
+
+      {mode === "text" && (
+        <>
+          {template.channel === "email" && (
+            <div className="space-y-1.5">
+              <Label className="text-[12.5px]">Subject Line</Label>
+              <Input value={subject} onChange={e => setSubject(e.target.value)} placeholder="Email subject..." className="text-[13px]" data-testid="input-template-subject" />
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label className="text-[12.5px]">Message Body</Label>
+              <span className={cn("text-[11px] font-mono", isSmsWarning ? "text-destructive font-semibold" : "text-muted-foreground")}>
+                {charCount} chars {template.channel === "sms" && "(max 160)"}
+              </span>
+            </div>
+            <Textarea
+              value={body}
+              onChange={e => setBody(e.target.value)}
+              className="resize-none text-[13px] min-h-32"
+              ref={el => setBodyEl(el)}
+              data-testid="textarea-template-body"
+            />
+            {isSmsWarning && (
+              <p className="text-[11.5px] text-destructive">⚠ SMS messages over 160 characters may be split into multiple messages</p>
+            )}
+            {missingReviewLink && (
+              <p className="text-[11.5px] text-amber-600">⚠ Template should include {"{{"}<span>review_link</span>{"}}"}  merge tag</p>
+            )}
+          </div>
+        </>
       )}
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <Label className="text-[12.5px]">Message Body</Label>
-          <span className={cn("text-[11px] font-mono", isSmsWarning ? "text-destructive font-semibold" : "text-muted-foreground")}>
-            {charCount} chars {template.channel === "sms" && "(max 160)"}
-          </span>
-        </div>
-        <Textarea
-          value={body}
-          onChange={e => setBody(e.target.value)}
-          className="resize-none text-[13px] min-h-32"
-          ref={el => setBodyEl(el)}
-          data-testid="textarea-template-body"
-        />
-        {isSmsWarning && (
-          <p className="text-[11.5px] text-destructive">⚠ SMS messages over 160 characters may be split into multiple messages</p>
-        )}
-        {missingReviewLink && (
-          <p className="text-[11.5px] text-amber-600">⚠ Template should include {"{{"}<span>review_link</span>{"}}"}  merge tag</p>
-        )}
-      </div>
-      {/* Merge tags */}
-      <div className="space-y-1.5">
-        <Label className="text-[12px] text-muted-foreground">Insert merge tags:</Label>
-        <div className="flex flex-wrap gap-1.5">
-          {MERGE_TAGS.map(tag => (
-            <button
-              key={tag}
-              onClick={() => insertTag(tag)}
-              className="text-[11.5px] font-mono px-2 py-1 rounded bg-muted hover:bg-accent border border-border transition-colors"
-              data-testid={`tag-${tag}`}
-            >
-              {tag}
-            </button>
-          ))}
-        </div>
-      </div>
-      {/* Preview */}
-      <div className="space-y-1.5">
-        <Label className="text-[12px] text-muted-foreground">Preview (sample data):</Label>
-        <div className="p-3 rounded-lg bg-muted/50 border border-border text-[12.5px] whitespace-pre-wrap text-foreground">
-          {preview}
-        </div>
-      </div>
+
+      {/* Video recorder */}
+      {mode === "video" && <VideoRecorder currentUrl={videoUrl} onSaved={url => setVideoUrl(url)} />}
+      {/* Audio recorder */}
+      {mode === "audio" && <AudioRecorder currentUrl={audioUrl} onSaved={url => setAudioUrl(url)} />}
+      {/* Merge tags + preview — text mode only */}
+      {mode === "text" && (
+        <>
+          <div className="space-y-1.5">
+            <Label className="text-[12px] text-muted-foreground">Insert merge tags:</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {MERGE_TAGS.map(tag => (
+                <button
+                  key={tag}
+                  onClick={() => insertTag(tag)}
+                  className="text-[11.5px] font-mono px-2 py-1 rounded bg-muted hover:bg-accent border border-border transition-colors"
+                  data-testid={`tag-${tag}`}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-[12px] text-muted-foreground">Preview (sample data):</Label>
+            <div className="p-3 rounded-lg bg-muted/50 border border-border text-[12.5px] whitespace-pre-wrap text-foreground">
+              {preview}
+            </div>
+          </div>
+        </>
+      )}
       <div className="flex gap-2 justify-end">
         <Button variant="outline" size="sm" onClick={onCancel}>
           <X className="w-3.5 h-3.5 mr-1.5" /> Cancel
@@ -168,6 +455,18 @@ function TemplateCard({ template }: { template: Template }) {
               <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide mb-0.5">Body</p>
               <p className="text-[13px] text-muted-foreground whitespace-pre-wrap line-clamp-4">{template.body}</p>
             </div>
+            {template.videoUrl && (
+              <div>
+                <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide mb-1">Video Message</p>
+                <video src={template.videoUrl} controls className="w-full max-h-36 rounded-lg bg-black" />
+              </div>
+            )}
+            {template.audioUrl && (
+              <div>
+                <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide mb-1">Voice Note</p>
+                <audio src={template.audioUrl} controls className="w-full h-10" />
+              </div>
+            )}
             <p className="text-[11px] text-muted-foreground/60">
               Updated {formatDistanceToNow(new Date(template.updatedAt), { addSuffix: true })}
             </p>

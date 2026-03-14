@@ -115,7 +115,6 @@ export default function Dashboard() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate("/customers")} data-testid="button-add-customer"><Plus className="w-3.5 h-3.5" />Add Customer</Button>
-          <Button size="sm" className="gap-1.5" onClick={() => navigate("/customers")} data-testid="button-send-request"><Zap className="w-3.5 h-3.5" />Golden Hour</Button>
         </div>
       </div>
 
@@ -146,27 +145,25 @@ export default function Dashboard() {
         {/* Activity Feed */}
         <div className="lg:col-span-2 space-y-4">
           <Card className="border-card-border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-[15px] font-semibold">Recent Activity</CardTitle>
+            <CardHeader className="pb-2 pt-4">
+              <CardTitle className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">Recent Activity</CardTitle>
             </CardHeader>
-            <CardContent className="px-4 pb-4">
+            <CardContent className="px-4 pb-3">
               {activityLoading ? (
                 <div className="space-y-3">
                   {[1,2,3,4].map(i => <Skeleton key={i} className="h-12 w-full" />)}
                 </div>
               ) : activity && activity.length > 0 ? (
-                <div className="space-y-1">
-                  {activity.slice(0, 10).map((item) => (
-                    <div key={item.id} className="flex items-start gap-3 py-2.5 border-b border-border/60 last:border-0" data-testid={`activity-item-${item.id}`}>
-                      <div className={cn("flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full mt-0.5", activityColors[item.type] || "bg-muted text-muted-foreground")}>
-                        {activityIcons[item.type] || <CheckCircle2 className="w-3.5 h-3.5" />}
+                <div className="space-y-0">
+                  {activity.slice(0, 5).map((item) => (
+                    <div key={item.id} className="flex items-center gap-2.5 py-1.5 border-b border-border/60 last:border-0" data-testid={`activity-item-${item.id}`}>
+                      <div className={cn("flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-full", activityColors[item.type] || "bg-muted text-muted-foreground")}>
+                        {activityIcons[item.type] || <CheckCircle2 className="w-3 h-3" />}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13px] text-foreground leading-snug">{item.message}</p>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
-                          {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
-                        </p>
-                      </div>
+                      <p className="text-[12px] text-foreground leading-snug flex-1 min-w-0 truncate">{item.message}</p>
+                      <p className="text-[11px] text-muted-foreground whitespace-nowrap flex-shrink-0">
+                        {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
+                      </p>
                     </div>
                   ))}
                 </div>
