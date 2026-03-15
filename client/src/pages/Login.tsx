@@ -19,8 +19,11 @@ export default function Login() {
   const [forgotSent, setForgotSent] = useState(false);
   const [verificationSent, setVerificationSent] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const emailVal = (formData.get("email") as string) || email;
+    const passwordVal = (formData.get("password") as string) || password;
     setError("");
     setLoading(true);
     try {
@@ -28,11 +31,11 @@ export default function Login() {
         await fetch("/api/auth/forgot-password", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email }),
+          body: JSON.stringify({ email: emailVal }),
         });
         setForgotSent(true);
       } else if (mode === "login") {
-        await login(email, password);
+        await login(emailVal, passwordVal);
         navigate("/");
       } else {
         if (!firstName || !lastName) throw new Error("First and last name are required");
@@ -141,7 +144,7 @@ export default function Login() {
                 )}
                 <div className="space-y-1.5">
                   <label className="block text-sm font-medium">Email</label>
-                  <Input type="email" placeholder="you@example.com" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} required />
+                  <Input type="email" name="email" placeholder="you@example.com" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} required />
                 </div>
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between mb-1.5">
@@ -154,6 +157,7 @@ export default function Login() {
                   </div>
                   <Input
                     type="password"
+                    name="password"
                     placeholder="••••••••"
                     autoComplete={mode === "register" ? "new-password" : "current-password"}
                     value={password}

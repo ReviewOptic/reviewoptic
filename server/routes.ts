@@ -230,7 +230,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     req.session.userId = user.id;
     req.session.accountId = user.accountId;
-    res.json({ id: user.id, email: user.email, accountId: user.accountId });
+    res.json({ id: user.id, email: user.email, accountId: user.accountId, isAdmin: user.isAdmin });
   });
 
   app.get("/api/auth/verify-email", async (req, res) => {

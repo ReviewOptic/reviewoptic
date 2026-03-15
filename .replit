@@ -33,13 +33,13 @@ args = "Start application"
 name = "Start application"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "bash -c 'fuser -k 5000/tcp 2>/dev/null; sleep 1; npm run dev'"
-waitForPort = 5000
-
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash -c 'while true; do fuser -k 5000/tcp 2>/dev/null; sleep 1; npm run dev; echo \"[watchdog] Server exited (code $?), restarting in 3s...\"; sleep 3; done'"
+waitForPort = 5000
 
 [agent]
 integrations = ["github:1.0.0"]
