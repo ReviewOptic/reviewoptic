@@ -442,3 +442,39 @@ Your job is to be the developer they would hire if they could afford a great one
 **Lessons learned:**
 - Browser autofill race condition: make login inputs uncontrolled AND use `useEffect` on user state for navigation — both fixes are needed together
 - When email verification redirects fail, call `refreshUser()` before `navigate()` to ensure auth context is updated first
+
+### Session — 2026-03-15 (fourth session)
+
+**Tasks completed:**
+- Fixed data isolation bug: all existing customers/templates/reviews were stranded on `bootstrap-account` while the admin user had been given a UUID accountId. Added migration to move all bootstrap-account data to the admin's real account on server start
+- Added migration to detect and fix any future non-admin users sharing the bootstrap account — gives each their own isolated account
+- Fixed React Query cache leaking between accounts: added `queryClient.clear()` on both login and logout so each session always fetches fresh data from the correct account
+- Fixed same cache leak on admin impersonation start — cache now cleared when entering AND leaving impersonation
+- Cleaned admin customer list: removed 9 test/demo customers, leaving only real ReviewOptic subscribers (auto-added on signup). Admin account now only shows paying/trial users of the app
+- Fixed analytics data isolation: analytics was counting from `review_requests` table (inflated by follow-ups) while dashboard counted unique customers. Now both use same methodology
+- Fixed analytics channel breakdown counting all-time data regardless of date filter
+- Redesigned Analytics page: added 4 summary stat cards, 7/30/60/90d + custom date range filter, channel filter (All/Email/SMS/WhatsApp), donut chart for channel breakdown, star distribution bar chart (1★–5★), tightened layout to 3-column grid
+
+**Fixes applied:**
+- Bootstrap-account data stranded after multi-user migration — fixed via SQL migration
+- Non-admin account had admin's settings written to it (React Query cache poisoning) — cleared on logout/login/impersonation
+- Non-admin's settings were reset to clean defaults after being polluted
+- Analytics numbers didn't match dashboard — unified to count from customers table
+- Analytics channel breakdown was all-time, not filtered by selected period
+
+**Issues discovered:**
+- `uploads/` folder (logos, videos, audio) is local-only — not persisted across server restarts or deployments. Needs cloud storage (e.g. S3 or Cloudflare R2) before going to production
+- OAuth redirect URIs still hardcoded to `localhost:5000` — must update before production
+- Facebook/LinkedIn access tokens expire ~60 days — no refresh flow built
+- Twilio trial account still blocks SMS delivery — needs upgrade
+
+**Notes for next session:**
+- Admin customer list now only shows ReviewOptic subscribers — this is the intended behaviour going forward
+- React Query cache is cleared on every login/logout/impersonation — account data is fully isolated
+- Analytics custom date range uses `from`/`to` query params on `/api/analytics`
+- `.env` file has all secrets — do NOT commit it
+- T&Cs and Privacy Policy still have placeholder sections the user needs to fill in
+
+**Lessons learned:**
+- React Query caches under the same key for all users — always call `queryClient.clear()` on any account switch (login, logout, impersonation start/stop)
+- When diagnosing "data leaking between accounts", always check the DB directly with psql to confirm whether the issue is in the data layer or the cache layer
