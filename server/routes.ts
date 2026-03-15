@@ -679,21 +679,41 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // Analytics
   app.get("/api/analytics", requireAuth, async (req, res) => {
-    const days = parseInt((req.query.days as string) || "30");
     const accountId = req.session.accountId!;
     const [allCustomers, allReviews] = await Promise.all([
       storage.getCustomers(accountId),
       storage.getReviews(accountId),
     ]);
     const now = new Date();
-    const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
 
-    // Only customers who had a request sent within the selected period
-    const sentCustomers = allCustomers.filter(c => c.status !== "pending_request" && c.createdAt >= cutoff);
+    // Support either custom from/to or a days rolling window
+    let cutoff: Date;
+    let cutoffEnd: Date = now;
+    let days: number;
+    if (req.query.from && req.query.to) {
+      cutoff = new Date(req.query.from as string);
+      cutoffEnd = new Date(req.query.to as string);
+      cutoffEnd.setHours(23, 59, 59, 999);
+      days = Math.ceil((cutoffEnd.getTime() - cutoff.getTime()) / (24 * 60 * 60 * 1000));
+    } else {
+      days = parseInt((req.query.days as string) || "30");
+      cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    }
 
-    // Build daily chart data — one entry per customer created that day (matching dashboard methodology)
+    const channel = (req.query.channel as string) || "all";
+
+    const sentCustomers = allCustomers.filter(c =>
+      c.status !== "pending_request" &&
+      c.createdAt >= cutoff && c.createdAt <= cutoffEnd &&
+      (channel === "all" || c.channel === channel)
+    );
+    const periodReviews = allReviews.filter(r =>
+      r.createdAt >= cutoff && r.createdAt <= cutoffEnd
+    );
+
+    // Daily chart
     const dailyData: Record<string, { date: string; requests: number; reviews: number }> = {};
-    for (let i = 0; i < days; i++) {
+    for (let i = 0; i <= days; i++) {
       const d = new Date(cutoff.getTime() + i * 24 * 60 * 60 * 1000);
       const key = d.toISOString().split("T")[0];
       dailyData[key] = { date: key, requests: 0, reviews: 0 };
@@ -702,27 +722,36 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const key = c.createdAt.toISOString().split("T")[0];
       if (dailyData[key]) dailyData[key].requests++;
     });
-    allReviews.filter(r => r.createdAt >= cutoff).forEach(r => {
+    periodReviews.forEach(r => {
       const key = r.createdAt.toISOString().split("T")[0];
       if (dailyData[key]) dailyData[key].reviews++;
     });
 
-    // Funnel: count unique customers at each stage (matches dashboard)
     const sent = sentCustomers.length;
     const clicked = sentCustomers.filter(c => c.status === "clicked" || c.status === "review_completed").length;
     const completed = sentCustomers.filter(c => c.status === "review_completed").length;
 
-    // Channel breakdown: count per-customer channel for the selected period
     const channelBreakdown = { email: 0, sms: 0, whatsapp: 0 };
     sentCustomers.forEach(c => {
       const ch = c.channel as keyof typeof channelBreakdown;
       if (channelBreakdown[ch] !== undefined) channelBreakdown[ch]++;
     });
 
+    const starBreakdown = [1, 2, 3, 4, 5].map(s => ({
+      stars: s,
+      count: periodReviews.filter(r => r.stars === s).length,
+    }));
+
+    const avgRating = periodReviews.length > 0
+      ? Math.round((periodReviews.reduce((sum, r) => sum + r.stars, 0) / periodReviews.length) * 10) / 10
+      : 0;
+
     res.json({
       daily: Object.values(dailyData),
       funnel: { sent, clicked, completed },
       channelBreakdown,
+      starBreakdown,
+      summary: { sent, reviews: periodReviews.length, avgRating, responseRate: sent > 0 ? Math.round((completed / sent) * 100) : 0 },
     });
   });
 
