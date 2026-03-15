@@ -1,5 +1,6 @@
 import { useState, useEffect, ReactNode } from "react";
 import { AuthContext, type AuthUser } from "./auth-types";
+import { queryClient } from "@/lib/queryClient";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -26,6 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(data.message || "Login failed");
     }
     const data = await res.json();
+    queryClient.clear();
     setUser(data);
   };
 
@@ -47,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    queryClient.clear();
     setUser(null);
   };
 
