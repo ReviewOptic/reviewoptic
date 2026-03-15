@@ -6,34 +6,35 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import bcrypt from "bcryptjs";
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import type { Review, Customer, Settings } from "@shared/schema";
 
-function getMailTransport() {
-  if (!process.env.SMTP_HOST) return null;
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT || "587"),
-    secure: process.env.SMTP_SECURE === "true",
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-  });
-}
-
 async function sendResetEmail(to: string, resetUrl: string) {
-  const transport = getMailTransport();
-  if (!transport) {
-    console.log(`[password reset] No SMTP configured. Reset link for ${to}: ${resetUrl}`);
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`[password reset] No RESEND_API_KEY set. Reset link for ${to}: ${resetUrl}`);
     return;
   }
-  await transport.sendMail({
-    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  await resend.emails.send({
+    from: "ReviewOptic <hello@reviewoptic.com>",
     to,
     subject: "Reset your ReviewOptic password",
     html: `
-      <p>Hi,</p>
-      <p>You requested a password reset for your ReviewOptic account.</p>
-      <p><a href="${resetUrl}" style="background:#2563eb;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;margin:16px 0;">Reset my password</a></p>
-      <p>This link expires in 1 hour. If you didn't request this, you can ignore this email.</p>
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
+        <div style="margin-bottom:24px;">
+          <span style="font-weight:700;font-size:18px;">ReviewOptic</span>
+        </div>
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Reset your password</h2>
+        <p style="color:#555;margin:0 0 24px;line-height:1.6;">
+          We received a request to reset your password. Click the button below to choose a new one. This link expires in 1 hour.
+        </p>
+        <a href="${resetUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
+          Reset my password
+        </a>
+        <p style="color:#999;font-size:12px;margin-top:32px;line-height:1.6;">
+          If you didn't request this, you can safely ignore this email. Your password won't change.
+        </p>
+      </div>
     `,
   });
 }
