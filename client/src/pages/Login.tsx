@@ -38,32 +38,32 @@ export default function Login() {
   return (
     <div className="min-h-screen flex">
       {/* Left panel — branding */}
-      <div className="hidden lg:flex flex-col justify-between w-[52%] bg-primary text-primary-foreground p-12">
+      <div className="hidden lg:flex flex-col justify-between w-[52%] bg-muted/40 border-r border-border p-12">
         <div className="flex items-center gap-2.5">
-          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-white/15">
-            <Star className="w-5 h-5 fill-current" />
+          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary">
+            <Star className="w-5 h-5 text-primary-foreground fill-primary-foreground" />
           </div>
-          <span className="font-bold text-lg tracking-tight">ReviewOptic</span>
+          <span className="font-bold text-lg tracking-tight text-foreground">ReviewOptic</span>
         </div>
 
         <div>
-          <h1 className="text-4xl font-bold leading-tight tracking-tight mb-5">
+          <h1 className="text-4xl font-bold leading-tight tracking-tight mb-5 text-foreground">
             Turn happy customers into 5-star reviews — automatically
           </h1>
-          <p className="text-primary-foreground/75 text-lg mb-10 leading-relaxed">
+          <p className="text-muted-foreground text-lg mb-10 leading-relaxed">
             ReviewOptic helps local businesses collect more online reviews with zero extra effort. Send requests, follow up automatically, and grow your reputation while you focus on the job.
           </p>
           <ul className="space-y-4">
             {features.map(f => (
               <li key={f} className="flex items-start gap-3">
-                <CheckCircle2 className="w-5 h-5 mt-0.5 flex-shrink-0 text-white/80" />
-                <span className="text-white/90 text-[15px]">{f}</span>
+                <CheckCircle2 className="w-5 h-5 mt-0.5 flex-shrink-0 text-primary" />
+                <span className="text-foreground/80 text-[15px]">{f}</span>
               </li>
             ))}
           </ul>
         </div>
 
-        <p className="text-white/40 text-sm">© 2026 ReviewOptic</p>
+        <p className="text-muted-foreground/60 text-sm">© 2026 ReviewOptic</p>
       </div>
 
       {/* Right panel — form */}
