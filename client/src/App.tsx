@@ -4,7 +4,8 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { AuthProvider } from "@/context/AuthContext";
+import { useAuth } from "@/hooks/use-auth";
 import NotFound from "@/pages/not-found";
 import Layout from "@/components/Layout";
 import Dashboard from "@/pages/Dashboard";
@@ -18,6 +19,8 @@ import StatDetail from "@/pages/StatDetail";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import ResetPassword from "@/pages/ResetPassword";
+import VerifyEmail from "@/pages/VerifyEmail";
+import Admin from "@/pages/Admin";
 
 function ProtectedRoutes() {
   const { user, loading } = useAuth();
@@ -51,6 +54,7 @@ function ProtectedRoutes() {
         <Route path="/stat/:view" component={StatDetail} />
         <Route path="/analytics" component={Analytics} />
         <Route path="/settings" component={SettingsPage} />
+        <Route path="/admin" component={Admin} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
@@ -64,6 +68,7 @@ function Router() {
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
       <Route path="/reset-password" component={ResetPassword} />
+      <Route path="/verify-email" component={VerifyEmail} />
       <Route component={ProtectedRoutes} />
     </Switch>
   );

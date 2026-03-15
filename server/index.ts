@@ -15,6 +15,8 @@ declare module "express-session" {
   interface SessionData {
     userId: string;
     accountId: string;
+    originalUserId: string;
+    originalAccountId: string;
   }
 }
 

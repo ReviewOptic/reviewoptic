@@ -52,11 +52,21 @@ export async function runMigrations() {
       )
     `);
 
+    // Fix legacy username column if it exists
+    await pool.query(`ALTER TABLE users ALTER COLUMN username SET DEFAULT ''`).catch(() => {});
+    await pool.query(`UPDATE users SET username = '' WHERE username IS NULL`).catch(() => {});
+
     // Email verification columns
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT false`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token TEXT`);
     // Mark existing users as verified so they aren't locked out
     await pool.query(`UPDATE users SET email_verified = true WHERE email_verified = false AND verification_token IS NULL`);
+
+    // Admin column
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT false`);
+    if (process.env.ADMIN_EMAIL) {
+      await pool.query(`UPDATE users SET is_admin = true WHERE email = $1`, [process.env.ADMIN_EMAIL.toLowerCase()]);
+    }
 
     console.log("[migrate] Migrations complete");
   } finally {

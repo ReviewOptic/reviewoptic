@@ -1,11 +1,11 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, FileText, BarChart3, Settings, Star, Menu, X, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, FileText, BarChart3, Settings, Star, Menu, X, LogOut, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "@/context/AuthContext";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/use-auth";
 import type { PrivateFeedback } from "@shared/schema";
 
 const navItems = [
@@ -40,6 +40,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const [location] = useLocation();
   const { data: feedback } = useQuery<PrivateFeedback[]>({ queryKey: ["/api/private-feedback"] });
   const { user, logout } = useAuth();
+  const [, navigate] = useLocation();
   const unrespondedFeedback = feedback?.filter(f => !f.responded).length || 0;
 
   return (
@@ -69,6 +70,17 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
       </nav>
       <div className="px-4 py-3 border-t border-sidebar-border">
         <div className="text-[11px] text-muted-foreground/70 truncate mb-2">{user?.email}</div>
+        {user?.isAdmin && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start gap-2 text-[12px] h-7 px-2 text-muted-foreground hover:text-foreground mb-1"
+            onClick={() => { navigate("/admin"); onNavClick?.(); }}
+          >
+            <Shield className="w-3.5 h-3.5" />
+            Admin panel
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="sm"
@@ -80,6 +92,27 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
         </Button>
       </div>
     </>
+  );
+}
+
+function ImpersonationBanner() {
+  const { user, refreshUser } = useAuth();
+  const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
+  if (!user?.isImpersonating) return null;
+
+  const stop = async () => {
+    await fetch("/api/admin/stop-impersonation", { method: "POST", credentials: "include" });
+    await refreshUser();
+    queryClient.clear();
+    navigate("/admin");
+  };
+
+  return (
+    <div className="bg-amber-500 text-white text-sm px-4 py-2 flex items-center justify-between flex-shrink-0">
+      <span className="font-medium">Impersonating: <strong>{user.email}</strong></span>
+      <button onClick={stop} className="underline font-semibold text-sm hover:text-white/80">Stop impersonating</button>
+    </div>
   );
 }
 
@@ -113,6 +146,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <ImpersonationBanner />
         {/* Mobile header */}
         <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-background flex-shrink-0">
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMobileOpen(true)}>

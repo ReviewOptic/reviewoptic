@@ -126,7 +126,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/auth/register", async (req, res) => {
     const { email, password, businessName } = req.body;
     if (!email || !password) return res.status(400).json({ message: "Email and password are required" });
-    if (password.length < 6) return res.status(400).json({ message: "Password must be at least 6 characters" });
+    if (password.length < 8) return res.status(400).json({ message: "Password must be at least 8 characters" });
+    if (!/[0-9]/.test(password)) return res.status(400).json({ message: "Password must contain at least one number" });
+    if (!/[^a-zA-Z0-9]/.test(password)) return res.status(400).json({ message: "Password must contain at least one symbol" });
 
     const existing = await storage.getUserByEmail(email);
     if (existing) return res.status(400).json({ message: "An account with this email already exists" });
@@ -182,7 +184,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!user) return res.status(400).json({ message: "Invalid or already used verification link." });
     req.session.userId = user.id;
     req.session.accountId = user.accountId;
-    res.redirect("/");
+    res.json({ success: true });
   });
 
   app.post("/api/auth/logout", (req, res) => {
@@ -210,7 +212,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/auth/reset-password", async (req, res) => {
     const { token, password } = req.body;
     if (!token || !password) return res.status(400).json({ message: "Token and password are required" });
-    if (password.length < 6) return res.status(400).json({ message: "Password must be at least 6 characters" });
+    if (password.length < 8) return res.status(400).json({ message: "Password must be at least 8 characters" });
+    if (!/[0-9]/.test(password)) return res.status(400).json({ message: "Password must contain at least one number" });
+    if (!/[^a-zA-Z0-9]/.test(password)) return res.status(400).json({ message: "Password must contain at least one symbol" });
     const record = await storage.getResetToken(token);
     if (!record) return res.status(400).json({ message: "Invalid or expired reset link" });
     if (new Date() > record.expiresAt) {
@@ -227,7 +231,50 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!req.session.userId) return res.status(401).json({ message: "Not authenticated" });
     const user = await storage.getUser(req.session.userId);
     if (!user) return res.status(401).json({ message: "User not found" });
-    res.json({ id: user.id, email: user.email, accountId: user.accountId });
+    res.json({
+      id: user.id,
+      email: user.email,
+      accountId: user.accountId,
+      isAdmin: user.isAdmin,
+      isImpersonating: !!req.session.originalUserId,
+    });
+  });
+
+  // ── Admin routes ─────────────────────────────────────────────────────────
+
+  function requireAdmin(req: Request, res: Response, next: NextFunction) {
+    if (!req.session.userId) return res.status(401).json({ message: "Not authenticated" });
+    // Allow if currently impersonating (original user was admin)
+    const adminId = req.session.originalUserId || req.session.userId;
+    storage.getUser(adminId).then(user => {
+      if (!user?.isAdmin) return res.status(403).json({ message: "Admin access required" });
+      next();
+    }).catch(() => res.status(500).json({ message: "Server error" }));
+  }
+
+  app.get("/api/admin/users", requireAdmin, async (req, res) => {
+    const allUsers = await storage.getAllUsers();
+    res.json(allUsers.map(u => ({ id: u.id, email: u.email, accountId: u.accountId, isAdmin: u.isAdmin, emailVerified: u.emailVerified })));
+  });
+
+  app.post("/api/admin/impersonate/:userId", requireAdmin, async (req, res) => {
+    const target = await storage.getUser(String(req.params.userId));
+    if (!target) return res.status(404).json({ message: "User not found" });
+    if (target.isAdmin) return res.status(400).json({ message: "Cannot impersonate another admin" });
+    req.session.originalUserId = req.session.originalUserId || req.session.userId;
+    req.session.originalAccountId = req.session.originalAccountId || req.session.accountId;
+    req.session.userId = target.id;
+    req.session.accountId = target.accountId;
+    res.json({ success: true });
+  });
+
+  app.post("/api/admin/stop-impersonation", requireAdmin, async (req, res) => {
+    if (!req.session.originalUserId) return res.status(400).json({ message: "Not impersonating" });
+    req.session.userId = req.session.originalUserId;
+    req.session.accountId = req.session.originalAccountId;
+    delete req.session.originalUserId;
+    delete req.session.originalAccountId;
+    res.json({ success: true });
   });
 
   // ── Public routes (no requireAuth) ───────────────────────────────────────

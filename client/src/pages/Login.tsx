@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Star, ArrowLeft, CheckCircle2 } from "lucide-react";
@@ -33,6 +33,9 @@ export default function Login() {
         await login(email, password);
         navigate("/");
       } else {
+        if (password.length < 8) throw new Error("Password must be at least 8 characters");
+        if (!/[0-9]/.test(password)) throw new Error("Password must contain at least one number");
+        if (!/[^a-zA-Z0-9]/.test(password)) throw new Error("Password must contain at least one symbol");
         const result = await register(email, password, businessName);
         if (result.requiresVerification) {
           setVerificationSent(true);
@@ -135,12 +138,12 @@ export default function Login() {
                   </div>
                   <Input
                     type="password"
-                    placeholder={mode === "register" ? "At least 6 characters" : "••••••••"}
+                    placeholder="••••••••"
                     autoComplete={mode === "register" ? "new-password" : "current-password"}
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     required
-                    minLength={mode === "register" ? 6 : undefined}
+                    minLength={mode === "register" ? 8 : undefined}
                   />
                 </div>
                 {error && <p className="text-sm text-destructive">{error}</p>}

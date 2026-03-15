@@ -1,9 +1,11 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useState, useEffect, ReactNode } from "react";
 
 interface AuthUser {
   id: string;
   email: string;
   accountId: string;
+  isAdmin: boolean;
+  isImpersonating: boolean;
 }
 
 interface AuthContextType {
@@ -12,20 +14,22 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, businessName: string) => Promise<{ requiresVerification: boolean }>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | null>(null);
+export const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const refreshUser = async () => {
+    const res = await fetch("/api/auth/me", { credentials: "include" });
+    setUser(res.ok ? await res.json() : null);
+  };
+
   useEffect(() => {
-    fetch("/api/auth/me", { credentials: "include" })
-      .then(r => r.ok ? r.json() : null)
-      .then(data => setUser(data))
-      .catch(() => setUser(null))
-      .finally(() => setLoading(false));
+    refreshUser().finally(() => setLoading(false));
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -65,14 +69,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
-  return ctx;
-}
