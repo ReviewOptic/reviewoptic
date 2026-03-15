@@ -38,32 +38,32 @@ export default function Login() {
   return (
     <div className="min-h-screen flex">
       {/* Left panel — branding */}
-      <div className="hidden lg:flex flex-col justify-between w-[52%] bg-muted/40 border-r border-border p-12">
+      <div className="hidden lg:flex flex-col justify-between w-[38%] bg-muted/40 border-r border-border p-8">
         <div className="flex items-center gap-2.5">
-          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary">
-            <Star className="w-5 h-5 text-primary-foreground fill-primary-foreground" />
+          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary">
+            <Star className="w-4 h-4 text-primary-foreground fill-primary-foreground" />
           </div>
-          <span className="font-bold text-lg tracking-tight text-foreground">ReviewOptic</span>
+          <span className="font-bold text-[15px] tracking-tight text-foreground">ReviewOptic</span>
         </div>
 
         <div>
-          <h1 className="text-4xl font-bold leading-tight tracking-tight mb-5 text-foreground">
-            Turn happy customers into 5-star reviews — automatically
+          <h1 className="text-2xl font-bold leading-snug tracking-tight mb-3 text-foreground">
+            Turn happy customers into 5-star reviews
           </h1>
-          <p className="text-muted-foreground text-lg mb-10 leading-relaxed">
-            ReviewOptic helps local businesses collect more online reviews with zero extra effort. Send requests, follow up automatically, and grow your reputation while you focus on the job.
+          <p className="text-muted-foreground text-sm mb-7 leading-relaxed">
+            Send review requests, follow up automatically, and grow your reputation while you focus on the work.
           </p>
-          <ul className="space-y-4">
+          <ul className="space-y-3">
             {features.map(f => (
-              <li key={f} className="flex items-start gap-3">
-                <CheckCircle2 className="w-5 h-5 mt-0.5 flex-shrink-0 text-primary" />
-                <span className="text-foreground/80 text-[15px]">{f}</span>
+              <li key={f} className="flex items-start gap-2.5">
+                <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0 text-primary" />
+                <span className="text-foreground/75 text-[13px] leading-snug">{f}</span>
               </li>
             ))}
           </ul>
         </div>
 
-        <p className="text-muted-foreground/60 text-sm">© 2026 ReviewOptic</p>
+        <p className="text-muted-foreground/50 text-xs">© 2026 ReviewOptic</p>
       </div>
 
       {/* Right panel — form */}
