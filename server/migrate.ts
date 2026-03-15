@@ -52,6 +52,12 @@ export async function runMigrations() {
       )
     `);
 
+    // Email verification columns
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT false`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token TEXT`);
+    // Mark existing users as verified so they aren't locked out
+    await pool.query(`UPDATE users SET email_verified = true WHERE email_verified = false AND verification_token IS NULL`);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();

@@ -15,6 +15,7 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [forgotSent, setForgotSent] = useState(false);
+  const [verificationSent, setVerificationSent] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,8 +33,12 @@ export default function Login() {
         await login(email, password);
         navigate("/");
       } else {
-        await register(email, password, businessName);
-        navigate("/");
+        const result = await register(email, password, businessName);
+        if (result.requiresVerification) {
+          setVerificationSent(true);
+        } else {
+          navigate("/");
+        }
       }
     } catch (err: any) {
       setError(err.message || "Something went wrong");
@@ -64,7 +69,14 @@ export default function Login() {
         <p className="text-muted-foreground text-sm mb-8">Send review requests, follow up automatically, and grow your reputation on autopilot.</p>
 
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm text-left">
-          {mode === "forgot" ? (
+          {verificationSent ? (
+            <div className="text-center py-2">
+              <CheckCircle2 className="w-9 h-9 text-green-500 mx-auto mb-3" />
+              <h3 className="font-semibold mb-1">Check your email</h3>
+              <p className="text-muted-foreground text-sm mb-5">We sent a verification link to <strong>{email}</strong>. Click it to activate your account.</p>
+              <button type="button" onClick={() => { setVerificationSent(false); setMode("login"); }} className="text-sm text-primary hover:underline font-medium">Back to sign in</button>
+            </div>
+          ) : mode === "forgot" ? (
             forgotSent ? (
               <div className="text-center py-2">
                 <CheckCircle2 className="w-9 h-9 text-green-500 mx-auto mb-3" />

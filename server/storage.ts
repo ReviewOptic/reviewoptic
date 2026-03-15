@@ -3,6 +3,7 @@ import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import pkg from "pg";
 const { Pool } = pkg;
 import { randomUUID } from "crypto";
+import { sendReviewEmail } from "./email";
 import {
   accounts, customers, reviewRequests, reviews, privateFeedback, activityLog, templates, settings, users, passwordResetTokens,
   type Account,
@@ -57,6 +58,7 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUserPassword(id: string, hashedPassword: string): Promise<void>;
+  verifyUserEmail(token: string): Promise<User | undefined>;
   // Password reset tokens
   createResetToken(userId: string): Promise<string>;
   getResetToken(token: string): Promise<{ userId: string; expiresAt: Date } | undefined>;
@@ -199,6 +201,14 @@ export class DatabaseStorage implements IStorage {
   async updateUserPassword(id: string, hashedPassword: string): Promise<void> {
     await db.update(users).set({ password: hashedPassword }).where(eq(users.id, id));
   }
+  async verifyUserEmail(token: string): Promise<User | undefined> {
+    const [u] = await db
+      .update(users)
+      .set({ emailVerified: true, verificationToken: null })
+      .where(and(eq(users.verificationToken, token), eq(users.emailVerified, false)))
+      .returning();
+    return u;
+  }
   async createResetToken(userId: string): Promise<string> {
     // Remove any existing tokens for this user
     await db.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, userId));
@@ -315,6 +325,19 @@ export class DatabaseStorage implements IStorage {
             message: `Follow-up #${sentCount + 1} sent automatically to ${customer.name} via ${customer.channel}`,
             metadata: "{}",
           });
+
+          // Send follow-up email
+          if (customer.channel === "email" && customer.email) {
+            const allTemplates = await this.getTemplates(customer.accountId);
+            const template =
+              allTemplates.find(t => t.channel === "email" && t.isDefault) ||
+              allTemplates.find(t => t.channel === "email") ||
+              null;
+            sendReviewEmail(customer, s, template).catch(err =>
+              console.error(`[follow-up] Failed to send email to ${customer.email}:`, err.message)
+            );
+          }
+
           totalSent++;
         }
       }

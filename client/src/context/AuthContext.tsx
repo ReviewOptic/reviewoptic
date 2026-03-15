@@ -10,7 +10,7 @@ interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, businessName: string) => Promise<void>;
+  register: (email: string, password: string, businessName: string) => Promise<{ requiresVerification: boolean }>;
   logout: () => Promise<void>;
 }
 
@@ -55,7 +55,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(data.message || "Registration failed");
     }
     const data = await res.json();
-    setUser(data);
+    if (!data.requiresVerification) setUser(data);
+    return data;
   };
 
   const logout = async () => {

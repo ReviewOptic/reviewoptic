@@ -7,6 +7,7 @@ import path from "path";
 import fs from "fs";
 import bcrypt from "bcryptjs";
 import { Resend } from "resend";
+import { sendReviewEmail, sendVerificationEmail } from "./email";
 import type { Review, Customer, Settings } from "@shared/schema";
 
 async function sendResetEmail(to: string, resetUrl: string) {
@@ -132,10 +133,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     const account = await storage.createAccount();
     const hashedPassword = await bcrypt.hash(password, 10);
+    const verificationToken = randomUUID();
     const user = await storage.createUser({
       accountId: account.id,
       email: email.toLowerCase(),
       password: hashedPassword,
+      emailVerified: false,
+      verificationToken,
     });
 
     // Create default settings for the new account
@@ -143,9 +147,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       businessName: businessName || "My Business",
     });
 
-    req.session.userId = user.id;
-    req.session.accountId = account.id;
-    res.json({ id: user.id, email: user.email, accountId: account.id });
+    const appUrl = process.env.APP_URL || "http://localhost:5000";
+    const verifyUrl = `${appUrl}/verify-email?token=${verificationToken}`;
+    await sendVerificationEmail(user.email, verifyUrl).catch(err =>
+      console.error("[register] Failed to send verification email:", err.message)
+    );
+
+    res.json({ requiresVerification: true, email: user.email });
   });
 
   app.post("/api/auth/login", async (req, res) => {
@@ -158,9 +166,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) return res.status(401).json({ message: "Invalid email or password" });
 
+    if (!user.emailVerified) {
+      return res.status(403).json({ message: "Please verify your email before signing in. Check your inbox for the verification link." });
+    }
+
     req.session.userId = user.id;
     req.session.accountId = user.accountId;
     res.json({ id: user.id, email: user.email, accountId: user.accountId });
+  });
+
+  app.get("/api/auth/verify-email", async (req, res) => {
+    const token = String(req.query.token || "");
+    if (!token) return res.status(400).json({ message: "Missing token" });
+    const user = await storage.verifyUserEmail(token);
+    if (!user) return res.status(400).json({ message: "Invalid or already used verification link." });
+    req.session.userId = user.id;
+    req.session.accountId = user.accountId;
+    res.redirect("/");
   });
 
   app.post("/api/auth/logout", (req, res) => {
@@ -365,6 +387,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       message: `Review request sent to ${customer.name} via ${req.body.channel || customer.channel}`,
       metadata: "{}",
     });
+
+    // Send email if channel is email
+    const channel = req.body.channel || customer.channel;
+    if (channel === "email" && customer.email) {
+      const settings = await storage.getSettings(req.session.accountId!);
+      const allTemplates = await storage.getTemplates(req.session.accountId!);
+      const template =
+        allTemplates.find(t => t.channel === "email" && t.isDefault) ||
+        allTemplates.find(t => t.channel === "email") ||
+        null;
+      if (settings) {
+        sendReviewEmail(customer, settings, template).catch(err =>
+          console.error("[review request] Failed to send email:", err.message)
+        );
+      }
+    }
+
     res.json(rr);
   });
   app.patch("/api/review-requests/:id", requireAuth, async (req, res) => {

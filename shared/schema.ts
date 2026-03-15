@@ -145,6 +145,8 @@ export const users = pgTable("users", {
   accountId: varchar("account_id").notNull().default(""),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
+  emailVerified: boolean("email_verified").notNull().default(false),
+  verificationToken: text("verification_token"),
 });
 export const passwordResetTokens = pgTable("password_reset_tokens", {
   token: varchar("token").primaryKey(),
