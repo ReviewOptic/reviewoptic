@@ -362,3 +362,37 @@ Your job is to be the developer they would hire if they could afford a great one
 - When user is on Claude Code (not Replit UI), there is no Run/Stop button — restart the server via bash commands instead
 - Always grab verification tokens from the database when email isn't sending, rather than asking user to find logs themselves
 - When seeding data for an existing account, do it directly via SQL rather than building a one-time endpoint
+
+### Session — 2026-03-15 (second session)
+
+**Tasks completed:**
+- Resend domain verified — MX record was missing; walked user through adding it in Namecheap under Mail Settings. Domain now verified and emails live
+- GitHub push unblocked — LinkedIn Client Secret was in git history (`.replit` file, commit `09a6d69`). User rotated secret in LinkedIn Developer Portal, updated Replit Secrets, then bypassed GitHub secret scanning via the unblock URL. All 17 pending commits pushed
+- `dotenv` installed and wired into server — added `import "dotenv/config"` to `server/index.ts` so `.env` file is loaded on startup. Replit Secrets are NOT loaded when running via Claude Code (only via Replit UI), so a `.env` file is required
+- `.env` file created with all secrets (RESEND_API_KEY, LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET, FACEBOOK_APP_ID, FACEBOOK_APP_SECRET, APP_URL). Added `.env` to `.gitignore`
+- `isAdmin` added to login response — was missing from `/api/auth/login` endpoint so admin panel never showed after login. Fixed by adding `isAdmin: user.isAdmin` to the response JSON
+- Login autofill bug partially fixed — browser autofill doesn't trigger React `onChange`, so first login attempt with autofilled credentials failed silently. Fixed by reading values directly from DOM elements (`e.currentTarget.elements.namedItem(...)`) in submit handler rather than from React state
+- Multi-user architecture confirmed already built — each signup creates isolated account; all tables (customers, reviews, templates, settings) are scoped by `accountId`. No additional work needed
+
+**Fixes applied:**
+- Login endpoint missing `isAdmin` in response — admin panel not showing on login
+- Login autofill bug — credentials had to be entered twice; fixed with DOM element read on submit
+
+**Issues discovered:**
+- Login autofill bug not fully resolved — still occasionally requires credentials twice. Needs more investigation next session
+- Forgot password email was delayed (Resend showed "delivery delayed") when sending to a `reviewoptic.com` address — may be a self-send issue. Needs testing with an external email address
+- `APP_URL` in `.env` is the Replit dev URL — will need updating when moving to a custom domain
+
+**Notes for next session:**
+- `.env` file exists at project root with all secrets — do NOT commit it (already in `.gitignore`)
+- Replit Secrets are also set but only apply when running via Replit UI — `.env` is what matters for Claude Code sessions
+- Test forgot password with a Gmail/Outlook address to confirm end-to-end email flow works
+- Login autofill bug still needs a proper fix — entering credentials twice is still happening intermittently
+- SMS sending (Twilio) not yet built — next major feature after email is confirmed working
+- OAuth redirect URIs still use `localhost:5000` — update when going to production
+
+**Lessons learned:**
+- Never ask the user to paste secrets in chat — even API keys. Always use `.env` file or environment variables
+- Replit Secrets only load when app runs via Replit UI — when using Claude Code, a `.env` file is required for secrets to be available
+- Browser autofill doesn't trigger React `onChange` — always read login form values from DOM elements directly, not from React state
+- `FormData.get()` on React controlled inputs returns the React state value, not the DOM value — use `elements.namedItem()` instead

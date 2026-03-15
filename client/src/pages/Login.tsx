@@ -21,9 +21,8 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const emailVal = (formData.get("email") as string) || email;
-    const passwordVal = (formData.get("password") as string) || password;
+    const emailVal = (e.currentTarget.elements.namedItem("email") as HTMLInputElement)?.value || email;
+    const passwordVal = (e.currentTarget.elements.namedItem("password") as HTMLInputElement)?.value || password;
     setError("");
     setLoading(true);
     try {
