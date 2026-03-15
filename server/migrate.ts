@@ -89,6 +89,63 @@ export async function runMigrations() {
       )
     `);
 
+    // Migrate bootstrap-account data to the admin user's real account
+    // This handles the case where data was created before the multi-user system was set up
+    const { rows: adminUsers } = await pool.query(
+      `SELECT id, account_id FROM users WHERE is_admin = true LIMIT 1`
+    );
+    if (adminUsers.length > 0) {
+      const adminAccountId = adminUsers[0].account_id;
+      const { rows: bootstrapData } = await pool.query(
+        `SELECT COUNT(*) as cnt FROM customers WHERE account_id = 'bootstrap-account'`
+      );
+      if (parseInt(bootstrapData[0].cnt) > 0) {
+        for (const table of ["customers", "review_requests", "reviews", "private_feedback", "activity_log", "templates"]) {
+          await pool.query(`UPDATE ${table} SET account_id = $1 WHERE account_id = 'bootstrap-account'`, [adminAccountId]);
+        }
+        // Merge bootstrap settings into admin's settings
+        await pool.query(`
+          UPDATE settings AS dest
+          SET business_name = CASE WHEN src.business_name <> '' THEN src.business_name ELSE dest.business_name END,
+              business_email = CASE WHEN src.business_email <> '' THEN src.business_email ELSE dest.business_email END,
+              google_review_link = src.google_review_link,
+              facebook_review_link = src.facebook_review_link,
+              trustpilot_link = src.trustpilot_link,
+              tripadvisor_link = src.tripadvisor_link,
+              checkatrade_link = src.checkatrade_link,
+              mybuilder_link = src.mybuilder_link
+          FROM settings AS src
+          WHERE dest.account_id = $1 AND src.account_id = 'bootstrap-account'
+        `, [adminAccountId]);
+        await pool.query(`DELETE FROM settings WHERE account_id = 'bootstrap-account'`);
+        console.log(`[migrate] Migrated bootstrap-account data to admin account ${adminAccountId}`);
+      }
+    }
+
+    // Fix stranded non-admin users sharing the bootstrap account
+    // Any non-admin user with account_id = 'bootstrap-account' needs their own isolated account
+    const { rows: strandedUsers } = await pool.query(`
+      SELECT id, email FROM users
+      WHERE account_id = $1 AND is_admin = false
+    `, [BOOTSTRAP_ACCOUNT_ID]);
+
+    for (const user of strandedUsers) {
+      const newAccountId = randomUUID();
+      // Create a new account for this user
+      await pool.query(`INSERT INTO accounts (id) VALUES ($1) ON CONFLICT DO NOTHING`, [newAccountId]);
+      // Move the user to their new account
+      await pool.query(`UPDATE users SET account_id = $1 WHERE id = $2`, [newAccountId, user.id]);
+      // Move any data rows that belong exclusively to this user (none expected for bootstrap stragglers,
+      // but handle gracefully by migrating rows where customer_id etc. matches)
+      // Create default settings for the new account so the app loads cleanly
+      await pool.query(`
+        INSERT INTO settings (id, account_id, business_name)
+        VALUES ($1, $2, '')
+        ON CONFLICT DO NOTHING
+      `, [randomUUID(), newAccountId]);
+      console.log(`[migrate] Gave user ${user.email} their own account: ${newAccountId}`);
+    }
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();
