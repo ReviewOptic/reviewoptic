@@ -281,6 +281,16 @@ function TemplateEditor({ template, onCancel }: { template: Template; onCancel: 
   const [audioUrl, setAudioUrl] = useState(template.audioUrl || "");
   const [mode, setMode] = useState<"text" | "video" | "audio">(template.videoUrl ? "video" : template.audioUrl ? "audio" : "text");
   const [bodyEl, setBodyEl] = useState<HTMLTextAreaElement | null>(null);
+  const { data: settings } = useQuery<{ logoUrl: string; logoPosition: string }>({ queryKey: ["/api/settings"] });
+  const [logoPosition, setLogoPosition] = useState<string>(settings?.logoPosition || "left");
+  const logoPosMutation = useMutation({
+    mutationFn: (pos: string) => apiRequest("PATCH", "/api/settings", { logoPosition: pos }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/settings"] }),
+  });
+
+  useEffect(() => {
+    if (settings?.logoPosition) setLogoPosition(settings.logoPosition);
+  }, [settings?.logoPosition]);
 
   const mutation = useMutation({
     mutationFn: async () => apiRequest("PATCH", `/api/templates/${template.id}`, { subject, body, videoUrl, audioUrl }),
@@ -343,10 +353,29 @@ function TemplateEditor({ template, onCancel }: { template: Template; onCancel: 
       {mode === "text" && (
         <>
           {template.channel === "email" && (
-            <div className="space-y-1.5">
-              <Label className="text-[12.5px]">Subject Line</Label>
-              <Input value={subject} onChange={e => setSubject(e.target.value)} placeholder="Email subject..." className="text-[13px]" data-testid="input-template-subject" />
-            </div>
+            <>
+              <div className="space-y-1.5">
+                <Label className="text-[12.5px]">Subject Line</Label>
+                <Input value={subject} onChange={e => setSubject(e.target.value)} placeholder="Email subject..." className="text-[13px]" data-testid="input-template-subject" />
+              </div>
+              {settings?.logoUrl && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-[12.5px] text-muted-foreground shrink-0">Logo position:</Label>
+                    {[{ value: "left", label: "Top Left" }, { value: "center", label: "Top Centre" }, { value: "right", label: "Top Right" }].map(opt => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => { setLogoPosition(opt.value); logoPosMutation.mutate(opt.value); }}
+                        className={`px-3 py-1 rounded-lg border text-[12px] font-medium transition-colors ${logoPosition === opt.value ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground"}`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
@@ -396,7 +425,12 @@ function TemplateEditor({ template, onCancel }: { template: Template; onCancel: 
           </div>
           <div className="space-y-1.5">
             <Label className="text-[12px] text-muted-foreground">Preview (sample data):</Label>
-            <div className="p-3 rounded-lg bg-muted/50 border border-border text-[12.5px] whitespace-pre-wrap text-foreground">
+            <div className="p-3 rounded-lg bg-white border border-border text-[12.5px] whitespace-pre-wrap text-foreground">
+              {settings?.logoUrl && template.channel === "email" && (
+                <div style={{ textAlign: logoPosition === "center" ? "center" : logoPosition === "right" ? "right" : "left" }} className="mb-3">
+                  <img src={settings.logoUrl} alt="Logo" className="inline-block max-h-10 max-w-[160px] object-contain" />
+                </div>
+              )}
               {preview}
             </div>
           </div>

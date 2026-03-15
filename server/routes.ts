@@ -8,6 +8,7 @@ import fs from "fs";
 import bcrypt from "bcryptjs";
 import { Resend } from "resend";
 import { sendReviewEmail, sendVerificationEmail } from "./email";
+import { sendReviewSMS } from "./sms";
 import type { Review, Customer, Settings } from "@shared/schema";
 
 async function sendResetEmail(to: string, resetUrl: string) {
@@ -17,7 +18,7 @@ async function sendResetEmail(to: string, resetUrl: string) {
   }
   const resend = new Resend(process.env.RESEND_API_KEY);
   await resend.emails.send({
-    from: "ReviewOptic <hello@reviewoptic.com>",
+    from: "ReviewOptic <noreply@reviewoptic.com>",
     to,
     subject: "Reset your ReviewOptic password",
     html: `
@@ -95,6 +96,18 @@ async function postReviewToSocial(review: Review, customer: Customer, settings: 
   }
 }
 
+const logoUpload = multer({
+  storage: multer.diskStorage({
+    destination: uploadsDir,
+    filename: (_req, _file, cb) => cb(null, `logo-${randomUUID()}.png`),
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) cb(null, true);
+    else cb(new Error("Only image files allowed"));
+  },
+});
+
 const videoUpload = multer({
   storage: multer.diskStorage({
     destination: uploadsDir,
@@ -133,7 +146,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!/[^a-zA-Z0-9]/.test(password)) return res.status(400).json({ message: "Password must contain at least one symbol" });
 
     const existing = await storage.getUserByEmail(email);
-    if (existing) return res.status(400).json({ message: "An account with this email already exists" });
+    if (existing) {
+      if (!existing.emailVerified) {
+        // Resend verification email and let the frontend show the "check your email" screen
+        const newToken = randomUUID();
+        await storage.updateVerificationToken(existing.id, newToken);
+        const appUrl = process.env.APP_URL || "http://localhost:5000";
+        const verifyUrl = `${appUrl}/verify-email?token=${newToken}`;
+        await sendVerificationEmail(existing.email, verifyUrl).catch(err =>
+          console.error("[register] Failed to resend verification email:", err.message)
+        );
+        return res.json({ requiresVerification: true, email: existing.email });
+      }
+      return res.status(400).json({ message: "An account with this email already exists" });
+    }
 
     const account = await storage.createAccount();
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -240,6 +266,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!user) return res.status(400).json({ message: "Invalid or already used verification link." });
     req.session.userId = user.id;
     req.session.accountId = user.accountId;
+    res.json({ success: true });
+  });
+
+  app.post("/api/auth/resend-verification", async (req, res) => {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: "Email is required" });
+    const user = await storage.getUserByEmail(email);
+    if (!user || user.emailVerified) return res.json({ success: true }); // silent — don't reveal account existence
+    const newToken = randomUUID();
+    await storage.updateVerificationToken(user.id, newToken);
+    const appUrl = process.env.APP_URL || "http://localhost:5000";
+    const verifyUrl = `${appUrl}/verify-email?token=${newToken}`;
+    await sendVerificationEmail(user.email, verifyUrl).catch(err =>
+      console.error("[resend-verification] Failed to send email:", err.message)
+    );
     res.json({ success: true });
   });
 
@@ -511,6 +552,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(rr);
   });
   app.post("/api/review-requests", requireAuth, async (req, res) => {
+    try {
     const customer = await storage.getCustomer(req.body.customerId, req.session.accountId!);
     if (!customer) return res.status(404).json({ message: "Customer not found" });
     const rr = await storage.createReviewRequest({
@@ -518,6 +560,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       accountId: req.session.accountId,
       status: "sent",
       sentAt: new Date(),
+      scheduledAt: req.body.scheduledAt ? new Date(req.body.scheduledAt) : null,
     });
     await storage.updateCustomer(customer.id, { status: "request_sent" }, req.session.accountId!);
     await storage.createActivity({
@@ -530,23 +573,35 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       metadata: "{}",
     });
 
-    // Send email if channel is email
     const channel = req.body.channel || customer.channel;
-    if (channel === "email" && customer.email) {
-      const settings = await storage.getSettings(req.session.accountId!);
-      const allTemplates = await storage.getTemplates(req.session.accountId!);
-      const template =
-        allTemplates.find(t => t.channel === "email" && t.isDefault) ||
-        allTemplates.find(t => t.channel === "email") ||
-        null;
-      if (settings) {
-        sendReviewEmail(customer, settings, template).catch(err =>
+    const selectedPlatforms: { name: string; url: string }[] = req.body.selectedPlatforms || [];
+    const settings = await storage.getSettings(req.session.accountId!);
+    const allTemplates = await storage.getTemplates(req.session.accountId!);
+    if (settings) {
+      if (channel === "email" && customer.email) {
+        const template =
+          allTemplates.find(t => t.channel === "email" && t.isDefault) ||
+          allTemplates.find(t => t.channel === "email") ||
+          null;
+        sendReviewEmail(customer, settings, template, selectedPlatforms).catch(err =>
           console.error("[review request] Failed to send email:", err.message)
+        );
+      } else if (channel === "sms" && customer.phone) {
+        const template =
+          allTemplates.find(t => t.channel === "sms" && t.isDefault) ||
+          allTemplates.find(t => t.channel === "sms") ||
+          null;
+        sendReviewSMS(customer, settings, template, selectedPlatforms).catch(err =>
+          console.error("[review request] Failed to send SMS:", err.message)
         );
       }
     }
 
     res.json(rr);
+    } catch (err: any) {
+      console.error("[review-request] Error:", err.message, err.stack);
+      res.status(500).json({ message: err.message || "Internal server error" });
+    }
   });
   app.patch("/api/review-requests/:id", requireAuth, async (req, res) => {
     const rr = await storage.updateReviewRequest(String(req.params.id), req.body);
@@ -594,6 +649,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
   app.post("/api/templates/upload-audio", requireAuth, audioUpload.single("audio"), (req, res) => {
     if (!req.file) return res.status(400).json({ message: "No audio uploaded" });
+    res.json({ url: `/uploads/${req.file.filename}` });
+  });
+  app.post("/api/settings/upload-logo", requireAuth, logoUpload.single("logo"), (req, res) => {
+    if (!req.file) return res.status(400).json({ message: "No image uploaded" });
     res.json({ url: `/uploads/${req.file.filename}` });
   });
 

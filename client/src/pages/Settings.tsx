@@ -1,6 +1,7 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useState, useEffect } from "react";
-import { Save, ExternalLink, Copy, Check, Globe, Bell, FileCode, Star, Share2 } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import Cropper from "react-easy-crop";
+import { Save, ExternalLink, Copy, Check, Globe, Bell, FileCode, Star, Share2, Upload, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,10 +31,50 @@ export default function Settings() {
   const { toast } = useToast();
   const { data: settings, isLoading } = useQuery<SettingsType>({ queryKey: ["/api/settings"] });
   const [copied, setCopied] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const isFirstRender = useRef(true);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [cropAspect, setCropAspect] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  const onCropComplete = useCallback((_: any, pixels: any) => {
+    setCroppedAreaPixels(pixels);
+  }, []);
+
+  const applyCrop = async () => {
+    if (!cropSrc || !croppedAreaPixels) return;
+    setUploadingLogo(true);
+    try {
+      const image = await createImageBitmap(await fetch(cropSrc).then(r => r.blob()));
+      const canvas = document.createElement("canvas");
+      canvas.width = croppedAreaPixels.width;
+      canvas.height = croppedAreaPixels.height;
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(image, croppedAreaPixels.x, croppedAreaPixels.y, croppedAreaPixels.width, croppedAreaPixels.height, 0, 0, croppedAreaPixels.width, croppedAreaPixels.height);
+      const blob = await new Promise<Blob>(resolve => canvas.toBlob(b => resolve(b!), "image/png"));
+      const data = new FormData();
+      data.append("logo", blob, "logo.png");
+      const res = await fetch("/api/settings/upload-logo", { method: "POST", body: data, credentials: "include" });
+      if (res.ok) {
+        const { url } = await res.json();
+        setForm(f => ({ ...f, logoUrl: url }));
+        setCropSrc(null);
+      }
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
   const [form, setForm] = useState({
     ownerName: "",
     businessName: "",
     businessEmail: "",
+    logoUrl: "",
+    logoPosition: "left",
     facebookProfileUrl: "",
     instagramUrl: "",
     xUrl: "",
@@ -62,6 +103,8 @@ export default function Settings() {
         ownerName: settings.ownerName || "",
         businessName: settings.businessName || "",
         businessEmail: settings.businessEmail || "",
+        logoUrl: settings.logoUrl || "",
+        logoPosition: settings.logoPosition || "left",
         facebookProfileUrl: settings.facebookProfileUrl || "",
         instagramUrl: settings.instagramUrl || "",
         xUrl: settings.xUrl || "",
@@ -90,10 +133,23 @@ export default function Settings() {
     mutationFn: async () => apiRequest("PATCH", "/api/settings", form),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
-      toast({ title: "Settings saved successfully" });
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus("idle"), 2000);
     },
-    onError: () => toast({ title: "Failed to save settings", variant: "destructive" }),
+    onError: () => {
+      setSaveStatus("idle");
+      toast({ title: "Failed to save settings", variant: "destructive" });
+    },
   });
+
+  useEffect(() => {
+    if (isFirstRender.current) { isFirstRender.current = false; return; }
+    if (!form.businessEmail) return;
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    setSaveStatus("saving");
+    debounceTimer.current = setTimeout(() => mutation.mutate(), 1500);
+    return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
+  }, [form]);
 
   const widgetCode = `<script src="https://reviewoptic.app/widget.js" data-business-id="my-business" data-min-stars="${form.widgetMinStars}" data-count="${form.widgetCount}" data-layout="${form.widgetLayout}"></script>`;
 
@@ -117,10 +173,10 @@ export default function Settings() {
           <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
           <p className="text-[13.5px] text-muted-foreground mt-0.5">Configure your ReviewOptic account</p>
         </div>
-        <Button size="sm" onClick={() => mutation.mutate()} disabled={mutation.isPending} className="gap-1.5" data-testid="button-save-settings">
-          <Save className="w-3.5 h-3.5" />
-          {mutation.isPending ? "Saving..." : "Save Changes"}
-        </Button>
+        <div className="flex items-center gap-1.5 text-[12.5px]">
+          {saveStatus === "saving" && <span className="text-muted-foreground">Saving…</span>}
+          {saveStatus === "saved" && <span className="text-green-600 flex items-center gap-1"><Check className="w-3.5 h-3.5" /> Saved</span>}
+        </div>
       </div>
 
       <Tabs defaultValue="business">
@@ -149,6 +205,80 @@ export default function Settings() {
                   data-testid="input-owner-name"
                 />
               </div>
+              <div className="space-y-1.5">
+                <Label className="text-[12.5px]">Company Logo</Label>
+                {cropSrc ? (
+                  <div className="space-y-3">
+                    <div className="flex gap-1.5 mb-2">
+                      {[{ label: "Square", value: 1 }, { label: "2:1", value: 2 }, { label: "3:1", value: 3 }, { label: "4:1", value: 4 }].map(a => (
+                        <button
+                          key={a.value}
+                          type="button"
+                          onClick={() => { setCropAspect(a.value); setCrop({ x: 0, y: 0 }); }}
+                          className={`px-2.5 py-1 rounded text-[12px] font-medium border transition-colors ${cropAspect === a.value ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground"}`}
+                        >
+                          {a.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="relative h-56 rounded-lg overflow-hidden border border-border bg-muted/30">
+                      <Cropper
+                        image={cropSrc}
+                        crop={crop}
+                        zoom={zoom}
+                        aspect={cropAspect}
+                        onCropChange={setCrop}
+                        onZoomChange={setZoom}
+                        onCropComplete={onCropComplete}
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input type="range" min={1} max={3} step={0.1} value={zoom} onChange={e => setZoom(Number(e.target.value))} className="flex-1" />
+                      <Button size="sm" variant="outline" onClick={() => setCropSrc(null)}>Cancel</Button>
+                      <Button size="sm" onClick={applyCrop} disabled={uploadingLogo}>
+                        {uploadingLogo ? "Saving…" : "Apply Crop"}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-4">
+                    {form.logoUrl && (
+                      <div className="relative">
+                        <img src={form.logoUrl} alt="Logo" className="h-16 w-16 rounded-lg object-contain border border-border bg-muted/30" />
+                        <button
+                          type="button"
+                          onClick={() => setForm(f => ({ ...f, logoUrl: "" }))}
+                          className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-destructive text-white flex items-center justify-center"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+                    <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-border hover:border-primary cursor-pointer text-[12.5px] text-muted-foreground hover:text-foreground transition-colors">
+                      <Upload className="w-4 h-4" />
+                      {form.logoUrl ? "Change logo" : "Upload logo"}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const reader = new FileReader();
+                          reader.onload = () => {
+                            setCropSrc(reader.result as string);
+                            setCrop({ x: 0, y: 0 });
+                            setZoom(1);
+                            setCropAspect(1);
+                          };
+                          reader.readAsDataURL(file);
+                        }}
+                      />
+                    </label>
+                    <p className="text-[11.5px] text-muted-foreground">PNG, JPG up to 5MB</p>
+                  </div>
+                )}
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-[12.5px]">Business Name</Label>
@@ -160,13 +290,14 @@ export default function Settings() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-[12.5px]">Business Email</Label>
+                  <Label className="text-[12.5px]">Business Email <span className="text-destructive">*</span></Label>
                   <Input
                     type="email"
                     value={form.businessEmail}
                     onChange={e => setForm(f => ({ ...f, businessEmail: e.target.value }))}
                     placeholder="hello@mybusiness.com"
                     data-testid="input-business-email"
+                    required
                   />
                 </div>
               </div>

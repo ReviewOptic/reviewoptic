@@ -4,6 +4,7 @@ import pkg from "pg";
 const { Pool } = pkg;
 import { randomUUID } from "crypto";
 import { sendReviewEmail } from "./email";
+import { sendReviewSMS } from "./sms";
 import {
   accounts, customers, reviewRequests, reviews, privateFeedback, activityLog, templates, settings, users, passwordResetTokens, adminImpersonationLog,
   type Account,
@@ -59,6 +60,7 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   updateUserPassword(id: string, hashedPassword: string): Promise<void>;
   verifyUserEmail(token: string): Promise<User | undefined>;
+  updateVerificationToken(userId: string, token: string): Promise<void>;
   getAllUsers(): Promise<User[]>;
   getAdminUserStats(): Promise<{ userId: string; customerCount: number; reviewRequestCount: number; lastActive: Date | null }[]>;
   verifyUserManually(userId: string): Promise<void>;
@@ -259,6 +261,9 @@ export class DatabaseStorage implements IStorage {
       .returning();
     return u;
   }
+  async updateVerificationToken(userId: string, token: string): Promise<void> {
+    await db.update(users).set({ verificationToken: token }).where(eq(users.id, userId));
+  }
   async createResetToken(userId: string): Promise<string> {
     // Remove any existing tokens for this user
     await db.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, userId));
@@ -376,15 +381,23 @@ export class DatabaseStorage implements IStorage {
             metadata: "{}",
           });
 
-          // Send follow-up email
+          // Send follow-up
+          const allTemplates = await this.getTemplates(customer.accountId);
           if (customer.channel === "email" && customer.email) {
-            const allTemplates = await this.getTemplates(customer.accountId);
             const template =
               allTemplates.find(t => t.channel === "email" && t.isDefault) ||
               allTemplates.find(t => t.channel === "email") ||
               null;
             sendReviewEmail(customer, s, template).catch(err =>
               console.error(`[follow-up] Failed to send email to ${customer.email}:`, err.message)
+            );
+          } else if (customer.channel === "sms" && customer.phone) {
+            const template =
+              allTemplates.find(t => t.channel === "sms" && t.isDefault) ||
+              allTemplates.find(t => t.channel === "sms") ||
+              null;
+            sendReviewSMS(customer, s, template).catch(err =>
+              console.error(`[follow-up] Failed to send SMS to ${customer.phone}:`, err.message)
             );
           }
 

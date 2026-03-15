@@ -21,6 +21,8 @@ import Register from "@/pages/Register";
 import ResetPassword from "@/pages/ResetPassword";
 import VerifyEmail from "@/pages/VerifyEmail";
 import Admin from "@/pages/Admin";
+import PrivacyPolicy from "@/pages/PrivacyPolicy";
+import TermsAndConditions from "@/pages/TermsAndConditions";
 
 function ProtectedRoutes() {
   const { user, loading } = useAuth();
@@ -65,6 +67,8 @@ function Router() {
   return (
     <Switch>
       <Route path="/review-landing" component={ReviewLanding} />
+      <Route path="/privacy" component={PrivacyPolicy} />
+      <Route path="/terms" component={TermsAndConditions} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
       <Route path="/reset-password" component={ResetPassword} />

@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 function StarRating({ stars, size = "sm" }: { stars: number; size?: "sm" | "lg" }) {
   const sz = size === "lg" ? "w-5 h-5" : "w-3.5 h-3.5";
@@ -34,8 +36,30 @@ function StarRating({ stars, size = "sm" }: { stars: number; size?: "sm" | "lg" 
 function SendRequestDialog({ customer, open, onClose }: { customer: Customer; open: boolean; onClose: () => void }) {
   const { toast } = useToast();
   const [channel, setChannel] = useState(customer.channel);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
+
+  const { data: settings } = useQuery<any>({ queryKey: ["/api/settings"] });
+
+  const availablePlatforms = settings ? [
+    { key: "google", name: "Google", url: settings.googleReviewLink },
+    { key: "facebook", name: "Facebook", url: settings.facebookReviewLink },
+    { key: "trustpilot", name: "Trustpilot", url: settings.trustpilotLink },
+    { key: "tripadvisor", name: "TripAdvisor", url: settings.tripadvisorLink },
+    { key: "checkatrade", name: "Checkatrade", url: settings.checkatradeLink },
+    { key: "mybuilder", name: "MyBuilder", url: settings.mybuilderLink },
+  ].filter(p => p.url) : [];
+
+  const togglePlatform = (key: string) => {
+    setSelectedPlatforms(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
+  };
+
   const mutation = useMutation({
-    mutationFn: async () => apiRequest("POST", "/api/review-requests", { customerId: customer.id, channel, scheduledAt: new Date() }),
+    mutationFn: async () => apiRequest("POST", "/api/review-requests", {
+      customerId: customer.id,
+      channel,
+      scheduledAt: new Date(),
+      selectedPlatforms: availablePlatforms.filter(p => selectedPlatforms.includes(p.key)).map(p => ({ name: p.name, url: p.url })),
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
       queryClient.invalidateQueries({ queryKey: ["/api/review-requests"] });
@@ -65,6 +89,27 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer; op
               </SelectContent>
             </Select>
           </div>
+          {availablePlatforms.length > 0 && (
+            <div className="space-y-1.5">
+              <Label className="text-[12.5px]">Review platforms <span className="text-muted-foreground font-normal">(select all that apply)</span></Label>
+              <div className="flex flex-wrap gap-2">
+                {availablePlatforms.map(p => (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => togglePlatform(p.key)}
+                    className={`px-3 py-1.5 rounded-lg border text-[12.5px] font-medium transition-colors ${
+                      selectedPlatforms.includes(p.key)
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background border-border text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
@@ -82,6 +127,8 @@ export default function CustomerDetail() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const [showSend, setShowSend] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState<Partial<Customer>>({});
   const id = params?.id;
 
   const { data: customer, isLoading } = useQuery<Customer>({
@@ -118,6 +165,30 @@ export default function CustomerDetail() {
       navigate("/customers");
     },
   });
+
+  const editMutation = useMutation({
+    mutationFn: async () => apiRequest("PATCH", `/api/customers/${id}`, editForm),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers", id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      toast({ title: "Customer updated" });
+      setEditing(false);
+    },
+    onError: () => toast({ title: "Failed to update customer", variant: "destructive" }),
+  });
+
+  const startEdit = () => {
+    setEditForm({
+      name: customer?.name || "",
+      email: customer?.email || "",
+      phone: customer?.phone || "",
+      serviceDate: customer?.serviceDate || "",
+      serviceType: customer?.serviceType || "",
+      notes: customer?.notes || "",
+      channel: customer?.channel || "email",
+    });
+    setEditing(true);
+  };
 
   if (isLoading) return (
     <div className="px-6 py-7 max-w-4xl mx-auto space-y-4">
@@ -187,38 +258,97 @@ export default function CustomerDetail() {
         {/* Info cards */}
         <div className="md:col-span-1 space-y-4">
           <Card className="border-card-border">
-            <CardHeader className="pb-2">
+            <CardHeader className="pb-2 flex flex-row items-center justify-between">
               <CardTitle className="text-[14px] font-semibold">Contact Info</CardTitle>
+              {!editing ? (
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={startEdit}>
+                  <Edit2 className="w-3.5 h-3.5" />
+                </Button>
+              ) : (
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditing(false)}>
+                    <X className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" onClick={() => editMutation.mutate()} disabled={editMutation.isPending}>
+                    <Save className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              )}
             </CardHeader>
             <CardContent className="space-y-2.5 pb-4">
-              {customer.email && (
-                <div className="flex items-center gap-2 text-[13px]">
-                  <Mail className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                  <span className="truncate">{customer.email}</span>
+              {editing ? (
+                <div className="space-y-2.5">
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">Name</Label>
+                    <Input className="h-8 text-[13px]" value={editForm.name || ""} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">Email</Label>
+                    <Input className="h-8 text-[13px]" type="email" value={editForm.email || ""} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">Phone</Label>
+                    <Input className="h-8 text-[13px]" type="tel" placeholder="07xxx xxxxxx" value={editForm.phone || ""} onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">Channel</Label>
+                    <Select value={editForm.channel || "email"} onValueChange={v => setEditForm(f => ({ ...f, channel: v }))}>
+                      <SelectTrigger className="h-8 text-[13px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="email">Email</SelectItem>
+                        <SelectItem value="sms">SMS</SelectItem>
+                        <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">Service Date</Label>
+                    <Input className="h-8 text-[13px]" type="date" value={editForm.serviceDate || ""} onChange={e => setEditForm(f => ({ ...f, serviceDate: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">Service Type</Label>
+                    <Input className="h-8 text-[13px]" value={editForm.serviceType || ""} onChange={e => setEditForm(f => ({ ...f, serviceType: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">Notes</Label>
+                    <Textarea className="text-[13px] min-h-[60px]" value={editForm.notes || ""} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} />
+                  </div>
                 </div>
-              )}
-              {customer.phone && (
-                <div className="flex items-center gap-2 text-[13px]">
-                  <Phone className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                  <span>{customer.phone}</span>
-                </div>
-              )}
-              {customer.serviceDate && (
-                <div className="flex items-center gap-2 text-[13px]">
-                  <Calendar className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                  <span>{customer.serviceDate}</span>
-                </div>
-              )}
-              {customer.serviceType && (
-                <div className="flex items-center gap-2 text-[13px]">
-                  <FileText className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                  <span>{customer.serviceType}</span>
-                </div>
-              )}
-              {customer.notes && (
-                <div className="pt-1 border-t border-border">
-                  <p className="text-[12px] text-muted-foreground">{customer.notes}</p>
-                </div>
+              ) : (
+                <>
+                  {customer.email && (
+                    <div className="flex items-center gap-2 text-[13px]">
+                      <Mail className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                      <span className="truncate">{customer.email}</span>
+                    </div>
+                  )}
+                  {customer.phone && (
+                    <div className="flex items-center gap-2 text-[13px]">
+                      <Phone className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                      <span>{customer.phone}</span>
+                    </div>
+                  )}
+                  {customer.serviceDate && (
+                    <div className="flex items-center gap-2 text-[13px]">
+                      <Calendar className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                      <span>{customer.serviceDate}</span>
+                    </div>
+                  )}
+                  {customer.serviceType && (
+                    <div className="flex items-center gap-2 text-[13px]">
+                      <FileText className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                      <span>{customer.serviceType}</span>
+                    </div>
+                  )}
+                  {customer.notes && (
+                    <div className="pt-1 border-t border-border">
+                      <p className="text-[12px] text-muted-foreground">{customer.notes}</p>
+                    </div>
+                  )}
+                  {!customer.email && !customer.phone && !customer.serviceDate && !customer.serviceType && !customer.notes && (
+                    <p className="text-[12px] text-muted-foreground">No contact info — click edit to add details.</p>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>

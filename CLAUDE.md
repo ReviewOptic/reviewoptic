@@ -396,3 +396,49 @@ Your job is to be the developer they would hire if they could afford a great one
 - Replit Secrets only load when app runs via Replit UI — when using Claude Code, a `.env` file is required for secrets to be available
 - Browser autofill doesn't trigger React `onChange` — always read login form values from DOM elements directly, not from React state
 - `FormData.get()` on React controlled inputs returns the React state value, not the DOM value — use `elements.namedItem()` instead
+
+### Session — 2026-03-15 (third session)
+
+**Tasks completed:**
+- Login autofill bug fully fixed — removed `value` prop from email/password inputs (made uncontrolled), added `key={mode}` to reset form on mode switch, replaced `navigate("/")` with `useEffect` watching `user` state to prevent race condition
+- Email verification race condition fixed — `VerifyEmail.tsx` now calls `refreshUser()` before navigating so ProtectedRoutes doesn't bounce user back to /login
+- Resend verification email — added button on "Check your email" screen and a `POST /api/auth/resend-verification` endpoint
+- Re-signup with unverified email — server now detects existing unverified account and resends verification instead of erroring
+- "Failed to send request" bug fixed — `scheduledAt` was sent as a JSON string but Drizzle expected a Date object; fixed with `new Date(req.body.scheduledAt)`
+- Privacy Policy page created — `/privacy` route, full template with UK-law framing, opens as a new page
+- Terms & Conditions page created — `/terms` route, tailored to user's answers: UK law, monthly/annual billing, auto-renewal, 30-day data deletion on cancellation, illegal businesses and spam prohibited, liability disclaimer
+- T&Cs checkbox on signup — user must tick "I agree to the Terms & Conditions" before registering
+- SMS sending via Twilio — created `server/sms.ts` with UK number detection, normalisation, and alphanumeric sender ID (max 11 chars from business name). Non-UK numbers skipped with log entry
+- Customers now editable — inline edit mode on CustomerDetail page (pencil/save/cancel icons); "Edit Contact" option added to dropdown on Customers list page
+- Platform selection on send — toggle buttons for Google, Facebook, Trustpilot, TripAdvisor, Checkatrade, MyBuilder when sending a review request (both from Customers list and CustomerDetail page)
+- Company logo upload — Settings → Business tab; upload, crop (Square / 2:1 / 3:1 / 4:1), and remove logo. Stored via `POST /api/settings/upload-logo` using multer
+- Auto-save settings — replaced Save button with 1.5s debounced auto-save; "Saving…" / "Saved ✓" indicator in top-right of Settings page
+- Logo in emails — all outgoing review request emails include the business logo at the top, with position (left/centre/right) respected
+- Logo position control moved to Templates page — removed from Settings; now appears inside the email TemplateEditor when a logo is uploaded. Position is saved immediately via PATCH `/api/settings`
+- Logo preview in email template — the existing "Preview (sample data)" box now shows the logo at the correct position, on a white background matching a real email
+
+**Fixes applied:**
+- Login autofill race condition — `navigate("/")` fired before React state updated; replaced with `useEffect` on `user`
+- `scheduledAt` date parsing — server was receiving ISO string, not Date; fixed with `new Date(req.body.scheduledAt)`
+- `APP_URL` misconfigured in `.env` — had `APP_URL=APP_URL=https://...`; fixed to single key=value
+- `ADMIN_EMAIL` missing from `.env` — new signups weren't being added to admin customers; added `ADMIN_EMAIL=hello@reviewoptic.com`
+- Email from address — cannot use user's own domain as sender; fixed to use business name as display name with `noreply@reviewoptic.com`, and `replyTo` set to business email
+
+**Issues discovered:**
+- Twilio trial account blocks alphanumeric sender IDs — SMS shows "sent" in logs but doesn't deliver. User deferred Twilio upgrade
+- WhatsApp integration not yet built — deferred until Twilio upgraded
+- OAuth redirect URIs still use `localhost:5000` — must update before going to production
+- Facebook/LinkedIn access tokens expire (~60 days) — token refresh not built
+- Free trial terms, cancellation policy, and refund policy in T&Cs are placeholder text — user to fill in
+
+**Notes for next session:**
+- `.env` file has all secrets — do NOT commit it
+- SMS infrastructure is built and wired up — just needs a paid Twilio account to deliver
+- WhatsApp will use the same Twilio number as SMS once account is upgraded
+- T&Cs and Privacy Policy have placeholder sections — user needs to complete before going live
+- Logo position is saved to settings (not per-template) — applies to all email templates
+- `uploads/` folder is gitignored — logos stored locally, not in cloud storage yet
+
+**Lessons learned:**
+- Browser autofill race condition: make login inputs uncontrolled AND use `useEffect` on user state for navigation — both fixes are needed together
+- When email verification redirects fail, call `refreshUser()` before `navigate()` to ensure auth context is updated first

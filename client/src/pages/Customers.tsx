@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import {
   Plus, Search, Send, MoreHorizontal, Ban, Trash2, Users,
-  Upload, X, CheckCircle2, Clock, Star, Eye, AlertCircle
+  Upload, X, CheckCircle2, Clock, Star, Eye, AlertCircle, Edit2
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -132,11 +132,29 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
   const { toast } = useToast();
   const [channel, setChannel] = useState(customer?.channel || "email");
   const [delay, setDelay] = useState("now");
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
+
+  const { data: settings } = useQuery<any>({ queryKey: ["/api/settings"] });
+
+  const availablePlatforms = settings ? [
+    { key: "google", name: "Google", url: settings.googleReviewLink },
+    { key: "facebook", name: "Facebook", url: settings.facebookReviewLink },
+    { key: "trustpilot", name: "Trustpilot", url: settings.trustpilotLink },
+    { key: "tripadvisor", name: "TripAdvisor", url: settings.tripadvisorLink },
+    { key: "checkatrade", name: "Checkatrade", url: settings.checkatradeLink },
+    { key: "mybuilder", name: "MyBuilder", url: settings.mybuilderLink },
+  ].filter(p => p.url) : [];
+
+  const togglePlatform = (key: string) => {
+    setSelectedPlatforms(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
+  };
+
   const mutation = useMutation({
     mutationFn: async () => apiRequest("POST", "/api/review-requests", {
       customerId: customer?.id,
       channel,
       scheduledAt: delay === "now" ? new Date() : null,
+      selectedPlatforms: availablePlatforms.filter(p => selectedPlatforms.includes(p.key)).map(p => ({ name: p.name, url: p.url })),
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
@@ -182,6 +200,27 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
               </SelectContent>
             </Select>
           </div>
+          {availablePlatforms.length > 0 && (
+            <div className="space-y-1.5">
+              <Label className="text-[12.5px]">Review platforms <span className="text-muted-foreground font-normal">(select all that apply)</span></Label>
+              <div className="flex flex-wrap gap-2">
+                {availablePlatforms.map(p => (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => togglePlatform(p.key)}
+                    className={`px-3 py-1.5 rounded-lg border text-[12.5px] font-medium transition-colors ${
+                      selectedPlatforms.includes(p.key)
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background border-border text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="rounded-lg bg-primary/5 border border-primary/20 p-3">
             <p className="text-[12px] text-muted-foreground">
               <span className="font-medium text-foreground">Pro tip:</span> Sending within 60 minutes of job completion increases response rates by 3x.
@@ -199,11 +238,98 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
   );
 }
 
+function EditCustomerDialog({ customer, open, onClose }: { customer: Customer | null; open: boolean; onClose: () => void }) {
+  const { toast } = useToast();
+  const [form, setForm] = useState({ name: "", email: "", phone: "", serviceDate: "", serviceType: "", notes: "", channel: "email" });
+
+  useState(() => {
+    if (customer) setForm({
+      name: customer.name || "",
+      email: customer.email || "",
+      phone: customer.phone || "",
+      serviceDate: customer.serviceDate || "",
+      serviceType: customer.serviceType || "",
+      notes: customer.notes || "",
+      channel: customer.channel || "email",
+    });
+  });
+
+  const mutation = useMutation({
+    mutationFn: async () => apiRequest("PATCH", `/api/customers/${customer?.id}`, form),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      toast({ title: "Customer updated" });
+      onClose();
+    },
+    onError: () => toast({ title: "Failed to update customer", variant: "destructive" }),
+  });
+
+  if (!customer) return null;
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit Customer</DialogTitle>
+          <DialogDescription>Update details for {customer.name}</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 py-1">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-[12.5px]">Full Name *</Label>
+              <Input placeholder="Sarah Johnson" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[12.5px]">Phone</Label>
+              <Input placeholder="07xxx xxxxxx" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-[12.5px]">Email</Label>
+            <Input type="email" placeholder="sarah@example.com" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-[12.5px]">Service Type</Label>
+              <Input placeholder="House Cleaning" value={form.serviceType} onChange={e => setForm(f => ({ ...f, serviceType: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[12.5px]">Service Date</Label>
+              <Input type="date" value={form.serviceDate} onChange={e => setForm(f => ({ ...f, serviceDate: e.target.value }))} />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-[12.5px]">Preferred Channel</Label>
+            <Select value={form.channel} onValueChange={v => setForm(f => ({ ...f, channel: v }))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="email">Email</SelectItem>
+                <SelectItem value="sms">SMS</SelectItem>
+                <SelectItem value="whatsapp">WhatsApp</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-[12.5px]">Notes</Label>
+            <Textarea placeholder="Any notes..." className="resize-none h-16 text-[13px]" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+          <Button size="sm" onClick={() => mutation.mutate()} disabled={!form.name || mutation.isPending}>
+            {mutation.isPending ? "Saving..." : "Save Changes"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function Customers() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [showAdd, setShowAdd] = useState(false);
   const [sendTo, setSendTo] = useState<Customer | null>(null);
+  const [editCustomer, setEditCustomer] = useState<Customer | null>(null);
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
@@ -396,6 +522,10 @@ export default function Customers() {
                             <Eye className="w-3.5 h-3.5 mr-2" />
                             View Details
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setEditCustomer(customer)}>
+                            <Edit2 className="w-3.5 h-3.5 mr-2" />
+                            Edit Contact
+                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             onClick={() => toggleDncMutation.mutate(customer)}
@@ -426,6 +556,7 @@ export default function Customers() {
 
       <AddCustomerDialog open={showAdd} onClose={() => setShowAdd(false)} />
       <SendRequestDialog customer={sendTo} open={!!sendTo} onClose={() => setSendTo(null)} />
+      <EditCustomerDialog customer={editCustomer} open={!!editCustomer} onClose={() => setEditCustomer(null)} />
     </div>
   );
 }

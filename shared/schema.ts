@@ -86,6 +86,8 @@ export const settings = pgTable("settings", {
   ownerName: text("owner_name").notNull().default(""),
   businessName: text("business_name").notNull().default("My Business"),
   businessEmail: text("business_email").notNull().default(""),
+  logoUrl: text("logo_url").notNull().default(""),
+  logoPosition: text("logo_position").notNull().default("left"),
   facebookProfileUrl: text("facebook_profile_url").notNull().default(""),
   instagramUrl: text("instagram_url").notNull().default(""),
   xUrl: text("x_url").notNull().default(""),

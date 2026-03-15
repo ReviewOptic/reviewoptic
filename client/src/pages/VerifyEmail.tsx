@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
+import { useAuth } from "@/hooks/use-auth";
 import { Star, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 
 export default function VerifyEmail() {
   const [, navigate] = useLocation();
+  const { refreshUser } = useAuth();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -18,7 +20,8 @@ export default function VerifyEmail() {
       .then(async res => {
         if (res.ok) {
           setStatus("success");
-          setTimeout(() => navigate("/"), 2000);
+          await refreshUser();
+          setTimeout(() => navigate("/"), 1500);
         } else {
           const data = await res.json();
           setStatus("error");
