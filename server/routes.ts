@@ -154,6 +154,37 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       businessName: companyName,
     });
 
+    // Create default templates
+    const defaultTemplates = [
+      {
+        id: randomUUID(), accountId: account.id, name: "Review Request", templateType: "review_request",
+        channel: "email", isDefault: true,
+        subject: "How was your experience with {{business_name}}?",
+        body: `Hi {{first_name}},\n\nThank you for choosing {{business_name}}. We'd love to hear about your experience — it only takes a minute and means a lot to us.\n\n{{review_link}}\n\nThanks again,\nThe {{business_name}} team`,
+      },
+      {
+        id: randomUUID(), accountId: account.id, name: "Follow-up", templateType: "follow_up",
+        channel: "email", isDefault: true,
+        subject: "Still have a moment to leave us a review?",
+        body: `Hi {{first_name}},\n\nWe just wanted to follow up — if you have a spare moment, we'd really appreciate a quick review. It helps us more than you know!\n\n{{review_link}}\n\nThank you,\nThe {{business_name}} team`,
+      },
+      {
+        id: randomUUID(), accountId: account.id, name: "Review Request", templateType: "review_request",
+        channel: "sms", isDefault: true,
+        subject: "",
+        body: "Hi {{first_name}}, thanks for choosing {{business_name}}! Could you spare a moment to leave us a review? {{review_link}}",
+      },
+      {
+        id: randomUUID(), accountId: account.id, name: "Follow-up", templateType: "follow_up",
+        channel: "sms", isDefault: true,
+        subject: "",
+        body: "Hi {{first_name}}, just a quick follow-up from {{business_name}}. We'd really appreciate your review: {{review_link}}",
+      },
+    ];
+    for (const t of defaultTemplates) {
+      await storage.createTemplate(t);
+    }
+
     // Auto-add as customer in admin account for ReviewOptic's own review requests
     if (process.env.ADMIN_EMAIL) {
       const adminUser = await storage.getUserByEmail(process.env.ADMIN_EMAIL);

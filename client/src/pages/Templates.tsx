@@ -15,7 +15,7 @@ import type { Template } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 
-const MERGE_TAGS = ["{{customer_name}}", "{{business_name}}", "{{service_type}}", "{{review_link}}"];
+const MERGE_TAGS = ["{{first_name}}", "{{customer_name}}", "{{business_name}}", "{{service_type}}", "{{review_link}}"];
 
 const channelIcons: Record<string, React.ReactNode> = {
   email: <Mail className="w-3.5 h-3.5" />,
@@ -310,7 +310,8 @@ function TemplateEditor({ template, onCancel }: { template: Template; onCancel: 
 
   // Preview with sample data
   const preview = body
-    .replace(/{{customer_name}}/g, "Sarah")
+    .replace(/{{first_name}}/g, "Sarah")
+    .replace(/{{customer_name}}/g, "Sarah Jones")
     .replace(/{{business_name}}/g, "Clean Pro Services")
     .replace(/{{service_type}}/g, "House Cleaning")
     .replace(/{{review_link}}/g, "https://reviewoptic.app/r/abc123");
