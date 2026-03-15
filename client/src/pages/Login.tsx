@@ -6,10 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Star } from "lucide-react";
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, register } = useAuth();
   const [, navigate] = useLocation();
+  const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [businessName, setBusinessName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -18,13 +20,22 @@ export default function Login() {
     setError("");
     setLoading(true);
     try {
-      await login(email, password);
+      if (mode === "login") {
+        await login(email, password);
+      } else {
+        await register(email, password, businessName);
+      }
       navigate("/");
     } catch (err: any) {
-      setError(err.message || "Login failed");
+      setError(err.message || "Something went wrong");
     } finally {
       setLoading(false);
     }
+  };
+
+  const switchMode = (m: "login" | "register") => {
+    setMode(m);
+    setError("");
   };
 
   return (
@@ -43,26 +54,53 @@ export default function Login() {
         <p className="text-muted-foreground text-sm mb-8">Send review requests, follow up automatically, and grow your reputation on autopilot.</p>
 
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm text-left">
+          {/* Toggle */}
+          <div className="flex rounded-lg bg-muted p-1 mb-6">
+            <button
+              type="button"
+              onClick={() => switchMode("login")}
+              className={`flex-1 text-sm font-medium py-1.5 rounded-md transition-colors ${mode === "login" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Sign in
+            </button>
+            <button
+              type="button"
+              onClick={() => switchMode("register")}
+              className={`flex-1 text-sm font-medium py-1.5 rounded-md transition-colors ${mode === "register" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Create account
+            </button>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4">
+            {mode === "register" && (
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium">Business name</label>
+                <Input type="text" placeholder="Acme Plumbing" value={businessName} onChange={e => setBusinessName(e.target.value)} required />
+              </div>
+            )}
             <div className="space-y-1.5">
               <label className="block text-sm font-medium">Email</label>
               <Input type="email" placeholder="you@example.com" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} required />
             </div>
             <div className="space-y-1.5">
               <label className="block text-sm font-medium">Password</label>
-              <Input type="password" placeholder="••••••••" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} required />
+              <Input
+                type="password"
+                placeholder={mode === "register" ? "At least 6 characters" : "••••••••"}
+                autoComplete={mode === "register" ? "new-password" : "current-password"}
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                minLength={mode === "register" ? 6 : undefined}
+              />
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Signing in…" : "Sign in"}
+              {loading ? (mode === "login" ? "Signing in…" : "Creating account…") : (mode === "login" ? "Sign in" : "Create account")}
             </Button>
           </form>
         </div>
-
-        <p className="text-sm text-muted-foreground mt-5">
-          No account?{" "}
-          <a href="/register" className="text-primary hover:underline font-medium">Create one free</a>
-        </p>
       </div>
     </div>
   );
