@@ -35,8 +35,11 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm run dev"
+args = "bash -c 'fuser -k 5000/tcp 2>/dev/null; sleep 1; npm run dev'"
 waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
 
 [agent]
 integrations = ["github:1.0.0"]
@@ -44,5 +47,3 @@ integrations = ["github:1.0.0"]
 [userenv]
 
 [userenv.shared]
-7867sqch0jscvp = "WPL_AP1.l4F8qUEkQNtSy1ex.Q7uDMA=="
-2738001349886089 = "986a5e8cef8eeace18a9459723740467"
