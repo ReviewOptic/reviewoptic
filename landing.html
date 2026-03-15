@@ -3,9 +3,432 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ReviewOptic</title>
+  <title>ReviewOptic — More Reviews, Less Effort</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --text: #111827;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --bg-light: #f9fafb;
+      --bg-dark: #0f172a;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--text);
+      line-height: 1.6;
+      background: #fff;
+    }
+
+    /* NAV */
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 40px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: rgba(255,255,255,0.95);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+    }
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text);
+    }
+    .nav-logo-icon {
+      width: 36px;
+      height: 36px;
+      background: var(--primary);
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .nav-logo-icon svg { color: #fff; }
+    .nav-logo span { font-weight: 700; font-size: 17px; letter-spacing: -0.3px; }
+    .nav-links { display: flex; align-items: center; gap: 12px; }
+    .btn-ghost {
+      padding: 8px 16px;
+      border: none;
+      background: none;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: color 0.15s, background 0.15s;
+    }
+    .btn-ghost:hover { color: var(--text); background: var(--bg-light); }
+    .btn-primary {
+      padding: 9px 20px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.15s;
+    }
+    .btn-primary:hover { background: var(--primary-dark); }
+
+    /* HERO */
+    .hero {
+      text-align: center;
+      padding: 90px 24px 80px;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    .hero-badge {
+      display: inline-block;
+      background: #eff6ff;
+      color: var(--primary);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 5px 14px;
+      border-radius: 999px;
+      margin-bottom: 24px;
+      border: 1px solid #bfdbfe;
+    }
+    .hero h1 {
+      font-size: clamp(32px, 5vw, 52px);
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      line-height: 1.1;
+      margin-bottom: 20px;
+      color: var(--text);
+    }
+    .hero h1 span { color: var(--primary); }
+    .hero p {
+      font-size: 18px;
+      color: var(--muted);
+      max-width: 520px;
+      margin: 0 auto 36px;
+      line-height: 1.7;
+    }
+    .hero-ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .btn-large {
+      padding: 13px 28px;
+      font-size: 15px;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+      transition: all 0.15s;
+    }
+    .btn-large.primary { background: var(--primary); color: #fff; border: none; }
+    .btn-large.primary:hover { background: var(--primary-dark); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(37,99,235,0.35); }
+    .btn-large.outline { background: #fff; color: var(--text); border: 1.5px solid var(--border); }
+    .btn-large.outline:hover { border-color: #9ca3af; transform: translateY(-1px); }
+
+    /* SOCIAL PROOF STRIP */
+    .proof-strip {
+      text-align: center;
+      padding: 18px 24px;
+      background: var(--bg-light);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 13.5px;
+      font-weight: 500;
+      letter-spacing: 0.2px;
+    }
+    .proof-strip strong { color: var(--text); }
+
+    /* HOW IT WORKS */
+    .section { padding: 80px 24px; max-width: 1000px; margin: 0 auto; }
+    .section-label {
+      text-align: center;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: var(--primary);
+      margin-bottom: 12px;
+    }
+    .section-title {
+      text-align: center;
+      font-size: clamp(24px, 3vw, 34px);
+      font-weight: 800;
+      letter-spacing: -0.8px;
+      margin-bottom: 12px;
+    }
+    .section-subtitle {
+      text-align: center;
+      font-size: 16px;
+      color: var(--muted);
+      max-width: 480px;
+      margin: 0 auto 56px;
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 32px;
+    }
+    .step {
+      text-align: center;
+      padding: 32px 24px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: #fff;
+    }
+    .step-num {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: #eff6ff;
+      color: var(--primary);
+      font-weight: 800;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+    }
+    .step h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+    .step p { font-size: 14px; color: var(--muted); line-height: 1.6; }
+
+    /* FEATURES */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 24px;
+    }
+    .feature-card {
+      padding: 28px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: #fff;
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+    .feature-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.07); transform: translateY(-2px); }
+    .feature-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      background: #eff6ff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      font-size: 22px;
+    }
+    .feature-card h3 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+    .feature-card p { font-size: 13.5px; color: var(--muted); line-height: 1.6; }
+
+    /* PLATFORMS */
+    .platforms {
+      background: var(--bg-light);
+      padding: 60px 24px;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      text-align: center;
+    }
+    .platforms p {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 28px;
+    }
+    .platform-list {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .platform-pill {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 8px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    /* CTA BOTTOM */
+    .cta-bottom {
+      background: var(--bg-dark);
+      padding: 90px 24px;
+      text-align: center;
+      color: #fff;
+    }
+    .cta-bottom h2 {
+      font-size: clamp(26px, 4vw, 40px);
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin-bottom: 16px;
+    }
+    .cta-bottom p {
+      font-size: 16px;
+      color: #94a3b8;
+      max-width: 440px;
+      margin: 0 auto 36px;
+    }
+
+    /* FOOTER */
+    footer {
+      padding: 28px 40px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    footer .footer-logo { font-weight: 700; font-size: 15px; color: var(--text); }
+    footer p { font-size: 13px; color: var(--muted); }
+
+    @media (max-width: 600px) {
+      nav { padding: 14px 20px; }
+      .hero { padding: 60px 20px 60px; }
+      footer { padding: 24px 20px; flex-direction: column; align-items: flex-start; }
+    }
+  </style>
 </head>
 <body>
-  <h1>ReviewOptic</h1>
+
+  <!-- NAV -->
+  <nav>
+    <a href="/" class="nav-logo">
+      <div class="nav-logo-icon">
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="currentColor"/>
+        </svg>
+      </div>
+      <span>ReviewOptic</span>
+    </a>
+    <div class="nav-links">
+      <a href="/login" class="btn-ghost">Sign in</a>
+      <a href="/register" class="btn-primary">Get started free</a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-badge">⭐ Built for local businesses</div>
+    <h1>Turn happy customers into <span>5-star reviews</span> — automatically</h1>
+    <p>ReviewOptic sends personalised review requests to your customers after every job, follows up automatically, and keeps your online reputation growing while you focus on the work.</p>
+    <div class="hero-ctas">
+      <a href="/register" class="btn-large primary">Start for free →</a>
+      <a href="/login" class="btn-large outline">Sign in</a>
+    </div>
+  </section>
+
+  <!-- PROOF STRIP -->
+  <div class="proof-strip">
+    Works with <strong>Google</strong>, <strong>Facebook</strong>, <strong>Trustpilot</strong>, <strong>TripAdvisor</strong>, <strong>Checkatrade</strong> and more
+  </div>
+
+  <!-- HOW IT WORKS -->
+  <div class="section">
+    <div class="section-label">How it works</div>
+    <h2 class="section-title">Three steps to more reviews</h2>
+    <p class="section-subtitle">Set it up once, then let ReviewOptic do the legwork.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3>Add your customers</h3>
+        <p>After completing a job, add the customer's name, email or phone number, and the service you provided.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3>We send the request</h3>
+        <p>ReviewOptic sends a personalised review request via email, SMS, or WhatsApp — at the right moment, in your voice.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3>Reviews roll in</h3>
+        <p>Happy customers click through to your review page. Unhappy ones are invited to share feedback privately — protecting your rating.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- FEATURES -->
+  <div style="background: var(--bg-light); border-top: 1px solid var(--border);">
+    <div class="section">
+      <div class="section-label">Features</div>
+      <h2 class="section-title">Everything you need, nothing you don't</h2>
+      <p class="section-subtitle">A focused toolset built for busy business owners.</p>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">📬</div>
+          <h3>Multi-channel outreach</h3>
+          <p>Send review requests by email, SMS, or WhatsApp — whichever channel your customers actually use.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔄</div>
+          <h3>Automated follow-ups</h3>
+          <p>If a customer doesn't respond, ReviewOptic follows up automatically — once or twice, on a schedule you control.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🛡️</div>
+          <h3>Private feedback capture</h3>
+          <p>Customers who rate you poorly are redirected to a private feedback form, not a public review page. Protect your score.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📊</div>
+          <h3>Dashboard & analytics</h3>
+          <p>See exactly how many requests you've sent, how many clicked, and how your average rating is trending over time.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">✏️</div>
+          <h3>Custom templates</h3>
+          <p>Write your own message templates for each channel and each follow-up stage — or use our ready-made defaults.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📱</div>
+          <h3>Works on any device</h3>
+          <p>Manage your reputation from your phone, tablet, or desktop. A clean interface built for people who are always on the go.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PLATFORMS -->
+  <div class="platforms">
+    <p>Supported review platforms</p>
+    <div class="platform-list">
+      <div class="platform-pill">⭐ Google</div>
+      <div class="platform-pill">👍 Facebook</div>
+      <div class="platform-pill">🌟 Trustpilot</div>
+      <div class="platform-pill">✈️ TripAdvisor</div>
+      <div class="platform-pill">🔧 Checkatrade</div>
+      <div class="platform-pill">🏠 MyBuilder</div>
+    </div>
+  </div>
+
+  <!-- CTA BOTTOM -->
+  <div class="cta-bottom">
+    <h2>Start collecting reviews today</h2>
+    <p>Set up takes less than 5 minutes. No credit card required.</p>
+    <a href="/register" class="btn-large primary" style="background: #fff; color: var(--text);">Create your free account →</a>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-logo">ReviewOptic</div>
+    <p>© 2026 ReviewOptic. Built for local businesses.</p>
+  </footer>
+
 </body>
 </html>
