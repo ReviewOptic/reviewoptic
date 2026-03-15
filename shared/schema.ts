@@ -156,6 +156,16 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const adminImpersonationLog = pgTable("admin_impersonation_log", {
+  id: varchar("id").primaryKey(),
+  adminId: varchar("admin_id").notNull(),
+  adminEmail: text("admin_email").notNull(),
+  targetUserId: varchar("target_user_id").notNull(),
+  targetEmail: text("target_email").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+export type AdminImpersonationLog = typeof adminImpersonationLog.$inferSelect;

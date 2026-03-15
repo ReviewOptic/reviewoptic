@@ -68,6 +68,18 @@ export async function runMigrations() {
       await pool.query(`UPDATE users SET is_admin = true WHERE email = $1`, [process.env.ADMIN_EMAIL.toLowerCase()]);
     }
 
+    // Admin impersonation log
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS admin_impersonation_log (
+        id VARCHAR PRIMARY KEY,
+        admin_id VARCHAR NOT NULL,
+        admin_email TEXT NOT NULL,
+        target_user_id VARCHAR NOT NULL,
+        target_email TEXT NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();

@@ -253,18 +253,57 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   }
 
   app.get("/api/admin/users", requireAdmin, async (req, res) => {
-    const allUsers = await storage.getAllUsers();
-    res.json(allUsers.map(u => ({ id: u.id, email: u.email, accountId: u.accountId, isAdmin: u.isAdmin, emailVerified: u.emailVerified })));
+    const [allUsers, stats] = await Promise.all([storage.getAllUsers(), storage.getAdminUserStats()]);
+    const statsMap = Object.fromEntries(stats.map(s => [s.userId, s]));
+    res.json(allUsers.map(u => ({
+      id: u.id,
+      email: u.email,
+      accountId: u.accountId,
+      isAdmin: u.isAdmin,
+      emailVerified: u.emailVerified,
+      customerCount: statsMap[u.id]?.customerCount ?? 0,
+      reviewRequestCount: statsMap[u.id]?.reviewRequestCount ?? 0,
+      lastActive: statsMap[u.id]?.lastActive ?? null,
+    })));
+  });
+
+  app.post("/api/admin/verify-user/:userId", requireAdmin, async (req, res) => {
+    await storage.verifyUserManually(String(req.params.userId));
+    res.json({ success: true });
+  });
+
+  app.delete("/api/admin/user/:userId", requireAdmin, async (req, res) => {
+    const target = await storage.getUser(String(req.params.userId));
+    if (!target) return res.status(404).json({ message: "User not found" });
+    if (target.isAdmin) return res.status(400).json({ message: "Cannot delete an admin account" });
+    await storage.deleteUserAccount(String(req.params.userId));
+    res.json({ success: true });
+  });
+
+  app.post("/api/admin/toggle-admin/:userId", requireAdmin, async (req, res) => {
+    const target = await storage.getUser(String(req.params.userId));
+    if (!target) return res.status(404).json({ message: "User not found" });
+    const adminId = req.session.originalUserId || req.session.userId;
+    if (target.id === adminId) return res.status(400).json({ message: "Cannot change your own admin status" });
+    await storage.setUserAdmin(target.id, !target.isAdmin);
+    res.json({ success: true });
+  });
+
+  app.get("/api/admin/impersonation-log", requireAdmin, async (req, res) => {
+    res.json(await storage.getImpersonationLog());
   });
 
   app.post("/api/admin/impersonate/:userId", requireAdmin, async (req, res) => {
     const target = await storage.getUser(String(req.params.userId));
     if (!target) return res.status(404).json({ message: "User not found" });
     if (target.isAdmin) return res.status(400).json({ message: "Cannot impersonate another admin" });
+    const adminId = req.session.originalUserId || req.session.userId!;
+    const admin = await storage.getUser(adminId);
     req.session.originalUserId = req.session.originalUserId || req.session.userId;
     req.session.originalAccountId = req.session.originalAccountId || req.session.accountId;
     req.session.userId = target.id;
     req.session.accountId = target.accountId;
+    await storage.logImpersonation(adminId, admin?.email ?? "", target.id, target.email);
     res.json({ success: true });
   });
 

@@ -5,7 +5,7 @@ const { Pool } = pkg;
 import { randomUUID } from "crypto";
 import { sendReviewEmail } from "./email";
 import {
-  accounts, customers, reviewRequests, reviews, privateFeedback, activityLog, templates, settings, users, passwordResetTokens,
+  accounts, customers, reviewRequests, reviews, privateFeedback, activityLog, templates, settings, users, passwordResetTokens, adminImpersonationLog,
   type Account,
   type Customer, type InsertCustomer,
   type ReviewRequest, type InsertReviewRequest,
@@ -60,6 +60,12 @@ export interface IStorage {
   updateUserPassword(id: string, hashedPassword: string): Promise<void>;
   verifyUserEmail(token: string): Promise<User | undefined>;
   getAllUsers(): Promise<User[]>;
+  getAdminUserStats(): Promise<{ userId: string; customerCount: number; reviewRequestCount: number; lastActive: Date | null }[]>;
+  verifyUserManually(userId: string): Promise<void>;
+  deleteUserAccount(userId: string): Promise<void>;
+  setUserAdmin(userId: string, isAdmin: boolean): Promise<void>;
+  logImpersonation(adminId: string, adminEmail: string, targetUserId: string, targetEmail: string): Promise<void>;
+  getImpersonationLog(): Promise<import("@shared/schema").AdminImpersonationLog[]>;
   // Password reset tokens
   createResetToken(userId: string): Promise<string>;
   getResetToken(token: string): Promise<{ userId: string; expiresAt: Date } | undefined>;
@@ -204,6 +210,46 @@ export class DatabaseStorage implements IStorage {
   }
   async getAllUsers(): Promise<User[]> {
     return db.select().from(users).orderBy(users.email);
+  }
+  async getAdminUserStats(): Promise<{ userId: string; customerCount: number; reviewRequestCount: number; lastActive: Date | null }[]> {
+    const allUsers = await db.select().from(users);
+    return Promise.all(allUsers.map(async u => {
+      const [custResult] = await db.select({ count: sql<number>`count(*)::int` }).from(customers).where(eq(customers.accountId, u.accountId));
+      const [rrResult] = await db.select({ count: sql<number>`count(*)::int` }).from(reviewRequests).where(eq(reviewRequests.accountId, u.accountId));
+      const [actResult] = await db.select({ latest: sql<Date | null>`max(created_at)` }).from(activityLog).where(eq(activityLog.accountId, u.accountId));
+      return {
+        userId: u.id,
+        customerCount: custResult?.count ?? 0,
+        reviewRequestCount: rrResult?.count ?? 0,
+        lastActive: actResult?.latest ?? null,
+      };
+    }));
+  }
+  async verifyUserManually(userId: string): Promise<void> {
+    await db.update(users).set({ emailVerified: true, verificationToken: null }).where(eq(users.id, userId));
+  }
+  async deleteUserAccount(userId: string): Promise<void> {
+    const user = await this.getUser(userId);
+    if (!user) return;
+    const aid = user.accountId;
+    await db.delete(activityLog).where(eq(activityLog.accountId, aid));
+    await db.delete(reviewRequests).where(eq(reviewRequests.accountId, aid));
+    await db.delete(reviews).where(eq(reviews.accountId, aid));
+    await db.delete(privateFeedback).where(eq(privateFeedback.accountId, aid));
+    await db.delete(customers).where(eq(customers.accountId, aid));
+    await db.delete(templates).where(eq(templates.accountId, aid));
+    await db.delete(settings).where(eq(settings.accountId, aid));
+    await db.delete(users).where(eq(users.id, userId));
+    await db.delete(accounts).where(eq(accounts.id, aid));
+  }
+  async setUserAdmin(userId: string, isAdmin: boolean): Promise<void> {
+    await db.update(users).set({ isAdmin }).where(eq(users.id, userId));
+  }
+  async logImpersonation(adminId: string, adminEmail: string, targetUserId: string, targetEmail: string): Promise<void> {
+    await db.insert(adminImpersonationLog).values({ id: randomUUID(), adminId, adminEmail, targetUserId, targetEmail });
+  }
+  async getImpersonationLog(): Promise<import("@shared/schema").AdminImpersonationLog[]> {
+    return db.select().from(adminImpersonationLog).orderBy(desc(adminImpersonationLog.createdAt));
   }
   async verifyUserEmail(token: string): Promise<User | undefined> {
     const [u] = await db
