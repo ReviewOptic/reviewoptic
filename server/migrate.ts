@@ -42,6 +42,16 @@ export async function runMigrations() {
       await pool.query(`ALTER TABLE users ADD CONSTRAINT users_email_unique UNIQUE (email)`);
     } catch { /* constraint may already exist */ }
 
+    // Password reset tokens table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS password_reset_tokens (
+        token VARCHAR PRIMARY KEY,
+        user_id VARCHAR NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();

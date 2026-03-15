@@ -6,7 +6,37 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import bcrypt from "bcryptjs";
+import nodemailer from "nodemailer";
 import type { Review, Customer, Settings } from "@shared/schema";
+
+function getMailTransport() {
+  if (!process.env.SMTP_HOST) return null;
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || "587"),
+    secure: process.env.SMTP_SECURE === "true",
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+  });
+}
+
+async function sendResetEmail(to: string, resetUrl: string) {
+  const transport = getMailTransport();
+  if (!transport) {
+    console.log(`[password reset] No SMTP configured. Reset link for ${to}: ${resetUrl}`);
+    return;
+  }
+  await transport.sendMail({
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    to,
+    subject: "Reset your ReviewOptic password",
+    html: `
+      <p>Hi,</p>
+      <p>You requested a password reset for your ReviewOptic account.</p>
+      <p><a href="${resetUrl}" style="background:#2563eb;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;margin:16px 0;">Reset my password</a></p>
+      <p>This link expires in 1 hour. If you didn't request this, you can ignore this email.</p>
+    `,
+  });
+}
 
 const uploadsDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
@@ -136,6 +166,38 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     req.session.destroy(() => {
       res.json({ success: true });
     });
+  });
+
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: "Email is required" });
+    // Always return success to avoid revealing whether an email exists
+    const user = await storage.getUserByEmail(email);
+    if (user) {
+      const token = await storage.createResetToken(user.id);
+      const appUrl = process.env.APP_URL || "http://localhost:5000";
+      const resetUrl = `${appUrl}/reset-password?token=${token}`;
+      await sendResetEmail(user.email, resetUrl).catch(err =>
+        console.error("Failed to send reset email:", err)
+      );
+    }
+    res.json({ success: true });
+  });
+
+  app.post("/api/auth/reset-password", async (req, res) => {
+    const { token, password } = req.body;
+    if (!token || !password) return res.status(400).json({ message: "Token and password are required" });
+    if (password.length < 6) return res.status(400).json({ message: "Password must be at least 6 characters" });
+    const record = await storage.getResetToken(token);
+    if (!record) return res.status(400).json({ message: "Invalid or expired reset link" });
+    if (new Date() > record.expiresAt) {
+      await storage.deleteResetToken(token);
+      return res.status(400).json({ message: "This reset link has expired. Please request a new one." });
+    }
+    const hashedPassword = await bcrypt.hash(password, 10);
+    await storage.updateUserPassword(record.userId, hashedPassword);
+    await storage.deleteResetToken(token);
+    res.json({ success: true });
   });
 
   app.get("/api/auth/me", async (req, res) => {

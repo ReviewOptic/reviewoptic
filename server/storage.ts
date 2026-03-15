@@ -4,7 +4,7 @@ import pkg from "pg";
 const { Pool } = pkg;
 import { randomUUID } from "crypto";
 import {
-  accounts, customers, reviewRequests, reviews, privateFeedback, activityLog, templates, settings, users,
+  accounts, customers, reviewRequests, reviews, privateFeedback, activityLog, templates, settings, users, passwordResetTokens,
   type Account,
   type Customer, type InsertCustomer,
   type ReviewRequest, type InsertReviewRequest,
@@ -56,6 +56,11 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUserPassword(id: string, hashedPassword: string): Promise<void>;
+  // Password reset tokens
+  createResetToken(userId: string): Promise<string>;
+  getResetToken(token: string): Promise<{ userId: string; expiresAt: Date } | undefined>;
+  deleteResetToken(token: string): Promise<void>;
   // Stats
   getStats(accountId: string): Promise<{
     requestsThisMonth: number;
@@ -190,6 +195,25 @@ export class DatabaseStorage implements IStorage {
     const id = randomUUID();
     const [u] = await db.insert(users).values({ ...data, id }).returning();
     return u;
+  }
+  async updateUserPassword(id: string, hashedPassword: string): Promise<void> {
+    await db.update(users).set({ password: hashedPassword }).where(eq(users.id, id));
+  }
+  async createResetToken(userId: string): Promise<string> {
+    // Remove any existing tokens for this user
+    await db.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, userId));
+    const token = randomUUID();
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    await db.insert(passwordResetTokens).values({ token, userId, expiresAt });
+    return token;
+  }
+  async getResetToken(token: string): Promise<{ userId: string; expiresAt: Date } | undefined> {
+    const [row] = await db.select().from(passwordResetTokens).where(eq(passwordResetTokens.token, token));
+    if (!row) return undefined;
+    return { userId: row.userId, expiresAt: row.expiresAt };
+  }
+  async deleteResetToken(token: string): Promise<void> {
+    await db.delete(passwordResetTokens).where(eq(passwordResetTokens.token, token));
   }
 
   async getStats(accountId: string): Promise<{
