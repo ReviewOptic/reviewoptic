@@ -323,3 +323,42 @@ Your job is to be the developer they would hire if they could afford a great one
 **Lessons learned:**
 - Always clarify who owns/uses a feature before building — "post reviews to social" meant business users posting to their own pages, not the app owner posting to theirs
 - Never ask the user to paste API secrets in chat — direct them to Replit Secrets or environment variables instead
+
+### Session — 2026-03-15
+
+**Tasks completed:**
+- Live email sending: created `server/email.ts` with `sendReviewEmail` — wired into manual review requests and automated follow-ups. Emails personalised with `{{first_name}}`, review link pulled from settings
+- Resend domain setup: walked user through adding DNS records (DKIM, SPF, DMARC) in Namecheap for `reviewoptic.com`. Domain verification pending (takes a few hours)
+- Email verification on signup: new users must verify email before logging in. Verification link sent via Resend; falls back to server console log if no API key. Existing users auto-marked as verified
+- Password rules tightened: minimum 8 characters, at least one number, at least one symbol — enforced on both frontend and server
+- Admin impersonation feature: `/admin` page lists all users with stats; admin can impersonate any non-admin user, see a banner while impersonating, and stop with one click. Every impersonation session logged to `admin_impersonation_log` table
+- Admin panel expanded: manual email verify, delete account (with confirm), promote/demote admin, impersonation log tab with full history
+- Signup form expanded: collects first name, last name, and company name (replacing single business name field)
+- New signups auto-added as customers in admin account: when someone signs up to ReviewOptic they appear in the admin Customers tab so review requests can be sent to them as a user would
+- Default templates created on signup: every new account gets 4 default templates (email review request, email follow-up, SMS review request, SMS follow-up) using `{{first_name}}`
+- `{{first_name}}` merge tag added: available in all templates, shown in merge tag reference bar, used in default fallback email
+
+**Fixes applied:**
+- `null value in column "username"` error on signup — fixed by adding `DEFAULT ''` to legacy username column in migration
+- Admin panel not showing after logout/login — was a stale server process; fixed by restarting server
+- Password placeholder still showing "At least 6 characters" on register form — removed
+- Existing admin account had no templates — seeded directly via SQL
+
+**Issues discovered:**
+- Resend domain not yet verified — emails will send once DNS propagates (may take up to 24h). Verification links currently print to server console as fallback
+- `APP_URL` env var is not set — verification links use `http://localhost:5000` as base. Must set `APP_URL` to the Replit app URL in Secrets before going live so email links work correctly
+- OAuth redirect URIs still hardcoded to `http://localhost:5000` — needs updating when deploying to production
+- Facebook/LinkedIn access tokens expire (~60 days) — token refresh not yet built
+- SMS sending not yet wired up — channel field stored but no SMS provider (Twilio etc.) connected
+
+**Notes for next session:**
+- **Set `APP_URL` in Replit Secrets** to the full Replit app URL (e.g. `https://xxx.riker.replit.dev`) — critical for email verification links to work for new signups
+- Resend domain should be verified by next session — test a real review request email once confirmed
+- Admin panel is fully functional — user can sign up, get auto-added as customer, and receive review request emails
+- Default templates are created for all new accounts; existing admin account templates were seeded manually
+- `landing.html` still a bare-bones placeholder
+
+**Lessons learned:**
+- When user is on Claude Code (not Replit UI), there is no Run/Stop button — restart the server via bash commands instead
+- Always grab verification tokens from the database when email isn't sending, rather than asking user to find logs themselves
+- When seeding data for an existing account, do it directly via SQL rather than building a one-time endpoint
