@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Shield, LogIn, CheckCircle2, XCircle, Trash2, ShieldCheck, ShieldOff, History } from "lucide-react";
 
@@ -49,6 +50,7 @@ export default function Admin() {
   const impersonate = async (userId: string) => {
     const r = await fetch(`/api/admin/impersonate/${userId}`, { method: "POST", credentials: "include" });
     if (!r.ok) return;
+    queryClient.clear();
     await refreshUser();
     navigate("/");
   };
