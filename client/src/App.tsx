@@ -17,7 +17,6 @@ import ReviewLanding from "@/pages/ReviewLanding";
 import StatDetail from "@/pages/StatDetail";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
-import LoginPreview from "@/pages/LoginPreview";
 
 function ProtectedRoutes() {
   const { user, loading } = useAuth();
@@ -63,7 +62,6 @@ function Router() {
       <Route path="/review-landing" component={ReviewLanding} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
-      <Route path="/preview-login" component={LoginPreview} />
       <Route component={ProtectedRoutes} />
     </Switch>
   );
