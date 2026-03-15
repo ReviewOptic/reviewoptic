@@ -44,8 +44,10 @@ function getReviewLink(settings: Settings): string {
 }
 
 function applyMergeTags(text: string, customer: Customer, settings: Settings): string {
+  const firstName = customer.name.split(" ")[0];
   return text
     .replace(/\{\{customer_name\}\}/g, customer.name)
+    .replace(/\{\{first_name\}\}/g, firstName)
     .replace(/\{\{business_name\}\}/g, settings.businessName)
     .replace(/\{\{service_type\}\}/g, customer.serviceType || "")
     .replace(/\{\{review_link\}\}/g, getReviewLink(settings));
@@ -79,9 +81,10 @@ export async function sendReviewEmail(
       ${reviewLink ? `<br><br><a href="${reviewLink}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">Leave a Review</a>` : ""}
     </div>`;
   } else {
+    const firstName = customer.name.split(" ")[0];
     subject = `How was your experience with ${settings.businessName}?`;
     html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:32px 24px;color:#111;">
-      <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Hi ${customer.name},</h2>
+      <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Hi ${firstName},</h2>
       <p style="color:#555;margin:0 0 24px;line-height:1.6;">
         Thank you for choosing ${settings.businessName}. We'd love to hear about your experience — it only takes a minute and means a lot to us.
       </p>

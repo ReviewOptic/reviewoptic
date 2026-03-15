@@ -1,23 +1,5 @@
-import { createContext, useState, useEffect, ReactNode } from "react";
-
-interface AuthUser {
-  id: string;
-  email: string;
-  accountId: string;
-  isAdmin: boolean;
-  isImpersonating: boolean;
-}
-
-interface AuthContextType {
-  user: AuthUser | null;
-  loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, businessName: string) => Promise<{ requiresVerification: boolean }>;
-  logout: () => Promise<void>;
-  refreshUser: () => Promise<void>;
-}
-
-export const AuthContext = createContext<AuthContextType | null>(null);
+import { useState, useEffect, ReactNode } from "react";
+import { AuthContext, type AuthUser } from "./auth-types";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -47,12 +29,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data);
   };
 
-  const register = async (email: string, password: string, businessName: string) => {
+  const register = async (email: string, password: string, firstName: string, lastName: string, companyName: string) => {
     const res = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ email, password, businessName }),
+      body: JSON.stringify({ email, password, firstName, lastName, companyName }),
     });
     if (!res.ok) {
       const data = await res.json();
@@ -74,4 +56,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     </AuthContext.Provider>
   );
 }
-

@@ -11,7 +11,9 @@ export default function Login() {
   const [mode, setMode] = useState<"login" | "register" | "forgot">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [businessName, setBusinessName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [companyName, setCompanyName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [forgotSent, setForgotSent] = useState(false);
@@ -33,10 +35,12 @@ export default function Login() {
         await login(email, password);
         navigate("/");
       } else {
+        if (!firstName || !lastName) throw new Error("First and last name are required");
+        if (!companyName) throw new Error("Company name is required");
         if (password.length < 8) throw new Error("Password must be at least 8 characters");
         if (!/[0-9]/.test(password)) throw new Error("Password must contain at least one number");
         if (!/[^a-zA-Z0-9]/.test(password)) throw new Error("Password must contain at least one symbol");
-        const result = await register(email, password, businessName);
+        const result = await register(email, password, firstName, lastName, companyName);
         if (result.requiresVerification) {
           setVerificationSent(true);
         } else {
@@ -118,10 +122,22 @@ export default function Login() {
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 {mode === "register" && (
-                  <div className="space-y-1.5">
-                    <label className="block text-sm font-medium">Business name</label>
-                    <Input type="text" placeholder="Acme Plumbing" value={businessName} onChange={e => setBusinessName(e.target.value)} required />
-                  </div>
+                  <>
+                    <div className="flex gap-2">
+                      <div className="space-y-1.5 flex-1">
+                        <label className="block text-sm font-medium">First name</label>
+                        <Input type="text" placeholder="Jane" value={firstName} onChange={e => setFirstName(e.target.value)} required />
+                      </div>
+                      <div className="space-y-1.5 flex-1">
+                        <label className="block text-sm font-medium">Last name</label>
+                        <Input type="text" placeholder="Smith" value={lastName} onChange={e => setLastName(e.target.value)} required />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="block text-sm font-medium">Company name</label>
+                      <Input type="text" placeholder="Acme Plumbing" value={companyName} onChange={e => setCompanyName(e.target.value)} required />
+                    </div>
+                  </>
                 )}
                 <div className="space-y-1.5">
                   <label className="block text-sm font-medium">Email</label>

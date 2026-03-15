@@ -124,8 +124,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // ── Auth routes (no requireAuth) ──────────────────────────────────────────
 
   app.post("/api/auth/register", async (req, res) => {
-    const { email, password, businessName } = req.body;
+    const { email, password, firstName, lastName, companyName } = req.body;
     if (!email || !password) return res.status(400).json({ message: "Email and password are required" });
+    if (!firstName || !lastName) return res.status(400).json({ message: "First and last name are required" });
+    if (!companyName) return res.status(400).json({ message: "Company name is required" });
     if (password.length < 8) return res.status(400).json({ message: "Password must be at least 8 characters" });
     if (!/[0-9]/.test(password)) return res.status(400).json({ message: "Password must contain at least one number" });
     if (!/[^a-zA-Z0-9]/.test(password)) return res.status(400).json({ message: "Password must contain at least one symbol" });
@@ -142,12 +144,35 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       password: hashedPassword,
       emailVerified: false,
       verificationToken,
+      firstName,
+      lastName,
+      companyName,
     });
 
     // Create default settings for the new account
     await storage.upsertSettings(account.id, {
-      businessName: businessName || "My Business",
+      businessName: companyName,
     });
+
+    // Auto-add as customer in admin account for ReviewOptic's own review requests
+    if (process.env.ADMIN_EMAIL) {
+      const adminUser = await storage.getUserByEmail(process.env.ADMIN_EMAIL);
+      if (adminUser) {
+        await storage.createCustomer({
+          id: randomUUID(),
+          accountId: adminUser.accountId,
+          name: `${firstName} ${lastName}`,
+          email: email.toLowerCase(),
+          phone: "",
+          serviceDate: new Date().toISOString().split("T")[0],
+          serviceType: "ReviewOptic subscription",
+          notes: `Company: ${companyName}`,
+          status: "pending_request",
+          doNotContact: false,
+          channel: "email",
+        });
+      }
+    }
 
     const appUrl = process.env.APP_URL || "http://localhost:5000";
     const verifyUrl = `${appUrl}/verify-email?token=${verificationToken}`;

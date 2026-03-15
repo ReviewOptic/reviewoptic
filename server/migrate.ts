@@ -62,6 +62,11 @@ export async function runMigrations() {
     // Mark existing users as verified so they aren't locked out
     await pool.query(`UPDATE users SET email_verified = true WHERE email_verified = false AND verification_token IS NULL`);
 
+    // User profile columns
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name TEXT NOT NULL DEFAULT ''`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name TEXT NOT NULL DEFAULT ''`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS company_name TEXT NOT NULL DEFAULT ''`);
+
     // Admin column
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT false`);
     if (process.env.ADMIN_EMAIL) {
