@@ -1,5 +1,5 @@
 import { drizzle } from "drizzle-orm/node-postgres";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import pkg from "pg";
 const { Pool } = pkg;
 import { randomUUID } from "crypto";
@@ -230,7 +230,7 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .update(customers)
       .set({ status: "no_response" })
-      .where(sql`${customers.id} = ANY(${ids}) AND ${customers.status} = 'request_sent'`)
+      .where(and(inArray(customers.id, ids), eq(customers.status, "request_sent")))
       .returning();
     return result.length;
   }

@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
-import { useAuth } from "@/context/AuthContext";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Star, CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 
 const tagline = "Turn happy customers into 5-star reviews";
 const sub = "Send review requests, follow up automatically, and grow your reputation while you focus on the work.";
@@ -14,7 +13,7 @@ const features = [
   "Track requests, clicks, and your average rating",
 ];
 
-function Logo({ dark = false }: { dark?: boolean }) {
+function Logo({ dark = false }) {
   return (
     <div className="flex items-center gap-2">
       <div className={`flex items-center justify-center w-8 h-8 rounded-lg ${dark ? "bg-white" : "bg-primary"}`}>
@@ -25,47 +24,44 @@ function Logo({ dark = false }: { dark?: boolean }) {
   );
 }
 
-function LoginForm({ dark = false, onSubmit, email, setEmail, password, setPassword, error, loading }: any) {
-  const inputCls = dark ? "bg-white/10 border-white/20 text-white placeholder:text-white/30" : "";
+function FakeForm({ dark = false }) {
+  const labelCls = dark ? "text-white/80 text-sm font-medium" : "";
+  const inputCls = dark ? "bg-white/10 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-white/30" : "";
   return (
-    <form onSubmit={onSubmit} className="space-y-4 w-full">
+    <div className="space-y-4 w-full">
       <div className="space-y-1.5">
         <label className={`block text-sm font-medium ${dark ? "text-white/80" : "text-foreground"}`}>Email</label>
-        <Input type="email" placeholder="you@example.com" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} className={inputCls} required />
+        <Input placeholder="you@example.com" className={inputCls} readOnly />
       </div>
       <div className="space-y-1.5">
         <label className={`block text-sm font-medium ${dark ? "text-white/80" : "text-foreground"}`}>Password</label>
-        <Input type="password" placeholder="••••••••" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} className={inputCls} required />
+        <Input type="password" placeholder="••••••••" className={inputCls} readOnly />
       </div>
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      <Button type="submit" className="w-full" variant={dark ? "secondary" : "default"} disabled={loading}>
-        {loading ? "Signing in…" : "Sign in"}
-      </Button>
+      <Button className="w-full" variant={dark ? "secondary" : "default"}>Sign in</Button>
       <p className={`text-center text-xs ${dark ? "text-white/50" : "text-muted-foreground"}`}>
-        No account?{" "}
-        <a href="/register" className={`font-medium ${dark ? "text-white/80 underline" : "text-primary hover:underline"}`}>Create one free</a>
+        No account? <span className={`font-medium ${dark ? "text-white/80" : "text-primary"}`}>Create one free</span>
       </p>
-    </form>
+    </div>
   );
 }
 
-// ── 5 layout options ──────────────────────────────────────────────────────────
-
-function Option1({ formProps }: any) {
+// Option 1: Centred card, nothing else
+function Option1() {
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-sm">
         <div className="flex justify-center mb-8"><Logo /></div>
         <div className="bg-card border border-border rounded-xl p-7 shadow-sm">
           <h2 className="text-xl font-bold mb-5">Sign in</h2>
-          <LoginForm {...formProps} />
+          <FakeForm />
         </div>
       </div>
     </div>
   );
 }
 
-function Option2({ formProps }: any) {
+// Option 2: Centred with tagline
+function Option2() {
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-sm text-center">
@@ -73,14 +69,15 @@ function Option2({ formProps }: any) {
         <h1 className="text-2xl font-bold tracking-tight mb-2">{tagline}</h1>
         <p className="text-muted-foreground text-sm mb-8">{sub}</p>
         <div className="bg-card border border-border rounded-xl p-7 shadow-sm text-left">
-          <LoginForm {...formProps} />
+          <FakeForm />
         </div>
       </div>
     </div>
   );
 }
 
-function Option3({ formProps }: any) {
+// Option 3: Thin left strip
+function Option3() {
   return (
     <div className="min-h-screen flex">
       <div className="hidden lg:flex flex-col justify-between bg-muted/50 border-r border-border p-8 w-64 flex-shrink-0">
@@ -92,14 +89,15 @@ function Option3({ formProps }: any) {
         <div className="w-full max-w-sm">
           <h2 className="text-xl font-bold mb-1">Welcome back</h2>
           <p className="text-muted-foreground text-sm mb-6">Sign in to your account.</p>
-          <LoginForm {...formProps} />
+          <FakeForm />
         </div>
       </div>
     </div>
   );
 }
 
-function Option4({ formProps }: any) {
+// Option 4: Top nav bar + centred form
+function Option4() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <nav className="flex items-center px-8 py-4 border-b border-border">
@@ -108,85 +106,60 @@ function Option4({ formProps }: any) {
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-sm">
           <h2 className="text-2xl font-bold tracking-tight mb-1">Sign in</h2>
-          <p className="text-muted-foreground text-sm mb-7">Enter your details to continue.</p>
-          <LoginForm {...formProps} />
+          <p className="text-muted-foreground text-sm mb-7">Enter your details to access your account.</p>
+          <FakeForm />
         </div>
       </div>
     </div>
   );
 }
 
-function Option5({ formProps }: any) {
+// Option 5: Dark background, centred card
+function Option5() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: "#0f172a" }}>
       <div className="w-full max-w-sm">
         <div className="flex justify-center mb-8"><Logo dark /></div>
         <div className="rounded-xl p-7 shadow-xl" style={{ background: "#1e293b", border: "1px solid rgba(255,255,255,0.08)" }}>
           <h2 className="text-xl font-bold mb-5 text-white">Sign in</h2>
-          <LoginForm dark {...formProps} />
+          <FakeForm dark />
         </div>
-        <p className="text-center mt-6 text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>© 2026 ReviewOptic</p>
+        <p className="text-center mt-6 text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>© 2026 ReviewOptic</p>
       </div>
     </div>
   );
 }
 
 const options = [
-  { label: "1 — Minimal card", component: Option1 },
-  { label: "2 — Tagline above", component: Option2 },
-  { label: "3 — Thin left strip", component: Option3 },
-  { label: "4 — Top nav bar", component: Option4 },
-  { label: "5 — Dark background", component: Option5 },
+  { label: "Option 1 — Minimal card", component: Option1 },
+  { label: "Option 2 — Tagline above form", component: Option2 },
+  { label: "Option 3 — Thin left strip", component: Option3 },
+  { label: "Option 4 — Top nav bar", component: Option4 },
+  { label: "Option 5 — Dark background", component: Option5 },
 ];
 
-// ── Main page ─────────────────────────────────────────────────────────────────
-
-export default function Login() {
-  const { login } = useAuth();
-  const [, navigate] = useLocation();
+export default function LoginPreview() {
   const [current, setCurrent] = useState(0);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-    try {
-      await login(email, password);
-      navigate("/");
-    } catch (err: any) {
-      setError(err.message || "Login failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const Active = options[current].component;
-  const formProps = { onSubmit: handleSubmit, email, setEmail, password, setPassword, error, loading };
 
   return (
     <div className="relative">
-      {/* Toggle bar */}
-      <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-3 py-2 gap-2 text-xs font-medium" style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)", color: "#fff" }}>
+      {/* Picker bar */}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur text-white flex items-center justify-between px-4 py-2.5 gap-4 text-sm">
         <button
           onClick={() => setCurrent(i => Math.max(0, i - 1))}
           disabled={current === 0}
-          className="flex items-center gap-1 px-2.5 py-1 rounded bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed"
+          className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
-          <ChevronLeft className="w-3.5 h-3.5" /> Prev
+          <ChevronLeft className="w-4 h-4" /> Prev
         </button>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           {options.map((o, i) => (
             <button
               key={i}
               onClick={() => setCurrent(i)}
-              title={o.label}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded transition-colors"
-              style={{ background: i === current ? "#fff" : "transparent", color: i === current ? "#000" : "#fff", opacity: i === current ? 1 : 0.55 } as any}
+              className={`w-7 h-7 rounded-full text-xs font-bold transition-colors ${i === current ? "bg-white text-black" : "bg-white/20 hover:bg-white/30 text-white"}`}
             >
               {i + 1}
             </button>
@@ -196,20 +169,20 @@ export default function Login() {
         <button
           onClick={() => setCurrent(i => Math.min(options.length - 1, i + 1))}
           disabled={current === options.length - 1}
-          className="flex items-center gap-1 px-2.5 py-1 rounded bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed"
+          className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
-          Next <ChevronRight className="w-3.5 h-3.5" />
+          Next <ChevronRight className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Active option label */}
-      <div className="fixed bottom-3 left-1/2 -translate-x-1/2 z-50 text-xs font-medium px-3 py-1.5 rounded-full" style={{ background: "rgba(0,0,0,0.6)", color: "#fff", backdropFilter: "blur(4px)" }}>
+      {/* Label */}
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-black/70 backdrop-blur text-white text-xs font-medium px-4 py-2 rounded-full">
         {options[current].label}
       </div>
 
-      {/* Design preview */}
-      <div className="pt-[38px]">
-        <Active formProps={formProps} />
+      {/* Preview */}
+      <div className="pt-[44px]">
+        <Active />
       </div>
     </div>
   );
