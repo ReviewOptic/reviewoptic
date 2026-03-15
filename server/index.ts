@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
@@ -10,6 +11,17 @@ import { seedDatabase } from "./seed";
 import { storage } from "./storage";
 import { runMigrations } from "./migrate";
 import path from "path";
+import { execSync } from "child_process";
+
+process.on("uncaughtException", (err) => {
+  console.error("UNCAUGHT EXCEPTION:", err);
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("UNHANDLED REJECTION:", reason);
+  process.exit(1);
+});
 
 declare module "express-session" {
   interface SessionData {
@@ -132,10 +144,9 @@ app.use((req, res, next) => {
     });
     httpServer.once("error", (err: any) => {
       if (err.code === "EADDRINUSE" && attemptsLeft > 0) {
-        log(`Port ${port} in use, retrying in 2s… (${attemptsLeft} attempts left)`);
-        httpServer.close(() => {
-          setTimeout(() => startServer(attemptsLeft - 1), 2000);
-        });
+        log(`Port ${port} in use, killing occupant and retrying in 2s… (${attemptsLeft} left)`);
+        try { execSync(`fuser -k ${port}/tcp 2>/dev/null || true`); } catch {}
+        setTimeout(() => startServer(attemptsLeft - 1), 2000);
       } else {
         console.error("Fatal server error:", err);
         process.exit(1);
