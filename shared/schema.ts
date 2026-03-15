@@ -2,8 +2,14 @@ import { pgTable, text, integer, boolean, timestamp, varchar, real } from "drizz
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+export const accounts = pgTable("accounts", {
+  id: varchar("id").primaryKey(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const customers = pgTable("customers", {
   id: varchar("id").primaryKey(),
+  accountId: varchar("account_id").notNull().default(""),
   name: text("name").notNull(),
   email: text("email").notNull().default(""),
   phone: text("phone").notNull().default(""),
@@ -18,6 +24,7 @@ export const customers = pgTable("customers", {
 
 export const reviewRequests = pgTable("review_requests", {
   id: varchar("id").primaryKey(),
+  accountId: varchar("account_id").notNull().default(""),
   customerId: varchar("customer_id").notNull(),
   status: text("status").notNull().default("pending"),
   channel: text("channel").notNull().default("email"),
@@ -30,6 +37,7 @@ export const reviewRequests = pgTable("review_requests", {
 
 export const reviews = pgTable("reviews", {
   id: varchar("id").primaryKey(),
+  accountId: varchar("account_id").notNull().default(""),
   customerId: varchar("customer_id").notNull(),
   platform: text("platform").notNull().default("google"),
   stars: integer("stars").notNull().default(5),
@@ -39,6 +47,7 @@ export const reviews = pgTable("reviews", {
 
 export const privateFeedback = pgTable("private_feedback", {
   id: varchar("id").primaryKey(),
+  accountId: varchar("account_id").notNull().default(""),
   customerId: varchar("customer_id").notNull(),
   stars: integer("stars").notNull().default(1),
   message: text("message").notNull().default(""),
@@ -48,6 +57,7 @@ export const privateFeedback = pgTable("private_feedback", {
 
 export const activityLog = pgTable("activity_log", {
   id: varchar("id").primaryKey(),
+  accountId: varchar("account_id").notNull().default(""),
   type: text("type").notNull(),
   customerId: varchar("customer_id"),
   customerName: text("customer_name").notNull().default(""),
@@ -58,6 +68,7 @@ export const activityLog = pgTable("activity_log", {
 
 export const templates = pgTable("templates", {
   id: varchar("id").primaryKey(),
+  accountId: varchar("account_id").notNull().default(""),
   name: text("name").notNull(),
   templateType: text("template_type").notNull(),
   channel: text("channel").notNull().default("email"),
@@ -71,6 +82,7 @@ export const templates = pgTable("templates", {
 
 export const settings = pgTable("settings", {
   id: varchar("id").primaryKey().default("default"),
+  accountId: varchar("account_id").notNull().default(""),
   ownerName: text("owner_name").notNull().default(""),
   businessName: text("business_name").notNull().default("My Business"),
   businessEmail: text("business_email").notNull().default(""),
@@ -126,12 +138,14 @@ export type Template = typeof templates.$inferSelect;
 export type InsertTemplate = z.infer<typeof insertTemplateSchema>;
 export type Settings = typeof settings.$inferSelect;
 export type InsertSettings = z.infer<typeof insertSettingsSchema>;
+export type Account = typeof accounts.$inferSelect;
 
 export const users = pgTable("users", {
   id: varchar("id").primaryKey(),
-  username: text("username").notNull().unique(),
+  accountId: varchar("account_id").notNull().default(""),
+  email: text("email").notNull().unique(),
   password: text("password").notNull(),
 });
-export const insertUserSchema = createInsertSchema(users);
+export const insertUserSchema = createInsertSchema(users).omit({ id: true });
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;

@@ -1,14 +1,23 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { randomUUID } from "crypto";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import bcrypt from "bcryptjs";
 import type { Review, Customer, Settings } from "@shared/schema";
 
 const uploadsDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+// Auth middleware
+function requireAuth(req: Request, res: Response, next: NextFunction) {
+  if (!req.session.userId || !req.session.accountId) {
+    return res.status(401).json({ message: "Not authenticated" });
+  }
+  next();
+}
 
 async function postReviewToSocial(review: Review, customer: Customer, settings: Settings) {
   if (!settings.socialPostEnabled) return;
@@ -79,81 +88,79 @@ const audioUpload = multer({
 });
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
-  // Customers
-  app.get("/api/customers", async (req, res) => {
-    const customers = await storage.getCustomers();
-    res.json(customers);
-  });
-  app.get("/api/customers/:id", async (req, res) => {
-    const c = await storage.getCustomer(req.params.id);
-    if (!c) return res.status(404).json({ message: "Customer not found" });
-    res.json(c);
-  });
-  app.post("/api/customers", async (req, res) => {
-    if (!req.body.name) return res.status(400).json({ message: "Name is required" });
-    if (!req.body.email && !req.body.phone) return res.status(400).json({ message: "Email or phone number is required" });
-    const c = await storage.createCustomer(req.body);
-    await storage.createActivity({
-      id: randomUUID(),
-      type: "customer_added",
-      customerId: c.id,
-      customerName: c.name,
-      message: `${c.name} added as a customer`,
-      metadata: "{}",
+
+  // ── Auth routes (no requireAuth) ──────────────────────────────────────────
+
+  app.post("/api/auth/register", async (req, res) => {
+    const { email, password, businessName } = req.body;
+    if (!email || !password) return res.status(400).json({ message: "Email and password are required" });
+    if (password.length < 6) return res.status(400).json({ message: "Password must be at least 6 characters" });
+
+    const existing = await storage.getUserByEmail(email);
+    if (existing) return res.status(400).json({ message: "An account with this email already exists" });
+
+    const account = await storage.createAccount();
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = await storage.createUser({
+      accountId: account.id,
+      email: email.toLowerCase(),
+      password: hashedPassword,
     });
-    res.json(c);
-  });
-  app.patch("/api/customers/:id", async (req, res) => {
-    const c = await storage.updateCustomer(req.params.id, req.body);
-    if (!c) return res.status(404).json({ message: "Customer not found" });
-    res.json(c);
-  });
-  app.delete("/api/customers/:id", async (req, res) => {
-    await storage.deleteCustomer(req.params.id);
-    res.json({ success: true });
+
+    // Create default settings for the new account
+    await storage.upsertSettings(account.id, {
+      businessName: businessName || "My Business",
+    });
+
+    req.session.userId = user.id;
+    req.session.accountId = account.id;
+    res.json({ id: user.id, email: user.email, accountId: account.id });
   });
 
-  // Review Requests
-  app.get("/api/review-requests", async (req, res) => {
-    const rr = await storage.getReviewRequests();
-    res.json(rr);
+  app.post("/api/auth/login", async (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ message: "Email and password are required" });
+
+    const user = await storage.getUserByEmail(email);
+    if (!user) return res.status(401).json({ message: "Invalid email or password" });
+
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) return res.status(401).json({ message: "Invalid email or password" });
+
+    req.session.userId = user.id;
+    req.session.accountId = user.accountId;
+    res.json({ id: user.id, email: user.email, accountId: user.accountId });
   });
-  app.post("/api/review-requests", async (req, res) => {
-    const customer = await storage.getCustomer(req.body.customerId);
-    if (!customer) return res.status(404).json({ message: "Customer not found" });
-    const rr = await storage.createReviewRequest({
-      ...req.body,
-      status: "sent",
-      sentAt: new Date(),
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy(() => {
+      res.json({ success: true });
     });
-    await storage.updateCustomer(customer.id, { status: "request_sent" });
-    await storage.createActivity({
-      id: randomUUID(),
-      type: "request_sent",
-      customerId: customer.id,
-      customerName: customer.name,
-      message: `Review request sent to ${customer.name} via ${req.body.channel || customer.channel}`,
-      metadata: "{}",
-    });
-    res.json(rr);
   });
-  app.patch("/api/review-requests/:id", async (req, res) => {
-    const rr = await storage.updateReviewRequest(req.params.id, req.body);
-    if (!rr) return res.status(404).json({ message: "Not found" });
-    res.json(rr);
+
+  app.get("/api/auth/me", async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ message: "Not authenticated" });
+    const user = await storage.getUser(req.session.userId);
+    if (!user) return res.status(401).json({ message: "User not found" });
+    res.json({ id: user.id, email: user.email, accountId: user.accountId });
   });
-  // Track link click
+
+  // ── Public routes (no requireAuth) ───────────────────────────────────────
+
+  // Track link click (must remain public — customers click this)
   app.get("/api/track/:requestId/click", async (req, res) => {
     const rr = await storage.updateReviewRequest(req.params.requestId, {
       clickedAt: new Date(),
       status: "clicked",
     });
     if (rr) {
-      const customer = await storage.getCustomer(rr.customerId);
+      const accountId = rr.accountId;
+      const customer = await storage.getCustomer(rr.customerId, accountId);
       if (customer) {
-        await storage.updateCustomer(customer.id, { status: "clicked" });
+        await storage.updateCustomer(customer.id, { status: "clicked" }, accountId);
         await storage.createActivity({
           id: randomUUID(),
+          accountId,
           type: "link_clicked",
           customerId: customer.id,
           customerName: customer.name,
@@ -165,26 +172,28 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.redirect("/review-landing?rid=" + req.params.requestId);
   });
 
-  // Reviews
-  app.get("/api/reviews", async (req, res) => {
-    res.json(await storage.getReviews());
-  });
+  // Reviews submit (public — customers submit this)
   app.post("/api/reviews", async (req, res) => {
-    const review = await storage.createReview(req.body);
-    const customer = await storage.getCustomer(req.body.customerId);
+    // Get accountId from the review request (customer-facing flow)
+    const rr = req.body.requestId ? await storage.getReviewRequest(req.body.requestId) : null;
+    const accountId = rr?.accountId || req.session.accountId;
+    if (!accountId) return res.status(400).json({ message: "Cannot determine account" });
+
+    const review = await storage.createReview({ ...req.body, accountId });
+    const customer = rr ? await storage.getCustomer(rr.customerId, accountId) : null;
     if (customer) {
-      await storage.updateCustomer(customer.id, { status: "review_completed" });
+      await storage.updateCustomer(customer.id, { status: "review_completed" }, accountId);
       await storage.createActivity({
         id: randomUUID(),
+        accountId,
         type: "review_received",
         customerId: customer.id,
         customerName: customer.name,
         message: `${customer.name} left a ${req.body.stars}-star review on ${req.body.platform}`,
         metadata: JSON.stringify({ stars: req.body.stars, platform: req.body.platform }),
       });
-      // Auto-post to social if review is 4 or 5 stars
       if (review.stars >= 4) {
-        const settings = await storage.getSettings();
+        const settings = await storage.getSettings(accountId);
         if (settings) {
           postReviewToSocial(review, customer, settings).catch(err =>
             console.error("Social post failed:", err)
@@ -195,16 +204,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(review);
   });
 
-  // Private Feedback
-  app.get("/api/private-feedback", async (req, res) => {
-    res.json(await storage.getPrivateFeedback());
-  });
+  // Private feedback submit (public — customers submit this)
   app.post("/api/private-feedback", async (req, res) => {
-    const feedback = await storage.createPrivateFeedback(req.body);
-    const customer = await storage.getCustomer(req.body.customerId);
+    const rr = req.body.requestId ? await storage.getReviewRequest(req.body.requestId) : null;
+    const accountId = rr?.accountId || req.session.accountId;
+    if (!accountId) return res.status(400).json({ message: "Cannot determine account" });
+
+    const feedback = await storage.createPrivateFeedback({ ...req.body, accountId });
+    const customer = rr ? await storage.getCustomer(rr.customerId, accountId) : null;
     if (customer) {
       await storage.createActivity({
         id: randomUUID(),
+        accountId,
         type: "private_feedback",
         customerId: customer.id,
         customerName: customer.name,
@@ -214,50 +225,142 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
     res.json(feedback);
   });
-  app.patch("/api/private-feedback/:id", async (req, res) => {
-    const f = await storage.updatePrivateFeedback(req.params.id, req.body);
+
+  // Widget embed API (public)
+  app.get("/api/widget/:businessId/reviews", async (req, res) => {
+    const settings = await storage.getSettings(req.params.businessId);
+    const minStars = settings?.widgetMinStars || 4;
+    const count = settings?.widgetCount || 5;
+    const allReviews = await storage.getReviews(req.params.businessId);
+    const filtered = allReviews.filter(r => r.stars >= minStars).slice(0, count);
+    const customerList = await Promise.all(filtered.map(r => storage.getCustomer(r.customerId, req.params.businessId)));
+    const result = filtered.map((r, i) => ({
+      ...r,
+      customerName: customerList[i]?.name || "Anonymous",
+    }));
+    res.json({ reviews: result, businessName: settings?.businessName || "My Business" });
+  });
+
+  // ── Protected routes (requireAuth) ───────────────────────────────────────
+
+  // Customers
+  app.get("/api/customers", requireAuth, async (req, res) => {
+    const cs = await storage.getCustomers(req.session.accountId!);
+    res.json(cs);
+  });
+  app.get("/api/customers/:id", requireAuth, async (req, res) => {
+    const c = await storage.getCustomer(String(req.params.id), req.session.accountId!);
+    if (!c) return res.status(404).json({ message: "Customer not found" });
+    res.json(c);
+  });
+  app.post("/api/customers", requireAuth, async (req, res) => {
+    if (!req.body.name) return res.status(400).json({ message: "Name is required" });
+    if (!req.body.email && !req.body.phone) return res.status(400).json({ message: "Email or phone number is required" });
+    const c = await storage.createCustomer({ ...req.body, accountId: req.session.accountId });
+    await storage.createActivity({
+      id: randomUUID(),
+      accountId: req.session.accountId!,
+      type: "customer_added",
+      customerId: c.id,
+      customerName: c.name,
+      message: `${c.name} added as a customer`,
+      metadata: "{}",
+    });
+    res.json(c);
+  });
+  app.patch("/api/customers/:id", requireAuth, async (req, res) => {
+    const c = await storage.updateCustomer(String(req.params.id), req.body, req.session.accountId!);
+    if (!c) return res.status(404).json({ message: "Customer not found" });
+    res.json(c);
+  });
+  app.delete("/api/customers/:id", requireAuth, async (req, res) => {
+    await storage.deleteCustomer(String(req.params.id), req.session.accountId!);
+    res.json({ success: true });
+  });
+
+  // Review Requests
+  app.get("/api/review-requests", requireAuth, async (req, res) => {
+    const rr = await storage.getReviewRequests(req.session.accountId!);
+    res.json(rr);
+  });
+  app.post("/api/review-requests", requireAuth, async (req, res) => {
+    const customer = await storage.getCustomer(req.body.customerId, req.session.accountId!);
+    if (!customer) return res.status(404).json({ message: "Customer not found" });
+    const rr = await storage.createReviewRequest({
+      ...req.body,
+      accountId: req.session.accountId,
+      status: "sent",
+      sentAt: new Date(),
+    });
+    await storage.updateCustomer(customer.id, { status: "request_sent" }, req.session.accountId!);
+    await storage.createActivity({
+      id: randomUUID(),
+      accountId: req.session.accountId!,
+      type: "request_sent",
+      customerId: customer.id,
+      customerName: customer.name,
+      message: `Review request sent to ${customer.name} via ${req.body.channel || customer.channel}`,
+      metadata: "{}",
+    });
+    res.json(rr);
+  });
+  app.patch("/api/review-requests/:id", requireAuth, async (req, res) => {
+    const rr = await storage.updateReviewRequest(String(req.params.id), req.body);
+    if (!rr) return res.status(404).json({ message: "Not found" });
+    res.json(rr);
+  });
+
+  // Reviews (GET — protected; POST is public above)
+  app.get("/api/reviews", requireAuth, async (req, res) => {
+    res.json(await storage.getReviews(req.session.accountId!));
+  });
+
+  // Private Feedback (GET/PATCH — protected; POST is public above)
+  app.get("/api/private-feedback", requireAuth, async (req, res) => {
+    res.json(await storage.getPrivateFeedback(req.session.accountId!));
+  });
+  app.patch("/api/private-feedback/:id", requireAuth, async (req, res) => {
+    const f = await storage.updatePrivateFeedback(String(req.params.id), req.body);
     if (!f) return res.status(404).json({ message: "Not found" });
     res.json(f);
   });
 
   // Activity Log
-  app.get("/api/activity", async (req, res) => {
+  app.get("/api/activity", requireAuth, async (req, res) => {
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
-    res.json(await storage.getActivityLog(limit));
+    res.json(await storage.getActivityLog(req.session.accountId!, limit));
   });
 
   // Templates
-  app.get("/api/templates", async (req, res) => {
-    res.json(await storage.getTemplates());
+  app.get("/api/templates", requireAuth, async (req, res) => {
+    res.json(await storage.getTemplates(req.session.accountId!));
   });
-  app.post("/api/templates", async (req, res) => {
-    const t = await storage.createTemplate(req.body);
+  app.post("/api/templates", requireAuth, async (req, res) => {
+    const t = await storage.createTemplate({ ...req.body, accountId: req.session.accountId });
     res.json(t);
   });
-  app.patch("/api/templates/:id", async (req, res) => {
-    const t = await storage.updateTemplate(req.params.id, req.body);
+  app.patch("/api/templates/:id", requireAuth, async (req, res) => {
+    const t = await storage.updateTemplate(String(req.params.id), req.body);
     if (!t) return res.status(404).json({ message: "Not found" });
     res.json(t);
   });
-  app.post("/api/templates/upload-video", videoUpload.single("video"), (req, res) => {
+  app.post("/api/templates/upload-video", requireAuth, videoUpload.single("video"), (req, res) => {
     if (!req.file) return res.status(400).json({ message: "No video uploaded" });
     res.json({ url: `/uploads/${req.file.filename}` });
   });
-  app.post("/api/templates/upload-audio", audioUpload.single("audio"), (req, res) => {
+  app.post("/api/templates/upload-audio", requireAuth, audioUpload.single("audio"), (req, res) => {
     if (!req.file) return res.status(400).json({ message: "No audio uploaded" });
     res.json({ url: `/uploads/${req.file.filename}` });
   });
 
   // Settings
-  app.get("/api/settings", async (req, res) => {
-    const s = await storage.getSettings();
+  app.get("/api/settings", requireAuth, async (req, res) => {
+    const s = await storage.getSettings(req.session.accountId!);
     res.json(s || {});
   });
-  app.patch("/api/settings", async (req, res) => {
+  app.patch("/api/settings", requireAuth, async (req, res) => {
     try {
-      console.log("PATCH /api/settings body:", JSON.stringify(req.body));
-      const s = await storage.upsertSettings(req.body);
-      console.log("PATCH /api/settings result:", JSON.stringify(s));
+      const s = await storage.upsertSettings(req.session.accountId!, req.body);
       res.json(s);
     } catch (err) {
       console.error("Failed to save settings:", err);
@@ -266,17 +369,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // Stats
-  app.get("/api/stats", async (req, res) => {
-    const stats = await storage.getStats();
+  app.get("/api/stats", requireAuth, async (req, res) => {
+    const stats = await storage.getStats(req.session.accountId!);
     res.json(stats);
   });
 
-  // Analytics data
-  app.get("/api/analytics", async (req, res) => {
+  // Analytics
+  app.get("/api/analytics", requireAuth, async (req, res) => {
     const days = parseInt((req.query.days as string) || "30");
+    const accountId = req.session.accountId!;
     const [allRequests, allReviews] = await Promise.all([
-      storage.getReviewRequests(),
-      storage.getReviews(),
+      storage.getReviewRequests(accountId),
+      storage.getReviews(accountId),
     ]);
     const now = new Date();
     const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
@@ -296,7 +400,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     });
     const recentRequests = allRequests.filter(r => r.createdAt >= cutoff);
     const clicked = recentRequests.filter(r => r.clickedAt).length;
-    const completed = recentRequests.filter(r => r.status === "completed" || r.status === "clicked").length;
     const channelBreakdown = { email: 0, sms: 0, whatsapp: 0 };
     allRequests.forEach(r => {
       const ch = r.channel as keyof typeof channelBreakdown;
@@ -313,31 +416,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     });
   });
 
-  // Widget embed API (public)
-  app.get("/api/widget/:businessId/reviews", async (req, res) => {
-    const settings = await storage.getSettings();
-    const minStars = settings?.widgetMinStars || 4;
-    const count = settings?.widgetCount || 5;
-    const allReviews = await storage.getReviews();
-    const filtered = allReviews.filter(r => r.stars >= minStars).slice(0, count);
-    const customers = await Promise.all(filtered.map(r => storage.getCustomer(r.customerId)));
-    const result = filtered.map((r, i) => ({
-      ...r,
-      customerName: customers[i]?.name || "Anonymous",
-    }));
-    res.json({ reviews: result, businessName: settings?.businessName || "My Business" });
-  });
-
-  // Facebook OAuth
+  // Social OAuth (protected)
   let oauthState = "";
 
-  app.get("/auth/facebook", async (req, res) => {
+  app.get("/auth/facebook", requireAuth, async (req, res) => {
     const appId = process.env.FACEBOOK_APP_ID;
     if (!appId) return res.status(400).send("Facebook App ID not configured on the server.");
     oauthState = randomUUID();
     const params = new URLSearchParams({
       client_id: appId,
-      redirect_uri: "http://localhost:5000/auth/facebook/callback",
+      redirect_uri: `${process.env.APP_URL || "http://localhost:5000"}/auth/facebook/callback`,
       scope: "pages_manage_posts,pages_read_engagement,pages_show_list",
       state: oauthState,
       response_type: "code",
@@ -351,6 +439,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const appId = process.env.FACEBOOK_APP_ID;
     const appSecret = process.env.FACEBOOK_APP_SECRET;
     if (!appId || !appSecret) return res.status(500).send("Facebook credentials not configured on server.");
+    const accountId = req.session.accountId;
+    if (!accountId) return res.status(401).send("Not authenticated.");
     try {
       const tokenRes = await fetch(`https://graph.facebook.com/v18.0/oauth/access_token`, {
         method: "POST",
@@ -358,7 +448,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         body: new URLSearchParams({
           client_id: appId,
           client_secret: appSecret,
-          redirect_uri: "http://localhost:5000/auth/facebook/callback",
+          redirect_uri: `${process.env.APP_URL || "http://localhost:5000"}/auth/facebook/callback`,
           code,
         }),
       });
@@ -367,28 +457,27 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const pagesData = await pagesRes.json() as { data: Array<{ access_token: string; id: string }> };
       if (!pagesData.data?.length) return res.status(400).send("No Facebook Pages found on this account.");
       const page = pagesData.data[0];
-      await storage.upsertSettings({ facebookPageAccessToken: page.access_token, facebookPageId: page.id });
-      res.redirect("http://localhost:5000/?tab=settings&connected=facebook");
+      await storage.upsertSettings(accountId, { facebookPageAccessToken: page.access_token, facebookPageId: page.id });
+      res.redirect(`${process.env.APP_URL || "http://localhost:5000"}/?tab=settings&connected=facebook`);
     } catch (err) {
       console.error("Facebook OAuth error:", err);
       res.status(500).send("Facebook OAuth failed. Check server logs.");
     }
   });
 
-  app.delete("/api/social/facebook", async (req, res) => {
-    await storage.upsertSettings({ facebookPageAccessToken: "", facebookPageId: "" });
+  app.delete("/api/social/facebook", requireAuth, async (req, res) => {
+    await storage.upsertSettings(req.session.accountId!, { facebookPageAccessToken: "", facebookPageId: "" });
     res.json({ success: true });
   });
 
-  // LinkedIn OAuth
-  app.get("/auth/linkedin", async (req, res) => {
+  app.get("/auth/linkedin", requireAuth, async (req, res) => {
     const clientId = process.env.LINKEDIN_CLIENT_ID;
     if (!clientId) return res.status(400).send("LinkedIn Client ID not configured on the server.");
     oauthState = randomUUID();
     const params = new URLSearchParams({
       response_type: "code",
       client_id: clientId,
-      redirect_uri: "http://localhost:5000/auth/linkedin/callback",
+      redirect_uri: `${process.env.APP_URL || "http://localhost:5000"}/auth/linkedin/callback`,
       scope: "w_member_social,r_organization_social",
       state: oauthState,
     });
@@ -401,6 +490,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const clientId = process.env.LINKEDIN_CLIENT_ID;
     const clientSecret = process.env.LINKEDIN_CLIENT_SECRET;
     if (!clientId || !clientSecret) return res.status(500).send("LinkedIn credentials not configured on server.");
+    const accountId = req.session.accountId;
+    if (!accountId) return res.status(401).send("Not authenticated.");
     try {
       const tokenRes = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
         method: "POST",
@@ -410,7 +501,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           code,
           client_id: clientId,
           client_secret: clientSecret,
-          redirect_uri: "http://localhost:5000/auth/linkedin/callback",
+          redirect_uri: `${process.env.APP_URL || "http://localhost:5000"}/auth/linkedin/callback`,
         }),
       });
       const tokenData = await tokenRes.json() as { access_token: string };
@@ -420,20 +511,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const orgsData = await orgsRes.json() as { elements: Array<{ organization: string }> };
       let orgId = "";
       if (orgsData.elements?.length) {
-        // URN format: "urn:li:organization:12345"
         const urn = orgsData.elements[0].organization;
         orgId = urn.split(":").pop() || "";
       }
-      await storage.upsertSettings({ linkedinAccessToken: tokenData.access_token, linkedinOrganizationId: orgId });
-      res.redirect("http://localhost:5000/?tab=settings&connected=linkedin");
+      await storage.upsertSettings(accountId, { linkedinAccessToken: tokenData.access_token, linkedinOrganizationId: orgId });
+      res.redirect(`${process.env.APP_URL || "http://localhost:5000"}/?tab=settings&connected=linkedin`);
     } catch (err) {
       console.error("LinkedIn OAuth error:", err);
       res.status(500).send("LinkedIn OAuth failed. Check server logs.");
     }
   });
 
-  app.delete("/api/social/linkedin", async (req, res) => {
-    await storage.upsertSettings({ linkedinAccessToken: "", linkedinOrganizationId: "" });
+  app.delete("/api/social/linkedin", requireAuth, async (req, res) => {
+    await storage.upsertSettings(req.session.accountId!, { linkedinAccessToken: "", linkedinOrganizationId: "" });
     res.json({ success: true });
   });
 

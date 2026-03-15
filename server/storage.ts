@@ -1,10 +1,11 @@
 import { drizzle } from "drizzle-orm/node-postgres";
-import { eq, desc, and, count, sql } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 import pkg from "pg";
 const { Pool } = pkg;
 import { randomUUID } from "crypto";
 import {
-  customers, reviewRequests, reviews, privateFeedback, activityLog, templates, settings, users,
+  accounts, customers, reviewRequests, reviews, privateFeedback, activityLog, templates, settings, users,
+  type Account,
   type Customer, type InsertCustomer,
   type ReviewRequest, type InsertReviewRequest,
   type Review, type InsertReview,
@@ -19,42 +20,44 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const db = drizzle(pool);
 
 export interface IStorage {
+  // Accounts
+  createAccount(): Promise<Account>;
   // Customers
-  getCustomers(): Promise<Customer[]>;
-  getCustomer(id: string): Promise<Customer | undefined>;
+  getCustomers(accountId: string): Promise<Customer[]>;
+  getCustomer(id: string, accountId: string): Promise<Customer | undefined>;
   createCustomer(data: InsertCustomer): Promise<Customer>;
-  updateCustomer(id: string, data: Partial<InsertCustomer>): Promise<Customer | undefined>;
-  deleteCustomer(id: string): Promise<void>;
+  updateCustomer(id: string, data: Partial<InsertCustomer>, accountId: string): Promise<Customer | undefined>;
+  deleteCustomer(id: string, accountId: string): Promise<void>;
   // Review Requests
-  getReviewRequests(): Promise<ReviewRequest[]>;
+  getReviewRequests(accountId: string): Promise<ReviewRequest[]>;
   getReviewRequest(id: string): Promise<ReviewRequest | undefined>;
   getReviewRequestByCustomer(customerId: string): Promise<ReviewRequest | undefined>;
   createReviewRequest(data: InsertReviewRequest): Promise<ReviewRequest>;
   updateReviewRequest(id: string, data: Partial<InsertReviewRequest>): Promise<ReviewRequest | undefined>;
   // Reviews
-  getReviews(): Promise<Review[]>;
+  getReviews(accountId: string): Promise<Review[]>;
   createReview(data: InsertReview): Promise<Review>;
   // Private Feedback
-  getPrivateFeedback(): Promise<PrivateFeedback[]>;
+  getPrivateFeedback(accountId: string): Promise<PrivateFeedback[]>;
   createPrivateFeedback(data: InsertPrivateFeedback): Promise<PrivateFeedback>;
   updatePrivateFeedback(id: string, data: Partial<InsertPrivateFeedback>): Promise<PrivateFeedback | undefined>;
   // Activity Log
-  getActivityLog(limit?: number): Promise<ActivityLog[]>;
+  getActivityLog(accountId: string, limit?: number): Promise<ActivityLog[]>;
   createActivity(data: InsertActivityLog): Promise<ActivityLog>;
   // Templates
-  getTemplates(): Promise<Template[]>;
+  getTemplates(accountId: string): Promise<Template[]>;
   getTemplate(id: string): Promise<Template | undefined>;
   createTemplate(data: InsertTemplate): Promise<Template>;
   updateTemplate(id: string, data: Partial<InsertTemplate>): Promise<Template | undefined>;
   // Settings
-  getSettings(): Promise<Settings | undefined>;
-  upsertSettings(data: Partial<InsertSettings>): Promise<Settings>;
+  getSettings(accountId: string): Promise<Settings | undefined>;
+  upsertSettings(accountId: string, data: Partial<InsertSettings>): Promise<Settings>;
   // Users
   getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   // Stats
-  getStats(): Promise<{
+  getStats(accountId: string): Promise<{
     requestsThisMonth: number;
     pendingRequests: number;
     reviewsThisMonth: number;
@@ -66,11 +69,17 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  async getCustomers(): Promise<Customer[]> {
-    return db.select().from(customers).orderBy(desc(customers.createdAt));
+  async createAccount(): Promise<Account> {
+    const id = randomUUID();
+    const [a] = await db.insert(accounts).values({ id }).returning();
+    return a;
   }
-  async getCustomer(id: string): Promise<Customer | undefined> {
-    const [c] = await db.select().from(customers).where(eq(customers.id, id));
+
+  async getCustomers(accountId: string): Promise<Customer[]> {
+    return db.select().from(customers).where(eq(customers.accountId, accountId)).orderBy(desc(customers.createdAt));
+  }
+  async getCustomer(id: string, accountId: string): Promise<Customer | undefined> {
+    const [c] = await db.select().from(customers).where(and(eq(customers.id, id), eq(customers.accountId, accountId)));
     return c;
   }
   async createCustomer(data: InsertCustomer): Promise<Customer> {
@@ -78,15 +87,16 @@ export class DatabaseStorage implements IStorage {
     const [c] = await db.insert(customers).values({ ...data, id }).returning();
     return c;
   }
-  async updateCustomer(id: string, data: Partial<InsertCustomer>): Promise<Customer | undefined> {
-    const [c] = await db.update(customers).set(data).where(eq(customers.id, id)).returning();
+  async updateCustomer(id: string, data: Partial<InsertCustomer>, accountId: string): Promise<Customer | undefined> {
+    const [c] = await db.update(customers).set(data).where(and(eq(customers.id, id), eq(customers.accountId, accountId))).returning();
     return c;
   }
-  async deleteCustomer(id: string): Promise<void> {
-    await db.delete(customers).where(eq(customers.id, id));
+  async deleteCustomer(id: string, accountId: string): Promise<void> {
+    await db.delete(customers).where(and(eq(customers.id, id), eq(customers.accountId, accountId)));
   }
-  async getReviewRequests(): Promise<ReviewRequest[]> {
-    return db.select().from(reviewRequests).orderBy(desc(reviewRequests.createdAt));
+
+  async getReviewRequests(accountId: string): Promise<ReviewRequest[]> {
+    return db.select().from(reviewRequests).where(eq(reviewRequests.accountId, accountId)).orderBy(desc(reviewRequests.createdAt));
   }
   async getReviewRequest(id: string): Promise<ReviewRequest | undefined> {
     const [r] = await db.select().from(reviewRequests).where(eq(reviewRequests.id, id));
@@ -105,16 +115,18 @@ export class DatabaseStorage implements IStorage {
     const [r] = await db.update(reviewRequests).set(data).where(eq(reviewRequests.id, id)).returning();
     return r;
   }
-  async getReviews(): Promise<Review[]> {
-    return db.select().from(reviews).orderBy(desc(reviews.createdAt));
+
+  async getReviews(accountId: string): Promise<Review[]> {
+    return db.select().from(reviews).where(eq(reviews.accountId, accountId)).orderBy(desc(reviews.createdAt));
   }
   async createReview(data: InsertReview): Promise<Review> {
     const id = randomUUID();
     const [r] = await db.insert(reviews).values({ ...data, id }).returning();
     return r;
   }
-  async getPrivateFeedback(): Promise<PrivateFeedback[]> {
-    return db.select().from(privateFeedback).orderBy(desc(privateFeedback.createdAt));
+
+  async getPrivateFeedback(accountId: string): Promise<PrivateFeedback[]> {
+    return db.select().from(privateFeedback).where(eq(privateFeedback.accountId, accountId)).orderBy(desc(privateFeedback.createdAt));
   }
   async createPrivateFeedback(data: InsertPrivateFeedback): Promise<PrivateFeedback> {
     const id = randomUUID();
@@ -125,16 +137,18 @@ export class DatabaseStorage implements IStorage {
     const [f] = await db.update(privateFeedback).set(data).where(eq(privateFeedback.id, id)).returning();
     return f;
   }
-  async getActivityLog(limit = 20): Promise<ActivityLog[]> {
-    return db.select().from(activityLog).orderBy(desc(activityLog.createdAt)).limit(limit);
+
+  async getActivityLog(accountId: string, limit = 20): Promise<ActivityLog[]> {
+    return db.select().from(activityLog).where(eq(activityLog.accountId, accountId)).orderBy(desc(activityLog.createdAt)).limit(limit);
   }
   async createActivity(data: InsertActivityLog): Promise<ActivityLog> {
     const id = randomUUID();
     const [a] = await db.insert(activityLog).values({ ...data, id }).returning();
     return a;
   }
-  async getTemplates(): Promise<Template[]> {
-    return db.select().from(templates).orderBy(templates.name);
+
+  async getTemplates(accountId: string): Promise<Template[]> {
+    return db.select().from(templates).where(eq(templates.accountId, accountId)).orderBy(templates.name);
   }
   async getTemplate(id: string): Promise<Template | undefined> {
     const [t] = await db.select().from(templates).where(eq(templates.id, id));
@@ -149,22 +163,27 @@ export class DatabaseStorage implements IStorage {
     const [t] = await db.update(templates).set({ ...data, updatedAt: new Date() }).where(eq(templates.id, id)).returning();
     return t;
   }
-  async getSettings(): Promise<Settings | undefined> {
-    const [s] = await db.select().from(settings).where(eq(settings.id, "default"));
+
+  async getSettings(accountId: string): Promise<Settings | undefined> {
+    const [s] = await db.select().from(settings).where(eq(settings.accountId, accountId));
     return s;
   }
-  async upsertSettings(data: Partial<InsertSettings>): Promise<Settings> {
-    const [updated] = await db.update(settings).set(data).where(eq(settings.id, "default")).returning();
-    if (updated) return updated;
-    const [inserted] = await db.insert(settings).values({ id: "default", ...data }).returning();
+  async upsertSettings(accountId: string, data: Partial<InsertSettings>): Promise<Settings> {
+    const existing = await this.getSettings(accountId);
+    if (existing) {
+      const [updated] = await db.update(settings).set(data).where(eq(settings.id, existing.id)).returning();
+      return updated;
+    }
+    const [inserted] = await db.insert(settings).values({ id: randomUUID(), accountId, ...data }).returning();
     return inserted;
   }
+
   async getUser(id: string): Promise<User | undefined> {
     const [u] = await db.select().from(users).where(eq(users.id, id));
     return u;
   }
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    const [u] = await db.select().from(users).where(eq(users.username, username));
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [u] = await db.select().from(users).where(eq(users.email, email.toLowerCase()));
     return u;
   }
   async createUser(data: InsertUser): Promise<User> {
@@ -172,7 +191,8 @@ export class DatabaseStorage implements IStorage {
     const [u] = await db.insert(users).values({ ...data, id }).returning();
     return u;
   }
-  async getStats(): Promise<{
+
+  async getStats(accountId: string): Promise<{
     requestsThisMonth: number;
     pendingRequests: number;
     reviewsThisMonth: number;
@@ -181,10 +201,10 @@ export class DatabaseStorage implements IStorage {
   }> {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const allCustomers = await db.select().from(customers);
+    const allCustomers = await db.select().from(customers).where(eq(customers.accountId, accountId));
     const requestsThisMonth = allCustomers.filter(c => c.createdAt >= monthStart && c.status !== "pending_request").length;
     const pendingRequests = allCustomers.filter(c => c.status === "request_sent" && !c.doNotContact).length;
-    const allReviews = await db.select().from(reviews);
+    const allReviews = await db.select().from(reviews).where(eq(reviews.accountId, accountId));
     const reviewsThisMonth = allReviews.filter(r => r.createdAt >= monthStart).length;
     const sent = allCustomers.filter(c => c.status !== "pending_request").length;
     const reviewed = allCustomers.filter(c => c.status === "review_completed").length;
@@ -198,7 +218,6 @@ export class DatabaseStorage implements IStorage {
   async markNoResponse(): Promise<number> {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 14);
-    // Find customers whose earliest sentAt is older than 14 days
     const stale = await db
       .select({ customerId: reviewRequests.customerId })
       .from(reviewRequests)
@@ -217,56 +236,66 @@ export class DatabaseStorage implements IStorage {
   }
 
   async sendFollowUps(): Promise<number> {
-    const s = await this.getSettings();
-    if (!s?.followUpEnabled) return 0;
-
-    const followUp1Days = s.followUp1Days ?? 3;
-    const followUp2Days = s.followUp2Days ?? 7;
-    const maxFollowUps  = s.maxFollowUps  ?? 2;
-
-    const now = new Date();
-    const cutoff1 = new Date(now.getTime() - followUp1Days * 24 * 60 * 60 * 1000);
-    const cutoff2 = new Date(now.getTime() - followUp2Days * 24 * 60 * 60 * 1000);
-
-    const eligible = await db.select().from(customers).where(
+    // Get all unique accountIds that have active customers
+    const activeCustomers = await db.select().from(customers).where(
       and(eq(customers.status, "request_sent"), eq(customers.doNotContact, false))
     );
+    if (activeCustomers.length === 0) return 0;
 
-    let sent = 0;
-    for (const customer of eligible) {
-      const requests = await db.select().from(reviewRequests)
-        .where(and(eq(reviewRequests.customerId, customer.id), sql`${reviewRequests.sentAt} IS NOT NULL`))
-        .orderBy(reviewRequests.sentAt);
+    // Get unique accountIds
+    const accountIds = Array.from(new Set(activeCustomers.map(c => c.accountId)));
+    let totalSent = 0;
+    const now = new Date();
 
-      const sentCount = requests.length;
-      const firstSentAt = requests[0]?.sentAt;
-      if (!firstSentAt || sentCount > maxFollowUps) continue;
+    for (const accountId of accountIds) {
+      const s = await this.getSettings(accountId);
+      if (!s?.followUpEnabled) continue;
 
-      const shouldSendNext =
-        (sentCount === 1 && firstSentAt <= cutoff1) ||
-        (sentCount === 2 && maxFollowUps >= 2 && firstSentAt <= cutoff2);
+      const followUp1Days = s.followUp1Days ?? 3;
+      const followUp2Days = s.followUp2Days ?? 7;
+      const maxFollowUps = s.maxFollowUps ?? 2;
+      const cutoff1 = new Date(now.getTime() - followUp1Days * 24 * 60 * 60 * 1000);
+      const cutoff2 = new Date(now.getTime() - followUp2Days * 24 * 60 * 60 * 1000);
 
-      if (shouldSendNext) {
-        await db.insert(reviewRequests).values({
-          id: randomUUID(),
-          customerId: customer.id,
-          status: "sent",
-          channel: customer.channel,
-          sentAt: now,
-          followUpCount: sentCount,
-        });
-        await this.createActivity({
-          id: randomUUID(),
-          type: "request_sent",
-          customerId: customer.id,
-          customerName: customer.name,
-          message: `Follow-up #${sentCount + 1} sent automatically to ${customer.name} via ${customer.channel}`,
-          metadata: "{}",
-        });
-        sent++;
+      const eligible = activeCustomers.filter(c => c.accountId === accountId);
+
+      for (const customer of eligible) {
+        const requests = await db.select().from(reviewRequests)
+          .where(and(eq(reviewRequests.customerId, customer.id), sql`${reviewRequests.sentAt} IS NOT NULL`))
+          .orderBy(reviewRequests.sentAt);
+
+        const sentCount = requests.length;
+        const firstSentAt = requests[0]?.sentAt;
+        if (!firstSentAt || sentCount > maxFollowUps) continue;
+
+        const shouldSendNext =
+          (sentCount === 1 && firstSentAt <= cutoff1) ||
+          (sentCount === 2 && maxFollowUps >= 2 && firstSentAt <= cutoff2);
+
+        if (shouldSendNext) {
+          await db.insert(reviewRequests).values({
+            id: randomUUID(),
+            accountId: customer.accountId,
+            customerId: customer.id,
+            status: "sent",
+            channel: customer.channel,
+            sentAt: now,
+            followUpCount: sentCount,
+          });
+          await this.createActivity({
+            id: randomUUID(),
+            accountId: customer.accountId,
+            type: "request_sent",
+            customerId: customer.id,
+            customerName: customer.name,
+            message: `Follow-up #${sentCount + 1} sent automatically to ${customer.name} via ${customer.channel}`,
+            metadata: "{}",
+          });
+          totalSent++;
+        }
       }
     }
-    return sent;
+    return totalSent;
   }
 }
 

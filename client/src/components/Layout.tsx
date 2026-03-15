@@ -1,10 +1,11 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, FileText, BarChart3, Settings, Star, Menu, X } from "lucide-react";
+import { LayoutDashboard, Users, FileText, BarChart3, Settings, Star, Menu, X, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/context/AuthContext";
 import type { PrivateFeedback } from "@shared/schema";
 
 const navItems = [
@@ -38,6 +39,7 @@ function NavItem({ item, active, onClick }: { item: typeof navItems[0]; active: 
 function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const [location] = useLocation();
   const { data: feedback } = useQuery<PrivateFeedback[]>({ queryKey: ["/api/private-feedback"] });
+  const { user, logout } = useAuth();
   const unrespondedFeedback = feedback?.filter(f => !f.responded).length || 0;
 
   return (
@@ -65,9 +67,17 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
           );
         })}
       </nav>
-      <div className="px-4 py-4 border-t border-sidebar-border">
-        <div className="text-[11px] text-muted-foreground font-medium">ReviewOptic MVP</div>
-        <div className="text-[11px] text-muted-foreground/60">v1.0</div>
+      <div className="px-4 py-3 border-t border-sidebar-border">
+        <div className="text-[11px] text-muted-foreground/70 truncate mb-2">{user?.email}</div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start gap-2 text-[12px] h-7 px-2 text-muted-foreground hover:text-foreground"
+          onClick={logout}
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          Sign out
+        </Button>
       </div>
     </>
   );

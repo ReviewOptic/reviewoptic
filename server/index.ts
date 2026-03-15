@@ -1,19 +1,31 @@
 import express, { type Request, Response, NextFunction } from "express";
+import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
+import pkg from "pg";
+const { Pool } = pkg;
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seedDatabase } from "./seed";
 import { storage } from "./storage";
+import { runMigrations } from "./migrate";
 import path from "path";
 
-const app = express();
-const httpServer = createServer(app);
+declare module "express-session" {
+  interface SessionData {
+    userId: string;
+    accountId: string;
+  }
+}
 
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;
   }
 }
+
+const app = express();
+const httpServer = createServer(app);
 
 app.use(
   express.json({
@@ -22,9 +34,27 @@ app.use(
     },
   }),
 );
-
 app.use(express.urlencoded({ extended: false }));
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+
+// Session middleware
+const PgSession = connectPgSimple(session);
+const sessionPool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+app.use(session({
+  store: new PgSession({
+    pool: sessionPool,
+    createTableIfMissing: true,
+  }),
+  secret: process.env.SESSION_SECRET || "reviewoptic-secret-change-in-prod",
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: false, // set true if using HTTPS
+    httpOnly: true,
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+  },
+}));
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -33,7 +63,6 @@ export function log(message: string, source = "express") {
     second: "2-digit",
     hour12: true,
   });
-
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
@@ -55,7 +84,6 @@ app.use((req, res, next) => {
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
-
       log(logLine);
     }
   });
@@ -64,6 +92,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  await runMigrations().catch(console.error);
   await seedDatabase().catch(console.error);
   await registerRoutes(httpServer, app);
 
@@ -75,18 +104,13 @@ app.use((req, res, next) => {
     if (noResponse) log(`Marked ${noResponse} customer(s) as no_response`);
   };
   await runScheduledChecks();
-  setInterval(runScheduledChecks, 60 * 60 * 1000); // re-run every hour
+  setInterval(runScheduledChecks, 60 * 60 * 1000);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-
     console.error("Internal Server Error:", err);
-
-    if (res.headersSent) {
-      return next(err);
-    }
-
+    if (res.headersSent) return next(err);
     return res.status(status).json({ message });
   });
 
@@ -98,14 +122,7 @@ app.use((req, res, next) => {
   }
 
   const port = parseInt(process.env.PORT || "5000", 10);
-  httpServer.listen(
-    {
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    },
-    () => {
-      log(`serving on port ${port}`);
-    },
-  );
+  httpServer.listen({ port, host: "0.0.0.0", reusePort: true }, () => {
+    log(`serving on port ${port}`);
+  });
 })();
