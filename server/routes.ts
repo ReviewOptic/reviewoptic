@@ -681,40 +681,47 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/analytics", requireAuth, async (req, res) => {
     const days = parseInt((req.query.days as string) || "30");
     const accountId = req.session.accountId!;
-    const [allRequests, allReviews] = await Promise.all([
-      storage.getReviewRequests(accountId),
+    const [allCustomers, allReviews] = await Promise.all([
+      storage.getCustomers(accountId),
       storage.getReviews(accountId),
     ]);
     const now = new Date();
     const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+
+    // Only customers who had a request sent within the selected period
+    const sentCustomers = allCustomers.filter(c => c.status !== "pending_request" && c.createdAt >= cutoff);
+
+    // Build daily chart data — one entry per customer created that day (matching dashboard methodology)
     const dailyData: Record<string, { date: string; requests: number; reviews: number }> = {};
     for (let i = 0; i < days; i++) {
       const d = new Date(cutoff.getTime() + i * 24 * 60 * 60 * 1000);
       const key = d.toISOString().split("T")[0];
       dailyData[key] = { date: key, requests: 0, reviews: 0 };
     }
-    allRequests.filter(r => r.createdAt >= cutoff).forEach(r => {
-      const key = r.createdAt.toISOString().split("T")[0];
+    sentCustomers.forEach(c => {
+      const key = c.createdAt.toISOString().split("T")[0];
       if (dailyData[key]) dailyData[key].requests++;
     });
     allReviews.filter(r => r.createdAt >= cutoff).forEach(r => {
       const key = r.createdAt.toISOString().split("T")[0];
       if (dailyData[key]) dailyData[key].reviews++;
     });
-    const recentRequests = allRequests.filter(r => r.createdAt >= cutoff);
-    const clicked = recentRequests.filter(r => r.clickedAt).length;
+
+    // Funnel: count unique customers at each stage (matches dashboard)
+    const sent = sentCustomers.length;
+    const clicked = sentCustomers.filter(c => c.status === "clicked" || c.status === "review_completed").length;
+    const completed = sentCustomers.filter(c => c.status === "review_completed").length;
+
+    // Channel breakdown: count per-customer channel for the selected period
     const channelBreakdown = { email: 0, sms: 0, whatsapp: 0 };
-    allRequests.forEach(r => {
-      const ch = r.channel as keyof typeof channelBreakdown;
+    sentCustomers.forEach(c => {
+      const ch = c.channel as keyof typeof channelBreakdown;
       if (channelBreakdown[ch] !== undefined) channelBreakdown[ch]++;
     });
+
     res.json({
       daily: Object.values(dailyData),
-      funnel: {
-        sent: recentRequests.length,
-        clicked,
-        completed: allReviews.filter(r => r.createdAt >= cutoff).length,
-      },
+      funnel: { sent, clicked, completed },
       channelBreakdown,
     });
   });
