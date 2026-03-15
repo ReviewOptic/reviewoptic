@@ -124,7 +124,23 @@ app.use((req, res, next) => {
   }
 
   const port = parseInt(process.env.PORT || "5000", 10);
-  httpServer.listen({ port, host: "0.0.0.0", reusePort: true }, () => {
-    log(`serving on port ${port}`);
-  });
+
+  function startServer(attemptsLeft = 10) {
+    httpServer.removeAllListeners("error");
+    httpServer.listen({ port, host: "0.0.0.0" }, () => {
+      log(`serving on port ${port}`);
+    });
+    httpServer.once("error", (err: any) => {
+      if (err.code === "EADDRINUSE" && attemptsLeft > 0) {
+        log(`Port ${port} in use, retrying in 1s… (${attemptsLeft} attempts left)`);
+        httpServer.close();
+        setTimeout(() => startServer(attemptsLeft - 1), 1000);
+      } else {
+        console.error("Fatal server error:", err);
+        process.exit(1);
+      }
+    });
+  }
+
+  startServer();
 })();
