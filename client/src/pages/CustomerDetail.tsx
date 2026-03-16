@@ -61,8 +61,9 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer; op
       const res = await apiRequest("POST", "/api/ai/generate-message", { customerId: customer.id, channel });
       const data = await res.json();
       setAiMessage(data.message || "");
-    } catch {
-      toast({ title: "Could not generate message", variant: "destructive" });
+    } catch (err: any) {
+      console.error("[generateAIMessage]", err);
+      toast({ title: "Could not generate message", description: err?.message || String(err), variant: "destructive" });
     } finally {
       setIsGenerating(false);
     }

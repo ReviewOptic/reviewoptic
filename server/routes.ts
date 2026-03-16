@@ -584,8 +584,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const message = completion.choices[0]?.message?.content?.trim() || "";
       res.json({ message });
     } catch (err: any) {
-      console.error("[ai/generate-message]", err.message);
-      res.status(500).json({ message: "Failed to generate message" });
+      console.error("[ai/generate-message]", err.message, err.status, err.code);
+      res.status(500).json({ message: err.message || "Failed to generate message" });
     }
   });
 

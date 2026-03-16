@@ -231,6 +231,31 @@ Your job is to be the developer they would hire if they could afford a great one
 - Browser autofill race condition: make login inputs uncontrolled AND use `useEffect` on user state for navigation — both fixes are needed together
 - When email verification redirects fail, call `refreshUser()` before `navigate()` to ensure auth context is updated first
 
+### Session — 2026-03-16 (fifth session)
+
+**Tasks completed:**
+- Switched AI message generation from OpenAI (`gpt-4o-mini`) to Anthropic Claude (`claude-haiku-4-5-20251001`) at user request, then switched back to OpenAI at user request
+- Installed `@anthropic-ai/sdk`, then removed it and reinstalled `openai` package
+- Improved error logging on AI generate endpoint — now logs `err.status` and `err.code` as well as `err.message`
+- Improved frontend error toasts — now show the actual server error message instead of a generic string
+- User rotated all secrets (Resend, Session, Twilio, Facebook, LinkedIn, Database) and added new OpenAI API key to Replit Secrets
+
+**Fixes applied:**
+- Tightened error surfacing on `/api/ai/generate-message` so real errors reach the client toast
+
+**Issues discovered:**
+- **AI message generation still broken** — new OpenAI API key is being rejected with 401 (invalid_api_key). Root cause not yet resolved. Likely either: (1) no billing/credits on the OpenAI account, or (2) key copied incorrectly into Replit Secrets
+- Replit Secrets are only picked up on a **full container restart** (Stop + Run in Replit UI) — killing and restarting the server process alone is not enough
+
+**Notes for next session:**
+- First thing: ask user to do a full Replit restart (Stop + Run), then test "Generate with AI" — it may work once the container picks up the latest secret
+- If still 401, user needs to check billing on platform.openai.com and generate a fresh key
+- All other secrets were rotated this session — everything except OpenAI should be working normally
+- `.env` file confirmed never committed to git — secret rotation was precautionary
+
+**Lessons learned:**
+- Replit environment variables (secrets) are only injected at container start — restarting the Node process does not pick up new secret values
+
 ### Session — 2026-03-15 (fourth session)
 
 **Tasks completed:**
