@@ -65,6 +65,7 @@ export async function runMigrations() {
     // Logo URL and position
     await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS logo_url TEXT NOT NULL DEFAULT ''`);
     await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS logo_position TEXT NOT NULL DEFAULT 'left'`);
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS website_url TEXT NOT NULL DEFAULT ''`);
 
     // User profile columns
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name TEXT NOT NULL DEFAULT ''`);

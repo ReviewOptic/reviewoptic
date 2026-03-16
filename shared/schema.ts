@@ -88,6 +88,7 @@ export const settings = pgTable("settings", {
   businessEmail: text("business_email").notNull().default(""),
   logoUrl: text("logo_url").notNull().default(""),
   logoPosition: text("logo_position").notNull().default("left"),
+  websiteUrl: text("website_url").notNull().default(""),
   facebookProfileUrl: text("facebook_profile_url").notNull().default(""),
   instagramUrl: text("instagram_url").notNull().default(""),
   xUrl: text("x_url").notNull().default(""),
@@ -153,6 +154,7 @@ export const users = pgTable("users", {
   firstName: text("first_name").notNull().default(""),
   lastName: text("last_name").notNull().default(""),
   companyName: text("company_name").notNull().default(""),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 export const passwordResetTokens = pgTable("password_reset_tokens", {
   token: varchar("token").primaryKey(),

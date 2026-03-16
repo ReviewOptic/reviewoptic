@@ -38,6 +38,7 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer; op
   const [channel, setChannel] = useState(customer.channel);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [aiMessage, setAiMessage] = useState("");
+  const [customSubject, setCustomSubject] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
 
   const { data: settings } = useQuery<any>({ queryKey: ["/api/settings"] });
@@ -76,6 +77,7 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer; op
       scheduledAt: new Date(),
       selectedPlatforms: availablePlatforms.filter(p => selectedPlatforms.includes(p.key)).map(p => ({ name: p.name, url: p.url })),
       customMessage: aiMessage || undefined,
+      customSubject: channel === "email" && customSubject ? customSubject : undefined,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
@@ -125,6 +127,17 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer; op
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+          {channel === "email" && (
+            <div className="space-y-1.5">
+              <Label className="text-[12.5px]">Subject <span className="text-muted-foreground font-normal">(optional — uses template default if blank)</span></Label>
+              <Input
+                value={customSubject}
+                onChange={e => setCustomSubject(e.target.value)}
+                placeholder={`How was your experience with us?`}
+                className="text-[12.5px]"
+              />
             </div>
           )}
           <div className="space-y-1.5">

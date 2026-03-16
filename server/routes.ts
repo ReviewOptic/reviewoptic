@@ -1,6 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage, pool } from "./storage";
 import { randomUUID } from "crypto";
 import multer from "multer";
 import path from "path";
@@ -414,6 +414,121 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ success: true });
   });
 
+  app.get("/api/admin/metrics", requireAdmin, async (req, res) => {
+    try {
+      // Date range filter — applied to charts, feed, feature usage, top users
+      const from = req.query.from as string | undefined;
+      const to = req.query.to as string | undefined;
+      const hasRange = !!(from && to);
+      const dateParams = hasRange ? [from, to] : [];
+      const dateFilter = hasRange ? `AND created_at >= $1 AND created_at < ($2::date + 1)` : "";
+      const rrDateFilter = hasRange ? `AND rr.created_at >= $1 AND rr.created_at < ($2::date + 1)` : "";
+      const topUsersFilter = hasRange ? `AND a.created_at >= $1 AND a.created_at < ($2::date + 1)` : `AND a.created_at >= NOW() - INTERVAL '7 days'`;
+
+      const [
+        totalUsersR, newThisWeekR, newLastWeekR, activeThisWeekR, activeTodayR,
+        totalRequestsR, requestsThisWeekR, requestsLastWeekR, requestsTodayR,
+        recentFeedR, featureUsageR, topUsersR, funnelR,
+        retentionDay1R, retentionWeek1R, atRiskR, timeToFirstActionR,
+        usersChartR, requestsChartR, activityDowR, activityHourR,
+        signupsYesterdayR, activityYesterdayR, activityTodayCountR,
+      ] = await Promise.all([
+        pool.query(`SELECT COUNT(*) FROM users WHERE NOT is_admin`),
+        pool.query(`SELECT COUNT(*) FROM users WHERE NOT is_admin AND created_at >= NOW() - INTERVAL '7 days'`),
+        pool.query(`SELECT COUNT(*) FROM users WHERE NOT is_admin AND created_at >= NOW() - INTERVAL '14 days' AND created_at < NOW() - INTERVAL '7 days'`),
+        pool.query(`SELECT COUNT(DISTINCT account_id) FROM activity_log WHERE created_at >= NOW() - INTERVAL '7 days'`),
+        pool.query(`SELECT COUNT(DISTINCT account_id) FROM activity_log WHERE created_at >= CURRENT_DATE`),
+        pool.query(`SELECT COUNT(*) FROM review_requests`),
+        pool.query(`SELECT COUNT(*) FROM review_requests WHERE created_at >= NOW() - INTERVAL '7 days'`),
+        pool.query(`SELECT COUNT(*) FROM review_requests WHERE created_at >= NOW() - INTERVAL '14 days' AND created_at < NOW() - INTERVAL '7 days'`),
+        pool.query(`SELECT COUNT(*) FROM review_requests WHERE created_at >= CURRENT_DATE`),
+        pool.query(`SELECT rr.id, rr.channel, rr.status, rr.created_at, u.email, COALESCE(s.business_name, u.email) as business_name FROM review_requests rr JOIN users u ON u.account_id = rr.account_id JOIN settings s ON s.account_id = rr.account_id WHERE 1=1 ${rrDateFilter} ORDER BY rr.created_at DESC LIMIT 50`, dateParams),
+        pool.query(`SELECT type, COUNT(*) as count FROM activity_log WHERE 1=1 ${dateFilter} GROUP BY type ORDER BY count DESC`, dateParams),
+        pool.query(`SELECT u.email, u.created_at as signup_date, COUNT(a.id) as action_count, MAX(a.created_at) as last_active FROM users u JOIN activity_log a ON a.account_id = u.account_id WHERE NOT u.is_admin ${topUsersFilter} GROUP BY u.id, u.email, u.created_at ORDER BY action_count DESC LIMIT 10`, dateParams),
+        pool.query(`SELECT (SELECT COUNT(*) FROM users WHERE NOT is_admin) as signups, (SELECT COUNT(DISTINCT account_id) FROM activity_log) as first_action, (SELECT COUNT(*) FROM (SELECT account_id FROM activity_log GROUP BY account_id, DATE(created_at) HAVING COUNT(*) > 0) sub GROUP BY account_id HAVING COUNT(*) >= 2) as return_visit, (SELECT COUNT(DISTINCT account_id) FROM activity_log GROUP BY account_id HAVING COUNT(*) >= 10) as power_users`),
+        pool.query(`SELECT ROUND(100.0 * COUNT(DISTINCT d.account_id) / NULLIF(COUNT(DISTINCT u.account_id), 0), 1) as rate FROM users u LEFT JOIN activity_log d ON d.account_id = u.account_id AND d.created_at >= u.created_at + INTERVAL '1 day' AND d.created_at < u.created_at + INTERVAL '2 days' WHERE NOT u.is_admin`),
+        pool.query(`SELECT ROUND(100.0 * COUNT(DISTINCT d.account_id) / NULLIF(COUNT(DISTINCT u.account_id), 0), 1) as rate FROM users u LEFT JOIN activity_log d ON d.account_id = u.account_id AND d.created_at >= u.created_at AND d.created_at < u.created_at + INTERVAL '7 days' WHERE NOT u.is_admin`),
+        pool.query(`SELECT u.email, MAX(a.created_at) as last_active FROM users u JOIN activity_log a ON a.account_id = u.account_id WHERE NOT u.is_admin GROUP BY u.id, u.email HAVING MAX(a.created_at) < NOW() - INTERVAL '7 days' AND MAX(a.created_at) > NOW() - INTERVAL '30 days' ORDER BY last_active DESC LIMIT 10`),
+        pool.query(`SELECT ROUND(AVG(EXTRACT(EPOCH FROM (first_act - u.created_at))/3600), 1) as avg_hours FROM users u JOIN (SELECT account_id, MIN(created_at) as first_act FROM activity_log GROUP BY account_id) fa ON fa.account_id = u.account_id WHERE NOT u.is_admin`),
+        pool.query(`SELECT TO_CHAR(created_at, 'YYYY-MM-DD') as date, COUNT(*) as count FROM users WHERE NOT is_admin AND (${hasRange ? `created_at >= $1 AND created_at < ($2::date + 1)` : `created_at >= NOW() - INTERVAL '30 days'`}) GROUP BY date ORDER BY date`, dateParams),
+        pool.query(`SELECT TO_CHAR(created_at, 'YYYY-MM-DD') as date, COUNT(*) as count FROM review_requests WHERE (${hasRange ? `created_at >= $1 AND created_at < ($2::date + 1)` : `created_at >= NOW() - INTERVAL '30 days'`}) GROUP BY date ORDER BY date`, dateParams),
+        pool.query(`SELECT EXTRACT(DOW FROM created_at) as dow, COUNT(*) as count FROM activity_log WHERE 1=1 ${dateFilter} GROUP BY dow ORDER BY dow`, dateParams),
+        pool.query(`SELECT EXTRACT(HOUR FROM created_at) as hour, COUNT(*) as count FROM activity_log WHERE 1=1 ${dateFilter} GROUP BY hour ORDER BY hour`, dateParams),
+        pool.query(`SELECT COUNT(*) FROM users WHERE NOT is_admin AND created_at >= CURRENT_DATE - INTERVAL '1 day' AND created_at < CURRENT_DATE`),
+        pool.query(`SELECT COUNT(*) FROM activity_log WHERE created_at >= CURRENT_DATE - INTERVAL '1 day' AND created_at < CURRENT_DATE`),
+        pool.query(`SELECT COUNT(*) FROM activity_log WHERE created_at >= CURRENT_DATE`),
+      ]);
+
+      const totalUsers = parseInt(totalUsersR.rows[0].count);
+      const newThisWeek = parseInt(newThisWeekR.rows[0].count);
+      const newLastWeek = parseInt(newLastWeekR.rows[0].count);
+      const pctChange = newLastWeek === 0 ? null : Math.round(((newThisWeek - newLastWeek) / newLastWeek) * 100);
+
+      const totalRequests = parseInt(totalRequestsR.rows[0].count);
+      const requestsThisWeek = parseInt(requestsThisWeekR.rows[0].count);
+      const requestsLastWeek = parseInt(requestsLastWeekR.rows[0].count);
+      const requestsPctChange = requestsLastWeek === 0 ? null : Math.round(((requestsThisWeek - requestsLastWeek) / requestsLastWeek) * 100);
+
+      const funnelRow = funnelR.rows[0];
+      const funnelSignups = parseInt(funnelRow?.signups || 0);
+      const funnelFirstAction = parseInt(funnelRow?.first_action || 0);
+      const funnelReturnVisit = parseInt((await pool.query(`SELECT COUNT(*) FROM (SELECT account_id, COUNT(DISTINCT DATE(created_at)) as days FROM activity_log GROUP BY account_id HAVING COUNT(DISTINCT DATE(created_at)) >= 2) sub`)).rows[0].count);
+      const funnelPowerUsers = parseInt((await pool.query(`SELECT COUNT(*) FROM (SELECT account_id FROM activity_log GROUP BY account_id HAVING COUNT(*) >= 10) sub`)).rows[0].count);
+
+      const dowLabels = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+      const alerts = [];
+      if (parseInt(signupsYesterdayR.rows[0].count) === 0 && parseInt(newThisWeekR.rows[0].count) < 2) {
+        alerts.push({ severity: 'yellow', message: 'No new signups in the last 24 hours' });
+      }
+      const actToday = parseInt(activityTodayCountR.rows[0].count);
+      const actYesterday = parseInt(activityYesterdayR.rows[0].count);
+      if (actYesterday > 0 && actToday < actYesterday * 0.4) {
+        alerts.push({ severity: 'red', message: `Activity today (${actToday}) is significantly lower than yesterday (${actYesterday})` });
+      }
+      if (alerts.length === 0) alerts.push({ severity: 'green', message: 'All systems healthy' });
+
+      res.json({
+        userMetrics: {
+          total: totalUsers,
+          newThisWeek,
+          newLastWeek,
+          pctChange,
+          activeThisWeek: parseInt(activeThisWeekR.rows[0].count),
+          activeToday: parseInt(activeTodayR.rows[0].count),
+        },
+        requestMetrics: {
+          total: totalRequests,
+          thisWeek: requestsThisWeek,
+          lastWeek: requestsLastWeek,
+          pctChange: requestsPctChange,
+          today: parseInt(requestsTodayR.rows[0].count),
+          avgPerUser: totalUsers > 0 ? Math.round(totalRequests / totalUsers) : 0,
+          recentFeed: recentFeedR.rows,
+        },
+        retentionMetrics: {
+          day1Rate: parseFloat(retentionDay1R.rows[0]?.rate || 0),
+          week1Rate: parseFloat(retentionWeek1R.rows[0]?.rate || 0),
+          atRisk: atRiskR.rows,
+        },
+        funnelMetrics: { signups: funnelSignups, firstAction: funnelFirstAction, returnVisit: funnelReturnVisit, powerUsers: funnelPowerUsers },
+        featureUsage: featureUsageR.rows,
+        topUsers: topUsersR.rows,
+        timeToFirstAction: parseFloat(timeToFirstActionR.rows[0]?.avg_hours || 0),
+        alerts,
+        charts: {
+          usersLast30Days: usersChartR.rows,
+          requestsLast30Days: requestsChartR.rows,
+          activityByDayOfWeek: activityDowR.rows.map((r: any) => ({ day: dowLabels[parseInt(r.dow)], count: parseInt(r.count) })),
+          activityByHour: activityHourR.rows.map((r: any) => ({ hour: `${r.hour}:00`, count: parseInt(r.count) })),
+        },
+      });
+    } catch (err: any) {
+      console.error("[admin/metrics]", err.message);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // ── Public routes (no requireAuth) ───────────────────────────────────────
 
   // Track link click (must remain public — customers click this)
@@ -616,17 +731,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const settings = await storage.getSettings(req.session.accountId!);
     const allTemplates = await storage.getTemplates(req.session.accountId!);
     const customMessage: string | undefined = req.body.customMessage || undefined;
+    const customSubject: string | undefined = req.body.customSubject || undefined;
     if (settings) {
       if (channel === "email" && customer.email) {
         const template =
           allTemplates.find(t => t.channel === "email" && t.isDefault) ||
           allTemplates.find(t => t.channel === "email") ||
           null;
-        const effectiveTemplate = customMessage
-          ? { ...(template || { subject: "", body: "" }), body: customMessage }
+        const effectiveTemplate = (customMessage || customSubject)
+          ? { ...(template || { subject: "", body: "" }), ...(customSubject ? { subject: customSubject } : {}), ...(customMessage ? { body: customMessage } : {}) }
           : template;
         sendReviewEmail(customer, settings, effectiveTemplate, selectedPlatforms).catch(err =>
-          console.error("[review request] Failed to send email:", err.message)
+          console.error("[review request] Failed to send email:", err.message, err.statusCode, JSON.stringify(err.body ?? err))
         );
       } else if (channel === "sms" && customer.phone) {
         const template =
@@ -708,7 +824,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
   app.patch("/api/settings", requireAuth, async (req, res) => {
     try {
-      const s = await storage.upsertSettings(req.session.accountId!, req.body);
+      const body = { ...req.body };
+      if (body.websiteUrl && !body.websiteUrl.startsWith("http")) {
+        body.websiteUrl = `https://${body.websiteUrl}`;
+      }
+      const s = await storage.upsertSettings(req.session.accountId!, body);
       res.json(s);
     } catch (err) {
       console.error("Failed to save settings:", err);

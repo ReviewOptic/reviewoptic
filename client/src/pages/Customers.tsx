@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import {
@@ -134,9 +134,16 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
   const [delay, setDelay] = useState("now");
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [aiMessage, setAiMessage] = useState("");
+  const [customSubject, setCustomSubject] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
 
   const { data: settings } = useQuery<any>({ queryKey: ["/api/settings"] });
+
+  useEffect(() => {
+    if (settings?.businessName && !customSubject) {
+      setCustomSubject(`How was your experience with ${settings.businessName}?`);
+    }
+  }, [settings]);
 
   const availablePlatforms = settings ? [
     { key: "google", name: "Google", url: settings.googleReviewLink },
@@ -172,6 +179,7 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
       scheduledAt: delay === "now" ? new Date() : null,
       selectedPlatforms: availablePlatforms.filter(p => selectedPlatforms.includes(p.key)).map(p => ({ name: p.name, url: p.url })),
       customMessage: aiMessage || undefined,
+      customSubject: channel === "email" && customSubject ? customSubject : undefined,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
@@ -238,6 +246,17 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
               </div>
             </div>
           )}
+          {channel === "email" && (
+            <div className="space-y-1.5">
+              <Label className="text-[12.5px]">Subject</Label>
+              <Input
+                value={customSubject}
+                onChange={e => setCustomSubject(e.target.value)}
+                placeholder="How was your experience with us?"
+                className="text-[12.5px]"
+              />
+            </div>
+          )}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label className="text-[12.5px]">Message</Label>
@@ -279,7 +298,7 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
         </div>
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
-          <Button size="sm" onClick={() => mutation.mutate()} disabled={mutation.isPending} data-testid="button-confirm-send">
+          <Button size="sm" onClick={() => mutation.mutate()} disabled={mutation.isPending || !aiMessage.trim()} data-testid="button-confirm-send">
             {mutation.isPending ? "Sending..." : "Send Request"}
           </Button>
         </DialogFooter>

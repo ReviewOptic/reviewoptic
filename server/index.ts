@@ -1,4 +1,5 @@
 import "dotenv/config";
+console.log("[DEBUG] OPENAI_API_KEY starts with:", process.env.OPENAI_API_KEY?.slice(0, 10) || "(not set)");
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";

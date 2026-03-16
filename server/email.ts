@@ -59,6 +59,7 @@ export async function sendReviewEmail(
   template?: { subject: string; body: string } | null,
   selectedPlatforms?: { name: string; url: string }[]
 ): Promise<void> {
+  console.log(`[sendReviewEmail] called for ${customer.email}, hasKey=${!!process.env.RESEND_API_KEY}`);
   if (!customer.email) return;
 
   if (!process.env.RESEND_API_KEY) {
@@ -70,8 +71,19 @@ export async function sendReviewEmail(
   const primaryLink = platforms[0]?.url || "";
 
   const logoAlign = settings.logoPosition === "center" ? "center" : settings.logoPosition === "right" ? "right" : "left";
-  const logoHtml = settings.logoUrl
-    ? `<div style="text-align:${logoAlign};margin-bottom:24px;"><img src="${settings.logoUrl}" alt="${settings.businessName}" style="max-height:60px;max-width:200px;object-fit:contain;" /></div>`
+  const baseUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "");
+  const logoSrc = settings.logoUrl?.startsWith("http") ? settings.logoUrl : settings.logoUrl ? `${baseUrl}${settings.logoUrl}` : "";
+  const logoImg = logoSrc
+    ? `<img src="${logoSrc}" alt="${settings.businessName}" style="max-height:60px;max-width:200px;object-fit:contain;display:inline-block;" />`
+    : "";
+  const websiteHref = settings.websiteUrl
+    ? (settings.websiteUrl.startsWith("http") ? settings.websiteUrl : `https://${settings.websiteUrl}`)
+    : "";
+  const logoContent = logoImg && websiteHref
+    ? `<a href="${websiteHref}" target="_blank" style="text-decoration:none;">${logoImg}</a>`
+    : logoImg;
+  const logoHtml = logoContent
+    ? `<div style="text-align:${logoAlign};margin-bottom:24px;">${logoContent}</div>`
     : "";
 
   const platformButtons = platforms.map(p =>
@@ -81,13 +93,9 @@ export async function sendReviewEmail(
   let subject: string;
   let html: string;
 
+  const defaultSubject = `How was your experience with ${settings.businessName}?`;
   if (template?.body) {
-    subject = applyMergeTags(
-      template.subject || `How was your experience with ${settings.businessName}?`,
-      customer,
-      settings,
-      primaryLink
-    );
+    subject = applyMergeTags(template.subject || defaultSubject, customer, settings, primaryLink);
     const bodyText = applyMergeTags(template.body, customer, settings, primaryLink);
     html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:32px 24px;color:#111;">
       ${logoHtml}
@@ -96,7 +104,7 @@ export async function sendReviewEmail(
     </div>`;
   } else {
     const firstName = customer.name.split(" ")[0];
-    subject = `How was your experience with ${settings.businessName}?`;
+    subject = template?.subject || defaultSubject;
     html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:32px 24px;color:#111;">
       ${logoHtml}
       <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Hi ${firstName},</h2>
@@ -110,12 +118,14 @@ export async function sendReviewEmail(
     </div>`;
   }
 
+  console.log(`[sendReviewEmail] sending to=${customer.email} subject="${subject}"`);
   const resend = new Resend(process.env.RESEND_API_KEY);
-  await resend.emails.send({
+  const result = await resend.emails.send({
     from: `${settings.businessName} <noreply@reviewoptic.com>`,
     replyTo: settings.businessEmail || undefined,
     to: customer.email,
     subject,
     html,
   });
+  console.log(`[sendReviewEmail] result:`, JSON.stringify(result));
 }

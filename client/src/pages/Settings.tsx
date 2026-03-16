@@ -73,6 +73,7 @@ export default function Settings() {
     ownerName: "",
     businessName: "",
     businessEmail: "",
+    websiteUrl: "",
     logoUrl: "",
     logoPosition: "left",
     facebookProfileUrl: "",
@@ -103,6 +104,7 @@ export default function Settings() {
         ownerName: settings.ownerName || "",
         businessName: settings.businessName || "",
         businessEmail: settings.businessEmail || "",
+        websiteUrl: settings.websiteUrl || "",
         logoUrl: settings.logoUrl || "",
         logoPosition: settings.logoPosition || "left",
         facebookProfileUrl: settings.facebookProfileUrl || "",
@@ -298,6 +300,15 @@ export default function Settings() {
                     placeholder="hello@mybusiness.com"
                     data-testid="input-business-email"
                     required
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[12.5px]">Website</Label>
+                  <Input
+                    type="url"
+                    value={form.websiteUrl}
+                    onChange={e => setForm(f => ({ ...f, websiteUrl: e.target.value }))}
+                    placeholder="https://www.mybusiness.com"
                   />
                 </div>
               </div>
