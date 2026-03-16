@@ -291,3 +291,44 @@ Your job is to be the developer they would hire if they could afford a great one
 **Lessons learned:**
 - React Query caches under the same key for all users — always call `queryClient.clear()` on any account switch (login, logout, impersonation start/stop)
 - When diagnosing "data leaking between accounts", always check the DB directly with psql to confirm whether the issue is in the data layer or the cache layer
+
+### Session — 2026-03-16 (sixth session)
+
+**Tasks completed:**
+- Fixed OpenAI API key not loading — Replit container needed a full Stop + Run to pick up new secret; confirmed key valid via curl test
+- Fixed company logo not showing in emails — logo was stored as relative path `/uploads/...`; now prefixed with `https://$REPLIT_DEV_DOMAIN` to build a full public URL
+- Made logo a clickable link in emails — added `websiteUrl` field to settings schema, migration, and Settings page; logo wraps in `<a>` tag if website is set
+- Auto-prefix `https://` on website URL save — server normalises URLs without protocol on `PATCH /api/settings`
+- Added email subject field to Send Request dialog on Customers page — pre-filled with "How was your experience with [Business Name]?", editable, email-only
+- Fixed custom subject being ignored — email.ts `else` branch now uses `template?.subject` instead of hardcoded string
+- Fixed Send Request button requiring a message — disabled until `aiMessage` is non-empty
+- Fixed Resend API key invalid — user rotated key; diagnosed via improved error logging on email send result
+- Removed debug console.log statements added during email diagnosis (logging stays for now as useful)
+- Rebuilt admin panel Metrics tab — full analytics dashboard with: user metrics, review request metrics + feed, 4 Recharts charts, retention, conversion funnel, feature usage, power users, alerts, Revenue & Payments skeleton
+- Added date range filter to admin metrics — dropdown (7/30/90/custom) + date inputs; all SQL queries parameterised with from/to; auto-refreshes every 60s
+- Added Export PDF (window.print()) and Export CSV (all metrics as combined CSV) to admin metrics header
+- Built Revenue & Payments section skeleton — summary stat cards, transactions + refunds table with columns, Export CSV button inline with heading; ready to wire up when payment provider connected
+- Removed Impersonation Log tab from admin panel — impersonate button on users table kept
+
+**Fixes applied:**
+- Resend API key was invalid — diagnosed via result logging in sendReviewEmail
+- Logo URL was relative — prefixed with REPLIT_DEV_DOMAIN in email.ts
+- Custom email subject was ignored when no template body — fixed else branch in email.ts
+- `website_url` column missing from DB — added to migrate.ts; runs on server start
+- `pool` was unexported from storage.ts — exported it so admin metrics route can run raw SQL
+
+**Issues discovered:**
+- Replit dev domain in logo URLs will break if domain changes — needs APP_URL set in Secrets for production
+- `uploads/` folder is still local-only — logos lost on server restart; needs cloud storage before production
+- Impersonation log is still being written to DB (backend unchanged) — frontend tab just hidden
+
+**Notes for next session:**
+- Revenue & Payments section is fully scaffolded — just needs real data wired in when payment provider connected (Stripe noted as likely choice)
+- Website URL in settings auto-prefixes `https://` if missing — users don't need to type it
+- Admin metrics auto-refresh every 60 seconds; date filter applies to charts, feed, feature usage, and top users (summary stat cards remain rolling 7-day)
+- Stop + Run in Replit required any time Secrets are updated
+- Debug logging still present in email.ts (`[sendReviewEmail] called...`, `result:`) — remove before going to production if noisy
+
+**Lessons learned:**
+- Always check Resend (and other API) response objects — errors are returned in the response body, not thrown as exceptions, so `.catch()` won't catch them
+- Replit env vars only update on full container restart (Stop + Run), not process restart alone
