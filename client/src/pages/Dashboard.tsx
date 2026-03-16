@@ -15,6 +15,7 @@ import { formatDistanceToNow } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { ActivityLog, Customer, PrivateFeedback, Review, Settings } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 
 const activityIcons: Record<string, React.ReactNode> = {
   customer_added: <Users className="w-3.5 h-3.5" />,
@@ -71,6 +72,8 @@ export default function Dashboard() {
   const [, navigate] = useLocation();
   const [statModal, setStatModal] = useState<string | null>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isReadOnly = !!user?.isImpersonating;
   const { data: stats, isLoading: statsLoading } = useQuery<{
     requestsThisMonth: number; pendingRequests: number; reviewsThisMonth: number;
     responseRate: number; avgRating: number;
@@ -113,9 +116,11 @@ export default function Dashboard() {
           <h1 className="text-2xl font-bold text-foreground tracking-tight">{getGreeting()}{settings?.ownerName ? `, ${settings.ownerName.trim().split(" ")[0]}` : ""}!</h1>
           <p className="text-[13.5px] text-muted-foreground mt-0.5 italic">{getDailyQuote()}</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate("/customers")} data-testid="button-add-customer"><Plus className="w-3.5 h-3.5" />Add Customer</Button>
-        </div>
+        {!isReadOnly && (
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate("/customers")} data-testid="button-add-customer"><Plus className="w-3.5 h-3.5" />Add Customer</Button>
+          </div>
+        )}
       </div>
 
       {/* Stats */}
@@ -305,10 +310,12 @@ export default function Dashboard() {
               <CardTitle className="text-[15px] font-semibold">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-4 space-y-2">
-              <Button variant="outline" className="w-full justify-start gap-2 h-9 text-[13px]" onClick={() => navigate("/customers")} data-testid="quick-add-customer">
-                <Plus className="w-3.5 h-3.5 text-primary" />
-                Add Customer
-              </Button>
+              {!isReadOnly && (
+                <Button variant="outline" className="w-full justify-start gap-2 h-9 text-[13px]" onClick={() => navigate("/customers")} data-testid="quick-add-customer">
+                  <Plus className="w-3.5 h-3.5 text-primary" />
+                  Add Customer
+                </Button>
+              )}
               <Button variant="outline" className="w-full justify-start gap-2 h-9 text-[13px]" onClick={() => navigate("/analytics")} data-testid="quick-view-analytics">
                 <BarChart2 className="w-3.5 h-3.5 text-primary" />
                 View Analytics

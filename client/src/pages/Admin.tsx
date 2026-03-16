@@ -596,8 +596,8 @@ export default function Admin() {
                       <div className="flex items-center gap-1.5 justify-end">
                         {!u.emailVerified && <Button size="sm" variant="outline" onClick={() => verifyUser(u.id)} title="Verify email"><CheckCircle2 className="w-3.5 h-3.5" /></Button>}
                         {u.id !== user?.id && <Button size="sm" variant="outline" onClick={() => toggleAdmin(u.id)} title={u.isAdmin ? "Remove admin" : "Make admin"}>{u.isAdmin ? <ShieldOff className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}</Button>}
-                        {!u.isAdmin && <Button size="sm" variant="outline" onClick={() => impersonate(u.id)} title="Impersonate"><LogIn className="w-3.5 h-3.5" /></Button>}
-                        {!u.isAdmin && (confirmDelete === u.id ? (
+                        {u.id !== user?.id && <Button size="sm" variant="outline" onClick={() => impersonate(u.id)} title="Impersonate"><LogIn className="w-3.5 h-3.5" /></Button>}
+                        {u.id !== user?.id && !u.isAdmin && (confirmDelete === u.id ? (
                           <div className="flex items-center gap-1">
                             <Button size="sm" variant="destructive" onClick={() => deleteUser(u.id)}>Confirm</Button>
                             <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(null)}>Cancel</Button>

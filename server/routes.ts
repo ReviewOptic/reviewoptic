@@ -50,6 +50,10 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (!req.session.userId || !req.session.accountId) {
     return res.status(401).json({ message: "Not authenticated" });
   }
+  // Block all writes while impersonating — read-only mode
+  if (req.session.originalUserId && ["POST", "PATCH", "PUT", "DELETE"].includes(req.method)) {
+    return res.status(403).json({ message: "Cannot make changes while impersonating a user." });
+  }
   next();
 }
 
@@ -394,7 +398,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/admin/impersonate/:userId", requireAdmin, async (req, res) => {
     const target = await storage.getUser(String(req.params.userId));
     if (!target) return res.status(404).json({ message: "User not found" });
-    if (target.isAdmin) return res.status(400).json({ message: "Cannot impersonate another admin" });
     const adminId = req.session.originalUserId || req.session.userId!;
     const admin = await storage.getUser(adminId);
     req.session.originalUserId = req.session.originalUserId || req.session.userId;

@@ -332,3 +332,33 @@ Your job is to be the developer they would hire if they could afford a great one
 **Lessons learned:**
 - Always check Resend (and other API) response objects — errors are returned in the response body, not thrown as exceptions, so `.catch()` won't catch them
 - Replit env vars only update on full container restart (Stop + Run), not process restart alone
+
+### Session — 2026-03-16 (seventh session)
+
+**Tasks completed:**
+- Enforced read-only impersonation at the server level — `requireAuth` middleware now blocks all POST/PATCH/PUT/DELETE requests when `req.session.originalUserId` is set
+- Updated ImpersonationBanner in Layout.tsx to show "READ ONLY" badge prominently
+- Hid "Add Customer" and "Import CSV" buttons on Customers page when impersonating
+- Hid "Add Customer" buttons (header + empty state) on Customers page when impersonating
+- Hid "Add Customer" buttons on Dashboard (header + Quick Actions) when impersonating
+- Greyed out Edit button on all Templates when impersonating
+- Hid Send Request, Edit Contact, DNC, and Delete options in Customers dropdown when impersonating (View Details kept)
+- Fixed impersonate button not showing in admin Users tab — changed condition from `!u.isAdmin` to `u.id !== user?.id` so button shows for all other users
+- Allowed impersonating admin users — removed `!u.isAdmin` restriction on frontend and backend
+
+**Fixes applied:**
+- Impersonate button was hidden for non-admin users despite role showing "User" — root cause was condition `!u.isAdmin` which was unexpectedly false; fixed by keying off `u.id !== user?.id` instead
+- Empty state "Add Customer" button on Customers page was still showing when impersonating an account with no customers
+
+**Issues discovered:**
+- Settings page still allows editing when impersonating — not addressed this session; server-side block will reject saves but UI doesn't make it obvious
+
+**Notes for next session:**
+- Read-only impersonation is enforced at both server (API blocks all writes) and UI level (buttons hidden/greyed)
+- `isImpersonating` flag comes from `user?.isImpersonating` via `useAuth()` — same pattern used across Dashboard, Customers, Templates
+- Settings page could be improved: show a read-only indicator or disable save button when impersonating
+- Impersonate button now shows for ALL users including admins (admin-to-admin impersonation is allowed)
+
+**Lessons learned:**
+- When hiding UI elements for impersonation, check ALL pages for duplicate buttons (e.g. Dashboard had two "Add Customer" buttons, Customers had an empty-state one)
+- Hard refresh (Ctrl+Shift+R) needed in browser to pick up Vite hot-reload changes when they don't auto-apply

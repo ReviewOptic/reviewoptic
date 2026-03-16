@@ -14,6 +14,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Template } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
+import { useAuth } from "@/hooks/use-auth";
 
 const MERGE_TAGS = ["{{first_name}}", "{{customer_name}}", "{{business_name}}", "{{service_type}}", "{{review_link}}"];
 
@@ -449,7 +450,7 @@ function TemplateEditor({ template, onCancel }: { template: Template; onCancel: 
   );
 }
 
-function TemplateCard({ template }: { template: Template }) {
+function TemplateCard({ template, isReadOnly }: { template: Template; isReadOnly: boolean }) {
   const [editing, setEditing] = useState(false);
 
   return (
@@ -469,7 +470,7 @@ function TemplateCard({ template }: { template: Template }) {
             </div>
           </div>
           {!editing && (
-            <Button variant="outline" size="sm" className="h-7 text-[12px] gap-1 flex-shrink-0" onClick={() => setEditing(true)} data-testid={`button-edit-template-${template.id}`}>
+            <Button variant="outline" size="sm" className="h-7 text-[12px] gap-1 flex-shrink-0" onClick={() => setEditing(true)} disabled={isReadOnly} data-testid={`button-edit-template-${template.id}`}>
               <Edit2 className="w-3 h-3" /> Edit
             </Button>
           )}
@@ -513,6 +514,8 @@ function TemplateCard({ template }: { template: Template }) {
 }
 
 export default function Templates() {
+  const { user } = useAuth();
+  const isReadOnly = !!user?.isImpersonating;
   const { data: templates, isLoading } = useQuery<Template[]>({ queryKey: ["/api/templates"] });
 
   const byChannel = {
@@ -568,7 +571,7 @@ export default function Templates() {
                   <p className="text-[13px]">No {ch} templates found</p>
                 </div>
               ) : (
-                byChannel[ch].map(t => <TemplateCard key={t.id} template={t} />)
+                byChannel[ch].map(t => <TemplateCard key={t.id} template={t} isReadOnly={isReadOnly} />)
               )}
             </TabsContent>
           ))}

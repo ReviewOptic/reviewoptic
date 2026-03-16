@@ -110,8 +110,8 @@ function ImpersonationBanner() {
 
   return (
     <div className="bg-amber-500 text-white text-sm px-4 py-2 flex items-center justify-between flex-shrink-0">
-      <span className="font-medium">Impersonating: <strong>{user.email}</strong></span>
-      <button onClick={stop} className="underline font-semibold text-sm hover:text-white/80">Stop impersonating</button>
+      <span className="font-medium">Viewing as <strong>{user.email}</strong> — <span className="bg-amber-600 px-1.5 py-0.5 rounded text-xs font-semibold tracking-wide">READ ONLY</span></span>
+      <button onClick={stop} className="underline font-semibold text-sm hover:text-white/80">Exit view</button>
     </div>
   );
 }

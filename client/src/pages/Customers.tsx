@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { useAuth } from "@/hooks/use-auth";
 import {
   Plus, Search, Send, MoreHorizontal, Ban, Trash2, Users,
   Upload, X, CheckCircle2, Clock, Star, Eye, AlertCircle, Edit2, Sparkles, RefreshCw
@@ -401,6 +402,8 @@ export default function Customers() {
   const [editCustomer, setEditCustomer] = useState<Customer | null>(null);
   const { toast } = useToast();
   const [, navigate] = useLocation();
+  const { user } = useAuth();
+  const isReadOnly = !!user?.isImpersonating;
 
   const { data: customers, isLoading } = useQuery<Customer[]>({ queryKey: ["/api/customers"] });
   const { data: allRequests = [] } = useQuery<ReviewRequest[]>({ queryKey: ["/api/review-requests"] });
@@ -448,16 +451,18 @@ export default function Customers() {
             {customers?.length || 0} total customers
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5" data-testid="button-import-csv">
-            <Upload className="w-3.5 h-3.5" />
-            Import CSV
-          </Button>
-          <Button size="sm" className="gap-1.5" onClick={() => setShowAdd(true)} data-testid="button-add-customer">
-            <Plus className="w-3.5 h-3.5" />
-            Add Customer
-          </Button>
-        </div>
+        {!isReadOnly && (
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" className="gap-1.5" data-testid="button-import-csv">
+              <Upload className="w-3.5 h-3.5" />
+              Import CSV
+            </Button>
+            <Button size="sm" className="gap-1.5" onClick={() => setShowAdd(true)} data-testid="button-add-customer">
+              <Plus className="w-3.5 h-3.5" />
+              Add Customer
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Filters */}
@@ -526,7 +531,7 @@ export default function Customers() {
                   <td colSpan={7} className="px-4 py-16 text-center text-muted-foreground">
                     <Users className="w-8 h-8 mx-auto mb-2 opacity-40" />
                     <p className="text-[13px]">{search || statusFilter !== "all" ? "No customers match your filters" : "No customers yet. Add your first customer!"}</p>
-                    {!search && statusFilter === "all" && (
+                    {!search && statusFilter === "all" && !isReadOnly && (
                       <Button size="sm" className="mt-3 gap-1.5" onClick={() => setShowAdd(true)}>
                         <Plus className="w-3.5 h-3.5" /> Add Customer
                       </Button>
@@ -579,39 +584,45 @@ export default function Customers() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-44">
-                          <DropdownMenuItem
-                            onClick={() => setSendTo(customer)}
-                            disabled={customer.doNotContact}
-                            data-testid={`action-send-${customer.id}`}
-                          >
-                            <Send className="w-3.5 h-3.5 mr-2 text-primary" />
-                            Send Request
-                          </DropdownMenuItem>
+                          {!isReadOnly && (
+                            <DropdownMenuItem
+                              onClick={() => setSendTo(customer)}
+                              disabled={customer.doNotContact}
+                              data-testid={`action-send-${customer.id}`}
+                            >
+                              <Send className="w-3.5 h-3.5 mr-2 text-primary" />
+                              Send Request
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem onClick={() => navigate(`/customers/${customer.id}`)}>
                             <Eye className="w-3.5 h-3.5 mr-2" />
                             View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setEditCustomer(customer)}>
-                            <Edit2 className="w-3.5 h-3.5 mr-2" />
-                            Edit Contact
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => toggleDncMutation.mutate(customer)}
-                            className={customer.doNotContact ? "text-foreground" : "text-destructive"}
-                            data-testid={`action-dnc-${customer.id}`}
-                          >
-                            <Ban className="w-3.5 h-3.5 mr-2" />
-                            {customer.doNotContact ? "Remove DNC" : "Do Not Contact"}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => deleteMutation.mutate(customer.id)}
-                            className="text-destructive"
-                            data-testid={`action-delete-${customer.id}`}
-                          >
-                            <Trash2 className="w-3.5 h-3.5 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
+                          {!isReadOnly && (
+                            <>
+                              <DropdownMenuItem onClick={() => setEditCustomer(customer)}>
+                                <Edit2 className="w-3.5 h-3.5 mr-2" />
+                                Edit Contact
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => toggleDncMutation.mutate(customer)}
+                                className={customer.doNotContact ? "text-foreground" : "text-destructive"}
+                                data-testid={`action-dnc-${customer.id}`}
+                              >
+                                <Ban className="w-3.5 h-3.5 mr-2" />
+                                {customer.doNotContact ? "Remove DNC" : "Do Not Contact"}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => deleteMutation.mutate(customer.id)}
+                                className="text-destructive"
+                                data-testid={`action-delete-${customer.id}`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </td>
