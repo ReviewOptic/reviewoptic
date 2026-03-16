@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import {
   Plus, Search, Send, MoreHorizontal, Ban, Trash2, Users,
-  Upload, X, CheckCircle2, Clock, Star, Eye, AlertCircle, Edit2
+  Upload, X, CheckCircle2, Clock, Star, Eye, AlertCircle, Edit2, Sparkles, RefreshCw
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -133,6 +133,8 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
   const [channel, setChannel] = useState(customer?.channel || "email");
   const [delay, setDelay] = useState("now");
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
+  const [aiMessage, setAiMessage] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const { data: settings } = useQuery<any>({ queryKey: ["/api/settings"] });
 
@@ -149,12 +151,26 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
     setSelectedPlatforms(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
   };
 
+  const generateAIMessage = async () => {
+    setIsGenerating(true);
+    try {
+      const res = await apiRequest("POST", "/api/ai/generate-message", { customerId: customer?.id, channel });
+      const data = await res.json();
+      setAiMessage(data.message || "");
+    } catch {
+      toast({ title: "Could not generate message", variant: "destructive" });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const mutation = useMutation({
     mutationFn: async () => apiRequest("POST", "/api/review-requests", {
       customerId: customer?.id,
       channel,
       scheduledAt: delay === "now" ? new Date() : null,
       selectedPlatforms: availablePlatforms.filter(p => selectedPlatforms.includes(p.key)).map(p => ({ name: p.name, url: p.url })),
+      customMessage: aiMessage || undefined,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
@@ -168,7 +184,7 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
   });
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-sm" data-testid="dialog-send-request">
+      <DialogContent className="sm:max-w-md" data-testid="dialog-send-request">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Send className="w-4 h-4 text-primary" />
@@ -179,7 +195,7 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
         <div className="space-y-3 py-1">
           <div className="space-y-1.5">
             <Label className="text-[12.5px]">Send via</Label>
-            <Select value={channel} onValueChange={setChannel}>
+            <Select value={channel} onValueChange={(v) => { setChannel(v); setAiMessage(""); }}>
               <SelectTrigger data-testid="select-send-channel"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="email">Email</SelectItem>
@@ -221,11 +237,44 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
               </div>
             </div>
           )}
-          <div className="rounded-lg bg-primary/5 border border-primary/20 p-3">
-            <p className="text-[12px] text-muted-foreground">
-              <span className="font-medium text-foreground">Pro tip:</span> Sending within 60 minutes of job completion increases response rates by 3x.
-            </p>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label className="text-[12.5px]">Message</Label>
+              <button
+                type="button"
+                onClick={generateAIMessage}
+                disabled={isGenerating}
+                className="flex items-center gap-1.5 text-[11.5px] font-medium text-primary hover:text-primary/80 disabled:opacity-50 transition-colors"
+              >
+                {isGenerating
+                  ? <><RefreshCw className="w-3 h-3 animate-spin" />Generating...</>
+                  : <><Sparkles className="w-3 h-3" />{aiMessage ? "Regenerate" : "Generate with AI"}</>
+                }
+              </button>
+            </div>
+            {aiMessage ? (
+              <Textarea
+                value={aiMessage}
+                onChange={(e) => setAiMessage(e.target.value)}
+                rows={channel === "sms" || channel === "whatsapp" ? 3 : 5}
+                className="text-[12.5px] resize-none"
+                placeholder="AI-generated message will appear here..."
+              />
+            ) : (
+              <div className="rounded-lg bg-muted/50 border border-dashed border-border p-3 text-center">
+                <p className="text-[11.5px] text-muted-foreground">
+                  Click <span className="font-medium text-primary">Generate with AI</span> to create a personalised message based on {customer?.name?.split(" ")[0]}'s job details.
+                </p>
+              </div>
+            )}
           </div>
+          {!aiMessage && (
+            <div className="rounded-lg bg-primary/5 border border-primary/20 p-3">
+              <p className="text-[12px] text-muted-foreground">
+                <span className="font-medium text-foreground">Pro tip:</span> Sending within 60 minutes of job completion increases response rates by 3x.
+              </p>
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>

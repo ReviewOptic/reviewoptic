@@ -2,7 +2,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import {
   ArrowLeft, Send, Ban, Trash2, Star, Clock, Eye, CheckCircle2, MessageSquare,
-  Mail, Phone, Calendar, FileText, Edit2, Save, X
+  Mail, Phone, Calendar, FileText, Edit2, Save, X, Sparkles, RefreshCw
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,8 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer; op
   const { toast } = useToast();
   const [channel, setChannel] = useState(customer.channel);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
+  const [aiMessage, setAiMessage] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const { data: settings } = useQuery<any>({ queryKey: ["/api/settings"] });
 
@@ -53,12 +55,26 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer; op
     setSelectedPlatforms(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
   };
 
+  const generateAIMessage = async () => {
+    setIsGenerating(true);
+    try {
+      const res = await apiRequest("POST", "/api/ai/generate-message", { customerId: customer.id, channel });
+      const data = await res.json();
+      setAiMessage(data.message || "");
+    } catch {
+      toast({ title: "Could not generate message", variant: "destructive" });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const mutation = useMutation({
     mutationFn: async () => apiRequest("POST", "/api/review-requests", {
       customerId: customer.id,
       channel,
       scheduledAt: new Date(),
       selectedPlatforms: availablePlatforms.filter(p => selectedPlatforms.includes(p.key)).map(p => ({ name: p.name, url: p.url })),
+      customMessage: aiMessage || undefined,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
@@ -72,7 +88,7 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer; op
   });
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Send Review Request</DialogTitle>
           <DialogDescription>Send to {customer.name}</DialogDescription>
@@ -80,7 +96,7 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer; op
         <div className="space-y-3 py-1">
           <div className="space-y-1.5">
             <Label className="text-[12.5px]">Channel</Label>
-            <Select value={channel} onValueChange={setChannel}>
+            <Select value={channel} onValueChange={(v) => { setChannel(v); setAiMessage(""); }}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="email">Email</SelectItem>
@@ -110,6 +126,36 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer; op
               </div>
             </div>
           )}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label className="text-[12.5px]">Message</Label>
+              <button
+                type="button"
+                onClick={generateAIMessage}
+                disabled={isGenerating}
+                className="flex items-center gap-1.5 text-[11.5px] font-medium text-primary hover:text-primary/80 disabled:opacity-50 transition-colors"
+              >
+                {isGenerating
+                  ? <><RefreshCw className="w-3 h-3 animate-spin" />Generating...</>
+                  : <><Sparkles className="w-3 h-3" />{aiMessage ? "Regenerate" : "Generate with AI"}</>
+                }
+              </button>
+            </div>
+            {aiMessage ? (
+              <Textarea
+                value={aiMessage}
+                onChange={(e) => setAiMessage(e.target.value)}
+                rows={channel === "sms" || channel === "whatsapp" ? 3 : 5}
+                className="text-[12.5px] resize-none"
+              />
+            ) : (
+              <div className="rounded-lg bg-muted/50 border border-dashed border-border p-3 text-center">
+                <p className="text-[11.5px] text-muted-foreground">
+                  Click <span className="font-medium text-primary">Generate with AI</span> to create a personalised message based on {customer.name.split(" ")[0]}'s job details.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>

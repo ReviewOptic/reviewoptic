@@ -7,6 +7,7 @@ import path from "path";
 import fs from "fs";
 import bcrypt from "bcryptjs";
 import { Resend } from "resend";
+import OpenAI from "openai";
 import { sendReviewEmail, sendVerificationEmail } from "./email";
 import { sendReviewSMS } from "./sms";
 import type { Review, Customer, Settings } from "@shared/schema";
@@ -551,6 +552,43 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const rr = await storage.getReviewRequests(req.session.accountId!);
     res.json(rr);
   });
+  // AI message generation
+  app.post("/api/ai/generate-message", requireAuth, async (req, res) => {
+    try {
+      const { customerId, channel } = req.body;
+      const customer = await storage.getCustomer(customerId, req.session.accountId!);
+      if (!customer) return res.status(404).json({ message: "Customer not found" });
+      const settings = await storage.getSettings(req.session.accountId!);
+      if (!settings) return res.status(404).json({ message: "Settings not found" });
+
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(503).json({ message: "OpenAI API key not configured" });
+      }
+
+      const firstName = customer.name.split(" ")[0];
+      const businessName = settings.businessName || "our business";
+      const service = customer.serviceType || "the work we completed";
+      const isSMS = channel === "sms" || channel === "whatsapp";
+
+      const prompt = isSMS
+        ? `Write a short, friendly SMS message asking ${firstName} to leave a review for "${businessName}" after their recent "${service}". Keep it under 160 characters, casual and warm. No URLs. Just the message text.`
+        : `Write a friendly, personalised review request email message for a business called "${businessName}". The customer's first name is ${firstName} and they recently had "${service}" completed. Ask them warmly to leave a review. 3–4 sentences. Start with "Hi ${firstName}," — just the body text, no subject line, no sign-off, no review links.`;
+
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 300,
+      });
+
+      const message = completion.choices[0]?.message?.content?.trim() || "";
+      res.json({ message });
+    } catch (err: any) {
+      console.error("[ai/generate-message]", err.message);
+      res.status(500).json({ message: "Failed to generate message" });
+    }
+  });
+
   app.post("/api/review-requests", requireAuth, async (req, res) => {
     try {
     const customer = await storage.getCustomer(req.body.customerId, req.session.accountId!);
@@ -577,13 +615,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const selectedPlatforms: { name: string; url: string }[] = req.body.selectedPlatforms || [];
     const settings = await storage.getSettings(req.session.accountId!);
     const allTemplates = await storage.getTemplates(req.session.accountId!);
+    const customMessage: string | undefined = req.body.customMessage || undefined;
     if (settings) {
       if (channel === "email" && customer.email) {
         const template =
           allTemplates.find(t => t.channel === "email" && t.isDefault) ||
           allTemplates.find(t => t.channel === "email") ||
           null;
-        sendReviewEmail(customer, settings, template, selectedPlatforms).catch(err =>
+        const effectiveTemplate = customMessage
+          ? { ...(template || { subject: "", body: "" }), body: customMessage }
+          : template;
+        sendReviewEmail(customer, settings, effectiveTemplate, selectedPlatforms).catch(err =>
           console.error("[review request] Failed to send email:", err.message)
         );
       } else if (channel === "sms" && customer.phone) {
@@ -591,7 +633,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           allTemplates.find(t => t.channel === "sms" && t.isDefault) ||
           allTemplates.find(t => t.channel === "sms") ||
           null;
-        sendReviewSMS(customer, settings, template, selectedPlatforms).catch(err =>
+        const effectiveTemplate = customMessage
+          ? { ...(template || { subject: "", body: "" }), body: customMessage }
+          : template;
+        sendReviewSMS(customer, settings, effectiveTemplate, selectedPlatforms).catch(err =>
           console.error("[review request] Failed to send SMS:", err.message)
         );
       }
