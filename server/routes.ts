@@ -1164,6 +1164,74 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     });
   });
 
+  app.get("/api/billing/subscription", requireAuth, async (req, res) => {
+    if (!process.env.STRIPE_SECRET_KEY) return res.status(500).json({ message: "Stripe not configured" });
+    const { rows } = await pool.query(
+      `SELECT plan_type, plan_period, stripe_customer_id, stripe_subscription_id FROM users WHERE id = $1`,
+      [req.session.userId]
+    );
+    const row = rows[0] || {};
+    if (!row.stripe_subscription_id) return res.json({ subscription: null });
+
+    const Stripe = (await import("stripe")).default;
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+    const sub = await stripe.subscriptions.retrieve(row.stripe_subscription_id) as any;
+    res.json({
+      subscription: {
+        status: sub.status,
+        currentPeriodEnd: sub.current_period_end,
+        cancelAtPeriodEnd: sub.cancel_at_period_end,
+        planType: row.plan_type,
+        planPeriod: row.plan_period,
+      },
+    });
+  });
+
+  app.get("/api/billing/invoices", requireAuth, async (req, res) => {
+    if (!process.env.STRIPE_SECRET_KEY) return res.status(500).json({ message: "Stripe not configured" });
+    const { rows } = await pool.query(
+      `SELECT stripe_customer_id FROM users WHERE id = $1`,
+      [req.session.userId]
+    );
+    const customerId = rows[0]?.stripe_customer_id;
+    if (!customerId) return res.json({ invoices: [] });
+
+    const Stripe = (await import("stripe")).default;
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+    const { data } = await stripe.invoices.list({ customer: customerId, limit: 10 });
+    res.json({
+      invoices: data.map(inv => ({
+        id: inv.id,
+        number: inv.number,
+        amountPaid: inv.amount_paid,
+        currency: inv.currency,
+        status: inv.status,
+        created: inv.created,
+        pdfUrl: inv.invoice_pdf,
+      })),
+    });
+  });
+
+  app.post("/api/billing/portal", requireAuth, async (req, res) => {
+    if (!process.env.STRIPE_SECRET_KEY) return res.status(500).json({ message: "Stripe not configured" });
+    const { rows } = await pool.query(
+      `SELECT stripe_customer_id FROM users WHERE id = $1`,
+      [req.session.userId]
+    );
+    const customerId = rows[0]?.stripe_customer_id;
+    if (!customerId) return res.status(400).json({ message: "No billing account found" });
+
+    const Stripe = (await import("stripe")).default;
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+    const appUrl = process.env.APP_URL || `https://${process.env.REPLIT_DEV_DOMAIN}` || "http://localhost:5000";
+
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: `${appUrl}/billing`,
+    });
+    res.json({ url: session.url });
+  });
+
   // Stripe webhook — handles subscription cancellations asynchronously
   app.post("/api/billing/webhook", express.raw({ type: "application/json" }), async (req, res) => {
     if (!process.env.STRIPE_SECRET_KEY) return res.status(500).send("Stripe not configured");

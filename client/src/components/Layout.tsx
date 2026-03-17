@@ -99,7 +99,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
             variant="ghost"
             size="sm"
             className="w-full justify-start gap-2 text-[12px] h-7 px-2 text-muted-foreground hover:text-foreground mb-1"
-            onClick={() => { navigate("/pricing"); onNavClick?.(); }}
+            onClick={() => { navigate("/billing"); onNavClick?.(); }}
           >
             <CreditCard className="w-3.5 h-3.5" />
             Billing

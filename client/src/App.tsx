@@ -25,6 +25,7 @@ import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import TermsAndConditions from "@/pages/TermsAndConditions";
 import Pricing from "@/pages/Pricing";
 import BillingSuccess from "@/pages/BillingSuccess";
+import Billing from "@/pages/Billing";
 
 function ProtectedRoutes() {
   const { user, loading } = useAuth();
@@ -60,6 +61,7 @@ function ProtectedRoutes() {
         <Route path="/stat/:view" component={StatDetail} />
         <Route path="/analytics" component={Analytics} />
         <Route path="/settings" component={SettingsPage} />
+        <Route path="/billing" component={Billing} />
         <Route path="/admin" component={Admin} />
         <Route component={NotFound} />
       </Switch>
