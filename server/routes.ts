@@ -451,6 +451,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         retentionDay1R, retentionWeek1R, atRiskR, timeToFirstActionR,
         usersChartR, requestsChartR, activityDowR, activityHourR,
         signupsYesterdayR, activityYesterdayR, activityTodayCountR,
+        planBreakdownR,
       ] = await Promise.all([
         pool.query(`SELECT COUNT(*) FROM users WHERE NOT is_admin`),
         pool.query(`SELECT COUNT(*) FROM users WHERE NOT is_admin AND created_at >= NOW() - INTERVAL '7 days'`),
@@ -476,6 +477,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         pool.query(`SELECT COUNT(*) FROM users WHERE NOT is_admin AND created_at >= CURRENT_DATE - INTERVAL '1 day' AND created_at < CURRENT_DATE`),
         pool.query(`SELECT COUNT(*) FROM activity_log WHERE created_at >= CURRENT_DATE - INTERVAL '1 day' AND created_at < CURRENT_DATE`),
         pool.query(`SELECT COUNT(*) FROM activity_log WHERE created_at >= CURRENT_DATE`),
+        pool.query(`SELECT plan_type, plan_period, COUNT(*) as count FROM users WHERE NOT is_admin AND plan_type != 'free' GROUP BY plan_type, plan_period ORDER BY plan_type, plan_period`),
       ]);
 
       const totalUsers = parseInt(totalUsersR.rows[0].count);
@@ -515,6 +517,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           pctChange,
           activeThisWeek: parseInt(activeThisWeekR.rows[0].count),
           activeToday: parseInt(activeTodayR.rows[0].count),
+          planBreakdown: planBreakdownR.rows.map((r: any) => ({
+            planType: r.plan_type,
+            planPeriod: r.plan_period,
+            count: parseInt(r.count),
+          })),
         },
         requestMetrics: {
           total: totalRequests,

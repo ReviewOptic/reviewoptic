@@ -20,7 +20,7 @@ interface AdminUser {
 }
 
 interface Metrics {
-  userMetrics: { total: number; newThisWeek: number; newLastWeek: number; pctChange: number | null; activeThisWeek: number; activeToday: number; };
+  userMetrics: { total: number; newThisWeek: number; newLastWeek: number; pctChange: number | null; activeThisWeek: number; activeToday: number; planBreakdown: { planType: string; planPeriod: string; count: number }[]; };
   requestMetrics: { total: number; thisWeek: number; lastWeek: number; pctChange: number | null; today: number; avgPerUser: number; recentFeed: any[]; };
   retentionMetrics: { day1Rate: number; week1Rate: number; atRisk: any[]; };
   funnelMetrics: { signups: number; firstAction: number; returnVisit: number; powerUsers: number; };
@@ -276,6 +276,23 @@ export default function Admin() {
               <StatCard label="Active This Week" value={metrics?.userMetrics.activeThisWeek ?? "—"} sub="unique accounts" color="blue" />
               <StatCard label="Active Today" value={metrics?.userMetrics.activeToday ?? "—"} sub="unique accounts" color="blue" />
             </div>
+
+            {/* Plan breakdown */}
+            {metrics && (
+              <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { label: "Standard — Monthly", planType: "standard", planPeriod: "monthly" },
+                  { label: "Standard — Annual",  planType: "standard", planPeriod: "annual"  },
+                  { label: "Agency — Monthly",   planType: "agency",   planPeriod: "monthly" },
+                  { label: "Agency — Annual",    planType: "agency",   planPeriod: "annual"  },
+                ].map(({ label, planType, planPeriod }) => {
+                  const row = metrics.userMetrics.planBreakdown?.find(
+                    r => r.planType === planType && r.planPeriod === planPeriod
+                  );
+                  return <StatCard key={label} label={label} value={row?.count ?? 0} sub="paid users" color="purple" />;
+                })}
+              </div>
+            )}
           </div>
 
           {/* Review Requests */}
