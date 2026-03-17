@@ -1213,15 +1213,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.post("/api/billing/portal", requireAuth, async (req, res) => {
-    if (!process.env.STRIPE_SECRET_KEY) return res.status(500).json({ message: "Stripe not configured" });
-    const { rows } = await pool.query(
-      `SELECT stripe_customer_id FROM users WHERE id = $1`,
-      [req.session.userId]
-    );
-    const customerId = rows[0]?.stripe_customer_id;
-    if (!customerId) return res.status(400).json({ message: "No billing account found" });
-
     try {
+      if (!process.env.STRIPE_SECRET_KEY) return res.status(500).json({ message: "Stripe not configured" });
+      const { rows } = await pool.query(
+        `SELECT stripe_customer_id FROM users WHERE id = $1`,
+        [req.session.userId]
+      );
+      const customerId = rows[0]?.stripe_customer_id;
+      if (!customerId) return res.status(400).json({ message: "No billing account found. Please contact support." });
+
       const Stripe = (await import("stripe")).default;
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
       const appUrl = process.env.APP_URL || `https://${process.env.REPLIT_DEV_DOMAIN}` || "http://localhost:5000";
@@ -1232,7 +1232,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.json({ url: session.url });
     } catch (err: any) {
       const msg = err?.raw?.message || err?.message || "Failed to open billing portal";
-      // Common cause: portal not activated in Stripe Dashboard
+      console.error("[billing/portal] Error:", msg);
       res.status(500).json({ message: msg });
     }
   });
