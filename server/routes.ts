@@ -1072,6 +1072,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     agency_annual:    { unit_amount: 163900, interval: "year",  name: "Agency Plan (Annual)" },
   };
 
+  app.get("/api/billing/config", (_req, res) => {
+    res.json({ publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || "" });
+  });
+
   app.post("/api/billing/create-checkout-session", requireAuth, async (req, res) => {
     const { plan, period } = req.body;
     const key = `${plan}_${period}`;
@@ -1091,6 +1095,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       mode: "subscription",
       payment_method_types: ["card"],
       customer_email: user.email,
+      ui_mode: "embedded",
       line_items: [{
         price_data: {
           currency: "gbp",
@@ -1100,12 +1105,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         },
         quantity: 1,
       }],
-      success_url: `${appUrl}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl}/pricing`,
+      return_url: `${appUrl}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
       metadata: { userId: user.id, plan, period },
     });
 
-    res.json({ url: session.url });
+    res.json({ clientSecret: session.client_secret });
   });
 
   app.get("/api/billing/confirm", requireAuth, async (req, res) => {
