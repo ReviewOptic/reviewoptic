@@ -94,15 +94,17 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
       </nav>
       <div className="px-4 py-3 border-t border-sidebar-border">
         <div className="text-[11px] text-muted-foreground/70 truncate mb-2">{user?.email}</div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full justify-start gap-2 text-[12px] h-7 px-2 text-muted-foreground hover:text-foreground mb-1"
-          onClick={() => { navigate("/pricing"); onNavClick?.(); }}
-        >
-          <CreditCard className="w-3.5 h-3.5" />
-          Billing
-        </Button>
+        {!user?.isAdmin && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start gap-2 text-[12px] h-7 px-2 text-muted-foreground hover:text-foreground mb-1"
+            onClick={() => { navigate("/pricing"); onNavClick?.(); }}
+          >
+            <CreditCard className="w-3.5 h-3.5" />
+            Billing
+          </Button>
+        )}
         {user?.isAdmin && (
           <Button
             variant="ghost"
