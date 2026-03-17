@@ -337,11 +337,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const user = await storage.getUser(req.session.userId);
     if (!user) return res.status(401).json({ message: "User not found" });
     // Fetch billing fields separately (added via migration, not in Drizzle schema yet)
-    const { rows: billingRows } = await pool.query(
-      `SELECT plan_type, plan_period, stripe_customer_id, stripe_subscription_id FROM users WHERE id = $1`,
-      [user.id]
-    );
-    const billing = billingRows[0] || {};
+    let billing: any = {};
+    try {
+      const { rows } = await pool.query(
+        `SELECT plan_type, plan_period FROM users WHERE id = $1`,
+        [user.id]
+      );
+      billing = rows[0] || {};
+    } catch { /* columns may not exist yet — safe to ignore */ }
     res.json({
       id: user.id,
       email: user.email,

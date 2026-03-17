@@ -33,7 +33,7 @@ function ProtectedRoutes() {
   useEffect(() => {
     if (!loading && !user) {
       navigate("/login");
-    } else if (!loading && user && user.planType === "free" && !user.isAdmin) {
+    } else if (!loading && user && !user.isAdmin && user.planType === "free") {
       navigate("/pricing");
     }
   }, [user, loading]);
@@ -46,7 +46,7 @@ function ProtectedRoutes() {
     );
   }
 
-  if (!user || (user.planType === "free" && !user.isAdmin)) {
+  if (!user || (!user.isAdmin && user.planType === "free")) {
     return null;
   }
 
