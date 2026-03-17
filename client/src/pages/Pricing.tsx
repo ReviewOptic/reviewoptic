@@ -31,10 +31,8 @@ const PLANS = [
     annual:  { price: 1639, display: "£1,639", amount: 163900, saving: "Save £149 — 1 month free" },
     features: [
       "Everything in Standard",
-      "Multiple client accounts",
-      "Priority support",
-      "Bulk campaign management",
-      "Advanced analytics",
+      "Manage multiple client accounts",
+      "Separate data per client",
       "No contracts — cancel anytime",
     ],
     highlight: false,
