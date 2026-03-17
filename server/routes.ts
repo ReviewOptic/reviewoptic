@@ -1,3 +1,4 @@
+import express from "express";
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage, pool } from "./storage";
@@ -335,12 +336,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!req.session.userId) return res.status(401).json({ message: "Not authenticated" });
     const user = await storage.getUser(req.session.userId);
     if (!user) return res.status(401).json({ message: "User not found" });
+    // Fetch billing fields separately (added via migration, not in Drizzle schema yet)
+    const { rows: billingRows } = await pool.query(
+      `SELECT plan_type, plan_period, stripe_customer_id, stripe_subscription_id FROM users WHERE id = $1`,
+      [user.id]
+    );
+    const billing = billingRows[0] || {};
     res.json({
       id: user.id,
       email: user.email,
       accountId: user.accountId,
       isAdmin: user.isAdmin,
       isImpersonating: !!req.session.originalUserId,
+      planType: billing.plan_type || "free",
+      planPeriod: billing.plan_period || "monthly",
     });
   });
 
@@ -1052,6 +1061,129 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.delete("/api/social/linkedin", requireAuth, async (req, res) => {
     await storage.upsertSettings(req.session.accountId!, { linkedinAccessToken: "", linkedinOrganizationId: "" });
     res.json({ success: true });
+  });
+
+  // ── Billing / Stripe ──────────────────────────────────────────────────────
+
+  const PRICES: Record<string, { unit_amount: number; interval: "month" | "year"; name: string }> = {
+    standard_monthly: { unit_amount: 4900,   interval: "month", name: "Standard Plan (Monthly)" },
+    standard_annual:  { unit_amount: 53900,  interval: "year",  name: "Standard Plan (Annual)" },
+    agency_monthly:   { unit_amount: 14900,  interval: "month", name: "Agency Plan (Monthly)" },
+    agency_annual:    { unit_amount: 163900, interval: "year",  name: "Agency Plan (Annual)" },
+  };
+
+  app.post("/api/billing/create-checkout-session", requireAuth, async (req, res) => {
+    const { plan, period } = req.body;
+    const key = `${plan}_${period}`;
+    if (!PRICES[key]) return res.status(400).json({ message: "Invalid plan or period" });
+    if (!process.env.STRIPE_SECRET_KEY) return res.status(500).json({ message: "Stripe is not configured" });
+
+    const Stripe = (await import("stripe")).default;
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+    const user = await storage.getUser(req.session.userId!);
+    if (!user) return res.status(401).json({ message: "User not found" });
+
+    const appUrl = process.env.APP_URL || `https://${process.env.REPLIT_DEV_DOMAIN}` || "http://localhost:5000";
+    const price = PRICES[key];
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      payment_method_types: ["card"],
+      customer_email: user.email,
+      line_items: [{
+        price_data: {
+          currency: "gbp",
+          unit_amount: price.unit_amount,
+          recurring: { interval: price.interval },
+          product_data: { name: price.name },
+        },
+        quantity: 1,
+      }],
+      success_url: `${appUrl}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${appUrl}/pricing`,
+      metadata: { userId: user.id, plan, period },
+    });
+
+    res.json({ url: session.url });
+  });
+
+  app.get("/api/billing/confirm", requireAuth, async (req, res) => {
+    const sessionId = String(req.query.session_id || "");
+    if (!sessionId) return res.status(400).json({ message: "Missing session_id" });
+    if (!process.env.STRIPE_SECRET_KEY) return res.status(500).json({ message: "Stripe not configured" });
+
+    const Stripe = (await import("stripe")).default;
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+    const session = await stripe.checkout.sessions.retrieve(sessionId, { expand: ["subscription"] });
+
+    if (session.payment_status !== "paid" && session.status !== "complete") {
+      return res.status(400).json({ message: "Payment not completed" });
+    }
+
+    const { plan, period, userId } = session.metadata || {};
+    if (!plan || !period || !PRICES[`${plan}_${period}`]) {
+      return res.status(400).json({ message: "Invalid session metadata" });
+    }
+    if (userId !== req.session.userId) {
+      return res.status(403).json({ message: "Session does not belong to this user" });
+    }
+
+    const customerId = typeof session.customer === "string" ? session.customer : (session.customer as any)?.id ?? "";
+    const subscriptionId = typeof session.subscription === "string" ? session.subscription : (session.subscription as any)?.id ?? "";
+
+    await pool.query(
+      `UPDATE users SET plan_type = $1, plan_period = $2, stripe_customer_id = $3, stripe_subscription_id = $4 WHERE id = $5`,
+      [plan, period, customerId, subscriptionId, userId]
+    );
+
+    res.json({ success: true, plan, period });
+  });
+
+  app.get("/api/billing/status", requireAuth, async (req, res) => {
+    const { rows } = await pool.query(
+      `SELECT plan_type, plan_period, stripe_customer_id, stripe_subscription_id FROM users WHERE id = $1`,
+      [req.session.userId]
+    );
+    const row = rows[0] || {};
+    res.json({
+      planType: row.plan_type || "free",
+      planPeriod: row.plan_period || "monthly",
+      stripeCustomerId: row.stripe_customer_id || null,
+      stripeSubscriptionId: row.stripe_subscription_id || null,
+    });
+  });
+
+  // Stripe webhook — handles subscription cancellations asynchronously
+  app.post("/api/billing/webhook", express.raw({ type: "application/json" }), async (req, res) => {
+    if (!process.env.STRIPE_SECRET_KEY) return res.status(500).send("Stripe not configured");
+
+    const Stripe = (await import("stripe")).default;
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+    let event: any;
+    const sig = req.headers["stripe-signature"] as string;
+    const rawBody = (req as any).rawBody || req.body;
+
+    if (process.env.STRIPE_WEBHOOK_SECRET && sig) {
+      try {
+        event = stripe.webhooks.constructEvent(rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET);
+      } catch {
+        return res.status(400).send("Webhook signature verification failed");
+      }
+    } else {
+      event = typeof rawBody === "string" ? JSON.parse(rawBody) : rawBody;
+    }
+
+    if (event.type === "customer.subscription.deleted") {
+      await pool.query(
+        `UPDATE users SET plan_type = 'free', plan_period = 'monthly' WHERE stripe_subscription_id = $1`,
+        [event.data.object.id]
+      );
+    }
+
+    res.json({ received: true });
   });
 
   return httpServer;

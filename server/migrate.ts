@@ -147,6 +147,12 @@ export async function runMigrations() {
       console.log(`[migrate] Gave user ${user.email} their own account: ${newAccountId}`);
     }
 
+    // Stripe billing columns
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_type TEXT NOT NULL DEFAULT 'free'`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_period TEXT NOT NULL DEFAULT 'monthly'`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT`);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();

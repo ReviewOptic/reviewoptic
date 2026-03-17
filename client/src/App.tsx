@@ -23,6 +23,8 @@ import VerifyEmail from "@/pages/VerifyEmail";
 import Admin from "@/pages/Admin";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import TermsAndConditions from "@/pages/TermsAndConditions";
+import Pricing from "@/pages/Pricing";
+import BillingSuccess from "@/pages/BillingSuccess";
 
 function ProtectedRoutes() {
   const { user, loading } = useAuth();
@@ -69,6 +71,8 @@ function Router() {
       <Route path="/review-landing" component={ReviewLanding} />
       <Route path="/privacy" component={PrivacyPolicy} />
       <Route path="/terms" component={TermsAndConditions} />
+      <Route path="/pricing" component={Pricing} />
+      <Route path="/billing/success" component={BillingSuccess} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
       <Route path="/reset-password" component={ResetPassword} />
