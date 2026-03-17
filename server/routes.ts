@@ -1,4 +1,3 @@
-import express from "express";
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage, pool } from "./storage";
@@ -342,7 +341,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       accountId: user.accountId,
       isAdmin: user.isAdmin,
       isImpersonating: !!req.session.originalUserId,
-      planType: (user as any).planType || "free",
     });
   });
 
@@ -1054,134 +1052,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.delete("/api/social/linkedin", requireAuth, async (req, res) => {
     await storage.upsertSettings(req.session.accountId!, { linkedinAccessToken: "", linkedinOrganizationId: "" });
     res.json({ success: true });
-  });
-
-  // ── Billing / Stripe ──────────────────────────────────────────────────────
-
-  app.post("/api/billing/create-checkout-session", requireAuth, async (req, res) => {
-    const { plan } = req.body;
-    if (plan !== "standard" && plan !== "agency") {
-      return res.status(400).json({ message: "Invalid plan" });
-    }
-    if (!process.env.STRIPE_SECRET_KEY) {
-      return res.status(500).json({ message: "Stripe is not configured" });
-    }
-
-    const Stripe = (await import("stripe")).default;
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-
-    const user = await storage.getUser(req.session.userId!);
-    if (!user) return res.status(401).json({ message: "User not found" });
-
-    const appUrl = process.env.APP_URL || `https://${process.env.REPLIT_DEV_DOMAIN}` || "http://localhost:5000";
-
-    const priceData = plan === "standard"
-      ? { unit_amount: 4900, nickname: "Standard Plan" }
-      : { unit_amount: 14900, nickname: "Agency Plan" };
-
-    const session = await stripe.checkout.sessions.create({
-      mode: "subscription",
-      payment_method_types: ["card"],
-      customer_email: user.email,
-      line_items: [{
-        price_data: {
-          currency: "gbp",
-          unit_amount: priceData.unit_amount,
-          recurring: { interval: "month" },
-          product_data: { name: priceData.nickname },
-        },
-        quantity: 1,
-      }],
-      success_url: `${appUrl}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl}/pricing`,
-      metadata: { userId: user.id, plan },
-    });
-
-    res.json({ url: session.url });
-  });
-
-  app.get("/api/billing/confirm", requireAuth, async (req, res) => {
-    const sessionId = String(req.query.session_id || "");
-    if (!sessionId) return res.status(400).json({ message: "Missing session_id" });
-    if (!process.env.STRIPE_SECRET_KEY) return res.status(500).json({ message: "Stripe not configured" });
-
-    const Stripe = (await import("stripe")).default;
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-
-    const session = await stripe.checkout.sessions.retrieve(sessionId, {
-      expand: ["subscription"],
-    });
-
-    if (session.payment_status !== "paid" && session.status !== "complete") {
-      return res.status(400).json({ message: "Payment not completed" });
-    }
-
-    const plan = session.metadata?.plan;
-    if (plan !== "standard" && plan !== "agency") {
-      return res.status(400).json({ message: "Invalid plan in session" });
-    }
-
-    const userId = session.metadata?.userId;
-    // Security: ensure the session belongs to the logged-in user
-    if (userId !== req.session.userId) {
-      return res.status(403).json({ message: "Session does not belong to this user" });
-    }
-
-    const customerId = typeof session.customer === "string" ? session.customer : session.customer?.id ?? "";
-    const subscriptionId = typeof session.subscription === "string" ? session.subscription : (session.subscription as any)?.id ?? "";
-
-    await pool.query(
-      `UPDATE users SET plan_type = $1, stripe_customer_id = $2, stripe_subscription_id = $3 WHERE id = $4`,
-      [plan, customerId, subscriptionId, userId]
-    );
-
-    res.json({ success: true, plan });
-  });
-
-  app.get("/api/billing/status", requireAuth, async (req, res) => {
-    const { rows } = await pool.query(
-      `SELECT plan_type, stripe_customer_id, stripe_subscription_id FROM users WHERE id = $1`,
-      [req.session.userId]
-    );
-    const row = rows[0] || {};
-    res.json({
-      planType: row.plan_type || "free",
-      stripeCustomerId: row.stripe_customer_id || null,
-      stripeSubscriptionId: row.stripe_subscription_id || null,
-    });
-  });
-
-  // Stripe webhook — optional but handles async payment events
-  app.post("/api/billing/webhook", express.raw({ type: "application/json" }), async (req, res) => {
-    if (!process.env.STRIPE_SECRET_KEY) return res.status(500).send("Stripe not configured");
-
-    const Stripe = (await import("stripe")).default;
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-
-    let event: any;
-    const sig = req.headers["stripe-signature"] as string;
-    const rawBody = (req as any).rawBody || req.body;
-
-    if (process.env.STRIPE_WEBHOOK_SECRET && sig) {
-      try {
-        event = stripe.webhooks.constructEvent(rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET);
-      } catch {
-        return res.status(400).send("Webhook signature verification failed");
-      }
-    } else {
-      // No webhook secret configured — parse body directly (test/dev only)
-      event = typeof rawBody === "string" ? JSON.parse(rawBody) : rawBody;
-    }
-
-    if (event.type === "customer.subscription.deleted") {
-      const sub = event.data.object;
-      await pool.query(
-        `UPDATE users SET plan_type = 'free' WHERE stripe_subscription_id = $1`,
-        [sub.id]
-      );
-    }
-
-    res.json({ received: true });
   });
 
   return httpServer;

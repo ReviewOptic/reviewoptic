@@ -6,7 +6,6 @@ export interface AuthUser {
   accountId: string;
   isAdmin: boolean;
   isImpersonating: boolean;
-  planType: "free" | "standard" | "agency";
 }
 
 export interface AuthContextType {
