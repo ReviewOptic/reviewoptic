@@ -32,7 +32,6 @@ const PLANS = [
     features: [
       "Everything in Standard",
       "Multiple client accounts",
-      "White-label branding",
       "Priority support",
       "Bulk campaign management",
       "Advanced analytics",
