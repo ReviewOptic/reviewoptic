@@ -38,7 +38,7 @@ const PLANS = [
       "Advanced analytics",
       "No contracts — cancel anytime",
     ],
-    highlight: true,
+    highlight: false,
   },
 ];
 
