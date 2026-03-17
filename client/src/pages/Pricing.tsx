@@ -19,6 +19,7 @@ const PLANS = [
       "Analytics dashboard",
       "Custom email templates",
       "Google, Trustpilot & more",
+      "Multiple users",
       "No contracts — cancel anytime",
     ],
     highlight: false,
