@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Check, X } from "lucide-react";
+import { Check, X, ArrowLeft } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
 import { EmbeddedCheckout, EmbeddedCheckoutProvider } from "@stripe/react-stripe-js";
 import { Button } from "@/components/ui/button";
@@ -73,7 +73,14 @@ export default function Pricing() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center px-4 py-16">
+    <div className="relative min-h-screen bg-gray-50 flex flex-col items-center px-4 py-16">
+      <button
+        onClick={() => window.history.back()}
+        className="absolute top-4 left-4 flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Back
+      </button>
       <div className="text-center mb-10">
         <h1 className="text-4xl font-bold text-gray-900 mb-3">Simple, transparent pricing</h1>
         <p className="text-lg text-gray-500">No setup fees. No hidden charges. Cancel anytime.</p>
