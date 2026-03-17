@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Check, X, ArrowLeft } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
@@ -41,8 +41,14 @@ const PLANS = [
 ];
 
 export default function Pricing() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [, navigate] = useLocation();
+
+  // If an admin landed here while impersonating, refresh auth so stale
+  // requiresPayment data doesn't block navigation back to the app
+  useEffect(() => {
+    if (user?.isImpersonating) refreshUser();
+  }, []);
   const { toast } = useToast();
   const [period, setPeriod] = useState<"monthly" | "annual">("monthly");
   const [clientSecret, setClientSecret] = useState<string | null>(null);
