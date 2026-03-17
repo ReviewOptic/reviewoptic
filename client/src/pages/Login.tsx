@@ -218,7 +218,10 @@ export default function Login() {
             </>
           )}
         </div>
-        <p className="text-center text-xs text-muted-foreground mt-6">
+        <p className="text-center text-sm text-muted-foreground mt-4">
+          <a href="/pricing" className="underline hover:text-foreground font-medium">View pricing plans</a>
+        </p>
+        <p className="text-center text-xs text-muted-foreground mt-3">
           By signing up, you agree to our{" "}
           <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">Terms and Conditions</a>
           {" "}and{" "}
