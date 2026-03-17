@@ -1,12 +1,35 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, FileText, BarChart3, Settings, Star, Menu, X, LogOut, Shield } from "lucide-react";
+import { LayoutDashboard, Users, FileText, BarChart3, Settings, Menu, X, LogOut, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, Component, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import type { PrivateFeedback } from "@shared/schema";
+
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex h-screen items-center justify-center flex-col gap-4 text-sm text-muted-foreground">
+          <p>Something went wrong. <button className="underline" onClick={() => window.location.reload()}>Reload</button></p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function LogoOrText() {
+  const [imgFailed, setImgFailed] = useState(false);
+  if (imgFailed) {
+    return <span className="font-semibold text-sidebar-foreground text-[15px] tracking-tight">ReviewOptic</span>;
+  }
+  return <img src="/logo.png" alt="ReviewOptic" className="h-8 w-auto" onError={() => setImgFailed(true)} />;
+}
 
 const navItems = [
   { href: "/", icon: LayoutDashboard, label: "Dashboard" },
@@ -46,10 +69,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   return (
     <>
       <div className="flex items-center gap-2.5 px-5 py-5 border-b border-sidebar-border">
-        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary">
-          <Star className="w-4 h-4 text-primary-foreground fill-primary-foreground" />
-        </div>
-        <span className="font-semibold text-sidebar-foreground text-[15px] tracking-tight">ReviewOptic</span>
+        <LogoOrText />
       </div>
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {navItems.map((item) => {
@@ -116,10 +136,11 @@ function ImpersonationBanner() {
   );
 }
 
-export default function Layout({ children }: { children: React.ReactNode }) {
+export default function Layout({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
+    <ErrorBoundary>
     <div className="flex h-screen bg-background overflow-hidden">
       {/* Sidebar desktop */}
       <aside className="hidden md:flex flex-col w-60 bg-sidebar border-r border-sidebar-border flex-shrink-0">
@@ -152,12 +173,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMobileOpen(true)}>
             <Menu className="w-5 h-5" />
           </Button>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center justify-center w-7 h-7 rounded-md bg-primary">
-              <Star className="w-3.5 h-3.5 text-primary-foreground fill-primary-foreground" />
-            </div>
-            <span className="font-semibold text-sm">ReviewOptic</span>
-          </div>
+          <LogoOrText />
           <div className="w-8" />
         </header>
         <main className="flex-1 overflow-y-auto">
@@ -165,5 +181,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </main>
       </div>
     </div>
+    </ErrorBoundary>
   );
 }

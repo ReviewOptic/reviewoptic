@@ -261,6 +261,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     req.session.userId = user.id;
     req.session.accountId = user.accountId;
+    delete req.session.originalUserId;
+    delete req.session.originalAccountId;
     res.json({ id: user.id, email: user.email, accountId: user.accountId, isAdmin: user.isAdmin });
   });
 

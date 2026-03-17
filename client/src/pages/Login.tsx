@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Star, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2 } from "lucide-react";
 
 export default function Login() {
   const { login, register, user } = useAuth();
@@ -74,12 +74,7 @@ export default function Login() {
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-sm text-center">
         <div className="flex justify-center mb-5">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary">
-              <Star className="w-4 h-4 text-primary-foreground fill-primary-foreground" />
-            </div>
-            <span className="font-bold text-[15px] tracking-tight">ReviewOptic</span>
-          </div>
+          <img src="/logo.png" alt="ReviewOptic" className="h-10 w-auto" />
         </div>
 
         <h1 className="text-2xl font-bold tracking-tight mb-2">Turn happy customers into 5-star reviews</h1>
