@@ -354,7 +354,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       isImpersonating: !!req.session.originalUserId,
       planType,
       planPeriod: billing.plan_period || "monthly",
-      requiresPayment: !user.isAdmin && planType === "free",
+      requiresPayment: !user.isAdmin && planType === "free" && !req.session.originalUserId,
     });
   });
 
