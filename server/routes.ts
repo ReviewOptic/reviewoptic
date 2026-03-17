@@ -345,14 +345,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       );
       billing = rows[0] || {};
     } catch { /* columns may not exist yet — safe to ignore */ }
+    const planType = billing.plan_type || "free";
     res.json({
       id: user.id,
       email: user.email,
       accountId: user.accountId,
       isAdmin: user.isAdmin,
       isImpersonating: !!req.session.originalUserId,
-      planType: billing.plan_type || "free",
+      planType,
       planPeriod: billing.plan_period || "monthly",
+      requiresPayment: !user.isAdmin && planType === "free",
     });
   });
 

@@ -8,6 +8,7 @@ export interface AuthUser {
   isImpersonating: boolean;
   planType: "free" | "standard" | "agency";
   planPeriod: "monthly" | "annual";
+  requiresPayment: boolean;
 }
 
 export interface AuthContextType {
