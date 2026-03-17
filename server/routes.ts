@@ -1221,15 +1221,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const customerId = rows[0]?.stripe_customer_id;
     if (!customerId) return res.status(400).json({ message: "No billing account found" });
 
-    const Stripe = (await import("stripe")).default;
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-    const appUrl = process.env.APP_URL || `https://${process.env.REPLIT_DEV_DOMAIN}` || "http://localhost:5000";
-
-    const session = await stripe.billingPortal.sessions.create({
-      customer: customerId,
-      return_url: `${appUrl}/billing`,
-    });
-    res.json({ url: session.url });
+    try {
+      const Stripe = (await import("stripe")).default;
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+      const appUrl = process.env.APP_URL || `https://${process.env.REPLIT_DEV_DOMAIN}` || "http://localhost:5000";
+      const session = await stripe.billingPortal.sessions.create({
+        customer: customerId,
+        return_url: `${appUrl}/billing`,
+      });
+      res.json({ url: session.url });
+    } catch (err: any) {
+      const msg = err?.raw?.message || err?.message || "Failed to open billing portal";
+      // Common cause: portal not activated in Stripe Dashboard
+      res.status(500).json({ message: msg });
+    }
   });
 
   // Stripe webhook — handles subscription cancellations asynchronously

@@ -39,11 +39,13 @@ export default function Billing() {
     setPortalLoading(true);
     try {
       const res = await fetch("/api/billing/portal", { method: "POST", credentials: "include" });
-      const data = await res.json();
+      const text = await res.text();
+      let data: any;
+      try { data = JSON.parse(text); } catch { throw new Error("Unexpected server response. Please try again."); }
       if (!res.ok) throw new Error(data.message || "Could not open billing portal");
       window.location.href = data.url;
     } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: "Could not open billing portal", description: err.message, variant: "destructive" });
       setPortalLoading(false);
     }
   }
