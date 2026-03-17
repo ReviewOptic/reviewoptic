@@ -362,3 +362,32 @@ Your job is to be the developer they would hire if they could afford a great one
 **Lessons learned:**
 - When hiding UI elements for impersonation, check ALL pages for duplicate buttons (e.g. Dashboard had two "Add Customer" buttons, Customers had an empty-state one)
 - Hard refresh (Ctrl+Shift+R) needed in browser to pick up Vite hot-reload changes when they don't auto-apply
+
+### Session — 2026-03-17 (eighth session)
+
+**Tasks completed:**
+- Added business logo to sidebar — `LogoOrText` component now fetches `/api/settings` and shows the uploaded logo (centred, `h-24`) instead of just text; falls back to "ReviewOptic" text if no logo uploaded
+- Added business logo to login/signup page — fetches from new public endpoint `/api/public/branding`; shows uploaded logo large (`width: 100%, maxWidth: 320px`) above the form; falls back to `/logo.png` if none set
+- Added `/api/public/branding` endpoint — no auth required; returns admin account's logo URL and business name for use on public-facing pages
+- Removed "ReviewOptic" text next to logo in sidebar — logo only; text shows as fallback if no logo
+- Removed duplicate small ReviewOptic logo from login page — now shows uploaded logo OR platform logo, not both
+- Removed gray background from logo thumbnail in Settings → Business tab
+- Spacing tweaks on login page — reduced whitespace under logo (`mb-5` → `mb-0`)
+
+**Fixes applied:**
+- Logo in sidebar was showing `/logo.png` (static file) instead of user's uploaded business logo — switched to dynamic fetch from settings
+- Login page had two logos stacked — replaced with conditional: uploaded logo if available, else platform logo
+
+**Issues discovered:**
+- Logo sizing via Tailwind `h-*` classes can be unreliable when parent has `max-w-sm` — switched to inline `style` width-based sizing for the login page logo which is more predictable
+- `/api/public/branding` endpoint requires a full Replit Stop + Run to activate after first deploy
+
+**Notes for next session:**
+- Sidebar logo is centred, `h-24`, pulls from `/api/settings` (authenticated)
+- Login page logo pulls from `/api/public/branding` (no auth), uses admin account's settings
+- `uploads/` folder is still local-only — logos lost on server restart; needs cloud storage before production
+- Settings page still allows editing when impersonating — server blocks writes but UI doesn't show a clear read-only state
+
+**Lessons learned:**
+- Use inline `style` width-based sizing (e.g. `style={{width:"100%", maxWidth:"320px"}}`) for logos on the login page — Tailwind height classes can be overridden by parent container constraints
+- When a public page needs data from settings, always create a dedicated no-auth endpoint rather than trying to reuse the authenticated one

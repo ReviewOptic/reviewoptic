@@ -630,6 +630,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ reviews: result, businessName: settings?.businessName || "My Business" });
   });
 
+  // Public branding endpoint — returns the admin account's logo for the login page
+  app.get("/api/public/branding", async (_req, res) => {
+    try {
+      const adminUser = await pool.query(`SELECT account_id FROM users WHERE is_admin = true LIMIT 1`);
+      if (!adminUser.rows.length) return res.json({ logoUrl: "", businessName: "ReviewOptic" });
+      const adminSettings = await storage.getSettings(adminUser.rows[0].account_id);
+      const baseUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "");
+      const logoUrl = adminSettings?.logoUrl?.startsWith("http")
+        ? adminSettings.logoUrl
+        : adminSettings?.logoUrl
+          ? `${baseUrl}${adminSettings.logoUrl}`
+          : "";
+      res.json({ logoUrl, businessName: adminSettings?.businessName || "ReviewOptic" });
+    } catch {
+      res.json({ logoUrl: "", businessName: "ReviewOptic" });
+    }
+  });
+
   // ── Protected routes (requireAuth) ───────────────────────────────────────
 
   // Customers

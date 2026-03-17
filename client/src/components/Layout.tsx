@@ -24,11 +24,15 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 }
 
 function LogoOrText() {
+  const { data: settings } = useQuery<{ logoUrl: string; businessName: string }>({ queryKey: ["/api/settings"] });
   const [imgFailed, setImgFailed] = useState(false);
-  if (imgFailed) {
-    return <span className="font-semibold text-sidebar-foreground text-[15px] tracking-tight">ReviewOptic</span>;
+
+  const logoSrc = settings?.logoUrl || "";
+
+  if (logoSrc && !imgFailed) {
+    return <img src={logoSrc} alt="logo" className="h-24 w-auto max-w-[220px] object-contain" onError={() => setImgFailed(true)} />;
   }
-  return <img src="/logo.png" alt="ReviewOptic" className="h-8 w-auto" onError={() => setImgFailed(true)} />;
+  return <span className="font-semibold text-sidebar-foreground text-[15px] tracking-tight">ReviewOptic</span>;
 }
 
 const navItems = [
@@ -68,7 +72,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
 
   return (
     <>
-      <div className="flex items-center gap-2.5 px-5 py-5 border-b border-sidebar-border">
+      <div className="flex items-center justify-center px-5 py-5 border-b border-sidebar-border">
         <LogoOrText />
       </div>
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">

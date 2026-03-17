@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, CheckCircle2 } from "lucide-react";
@@ -8,6 +9,9 @@ import { ArrowLeft, CheckCircle2 } from "lucide-react";
 export default function Login() {
   const { login, register, user } = useAuth();
   const [, navigate] = useLocation();
+  const { data: branding } = useQuery<{ logoUrl: string; businessName: string }>({
+    queryKey: ["/api/public/branding"],
+  });
 
   useEffect(() => {
     if (user) navigate("/");
@@ -73,8 +77,12 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-sm text-center">
-        <div className="flex justify-center mb-5">
-          <img src="/logo.png" alt="ReviewOptic" className="h-10 w-auto" />
+        <div className="flex flex-col items-center gap-3 mb-0">
+          {branding?.logoUrl ? (
+            <img src={branding.logoUrl} alt="logo" style={{width: "100%", maxWidth: "320px", height: "auto"}} />
+          ) : (
+            <img src="/logo.png" alt="ReviewOptic" className="h-8 w-auto" />
+          )}
         </div>
 
         <h1 className="text-2xl font-bold tracking-tight mb-2">Turn happy customers into 5-star reviews</h1>

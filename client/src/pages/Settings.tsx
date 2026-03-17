@@ -246,7 +246,7 @@ export default function Settings() {
                   <div className="flex items-center gap-4">
                     {form.logoUrl && (
                       <div className="relative">
-                        <img src={form.logoUrl} alt="Logo" className="h-16 w-16 rounded-lg object-contain border border-border bg-muted/30" />
+                        <img src={form.logoUrl} alt="Logo" className="h-16 w-auto max-w-[120px] object-contain" />
                         <button
                           type="button"
                           onClick={() => setForm(f => ({ ...f, logoUrl: "" }))}
