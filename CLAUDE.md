@@ -391,3 +391,49 @@ Your job is to be the developer they would hire if they could afford a great one
 **Lessons learned:**
 - Use inline `style` width-based sizing (e.g. `style={{width:"100%", maxWidth:"320px"}}`) for logos on the login page — Tailwind height classes can be overridden by parent container constraints
 - When a public page needs data from settings, always create a dedicated no-auth endpoint rather than trying to reuse the authenticated one
+
+### Session — 2026-03-17 (ninth session)
+
+**Tasks completed:**
+- Added Stripe payments — Standard (£49/mo, £539/yr) and Agency (£149/mo, £1,639/yr) plans
+- Built `/pricing` page with monthly/annual toggle, savings badges ("1 month free"), and Stripe Embedded Checkout (opens in modal overlay — no redirect away from page)
+- Built `/billing/success` page — confirms payment with Stripe, updates plan in DB, refreshes auth, auto-redirects to dashboard
+- DB migration adds `plan_type`, `plan_period`, `stripe_customer_id`, `stripe_subscription_id` to users table
+- Added paywall: non-paying, non-admin users redirected to `/pricing` on any protected route
+- Admin accounts bypass paywall entirely; impersonating admins also bypass it
+- Added `requiresPayment` flag to `/api/auth/me` response — computed server-side so client logic is simple
+- Added "View pricing plans" link on login/signup page
+- Added "Billing" link in sidebar for non-admin users; admins don't see it
+- Built `/billing` page for paying users: current plan, renewal date, upgrade-to-annual option, invoice list with PDF download, "Manage payment details" button
+- Stripe Customer Portal integration for card/address changes (`POST /api/billing/portal`)
+- `GET /api/billing/subscription` — live subscription status from Stripe
+- `GET /api/billing/invoices` — last 10 invoices with PDF links
+- Added plan breakdown to admin metrics — 4 purple stat cards showing Standard/Agency × Monthly/Annual user counts
+- Installed `@stripe/stripe-js` and `@stripe/react-stripe-js`
+
+**Fixes applied:**
+- Billing portal returning non-JSON error — wrapped entire handler in try/catch, now always returns JSON
+- Admin impersonation blocked by paywall — `requiresPayment` now always false when `originalUserId` is set (impersonating)
+- Stale auth data causing redirect loop on pricing page — added `refreshUser()` call on pricing page mount when impersonating
+- Back button on pricing page: goes to `/` if logged in, `/login` if not (using `<a href>` not `navigate()` which was unreliable from public routes)
+- Async errors in billing routes not caught by Express — all billing handlers now fully wrapped in try/catch
+- `billing.plan_type` query wrapped in try/catch in `/api/auth/me` so missing columns (pre-migration) don't break login
+
+**Issues discovered:**
+- Stripe Customer Portal must be activated in Stripe Dashboard (Billing → Customer portal → Activate) before the "Manage payment details" button works — server now returns a readable error message if not activated
+- `uploads/` folder still local-only — logos lost on server restart; needs cloud storage before production
+- OAuth redirect URIs still hardcoded to `localhost:5000` — must update before production
+
+**Notes for next session:**
+- Stripe is in **test mode** — use card `4242 4242 4242 4242` for testing
+- Full Replit **Stop + Run** required after any server-side change for migrations to run and env vars to load
+- Stripe Customer Portal needs activating in Stripe Dashboard before it works
+- `requiresPayment` is computed server-side in `/api/auth/me` — single source of truth for paywall logic
+- Billing page is at `/billing` (protected route, non-admin only); pricing page is at `/pricing` (public)
+- Webhook endpoint at `/api/billing/webhook` handles `customer.subscription.deleted` — set `STRIPE_WEBHOOK_SECRET` in Replit Secrets once webhook is registered in Stripe Dashboard
+- Plan breakdown stat cards in admin metrics use `planBreakdown` array from `/api/admin/metrics`
+
+**Lessons learned:**
+- Always wrap the entire async route handler in try/catch for billing routes — a failing DB query outside the catch block will cause an unhandled rejection and return HTML instead of JSON
+- When an impersonating admin has stale auth data, call `refreshUser()` on the page they land on to immediately fetch fresh server-computed flags
+- Use `<a href="...">` not wouter's `navigate()` for back buttons on public pages — `navigate()` can behave unexpectedly when the target is a protected route
