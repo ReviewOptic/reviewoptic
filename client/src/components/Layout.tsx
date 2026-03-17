@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, FileText, BarChart3, Settings, Menu, X, LogOut, Shield, CreditCard, Zap } from "lucide-react";
+import { LayoutDashboard, Users, FileText, BarChart3, Settings, Menu, X, LogOut, Shield, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, Component, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -94,27 +94,15 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
       </nav>
       <div className="px-4 py-3 border-t border-sidebar-border">
         <div className="text-[11px] text-muted-foreground/70 truncate mb-2">{user?.email}</div>
-        {user?.planType === "free" ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start gap-2 text-[12px] h-7 px-2 text-amber-600 hover:text-amber-700 hover:bg-amber-50 mb-1 font-semibold"
-            onClick={() => { navigate("/pricing"); onNavClick?.(); }}
-          >
-            <Zap className="w-3.5 h-3.5" />
-            Upgrade plan
-          </Button>
-        ) : (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start gap-2 text-[12px] h-7 px-2 text-muted-foreground hover:text-foreground mb-1"
-            onClick={() => { navigate("/pricing"); onNavClick?.(); }}
-          >
-            <CreditCard className="w-3.5 h-3.5" />
-            Billing
-          </Button>
-        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start gap-2 text-[12px] h-7 px-2 text-muted-foreground hover:text-foreground mb-1"
+          onClick={() => { navigate("/pricing"); onNavClick?.(); }}
+        >
+          <CreditCard className="w-3.5 h-3.5" />
+          Billing
+        </Button>
         {user?.isAdmin && (
           <Button
             variant="ghost"
