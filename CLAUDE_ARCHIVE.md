@@ -111,3 +111,101 @@ Older session logs moved here to keep CLAUDE.md under 30k chars.
 - Replit Secrets only load when app runs via Replit UI — `.env` file is required for Claude Code sessions
 - Browser autofill doesn't trigger React `onChange` — read login form values from DOM elements directly
 - `FormData.get()` on React controlled inputs returns React state value — use `elements.namedItem()` instead
+
+### Session — 2026-03-15 (third session)
+
+**Tasks completed:**
+- Login autofill bug fully fixed — removed `value` prop from email/password inputs (made uncontrolled), added `key={mode}` to reset form on mode switch, replaced `navigate("/")` with `useEffect` watching `user` state to prevent race condition
+- Email verification race condition fixed — `VerifyEmail.tsx` now calls `refreshUser()` before navigating so ProtectedRoutes doesn't bounce user back to /login
+- Resend verification email — added button on "Check your email" screen and a `POST /api/auth/resend-verification` endpoint
+- Re-signup with unverified email — server now detects existing unverified account and resends verification instead of erroring
+- "Failed to send request" bug fixed — `scheduledAt` was sent as a JSON string but Drizzle expected a Date object; fixed with `new Date(req.body.scheduledAt)`
+- Privacy Policy and T&Cs pages created; T&Cs checkbox on signup
+- SMS sending via Twilio — UK number detection, normalisation, alphanumeric sender ID
+- Customers now editable — inline edit mode on CustomerDetail; "Edit Contact" in dropdown on Customers list
+- Platform selection on send — toggle buttons for Google/Facebook/Trustpilot/TripAdvisor/Checkatrade/MyBuilder
+- Company logo upload — Settings → Business tab; upload, crop, remove. Stored via multer
+- Auto-save settings — 1.5s debounced auto-save with indicator
+- Logo in emails with position (left/centre/right) respected; Logo position moved to Templates page
+
+**Lessons learned:**
+- Browser autofill race condition: make login inputs uncontrolled AND use `useEffect` on user state for navigation
+- When email verification redirects fail, call `refreshUser()` before `navigate()`
+
+### Session — 2026-03-15 (fourth session)
+
+**Tasks completed:**
+- Fixed data isolation bug — bootstrap-account data migrated to admin's real account on server start
+- Fixed React Query cache leaking between accounts — `queryClient.clear()` on login/logout/impersonation
+- Cleaned admin customer list to show only real ReviewOptic subscribers
+- Fixed analytics data isolation and channel breakdown date filtering
+- Redesigned Analytics page — 4 stat cards, date range filter, channel filter, donut + bar charts
+
+**Lessons learned:**
+- React Query caches under same key for all users — always call `queryClient.clear()` on any account switch
+- When diagnosing data leaks, check the DB directly to confirm whether issue is data layer or cache layer
+
+### Session — 2026-03-16 (fifth session)
+
+**Tasks completed:**
+- Switched AI between OpenAI and Anthropic at user request (ended on OpenAI gpt-4o-mini)
+- Improved error logging on AI endpoint and frontend error toasts
+
+**Lessons learned:**
+- Replit env vars only inject at container start — process restart alone is not enough
+
+### Session — 2026-03-16 (sixth session)
+
+**Tasks completed:**
+- Fixed OpenAI API key not loading (needed Stop + Run)
+- Fixed logo URL being relative in emails — prefixed with REPLIT_DEV_DOMAIN
+- Logo now clickable link in emails; `websiteUrl` field added to settings
+- Added editable email subject field to Send Request dialog
+- Rebuilt admin panel Metrics tab with full analytics, date filter, Revenue & Payments skeleton
+
+**Lessons learned:**
+- Always check Resend (and other API) response objects — errors are in body, not thrown
+- Replit env vars only update on full container restart
+
+### Session — 2026-03-16 (seventh session)
+
+**Tasks completed:**
+- Enforced read-only impersonation at server level (blocks all POST/PATCH/PUT/DELETE when impersonating)
+- UI hides Add Customer, Import CSV, Send Request, Edit Contact, DNC, Delete when impersonating
+- Fixed impersonate button condition — now shows for all users except self
+
+**Lessons learned:**
+- When hiding UI elements for impersonation, check ALL pages for duplicate buttons
+- Hard refresh (Ctrl+Shift+R) needed in browser to pick up Vite hot-reload changes
+
+### Session — 2026-03-17 (eighth session)
+
+**Tasks completed:**
+- Business logo in sidebar (dynamic fetch from /api/settings)
+- Business logo on login page (from /api/public/branding — no auth)
+- Removed duplicate logos, spacing tweaks
+
+**Lessons learned:**
+- Use inline `style` width-based sizing for logos — Tailwind height classes can be overridden by parent
+- Public pages needing settings data: always create a dedicated no-auth endpoint
+
+### Session — 2026-03-17 (ninth session)
+
+**Tasks completed:**
+- Stripe payments — Standard (£49/mo, £539/yr) and Agency (£149/mo, £1,639/yr)
+- /pricing page with Stripe Embedded Checkout modal
+- /billing/success page — updates plan in DB, refreshes auth
+- DB migration: plan_type, plan_period, stripe_customer_id, stripe_subscription_id
+- Paywall: non-paying non-admin users redirected to /pricing
+- /billing page: current plan, renewal, invoices, Customer Portal button
+- Plan breakdown in admin metrics
+
+**Notes (still relevant):**
+- Stripe is in test mode — use `4242 4242 4242 4242`
+- Stripe Customer Portal must be activated in Stripe Dashboard before use
+- Webhook endpoint at /api/billing/webhook — set STRIPE_WEBHOOK_SECRET once registered
+
+**Lessons learned:**
+- Always wrap entire async route handler in try/catch for billing routes
+- Call `refreshUser()` on page load when impersonating to get fresh server-computed flags
+- Use `<a href>` not `navigate()` for back buttons on public pages
