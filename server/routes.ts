@@ -64,8 +64,17 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
   }
   // Enforce payment — free plan users (non-admin, non-impersonated) cannot access protected routes
   if (req.path.startsWith("/api/billing/")) return next();
-  storage.getUser(req.session.userId).then(user => {
+  storage.getUser(req.session.userId).then(async user => {
     if (!user) return res.status(401).json({ message: "User not found" });
+    // Block deactivated members
+    if (req.session.userRole === "member") {
+      try {
+        const { rows: ar } = await pool.query(`SELECT is_active FROM users WHERE id = $1`, [user.id]);
+        if (ar[0]?.is_active === false) {
+          return res.status(403).json({ message: "Your account has been deactivated. Please contact your account owner." });
+        }
+      } catch { /* column may not exist on older installs */ }
+    }
     const isAdmin = user.isAdmin;
     const isImpersonating = !!req.session.originalUserId;
     if (!isAdmin && !isImpersonating) {
@@ -306,13 +315,31 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
     }
 
-    const { rows: roleRows } = await pool.query(`SELECT role FROM users WHERE id = $1`, [user.id]);
+    const { rows: profileRows } = await pool.query(
+      `SELECT role, plan_type, plan_period, first_name, last_name, company_name FROM users WHERE id = $1`, [user.id]
+    );
+    const profile = profileRows[0] || {};
+    const role = profile.role || "owner";
     req.session.userId = user.id;
     req.session.accountId = user.accountId;
-    (req.session as any).userRole = roleRows[0]?.role || "owner";
+    (req.session as any).userRole = role;
     delete req.session.originalUserId;
     delete req.session.originalAccountId;
-    res.json({ id: user.id, email: user.email, accountId: user.accountId, isAdmin: user.isAdmin });
+    res.json({
+      id: user.id,
+      email: user.email,
+      accountId: user.accountId,
+      isAdmin: user.isAdmin,
+      isImpersonating: false,
+      planType: profile.plan_type || "free",
+      planPeriod: profile.plan_period || "monthly",
+      requiresPayment: !user.isAdmin && (profile.plan_type || "free") === "free" && role === "owner",
+      emailVerified: user.emailVerified,
+      role,
+      firstName: profile.first_name || "",
+      lastName: profile.last_name || "",
+      companyName: profile.company_name || "",
+    });
   });
 
   app.get("/api/auth/verify-email", async (req, res) => {
@@ -907,6 +934,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       sentAt: new Date(),
       scheduledAt: req.body.scheduledAt ? new Date(req.body.scheduledAt) : null,
     });
+    // Track who sent this request
+    await pool.query(`UPDATE review_requests SET sent_by_user_id = $1 WHERE id = $2`, [req.session.userId, rr.id]).catch(() => {});
     await storage.updateCustomer(customer.id, { status: "request_sent" }, req.session.accountId!);
     await storage.createActivity({
       id: randomUUID(),
@@ -1028,6 +1057,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         body.websiteUrl = `https://${body.websiteUrl}`;
       }
       const s = await storage.upsertSettings(req.session.accountId!, body);
+      // Sync ownerName → users.first_name / last_name so analytics displays correctly
+      if (body.ownerName) {
+        const parts = (body.ownerName as string).trim().split(/\s+/);
+        const firstName = parts[0] || "";
+        const lastName = parts.slice(1).join(" ");
+        await pool.query(
+          `UPDATE users SET first_name = $1, last_name = $2 WHERE id = $3`,
+          [firstName, lastName, req.session.userId]
+        );
+      }
       res.json(s);
     } catch (err) {
       console.error("Failed to save settings:", err);
@@ -1065,11 +1104,25 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
 
     const channel = (req.query.channel as string) || "all";
+    const userId = req.query.userId as string | undefined;
+
+    // If filtering by user, get customer IDs from their review_requests
+    let userCustomerIds: Set<string> | null = null;
+    if (userId) {
+      try {
+        const { rows: rr } = await pool.query(
+          `SELECT DISTINCT customer_id FROM review_requests WHERE account_id=$1 AND sent_by_user_id=$2 AND created_at>=$3 AND created_at<=$4`,
+          [accountId, userId, cutoff, cutoffEnd]
+        );
+        userCustomerIds = new Set(rr.map((r: any) => r.customer_id));
+      } catch { /* ignore */ }
+    }
 
     const sentCustomers = allCustomers.filter(c =>
       c.status !== "pending_request" &&
       c.createdAt >= cutoff && c.createdAt <= cutoffEnd &&
-      (channel === "all" || c.channel === channel)
+      (channel === "all" || c.channel === channel) &&
+      (!userCustomerIds || userCustomerIds.has(c.id))
     );
     const periodReviews = allReviews.filter(r =>
       r.createdAt >= cutoff && r.createdAt <= cutoffEnd
@@ -1081,12 +1134,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       c.status !== "pending_request" &&
       c.createdAt >= cutoff && c.createdAt <= cutoffEnd
     );
-    const channelDailyData: Record<string, { date: string; email: number; sms: number; whatsapp: number }> = {};
+    const channelDailyData: Record<string, { date: string; email: number; sms: number; whatsapp: number; emailReviews: number; smsReviews: number; whatsappReviews: number }> = {};
     for (let i = 0; i <= days; i++) {
       const d = new Date(cutoff.getTime() + i * 24 * 60 * 60 * 1000);
       const key = d.toISOString().split("T")[0];
       dailyData[key] = { date: key, requests: 0, reviews: 0 };
-      channelDailyData[key] = { date: key, email: 0, sms: 0, whatsapp: 0 };
+      channelDailyData[key] = { date: key, email: 0, sms: 0, whatsapp: 0, emailReviews: 0, smsReviews: 0, whatsappReviews: 0 };
     }
     sentCustomers.forEach(c => {
       const key = c.createdAt.toISOString().split("T")[0];
@@ -1095,14 +1148,35 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     allChannelCustomers.forEach(c => {
       const key = c.createdAt.toISOString().split("T")[0];
       if (channelDailyData[key]) {
-        const ch = c.channel as keyof Omit<typeof channelDailyData[string], "date">;
-        if (ch in channelDailyData[key]) channelDailyData[key][ch]++;
+        const ch = c.channel as string;
+        if (ch === "email") channelDailyData[key].email++;
+        else if (ch === "sms") channelDailyData[key].sms++;
+        else if (ch === "whatsapp") channelDailyData[key].whatsapp++;
       }
     });
     periodReviews.forEach(r => {
       const key = r.createdAt.toISOString().split("T")[0];
       if (dailyData[key]) dailyData[key].reviews++;
     });
+    // Map customer_id → channel from all review_requests in period
+    try {
+      const { rows: rrRows } = await pool.query(
+        `SELECT DISTINCT ON (customer_id) customer_id, channel, created_at
+         FROM review_requests WHERE account_id=$1 ORDER BY customer_id, created_at DESC`,
+        [accountId]
+      );
+      const customerChannel: Record<string, string> = {};
+      rrRows.forEach((r: any) => { customerChannel[r.customer_id] = r.channel; });
+      periodReviews.forEach(r => {
+        const key = r.createdAt.toISOString().split("T")[0];
+        const ch = customerChannel[r.customerId];
+        if (channelDailyData[key]) {
+          if (ch === "email") channelDailyData[key].emailReviews++;
+          else if (ch === "sms") channelDailyData[key].smsReviews++;
+          else if (ch === "whatsapp") channelDailyData[key].whatsappReviews++;
+        }
+      });
+    } catch { /* ignore */ }
 
     const sent = sentCustomers.length;
     const clicked = sentCustomers.filter(c => c.status === "clicked" || c.status === "review_completed").length;
@@ -1123,6 +1197,30 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       ? Math.round((periodReviews.reduce((sum, r) => sum + r.stars, 0) / periodReviews.length) * 10) / 10
       : 0;
 
+    // Per-user breakdown (owner only)
+    let byUser: any[] = [];
+    try {
+      const { rows: userRows } = await pool.query(`
+        SELECT u.first_name, u.last_name, u.email, u.role,
+               COUNT(rr.id) as requests_sent,
+               COUNT(CASE WHEN rr.status IN ('clicked','review_completed') THEN 1 END) as responses
+        FROM users u
+        LEFT JOIN review_requests rr ON rr.sent_by_user_id = u.id
+          AND rr.account_id = $1
+          AND rr.created_at >= $2 AND rr.created_at <= $3
+        WHERE u.account_id = $1
+        GROUP BY u.id, u.first_name, u.last_name, u.email, u.role
+        ORDER BY requests_sent DESC
+      `, [accountId, cutoff, cutoffEnd]);
+      byUser = userRows.map(r => ({
+        name: [r.first_name, r.last_name].filter(Boolean).join(" ") || r.email,
+        email: r.email,
+        role: r.role,
+        requestsSent: parseInt(r.requests_sent) || 0,
+        responses: parseInt(r.responses) || 0,
+      }));
+    } catch { /* column may not exist on older installs */ }
+
     res.json({
       daily: Object.values(dailyData),
       dailyByChannel: Object.values(channelDailyData),
@@ -1130,6 +1228,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       channelBreakdown,
       starBreakdown,
       summary: { sent, reviews: periodReviews.length, avgRating, responseRate: sent > 0 ? Math.round((completed / sent) * 100) : 0 },
+      byUser,
     });
   });
 
@@ -1555,11 +1654,25 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/team", requireAuth, async (req, res) => {
     const { rows } = await pool.query(
       `SELECT id, email, first_name, last_name, role, email_verified, invite_token,
-              last_insight_email_at as last_active
+              is_active, last_insight_email_at as last_active
        FROM users WHERE account_id = $1 AND id != $2 AND role = 'member' ORDER BY created_at ASC`,
       [req.session.accountId, req.session.userId]
     );
     res.json(rows);
+  });
+
+  // Toggle team member active/inactive
+  app.patch("/api/team/:userId/active", requireAuth, async (req, res) => {
+    if (req.session.userRole === "member") {
+      return res.status(403).json({ message: "Only the account owner can do this." });
+    }
+    const { userId } = req.params;
+    const { active } = req.body;
+    await pool.query(
+      `UPDATE users SET is_active = $1 WHERE id = $2 AND account_id = $3 AND role = 'member'`,
+      [active, userId, req.session.accountId]
+    );
+    res.json({ ok: true });
   });
 
   // Invite a team member

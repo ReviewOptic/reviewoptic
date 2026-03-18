@@ -187,6 +187,9 @@ export async function runMigrations() {
       )
     `);
 
+    // Team member active/inactive status
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true`);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();

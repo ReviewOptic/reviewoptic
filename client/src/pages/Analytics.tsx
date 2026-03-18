@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Send, Eye, Star, TrendingUp, BarChart2, Download, FileText } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -17,11 +18,32 @@ import html2canvas from "html2canvas";
 
 interface AnalyticsData {
   daily: Array<{ date: string; requests: number; reviews: number }>;
-  dailyByChannel: Array<{ date: string; email: number; sms: number; whatsapp: number }>;
+  dailyByChannel: Array<{ date: string; email: number; sms: number; whatsapp: number; emailReviews: number; smsReviews: number; whatsappReviews: number }>;
   funnel: { sent: number; clicked: number; completed: number };
   channelBreakdown: { email: number; sms: number; whatsapp: number };
   starBreakdown: Array<{ stars: number; count: number }>;
   summary: { sent: number; reviews: number; avgRating: number; responseRate: number };
+  byUser?: Array<{ name: string; email: string; role: string; requestsSent: number; responses: number }>;
+}
+
+const CHANNELS = ["email", "sms", "whatsapp"] as const;
+type Channel = typeof CHANNELS[number];
+
+function ChannelToggle({ active, onChange }: { active: Channel[]; onChange: (c: Channel[]) => void }) {
+  const labels: Record<Channel, string> = { email: "Email", sms: "SMS", whatsapp: "WhatsApp" };
+  const toggle = (ch: Channel) => {
+    onChange(active.includes(ch) ? active.filter(c => c !== ch) : [...active, ch]);
+  };
+  return (
+    <div className="flex gap-1">
+      {CHANNELS.map(ch => (
+        <button key={ch} onClick={() => toggle(ch)}
+          className={`px-2 py-0.5 rounded text-[11px] font-medium border transition-colors ${active.includes(ch) || active.length === 0 ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground"}`}>
+          {labels[ch]}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 const CHANNEL_COLORS: Record<string, string> = {
@@ -39,16 +61,27 @@ const tooltipStyle = {
 };
 
 export default function Analytics() {
-  const [period, setPeriod] = useState<"7" | "30" | "60" | "90" | "custom">("30");
+  const { user } = useAuth();
+  const isOwner = user?.role === "owner";
+  const [period, setPeriod] = useState<"7" | "30" | "60" | "custom">("30");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [userFilter, setUserFilter] = useState("all");
+  const [reqVsRevChannels, setReqVsRevChannels] = useState<Channel[]>([]);
+  const [channelChartChannels, setChannelChartChannels] = useState<Channel[]>([]);
   const [channel, setChannel] = useState("all");
   const [isExportingPDF, setIsExportingPDF] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
-  const queryParams = period === "custom" && from && to
-    ? `from=${from}&to=${to}&channel=${channel}`
-    : `days=${period}&channel=${channel}`;
+  const { data: teamData } = useQuery<Array<{ id: string; first_name: string; last_name: string; email: string; role: string }>>({
+    queryKey: ["/api/team"],
+    enabled: !!user,
+  });
+
+  const baseParams = period === "custom" && from && to
+    ? `from=${from}&to=${to}`
+    : `days=${period}`;
+  const queryParams = userFilter !== "all" ? `${baseParams}&userId=${userFilter}` : baseParams;
 
   const { data, isLoading } = useQuery<AnalyticsData>({
     queryKey: ["/api/analytics", queryParams],
@@ -58,8 +91,9 @@ export default function Analytics() {
     },
   });
 
-  const { data: settings } = useQuery<{ businessName: string }>({ queryKey: ["/api/settings"] });
+  const { data: settings } = useQuery<{ businessName: string; ownerName: string }>({ queryKey: ["/api/settings"] });
   const businessName = settings?.businessName || "";
+  const ownerDisplayName = settings?.ownerName || [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email?.split("@")[0] || "You";
 
   const { sent = 0, reviews = 0, avgRating = 0, responseRate = 0 } = data?.summary || {};
   const { sent: fSent = 0, clicked = 0, completed = 0 } = data?.funnel || {};
@@ -74,11 +108,10 @@ export default function Analytics() {
   const channelDailyForChart = (data?.dailyByChannel || []).map(d => ({
     ...d,
     label: format(parseISO(d.date), "MMM d"),
-    ...(channel !== "all" ? { [channel]: d[channel as keyof typeof d] } : {}),
   }));
-  const activeChannels = channel === "all"
-    ? (["email", "sms", "whatsapp"] as const).filter(ch => (data?.channelBreakdown[ch] || 0) > 0)
-    : [channel as "email" | "sms" | "whatsapp"];
+  const activeChannels = channelChartChannels.length > 0
+    ? channelChartChannels
+    : CHANNELS.filter(ch => (data?.channelBreakdown[ch] || 0) > 0);
 
   const channelData = [
     { name: "Email", value: data?.channelBreakdown.email || 0 },
@@ -106,7 +139,6 @@ export default function Analytics() {
       const titleFontSize = 16;
       const subtitleFontSize = 11;
       const periodLabel = period === "custom" ? `${from} – ${to}` : `Last ${period} days`;
-      const channelLabel = channel !== "all" ? ` · ${channel[0].toUpperCase() + channel.slice(1)}` : "";
 
       // Add title header
       pdf.setFont("helvetica", "bold");
@@ -115,7 +147,7 @@ export default function Analytics() {
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(subtitleFontSize);
       pdf.setTextColor(120, 120, 120);
-      pdf.text(`${periodLabel}${channelLabel}`, margin, margin + titleFontSize + 14);
+      pdf.text(periodLabel, margin, margin + titleFontSize + 14);
       pdf.setTextColor(0, 0, 0);
 
       const imgY = margin + titleFontSize + 30;
@@ -147,7 +179,7 @@ export default function Analytics() {
     lines.push("Analytics Export");
     if (businessName) lines.push(`Business,${businessName}`);
     lines.push(`Period,${periodLabel}`);
-    lines.push(`Channel,${channel === "all" ? "All" : channel}`);
+    lines.push(`Channel,All`);
     lines.push("");
 
     lines.push("Summary");
@@ -209,7 +241,7 @@ export default function Analytics() {
         <div className="flex flex-wrap items-center gap-2">
           {/* Period pills */}
           <div className="flex gap-1">
-            {(["7", "30", "60", "90", "custom"] as const).map(d => (
+            {(["7", "30", "60", "custom"] as const).map(d => (
               <button
                 key={d}
                 onClick={() => setPeriod(d)}
@@ -227,18 +259,27 @@ export default function Analytics() {
               <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="h-8 text-[12px] w-36" />
             </div>
           )}
-          {/* Channel filter */}
-          <Select value={channel} onValueChange={setChannel}>
-            <SelectTrigger className="h-8 w-32 text-[12px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All channels</SelectItem>
-              <SelectItem value="email">Email</SelectItem>
-              <SelectItem value="sms">SMS</SelectItem>
-              <SelectItem value="whatsapp">WhatsApp</SelectItem>
-            </SelectContent>
-          </Select>
+          {/* Team member filter (owner only) */}
+          {isOwner && (
+            <Select value={userFilter} onValueChange={setUserFilter}>
+              <SelectTrigger className="h-8 w-36 text-[12px]">
+                <SelectValue placeholder="All members" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All members</SelectItem>
+                {user && (
+                  <SelectItem value={user.id}>
+                    {ownerDisplayName} (you)
+                  </SelectItem>
+                )}
+                {teamData?.map(m => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {[m.first_name, m.last_name].filter(Boolean).join(" ") || m.email.split("@")[0]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <div className="flex gap-1.5">
             <Button variant="outline" size="sm" className="h-8 text-[12px] gap-1.5" onClick={exportCSV} disabled={isLoading || !data}>
               <Download className="w-3.5 h-3.5" />CSV
@@ -272,7 +313,7 @@ export default function Analytics() {
       {/* Line chart */}
       <Card className="border-card-border">
         <CardHeader className="pb-2 pt-4 px-5">
-          <CardTitle className="text-[14px] font-semibold">Requests vs Reviews Over Time</CardTitle>
+          <CardTitle className="text-[14px] font-semibold">Requests vs Reviews</CardTitle>
         </CardHeader>
         <CardContent className="px-5 pb-4">
           {isLoading ? <Skeleton className="h-52 w-full" /> : (
@@ -294,7 +335,7 @@ export default function Analytics() {
       {/* Channel over time chart */}
       <Card className="border-card-border">
         <CardHeader className="pb-2 pt-4 px-5">
-          <CardTitle className="text-[14px] font-semibold">Requests by Channel Over Time</CardTitle>
+          <CardTitle className="text-[14px] font-semibold">Requests by Channel</CardTitle>
         </CardHeader>
         <CardContent className="px-5 pb-4">
           {isLoading ? <Skeleton className="h-52 w-full" /> : (
@@ -313,6 +354,34 @@ export default function Analytics() {
           )}
         </CardContent>
       </Card>
+
+      {/* By User bar chart — owner only */}
+      {isOwner && (
+        <Card className="border-card-border">
+          <CardHeader className="pb-2 pt-4 px-5">
+            <CardTitle className="text-[14px] font-semibold">Requests by Team Member</CardTitle>
+          </CardHeader>
+          <CardContent className="px-5 pb-4">
+            {isLoading ? <Skeleton className="h-52 w-full" /> : !data?.byUser || data.byUser.length === 0 ? (
+              <div className="text-center py-6 text-muted-foreground">
+                <p className="text-[12px]">No team data</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={Math.max(120, data.byUser.length * 52)}>
+                <BarChart data={data.byUser} layout="vertical" margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} width={110} />
+                  <Tooltip contentStyle={tooltipStyle} />
+                  <Legend wrapperStyle={{ fontSize: "11px" }} />
+                  <Bar dataKey="requestsSent" name="Requests Sent" fill="hsl(217 91% 60%)" radius={[0, 4, 4, 0]} barSize={14} />
+                  <Bar dataKey="responses" name="Reviews Received" fill="hsl(142 60% 45%)" radius={[0, 4, 4, 0]} barSize={14} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Funnel | Channel | Stars — 3 columns */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

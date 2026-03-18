@@ -103,9 +103,9 @@ export default function Settings() {
   useEffect(() => {
     if (settings) {
       setForm({
-        ownerName: settings.ownerName || (user ? `${user.firstName} ${user.lastName}`.trim() : ""),
+        ownerName: settings.ownerName || [user?.firstName, user?.lastName].filter(Boolean).join(" "),
         businessName: settings.businessName || user?.companyName || "",
-        businessEmail: settings.businessEmail || "",
+        businessEmail: settings.businessEmail || user?.email || "",
         websiteUrl: settings.websiteUrl || "",
         logoUrl: settings.logoUrl || "",
         logoPosition: settings.logoPosition || "left",
@@ -190,7 +190,7 @@ export default function Settings() {
           <TabsTrigger value="followup" className="text-[12.5px]" data-testid="tab-followup">Follow-Ups</TabsTrigger>
           <TabsTrigger value="widget" className="text-[12.5px]" data-testid="tab-widget">Widget</TabsTrigger>
           <TabsTrigger value="social" className="text-[12.5px]" data-testid="tab-social">Social</TabsTrigger>
-          <TabsTrigger value="notifications" className="text-[12.5px]" data-testid="tab-notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="notifications" className="text-[12.5px]" data-testid="tab-notifications">Insight Updates</TabsTrigger>
           <TabsTrigger value="team" className="text-[12.5px]" data-testid="tab-team">Team</TabsTrigger>
         </TabsList>
 
@@ -838,6 +838,16 @@ function TeamTab() {
     load();
   };
 
+  const toggleActive = async (memberId: string, active: boolean) => {
+    await fetch(`/api/team/${memberId}/active`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ active }),
+    });
+    load();
+  };
+
   if (user?.role === "member") {
     return (
       <Card className="border-card-border">
@@ -902,23 +912,38 @@ function TeamTab() {
                     <p className="text-[13.5px] font-medium">{m.first_name} {m.last_name}</p>
                     <p className="text-[12px] text-muted-foreground">{m.email}</p>
                     <p className="text-[11px] mt-0.5">
-                      {m.email_verified ? (
-                        <span className="text-green-600 font-medium">Active</span>
-                      ) : (
+                      {!m.email_verified ? (
                         <span className="text-yellow-600 font-medium">Pending — invite not yet accepted</span>
+                      ) : m.is_active === false ? (
+                        <span className="text-red-500 font-medium">Deactivated</span>
+                      ) : (
+                        <span className="text-green-600 font-medium">Active</span>
                       )}
                     </p>
                   </div>
-                  {confirmRevoke === m.id ? (
-                    <div className="flex items-center gap-1.5">
-                      <Button size="sm" variant="destructive" onClick={() => revoke(m.id)}>Confirm</Button>
-                      <Button size="sm" variant="ghost" onClick={() => setConfirmRevoke(null)}>Cancel</Button>
-                    </div>
-                  ) : (
-                    <Button size="sm" variant="outline" onClick={() => setConfirmRevoke(m.id)} className="gap-1.5 text-destructive hover:text-destructive">
-                      <Trash2 className="w-3.5 h-3.5" /> Revoke
-                    </Button>
-                  )}
+                  <div className="flex items-center gap-1.5">
+                    {m.email_verified && (
+                      m.is_active === false ? (
+                        <Button size="sm" variant="outline" onClick={() => toggleActive(m.id, true)} className="text-green-600 hover:text-green-600">
+                          Reactivate
+                        </Button>
+                      ) : (
+                        <Button size="sm" variant="outline" onClick={() => toggleActive(m.id, false)} className="text-yellow-600 hover:text-yellow-600">
+                          Deactivate
+                        </Button>
+                      )
+                    )}
+                    {confirmRevoke === m.id ? (
+                      <>
+                        <Button size="sm" variant="destructive" onClick={() => revoke(m.id)}>Confirm</Button>
+                        <Button size="sm" variant="ghost" onClick={() => setConfirmRevoke(null)}>Cancel</Button>
+                      </>
+                    ) : (
+                      <Button size="sm" variant="outline" onClick={() => setConfirmRevoke(m.id)} className="gap-1.5 text-destructive hover:text-destructive">
+                        <Trash2 className="w-3.5 h-3.5" /> Revoke
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
