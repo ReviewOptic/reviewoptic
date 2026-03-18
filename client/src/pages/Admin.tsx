@@ -101,7 +101,12 @@ export default function Admin() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [log, setLog] = useState<{ id: string; adminEmail: string; targetEmail: string; createdAt: string }[]>([]);
+  const [insightStats, setInsightStats] = useState<{ totalSent: number; totalOpened: number; openRate: number; optOuts: number; recentEmails: any[] } | null>(null);
 
+  const loadInsightStats = () => fetch("/api/admin/insight-stats", { credentials: "include" })
+    .then(r => r.ok ? r.json().catch(() => null) : null)
+    .then(d => { if (d) setInsightStats(d); })
+    .catch(() => {});
   const loadUsers = () => fetch("/api/admin/users", { credentials: "include" }).then(r => r.ok ? r.json() : []).then(setUsers);
   const loadLog = () => fetch("/api/admin/impersonation-log", { credentials: "include" }).then(r => r.ok ? r.json() : []).then(setLog);
   const loadMetrics = useCallback(() => {
@@ -123,6 +128,7 @@ export default function Admin() {
   useEffect(() => {
     if (!user?.isAdmin) { navigate("/"); return; }
     loadUsers().finally(() => setLoading(false));
+    loadInsightStats();
   }, [user]);
 
   useEffect(() => {
@@ -564,6 +570,46 @@ export default function Admin() {
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {/* Insight Emails */}
+          <div>
+            <SectionTitle icon={Activity} title="Insight Emails" />
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              <StatCard label="Total Sent" value={insightStats?.totalSent ?? "—"} color="blue" />
+              <StatCard label="Total Opened" value={insightStats?.totalOpened ?? "—"} color="green" />
+              <StatCard label="Open Rate" value={insightStats ? `${insightStats.openRate}%` : "—"} color="green" />
+              <StatCard label="Opt-Outs" value={insightStats?.optOuts ?? "—"} color="orange" />
+            </div>
+            {(insightStats?.recentEmails.length ?? 0) > 0 && (
+              <div className="bg-card border border-border rounded-xl overflow-hidden">
+                <p className="text-sm font-medium px-4 py-3 border-b border-border bg-muted/40">Last 20 Sent</p>
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b border-border bg-muted/30">
+                    <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Business</th>
+                    <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Email</th>
+                    <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Sent</th>
+                    <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Opened</th>
+                  </tr></thead>
+                  <tbody>
+                    {insightStats!.recentEmails.map((r: any, i: number) => (
+                      <tr key={i} className="border-b border-border last:border-0">
+                        <td className="px-4 py-2.5 text-[12.5px] font-medium">{r.business_name || "—"}</td>
+                        <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground">{r.email}</td>
+                        <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground">{fmtDate(r.sent_at)}</td>
+                        <td className="px-4 py-2.5 text-[12.5px]">
+                          {r.opened_at ? (
+                            <span className="text-green-600 font-medium">Yes · {fmtDate(r.opened_at)}</span>
+                          ) : (
+                            <span className="text-muted-foreground">No</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           {/* Geography - Placeholder */}

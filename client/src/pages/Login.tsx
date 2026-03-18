@@ -21,42 +21,31 @@ function StarRating({ stars }: { stars: number }) {
   );
 }
 
-function ReviewTicker({ reviews }: { reviews: TrustpilotReview[] }) {
-  // Duplicate for seamless loop
-  const doubled = [...reviews, ...reviews];
+function ReviewCards({ reviews }: { reviews: TrustpilotReview[] }) {
+  const [index, setIndex] = useState(0);
+  const review = reviews[index];
   return (
-    <div className="w-full overflow-hidden mt-6 py-3 border-t border-border">
-      <div className="flex items-center gap-1.5 justify-center mb-2">
+    <div className="mt-10 pt-8 border-t border-border">
+      <div className="flex items-center gap-1.5 mb-4">
         <span className="text-[#00b67a] font-semibold text-xs">★</span>
         <span className="text-xs text-muted-foreground font-medium">Trusted by businesses across the UK</span>
       </div>
-      <div className="relative overflow-hidden">
-        <div
-          className="flex gap-4 whitespace-nowrap"
-          style={{
-            animation: "ticker-scroll 40s linear infinite",
-            width: "max-content",
-          }}
-        >
-          {doubled.map((review, i) => (
-            <div
-              key={`${review.id}-${i}`}
-              className="inline-flex flex-col gap-0.5 bg-muted/50 rounded-lg px-4 py-2.5 text-left shrink-0"
-              style={{ maxWidth: "260px", whiteSpace: "normal" }}
-            >
-              <StarRating stars={review.stars} />
-              <p className="text-xs text-foreground leading-snug line-clamp-2">{review.text}</p>
-              <p className="text-xs text-muted-foreground font-medium">— {review.author}</p>
-            </div>
-          ))}
-        </div>
+      <div className="bg-muted/40 rounded-xl p-5 min-h-[110px]">
+        <StarRating stars={review.stars} />
+        <p className="text-sm text-foreground leading-relaxed mt-2">{review.text}</p>
+        <p className="text-xs text-muted-foreground font-medium mt-2">— {review.author}</p>
       </div>
-      <style>{`
-        @keyframes ticker-scroll {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
-      `}</style>
+      <div className="flex items-center gap-3 mt-3">
+        <button onClick={() => setIndex(i => (i - 1 + reviews.length) % reviews.length)} className="w-7 h-7 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">‹</button>
+        {reviews.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => setIndex(i)}
+            className={`w-2 h-2 rounded-full transition-colors ${i === index ? "bg-primary" : "bg-muted-foreground/30 hover:bg-muted-foreground/60"}`}
+          />
+        ))}
+        <button onClick={() => setIndex(i => (i + 1) % reviews.length)} className="w-7 h-7 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">›</button>
+      </div>
     </div>
   );
 }
@@ -72,9 +61,10 @@ export default function Login() {
   });
 
   useEffect(() => {
-    if (user) navigate("/");
+    if (user && !user.requiresPayment) navigate("/");
   }, [user]);
-  const [mode, setMode] = useState<"login" | "register" | "forgot">("login");
+  const initialMode = new URLSearchParams(window.location.search).get("mode") === "register" ? "register" : "login";
+  const [mode, setMode] = useState<"login" | "register" | "forgot">(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -87,6 +77,7 @@ export default function Login() {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendDone, setResendDone] = useState(false);
+  const [accountExists, setAccountExists] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -112,15 +103,13 @@ export default function Login() {
         if (password.length < 8) throw new Error("Password must be at least 8 characters");
         if (!/[0-9]/.test(password)) throw new Error("Password must contain at least one number");
         if (!/[^a-zA-Z0-9]/.test(password)) throw new Error("Password must contain at least one symbol");
-        const result = await register(email, password, firstName, lastName, companyName);
-        if (result.requiresVerification) {
-          setVerificationSent(true);
-        } else {
-          navigate("/");
-        }
+        await register(email, password, firstName, lastName, companyName);
+        navigate("/pricing");
       }
     } catch (err: any) {
-      setError(err.message || "Something went wrong");
+      const msg = err.message || "Something went wrong";
+      setError(msg);
+      if (msg === "An account with this email already exists") setAccountExists(true);
     } finally {
       setLoading(false);
     }
@@ -130,50 +119,71 @@ export default function Login() {
     setMode(m);
     setError("");
     setForgotSent(false);
+    setAccountExists(false);
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
-      <div className="w-full max-w-sm text-center">
-        <div className="flex flex-col items-center gap-3 mb-0">
-          {branding?.logoUrl ? (
-            <img src={branding.logoUrl} alt="logo" style={{width: "100%", maxWidth: "320px", height: "auto"}} />
-          ) : (
-            <img src="/logo.png" alt="ReviewOptic" className="h-8 w-auto" />
-          )}
+    <div className="min-h-screen bg-background flex flex-col md:flex-row">
+
+      {/* ── Left marketing sidebar ── */}
+      <div className="md:w-1/2 bg-background text-foreground flex flex-col justify-between p-8 md:p-12 md:min-h-screen border-r border-border">
+        <div className="pt-0">
+          <h1 className="text-3xl md:text-4xl font-bold leading-tight mb-4">
+            Turn happy customers<br />into 5-star reviews — on autopilot.
+          </h1>
+          <p className="text-muted-foreground text-base mb-10 leading-relaxed">
+            ReviewOptic helps local businesses collect more Google, Trustpilot, and Facebook reviews without any manual effort. Send a request, sit back, and watch your reputation grow.
+          </p>
+
+          <div className="space-y-6">
+            {[
+              {
+                icon: "⚡",
+                title: "Send review requests in seconds",
+                desc: "Email, SMS, or WhatsApp — reach customers on the channel they actually use.",
+              },
+              {
+                icon: "🔄",
+                title: "Automatic follow-ups",
+                desc: "If a customer doesn't respond, ReviewOptic follows up for you — so no opportunity is ever missed.",
+              },
+              {
+                icon: "📊",
+                title: "Track everything in one place",
+                desc: "See your conversion rate, average star rating, and best-performing channels at a glance.",
+              },
+              {
+                icon: "🤖",
+                title: "AI-powered insights",
+                desc: "Get a personalised weekly report with actionable tips to improve your review performance.",
+              },
+              {
+                icon: "🌟",
+                title: "Works with all major platforms",
+                desc: "Google, Trustpilot, Facebook, Checkatrade, TripAdvisor, and more.",
+              },
+            ].map(item => (
+              <div key={item.title} className="flex items-start gap-4">
+                <span className="text-2xl mt-0.5">{item.icon}</span>
+                <div>
+                  <p className="font-semibold text-sm">{item.title}</p>
+                  <p className="text-muted-foreground text-sm leading-snug mt-0.5">{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <h1 className="text-2xl font-bold tracking-tight mb-2">Turn happy customers into 5-star reviews</h1>
-        <p className="text-muted-foreground text-sm mb-8">Send review requests, follow up automatically, and grow your reputation on autopilot.</p>
+      </div>
 
+      {/* ── Right login form ── */}
+      <div className="md:w-1/2 flex flex-col items-center justify-start p-8 md:p-12">
+        <div className="w-full max-w-sm">
+          <div className="flex justify-center mb-6">
+            <img src={branding?.logoUrl || "/logo.png"} alt="ReviewOptic" style={{maxWidth: "220px", height: "auto"}} />
+          </div>
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm text-left">
-          {verificationSent ? (
-            <div className="text-center py-2">
-              <CheckCircle2 className="w-9 h-9 text-green-500 mx-auto mb-3" />
-              <h3 className="font-semibold mb-1">Check your email</h3>
-              <p className="text-muted-foreground text-sm mb-5">We sent a verification link to <strong>{email}</strong>. Click it to activate your account.</p>
-              <button
-                type="button"
-                disabled={resendLoading || resendDone}
-                onClick={async () => {
-                  setResendLoading(true);
-                  await fetch("/api/auth/resend-verification", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ email }),
-                  });
-                  setResendLoading(false);
-                  setResendDone(true);
-                }}
-                className="text-sm text-primary hover:underline font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {resendDone ? "Email resent!" : resendLoading ? "Resending…" : "Resend verification email"}
-              </button>
-              <div className="mt-3">
-                <button type="button" onClick={() => { setVerificationSent(false); setMode("login"); }} className="text-sm text-muted-foreground hover:underline">Back to sign in</button>
-              </div>
-            </div>
-          ) : mode === "forgot" ? (
+          {mode === "forgot" ? (
             forgotSent ? (
               <div className="text-center py-2">
                 <CheckCircle2 className="w-9 h-9 text-green-500 mx-auto mb-3" />
@@ -269,6 +279,24 @@ export default function Login() {
                   </label>
                 )}
                 {error && <p className="text-sm text-destructive">{error}</p>}
+                {accountExists && (
+                  <div className="flex flex-col gap-2 text-sm">
+                    <button type="button" onClick={async () => {
+                      setResendLoading(true);
+                      await fetch("/api/auth/resend-verification", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) });
+                      setResendLoading(false);
+                      setResendDone(true);
+                      setError("");
+                      setAccountExists(false);
+                      setVerificationSent(true);
+                    }} className="text-primary hover:underline font-medium text-left" disabled={resendLoading}>
+                      {resendLoading ? "Sending…" : "Resend activation email"}
+                    </button>
+                    <button type="button" onClick={() => switchMode("forgot")} className="text-primary hover:underline font-medium text-left">
+                      Reset your password
+                    </button>
+                  </div>
+                )}
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? (mode === "login" ? "Signing in…" : "Creating account…") : (mode === "login" ? "Sign in" : "Create account")}
                 </Button>
@@ -277,7 +305,7 @@ export default function Login() {
           )}
         </div>
         <p className="text-center text-sm text-muted-foreground mt-4">
-          <a href="/pricing" className="underline hover:text-foreground font-medium">View pricing plans</a>
+          <button type="button" onClick={() => navigate("/pricing")} className="underline hover:text-foreground font-medium">View pricing plans</button>
         </p>
         <p className="text-center text-xs text-muted-foreground mt-3">
           By signing up, you agree to our{" "}
@@ -285,7 +313,7 @@ export default function Login() {
           {" "}and{" "}
           <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">Privacy Policy</a>
         </p>
-        {reviewsData?.reviews?.length ? <ReviewTicker reviews={reviewsData.reviews} /> : null}
+        </div>
       </div>
     </div>
   );

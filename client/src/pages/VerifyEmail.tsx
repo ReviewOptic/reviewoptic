@@ -19,8 +19,8 @@ export default function VerifyEmail() {
     fetch(`/api/auth/verify-email?token=${encodeURIComponent(token)}`, { credentials: "include" })
       .then(async res => {
         if (res.ok) {
-          setStatus("success");
           await refreshUser();
+          setStatus("success");
           setTimeout(() => navigate("/"), 1500);
         } else {
           const data = await res.json();
@@ -65,11 +65,7 @@ export default function VerifyEmail() {
               <XCircle className="w-9 h-9 text-destructive mx-auto mb-3" />
               <h3 className="font-semibold mb-1">Verification failed</h3>
               <p className="text-muted-foreground text-sm mb-5">{errorMsg}</p>
-              <button
-                type="button"
-                onClick={() => navigate("/login")}
-                className="text-sm text-primary hover:underline font-medium"
-              >
+              <button type="button" onClick={() => navigate("/login")} className="text-sm text-primary hover:underline font-medium">
                 Back to sign in
               </button>
             </>

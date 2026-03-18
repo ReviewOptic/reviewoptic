@@ -55,7 +55,25 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (req.session.originalUserId && ["POST", "PATCH", "PUT", "DELETE"].includes(req.method)) {
     return res.status(403).json({ message: "Cannot make changes while impersonating a user." });
   }
-  next();
+  // Enforce payment — free plan users (non-admin, non-impersonated) cannot access protected routes
+  // Billing routes are exempt so users can actually pay
+  if (req.path.startsWith("/api/billing/")) return next();
+  storage.getUser(req.session.userId).then(user => {
+    if (!user) return res.status(401).json({ message: "User not found" });
+    const isAdmin = user.isAdmin;
+    const isImpersonating = !!req.session.originalUserId;
+    if (!isAdmin && !isImpersonating) {
+      pool.query(`SELECT plan_type FROM users WHERE id = $1`, [user.id]).then(({ rows }) => {
+        const planType = rows[0]?.plan_type || "free";
+        if (planType === "free") {
+          return res.status(402).json({ message: "Subscription required" });
+        }
+        next();
+      }).catch(() => next());
+    } else {
+      next();
+    }
+  }).catch(() => res.status(500).json({ message: "Server error" }));
 }
 
 async function postReviewToSocial(review: Review, customer: Customer, settings: Settings) {
@@ -157,7 +175,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         // Resend verification email and let the frontend show the "check your email" screen
         const newToken = randomUUID();
         await storage.updateVerificationToken(existing.id, newToken);
-        const appUrl = process.env.APP_URL || "http://localhost:5000";
+        const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000");
         const verifyUrl = `${appUrl}/verify-email?token=${newToken}`;
         await sendVerificationEmail(existing.email, verifyUrl).catch(err =>
           console.error("[register] Failed to resend verification email:", err.message)
@@ -184,6 +202,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     // Create default settings for the new account
     await storage.upsertSettings(account.id, {
       businessName: companyName,
+      businessEmail: email.toLowerCase(),
     });
 
     // Create default templates
@@ -237,12 +256,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
     }
 
-    const appUrl = process.env.APP_URL || "http://localhost:5000";
-    const verifyUrl = `${appUrl}/verify-email?token=${verificationToken}`;
-    await sendVerificationEmail(user.email, verifyUrl).catch(err =>
-      console.error("[register] Failed to send verification email:", err.message)
-    );
+    // Auto-login so user can proceed to billing immediately
+    req.session.userId = user.id;
+    req.session.accountId = user.accountId;
+    await new Promise<void>((resolve) => req.session.save(() => resolve()));
 
+    // Verification email is sent AFTER payment, not here
     res.json({ requiresVerification: true, email: user.email });
   });
 
@@ -258,6 +277,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     if (!user.emailVerified) {
       return res.status(403).json({ message: "Please verify your email before signing in. Check your inbox for the verification link." });
+    }
+
+    if (!user.isAdmin) {
+      const { rows } = await pool.query(`SELECT plan_type FROM users WHERE id = $1`, [user.id]);
+      const planType = rows[0]?.plan_type || "free";
+      if (planType === "free") {
+        return res.status(403).json({ message: "Please complete your subscription before signing in." });
+      }
     }
 
     req.session.userId = user.id;
@@ -284,7 +311,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!user || user.emailVerified) return res.json({ success: true }); // silent — don't reveal account existence
     const newToken = randomUUID();
     await storage.updateVerificationToken(user.id, newToken);
-    const appUrl = process.env.APP_URL || "http://localhost:5000";
+    const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000");
     const verifyUrl = `${appUrl}/verify-email?token=${newToken}`;
     await sendVerificationEmail(user.email, verifyUrl).catch(err =>
       console.error("[resend-verification] Failed to send email:", err.message)
@@ -309,7 +336,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const user = await storage.getUserByEmail(email);
     if (user) {
       const token = await storage.createResetToken(user.id);
-      const appUrl = process.env.APP_URL || "http://localhost:5000";
+      const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000");
       const resetUrl = `${appUrl}/reset-password?token=${token}`;
       await sendResetEmail(user.email, resetUrl).catch(err =>
         console.error("Failed to send reset email:", err)
@@ -359,6 +386,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       planType,
       planPeriod: billing.plan_period || "monthly",
       requiresPayment: !user.isAdmin && planType === "free" && !req.session.originalUserId,
+      emailVerified: user.emailVerified,
     });
   });
 
@@ -376,8 +404,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.get("/api/admin/users", requireAdmin, async (req, res) => {
     const [allUsers, stats] = await Promise.all([storage.getAllUsers(), storage.getAdminUserStats()]);
+    const { rows: planRows } = await pool.query(`SELECT id, plan_type FROM users`);
+    const planMap = Object.fromEntries(planRows.map((r: any) => [r.id, r.plan_type]));
     const statsMap = Object.fromEntries(stats.map(s => [s.userId, s]));
-    res.json(allUsers.map(u => ({
+    const activeUsers = allUsers.filter(u => {
+      if (u.isAdmin) return true;
+      const plan = planMap[u.id] || "free";
+      return u.emailVerified && plan !== "free";
+    });
+    res.json(activeUsers.map(u => ({
       id: u.id,
       email: u.email,
       accountId: u.accountId,
@@ -481,7 +516,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         pool.query(`SELECT COUNT(*) FROM users WHERE NOT is_admin AND created_at >= CURRENT_DATE - INTERVAL '1 day' AND created_at < CURRENT_DATE`),
         pool.query(`SELECT COUNT(*) FROM activity_log WHERE created_at >= CURRENT_DATE - INTERVAL '1 day' AND created_at < CURRENT_DATE`),
         pool.query(`SELECT COUNT(*) FROM activity_log WHERE created_at >= CURRENT_DATE`),
-        pool.query(`SELECT plan_type, plan_period, COUNT(*) as count FROM users WHERE NOT is_admin AND plan_type != 'free' GROUP BY plan_type, plan_period ORDER BY plan_type, plan_period`),
+        pool.query(`SELECT plan_type, plan_period, COUNT(*) as count FROM users WHERE NOT is_admin AND plan_type NOT IN ('free', 'complimentary') GROUP BY plan_type, plan_period ORDER BY plan_type, plan_period`),
       ]);
 
       const totalUsers = parseInt(totalUsersR.rows[0].count);
@@ -1081,7 +1116,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     oauthState = randomUUID();
     const params = new URLSearchParams({
       client_id: appId,
-      redirect_uri: `${process.env.APP_URL || "http://localhost:5000"}/auth/facebook/callback`,
+      redirect_uri: `${process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000")}/auth/facebook/callback`,
       scope: "pages_manage_posts,pages_read_engagement,pages_show_list",
       state: oauthState,
       response_type: "code",
@@ -1104,7 +1139,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         body: new URLSearchParams({
           client_id: appId,
           client_secret: appSecret,
-          redirect_uri: `${process.env.APP_URL || "http://localhost:5000"}/auth/facebook/callback`,
+          redirect_uri: `${process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000")}/auth/facebook/callback`,
           code,
         }),
       });
@@ -1114,7 +1149,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!pagesData.data?.length) return res.status(400).send("No Facebook Pages found on this account.");
       const page = pagesData.data[0];
       await storage.upsertSettings(accountId, { facebookPageAccessToken: page.access_token, facebookPageId: page.id });
-      res.redirect(`${process.env.APP_URL || "http://localhost:5000"}/?tab=settings&connected=facebook`);
+      res.redirect(`${process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000")}/?tab=settings&connected=facebook`);
     } catch (err) {
       console.error("Facebook OAuth error:", err);
       res.status(500).send("Facebook OAuth failed. Check server logs.");
@@ -1133,7 +1168,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const params = new URLSearchParams({
       response_type: "code",
       client_id: clientId,
-      redirect_uri: `${process.env.APP_URL || "http://localhost:5000"}/auth/linkedin/callback`,
+      redirect_uri: `${process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000")}/auth/linkedin/callback`,
       scope: "w_member_social,r_organization_social",
       state: oauthState,
     });
@@ -1157,7 +1192,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           code,
           client_id: clientId,
           client_secret: clientSecret,
-          redirect_uri: `${process.env.APP_URL || "http://localhost:5000"}/auth/linkedin/callback`,
+          redirect_uri: `${process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000")}/auth/linkedin/callback`,
         }),
       });
       const tokenData = await tokenRes.json() as { access_token: string };
@@ -1171,7 +1206,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         orgId = urn.split(":").pop() || "";
       }
       await storage.upsertSettings(accountId, { linkedinAccessToken: tokenData.access_token, linkedinOrganizationId: orgId });
-      res.redirect(`${process.env.APP_URL || "http://localhost:5000"}/?tab=settings&connected=linkedin`);
+      res.redirect(`${process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000")}/?tab=settings&connected=linkedin`);
     } catch (err) {
       console.error("LinkedIn OAuth error:", err);
       res.status(500).send("LinkedIn OAuth failed. Check server logs.");
@@ -1261,6 +1296,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       `UPDATE users SET plan_type = $1, plan_period = $2, stripe_customer_id = $3, stripe_subscription_id = $4 WHERE id = $5`,
       [plan, period, customerId, subscriptionId, userId]
     );
+
+    // Send verification email now that payment is confirmed
+    const { rows: userRows } = await pool.query(`SELECT email, verification_token, email_verified FROM users WHERE id = $1`, [userId]);
+    const paidUser = userRows[0];
+    if (paidUser && !paidUser.email_verified && paidUser.verification_token) {
+      const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000");
+      const verifyUrl = `${appUrl}/verify-email?token=${paidUser.verification_token}`;
+      await sendVerificationEmail(paidUser.email, verifyUrl).catch(err =>
+        console.error("[billing/confirm] Failed to send verification email:", err.message)
+      );
+    }
 
     res.json({ success: true, plan, period });
   });
@@ -1475,6 +1521,93 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         : "Something went wrong. Please try again.";
       res.status(500).json({ message: friendly });
     }
+  });
+
+  // Insight email open tracking pixel
+  app.get("/api/insight/track-open", async (req, res) => {
+    const { id } = req.query;
+    if (id) {
+      await pool.query(
+        `UPDATE insight_email_log SET opened_at = NOW() WHERE id = $1 AND opened_at IS NULL`,
+        [id]
+      ).catch(() => {});
+    }
+    // Return 1x1 transparent GIF
+    const gif = Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64");
+    res.setHeader("Content-Type", "image/gif");
+    res.setHeader("Cache-Control", "no-store");
+    res.end(gif);
+  });
+
+  // Insight email opt-out
+  app.get("/api/insight/opt-out", async (req, res) => {
+    const { uid } = req.query;
+    if (uid) {
+      await pool.query(
+        `UPDATE users SET insight_email_frequency = 'never', insight_emails_opt_out = true WHERE id = $1`,
+        [uid]
+      ).catch(() => {});
+    }
+    res.send(`
+      <!DOCTYPE html><html><head><meta charset="utf-8"><title>Unsubscribed — ReviewOptic</title>
+      <style>body{font-family:sans-serif;max-width:480px;margin:80px auto;padding:0 24px;text-align:center;color:#333;}
+      h2{font-size:22px;font-weight:700;margin-bottom:8px;}p{color:#666;font-size:14px;line-height:1.6;}
+      a{color:#2563eb;text-decoration:underline;}</style></head>
+      <body><h2>You've been unsubscribed</h2>
+      <p>You won't receive any more review report emails from ReviewOptic.</p>
+      <p>Changed your mind? <a href="/settings?tab=notifications">Update your preferences</a> in your account settings.</p>
+      </body></html>
+    `);
+  });
+
+  // Notification preferences (get)
+  app.get("/api/user/notification-prefs", requireAuth, async (req, res) => {
+    const { rows } = await pool.query(
+      `SELECT insight_email_frequency FROM users WHERE id = $1`,
+      [req.session.userId]
+    );
+    res.json({ insightEmailFrequency: rows[0]?.insight_email_frequency || "weekly" });
+  });
+
+  // Notification preferences (update)
+  app.patch("/api/user/notification-prefs", requireAuth, async (req, res) => {
+    const { insightEmailFrequency } = req.body;
+    const valid = ["weekly", "monthly", "never"];
+    if (!valid.includes(insightEmailFrequency)) {
+      return res.status(400).json({ message: "Invalid frequency" });
+    }
+    await pool.query(
+      `UPDATE users SET insight_email_frequency = $1, insight_emails_opt_out = $2 WHERE id = $3`,
+      [insightEmailFrequency, insightEmailFrequency === "never", req.session.userId]
+    );
+    res.json({ ok: true });
+  });
+
+  // Admin: insight email stats
+  app.get("/api/admin/insight-stats", requireAuth, async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ message: "Unauthorized" });
+    const { rows: adminCheck } = await pool.query(`SELECT is_admin FROM users WHERE id = $1`, [req.session.userId]);
+    if (!adminCheck[0]?.is_admin) return res.status(403).json({ message: "Forbidden" });
+
+    const [totalRes, openedRes, optOutRes, recentRes] = await Promise.all([
+      pool.query(`SELECT COUNT(*) FROM insight_email_log`),
+      pool.query(`SELECT COUNT(*) FROM insight_email_log WHERE opened_at IS NOT NULL`),
+      pool.query(`SELECT COUNT(*) FROM users WHERE insight_emails_opt_out = true`),
+      pool.query(`SELECT l.email, l.sent_at, l.opened_at, s.business_name
+        FROM insight_email_log l
+        LEFT JOIN settings s ON s.account_id = l.account_id
+        ORDER BY l.sent_at DESC LIMIT 20`),
+    ]);
+
+    const total = parseInt(totalRes.rows[0].count);
+    const opened = parseInt(openedRes.rows[0].count);
+    res.json({
+      totalSent: total,
+      totalOpened: opened,
+      openRate: total > 0 ? Math.round((opened / total) * 100) : 0,
+      optOuts: parseInt(optOutRes.rows[0].count),
+      recentEmails: recentRes.rows,
+    });
   });
 
   return httpServer;

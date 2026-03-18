@@ -43,7 +43,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(data.message || "Registration failed");
     }
     const data = await res.json();
-    if (!data.requiresVerification) setUser(data);
+    // Refresh user from session (session is guaranteed saved before server responds)
+    await refreshUser();
     return data;
   };
 

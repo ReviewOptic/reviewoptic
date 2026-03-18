@@ -164,6 +164,21 @@ export async function runMigrations() {
       )
     `);
 
+    // Monthly insight email tracking
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_insight_email_at TIMESTAMP`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS insight_emails_opt_out BOOLEAN NOT NULL DEFAULT false`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS insight_email_frequency TEXT NOT NULL DEFAULT 'weekly'`);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS insight_email_log (
+        id VARCHAR PRIMARY KEY,
+        user_id VARCHAR NOT NULL,
+        account_id VARCHAR NOT NULL,
+        email TEXT NOT NULL,
+        sent_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        opened_at TIMESTAMP
+      )
+    `);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();

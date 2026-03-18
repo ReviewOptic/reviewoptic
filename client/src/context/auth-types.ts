@@ -9,6 +9,7 @@ export interface AuthUser {
   planType: "free" | "standard" | "agency";
   planPeriod: "monthly" | "annual";
   requiresPayment: boolean;
+  emailVerified: boolean;
 }
 
 export interface AuthContextType {

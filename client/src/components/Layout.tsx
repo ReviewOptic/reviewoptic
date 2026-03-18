@@ -30,10 +30,8 @@ function LogoOrText() {
 
   const logoSrc = settings?.logoUrl || "";
 
-  if (logoSrc && !imgFailed) {
-    return <img src={logoSrc} alt="logo" className="h-24 w-auto max-w-[220px] object-contain" onError={() => setImgFailed(true)} />;
-  }
-  return <span className="font-semibold text-sidebar-foreground text-[15px] tracking-tight">ReviewOptic</span>;
+  const src = (logoSrc && !imgFailed) ? logoSrc : "/logo.png";
+  return <img src={src} alt="logo" className="w-full max-w-[200px] h-auto object-contain" onError={() => setImgFailed(true)} />;
 }
 
 const navItems = [

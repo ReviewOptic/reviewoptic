@@ -234,3 +234,30 @@ Your job is to be the developer they would hire if they could afford a great one
 **Lessons learned:**
 - For `useMutation` calls with no arguments, pass `undefined` explicitly: `mutate(undefined)` — TypeScript will error on `mutate()` with zero args
 - When capturing a page section for PDF, wrap only the data content (not header/sidebar) in the ref — use programmatic jsPDF text for titles so it reads as a real document, not a screenshot
+
+### Session — 2026-03-18 (thirteenth session)
+
+**Tasks completed:**
+- Fixed Replit Helium database migration — PostgreSQL wasn't running; fixed DATABASE_URL host (`helium` → `localhost`); added pg_ctl start to `.replit` workflow so postgres starts automatically on boot
+- Manually verified admin account and set is_admin=true after database was empty post-migration
+- Fixed email verification links pointing to localhost — now uses `REPLIT_DEV_DOMAIN` env var
+- Fixed signup flow — chose Flow B: Register → /pricing → pay → "check your email" → verify → dashboard
+- Auto-login after registration (session saved before response) so user can access billing checkout immediately after registering
+- Registration now auto-populates business email in Settings with the signup email
+- Pricing "Get started" redirects unauthenticated users to Create Account tab (not Sign in)
+- Server-side paywall added to `requireAuth` — free plan users get 402 on all API calls; billing routes exempt
+- `complimentary` plan type added — bypasses paywall and is excluded from admin metrics; use for test/gifted accounts
+- Admin user list now only shows users who are verified AND on a paid/complimentary plan
+- Verification email subject/button updated to "Verify email & select plan"
+
+**Infrastructure notes:**
+- PostgreSQL data dir: `/home/runner/pgdata` — started via `pg_ctl start -D /home/runner/pgdata`
+- DATABASE_URL uses host `helium` which resolves externally — patched to `localhost` at startup in both `server/index.ts` and `server/storage.ts`
+- Database is empty (migrated from Neon without data) — admin account is `hello@reviewoptic.com`, manually set via psql
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+
+**Lessons learned:**
+- Replit Helium: postgres doesn't start automatically — must add `pg_ctl start` to the workflow command
+- Replit Helium: DATABASE_URL uses `@helium/` as host which resolves to an external IP that rejects connections — always patch to `@localhost/` at startup
+- Session race condition on register: must call `req.session.save()` before `res.json()` so the client can immediately call `/api/auth/me` and get a valid session
+- Don't navigate to /pricing automatically after registration — it causes loops when auth context hasn't loaded yet; instead auto-login + let the user click through naturally

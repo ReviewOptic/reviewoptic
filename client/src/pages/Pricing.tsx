@@ -60,7 +60,7 @@ export default function Pricing() {
 
   async function openCheckout(planId: string) {
     if (!user) {
-      navigate("/register");
+      navigate("/login?mode=register");
       return;
     }
     try {
@@ -78,15 +78,23 @@ export default function Pricing() {
     }
   }
 
+
   return (
     <div className="relative min-h-screen bg-gray-50 flex flex-col items-center px-4 py-16">
-      <a
-        href={user ? "/" : "/login"}
+      <button
+        onClick={async () => {
+          if (user && !user.requiresPayment) {
+            navigate("/");
+          } else {
+            await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+            navigate("/login");
+          }
+        }}
         className="absolute top-4 left-4 flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
         Back
-      </a>
+      </button>
       <div className="text-center mb-10">
         <h1 className="text-4xl font-bold text-gray-900 mb-3">Simple, transparent pricing</h1>
         <p className="text-lg text-gray-500">No setup fees. No hidden charges. Cancel anytime.</p>

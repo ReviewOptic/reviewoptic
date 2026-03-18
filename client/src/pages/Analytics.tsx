@@ -263,7 +263,7 @@ export default function Analytics() {
           <Card key={c.label} className="border-card-border">
             <CardContent className="p-4">
               <div className={`flex items-center gap-1.5 mb-1 ${c.color}`}>{c.icon}<span className="text-[11.5px] font-medium text-muted-foreground">{c.label}</span></div>
-              <p className="text-2xl font-bold">{isLoading ? <Skeleton className="h-7 w-12 inline-block" /> : c.value}</p>
+              <div className="text-2xl font-bold">{isLoading ? <Skeleton className="h-7 w-12" /> : c.value}</div>
             </CardContent>
           </Card>
         ))}

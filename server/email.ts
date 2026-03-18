@@ -7,21 +7,24 @@ export async function sendVerificationEmail(to: string, verifyUrl: string) {
     return;
   }
   const resend = new Resend(process.env.RESEND_API_KEY);
-  await resend.emails.send({
+  const result = await resend.emails.send({
     from: "ReviewOptic <noreply@reviewoptic.com>",
     to,
-    subject: "Verify your ReviewOptic email",
+    subject: "Verify your email and choose your plan",
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
         <div style="margin-bottom:24px;">
           <span style="font-weight:700;font-size:18px;">ReviewOptic</span>
         </div>
-        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Verify your email address</h2>
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">You're almost there!</h2>
+        <p style="color:#555;margin:0 0 8px;line-height:1.6;">
+          Thanks for signing up! Click the button below to verify your email and choose your plan to get started.
+        </p>
         <p style="color:#555;margin:0 0 24px;line-height:1.6;">
-          Thanks for signing up! Click the button below to verify your email and activate your account.
+          It only takes a minute to get set up.
         </p>
         <a href="${verifyUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
-          Verify my email
+          Verify email &amp; select plan
         </a>
         <p style="color:#999;font-size:12px;margin-top:32px;line-height:1.6;">
           If you didn't create a ReviewOptic account, you can safely ignore this email.
@@ -29,6 +32,7 @@ export async function sendVerificationEmail(to: string, verifyUrl: string) {
       </div>
     `,
   });
+  console.log(`[verify email] Resend result:`, JSON.stringify(result));
 }
 
 function getReviewLink(settings: Settings): string {

@@ -1,5 +1,8 @@
 import "dotenv/config";
-console.log("[DEBUG] OPENAI_API_KEY starts with:", process.env.OPENAI_API_KEY?.slice(0, 10) || "(not set)");
+// Replit Helium sets DATABASE_URL with host "helium" which resolves externally — replace with localhost
+if (process.env.DATABASE_URL?.includes("@helium/")) {
+  process.env.DATABASE_URL = process.env.DATABASE_URL.replace("@helium/", "@localhost/");
+}
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
@@ -11,6 +14,7 @@ import { createServer } from "http";
 import { seedDatabase } from "./seed";
 import { storage } from "./storage";
 import { runMigrations } from "./migrate";
+import { runMonthlyInsightEmails } from "./insightEmail";
 import path from "path";
 import { execSync } from "child_process";
 
@@ -120,6 +124,10 @@ app.use((req, res, next) => {
   };
   await runScheduledChecks();
   setInterval(runScheduledChecks, 60 * 60 * 1000);
+
+  // Monthly insight emails — checked once a day
+  await runMonthlyInsightEmails().catch(console.error);
+  setInterval(() => runMonthlyInsightEmails().catch(console.error), 24 * 60 * 60 * 1000);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

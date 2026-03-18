@@ -1,15 +1,16 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { CheckCircle, Loader2 } from "lucide-react";
+import { CheckCircle, Loader2, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 
 export default function BillingSuccess() {
   const [, navigate] = useLocation();
-  const { refreshUser } = useAuth();
+  const { refreshUser, user } = useAuth();
   const [status, setStatus] = useState<"confirming" | "done" | "error">("confirming");
   const [plan, setPlan] = useState("");
   const [period, setPeriod] = useState("");
+  const [resendDone, setResendDone] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -24,7 +25,6 @@ export default function BillingSuccess() {
           setPeriod(data.period);
           await refreshUser();
           setStatus("done");
-          setTimeout(() => navigate("/"), 3000);
         } else {
           setStatus("error");
         }
@@ -56,16 +56,54 @@ export default function BillingSuccess() {
   const planLabel = plan.charAt(0).toUpperCase() + plan.slice(1);
   const periodLabel = period === "annual" ? "Annual" : "Monthly";
 
+  // If already verified, go straight to dashboard
+  if (user?.emailVerified) {
+    setTimeout(() => navigate("/"), 2000);
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4 text-center">
+        <CheckCircle className="w-16 h-16 text-green-500 mb-5" />
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">You're all set!</h1>
+        <p className="text-gray-600 mb-1">You're on the <span className="font-semibold">{planLabel} Plan ({periodLabel})</span>.</p>
+        <p className="text-gray-400 text-sm mb-8">Redirecting you to your dashboard…</p>
+        <Button onClick={() => navigate("/")}>Go to dashboard now</Button>
+      </div>
+    );
+  }
+
+  // Not yet verified — prompt to check email
+  async function resend() {
+    if (!user?.email) return;
+    await fetch("/api/auth/resend-verification", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: user.email }),
+    });
+    setResendDone(true);
+  }
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4 text-center">
       <CheckCircle className="w-16 h-16 text-green-500 mb-5" />
       <h1 className="text-2xl font-bold text-gray-900 mb-2">Payment successful!</h1>
-      <p className="text-gray-600 mb-1">
-        You're now on the{" "}
-        <span className="font-semibold">{planLabel} Plan ({periodLabel})</span>.
+      <p className="text-gray-600 mb-6">
+        You're now on the <span className="font-semibold">{planLabel} Plan ({periodLabel})</span>.
       </p>
-      <p className="text-gray-400 text-sm mb-8">Redirecting you to your dashboard…</p>
-      <Button onClick={() => navigate("/")}>Go to dashboard now</Button>
+      <div className="bg-white border border-gray-200 rounded-xl p-6 max-w-sm w-full text-left shadow-sm">
+        <div className="flex items-center gap-3 mb-3">
+          <Mail className="w-5 h-5 text-blue-600 shrink-0" />
+          <h2 className="font-semibold text-gray-900">One last step — verify your email</h2>
+        </div>
+        <p className="text-sm text-gray-500 mb-4">
+          We sent a verification link to <strong>{user?.email}</strong>. Click it to activate your account and access your dashboard.
+        </p>
+        <button
+          onClick={resend}
+          disabled={resendDone}
+          className="text-sm text-blue-600 hover:underline font-medium disabled:opacity-50"
+        >
+          {resendDone ? "Email resent!" : "Resend verification email"}
+        </button>
+      </div>
     </div>
   );
 }

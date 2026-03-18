@@ -2,6 +2,10 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import pkg from "pg";
 const { Pool } = pkg;
+// Replit Helium sets DATABASE_URL with host "helium" which resolves externally — replace with localhost
+if (process.env.DATABASE_URL?.includes("@helium/")) {
+  process.env.DATABASE_URL = process.env.DATABASE_URL.replace("@helium/", "@localhost/");
+}
 import { randomUUID } from "crypto";
 import { sendReviewEmail } from "./email";
 import { sendReviewSMS } from "./sms";

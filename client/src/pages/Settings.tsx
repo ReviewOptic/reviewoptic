@@ -181,13 +181,14 @@ export default function Settings() {
         </div>
       </div>
 
-      <Tabs defaultValue="business">
+      <Tabs defaultValue={new URLSearchParams(window.location.search).get("tab") || "business"}>
         <TabsList className="mb-6 flex-wrap h-auto gap-1">
           <TabsTrigger value="business" className="text-[12.5px]" data-testid="tab-business">Business</TabsTrigger>
           <TabsTrigger value="platforms" className="text-[12.5px]" data-testid="tab-platforms">Review Platforms</TabsTrigger>
           <TabsTrigger value="followup" className="text-[12.5px]" data-testid="tab-followup">Follow-Ups</TabsTrigger>
           <TabsTrigger value="widget" className="text-[12.5px]" data-testid="tab-widget">Widget</TabsTrigger>
           <TabsTrigger value="social" className="text-[12.5px]" data-testid="tab-social">Social</TabsTrigger>
+          <TabsTrigger value="notifications" className="text-[12.5px]" data-testid="tab-notifications">Notifications</TabsTrigger>
         </TabsList>
 
         {/* Business Info */}
@@ -692,7 +693,85 @@ export default function Settings() {
             </Card>
           </div>
         </TabsContent>
+
+        {/* Notifications */}
+        <TabsContent value="notifications">
+          <NotificationsTab />
+        </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function NotificationsTab() {
+  const { toast } = useToast();
+  const [frequency, setFrequency] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/user/notification-prefs", { credentials: "include" })
+      .then(r => r.json())
+      .then(d => setFrequency(d.insightEmailFrequency || "weekly"));
+  }, []);
+
+  const save = async (val: string) => {
+    setFrequency(val);
+    setSaving(true);
+    try {
+      await fetch("/api/user/notification-prefs", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ insightEmailFrequency: val }),
+      });
+      toast({ title: "Preferences saved" });
+    } catch {
+      toast({ title: "Failed to save", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card className="border-card-border">
+      <CardHeader>
+        <CardTitle className="text-[15px]">Email Reports</CardTitle>
+        <CardDescription className="text-[12.5px]">
+          ReviewOptic sends you a personalised report with your review stats, conversion rate, and AI-generated insights.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-5 pb-5">
+        <div className="space-y-1.5">
+          <Label className="text-[12.5px]">Report frequency</Label>
+          {frequency === null ? (
+            <p className="text-[12.5px] text-muted-foreground">Loading…</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {[
+                { value: "weekly", label: "Weekly", desc: "Receive a report every 7 days" },
+                { value: "monthly", label: "Monthly", desc: "Receive a report once a month" },
+                { value: "never", label: "Never", desc: "Opt out — no report emails" },
+              ].map(opt => (
+                <label key={opt.value} className="flex items-start gap-3 cursor-pointer p-3 rounded-lg border border-border hover:bg-muted/40 transition-colors">
+                  <input
+                    type="radio"
+                    name="frequency"
+                    value={opt.value}
+                    checked={frequency === opt.value}
+                    onChange={() => save(opt.value)}
+                    disabled={saving}
+                    className="mt-0.5 accent-primary"
+                  />
+                  <div>
+                    <p className="text-[13.5px] font-medium">{opt.label}</p>
+                    <p className="text-[12px] text-muted-foreground">{opt.desc}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
