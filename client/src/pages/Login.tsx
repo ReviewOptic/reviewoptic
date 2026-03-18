@@ -6,11 +6,69 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, CheckCircle2 } from "lucide-react";
 
+interface TrustpilotReview {
+  id: string;
+  stars: number;
+  text: string;
+  author: string;
+}
+
+function StarRating({ stars }: { stars: number }) {
+  return (
+    <span className="text-[#00b67a] text-sm leading-none" aria-label={`${stars} stars`}>
+      {"★".repeat(stars)}{"☆".repeat(5 - stars)}
+    </span>
+  );
+}
+
+function ReviewTicker({ reviews }: { reviews: TrustpilotReview[] }) {
+  // Duplicate for seamless loop
+  const doubled = [...reviews, ...reviews];
+  return (
+    <div className="w-full overflow-hidden mt-6 py-3 border-t border-border">
+      <div className="flex items-center gap-1.5 justify-center mb-2">
+        <span className="text-[#00b67a] font-semibold text-xs">★</span>
+        <span className="text-xs text-muted-foreground font-medium">Trusted by businesses across the UK</span>
+      </div>
+      <div className="relative overflow-hidden">
+        <div
+          className="flex gap-4 whitespace-nowrap"
+          style={{
+            animation: "ticker-scroll 40s linear infinite",
+            width: "max-content",
+          }}
+        >
+          {doubled.map((review, i) => (
+            <div
+              key={`${review.id}-${i}`}
+              className="inline-flex flex-col gap-0.5 bg-muted/50 rounded-lg px-4 py-2.5 text-left shrink-0"
+              style={{ maxWidth: "260px", whiteSpace: "normal" }}
+            >
+              <StarRating stars={review.stars} />
+              <p className="text-xs text-foreground leading-snug line-clamp-2">{review.text}</p>
+              <p className="text-xs text-muted-foreground font-medium">— {review.author}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+      <style>{`
+        @keyframes ticker-scroll {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 export default function Login() {
   const { login, register, user } = useAuth();
   const [, navigate] = useLocation();
   const { data: branding } = useQuery<{ logoUrl: string; businessName: string }>({
     queryKey: ["/api/public/branding"],
+  });
+  const { data: reviewsData } = useQuery<{ reviews: TrustpilotReview[]; source: string }>({
+    queryKey: ["/api/public/trustpilot-reviews"],
   });
 
   useEffect(() => {
@@ -227,6 +285,7 @@ export default function Login() {
           {" "}and{" "}
           <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">Privacy Policy</a>
         </p>
+        {reviewsData?.reviews?.length ? <ReviewTicker reviews={reviewsData.reviews} /> : null}
       </div>
     </div>
   );

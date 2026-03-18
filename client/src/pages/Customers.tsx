@@ -134,19 +134,31 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
   const [channel, setChannel] = useState(customer?.channel || "email");
   const [delay, setDelay] = useState("now");
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
+  const [messageMode, setMessageMode] = useState<"template" | "ai">("template");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("default");
   const [aiMessage, setAiMessage] = useState("");
   const [customSubject, setCustomSubject] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("default");
 
   const { data: settings } = useQuery<any>({ queryKey: ["/api/settings"] });
   const { data: templates } = useQuery<Template[]>({ queryKey: ["/api/templates"] });
+
+  const channelTemplates = (templates || []).filter(t => t.channel === channel && t.templateType === "review_request");
+  const selectedTemplate = selectedTemplateId === "default"
+    ? channelTemplates[0]
+    : channelTemplates.find(t => t.id === selectedTemplateId);
 
   useEffect(() => {
     if (settings?.businessName && !customSubject) {
       setCustomSubject(`How was your experience with ${settings.businessName}?`);
     }
   }, [settings]);
+
+  useEffect(() => {
+    if (messageMode === "template" && selectedTemplate?.subject) {
+      setCustomSubject(selectedTemplate.subject);
+    }
+  }, [selectedTemplate?.id, messageMode]);
 
   const availablePlatforms = settings ? [
     { key: "google", name: "Google", url: settings.googleReviewLink },
@@ -168,14 +180,13 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
       const data = await res.json();
       setAiMessage(data.message || "");
     } catch (err: any) {
-      console.error("[generateAIMessage]", err);
       toast({ title: "Could not generate message", description: err?.message || String(err), variant: "destructive" });
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const channelTemplates = (templates || []).filter(t => t.channel === channel && t.templateType === "review_request");
+  const canSend = messageMode === "template" || aiMessage.trim().length > 0;
 
   const mutation = useMutation({
     mutationFn: async () => apiRequest("POST", "/api/review-requests", {
@@ -183,9 +194,9 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
       channel,
       scheduledAt: delay === "now" ? new Date() : null,
       selectedPlatforms: availablePlatforms.filter(p => selectedPlatforms.includes(p.key)).map(p => ({ name: p.name, url: p.url })),
-      customMessage: aiMessage || undefined,
+      customMessage: messageMode === "ai" ? (aiMessage || undefined) : undefined,
       customSubject: channel === "email" && customSubject ? customSubject : undefined,
-      templateId: selectedTemplateId !== "default" ? selectedTemplateId : undefined,
+      templateId: messageMode === "template" && selectedTemplateId !== "default" ? selectedTemplateId : undefined,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
@@ -197,17 +208,19 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
     },
     onError: () => toast({ title: "Failed to send request", variant: "destructive" }),
   });
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md" data-testid="dialog-send-request">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Send className="w-4 h-4 text-primary" />
-            Golden Hour Request
+            Review Request
           </DialogTitle>
           <DialogDescription>Send a review request to {customer?.name}</DialogDescription>
         </DialogHeader>
         <div className="space-y-3 py-1">
+          {/* Channel */}
           <div className="space-y-1.5">
             <Label className="text-[12.5px]">Send via</Label>
             <Select value={channel} onValueChange={(v) => { setChannel(v); setAiMessage(""); setSelectedTemplateId("default"); }}>
@@ -219,20 +232,8 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
               </SelectContent>
             </Select>
           </div>
-          {channelTemplates.length > 1 && (
-            <div className="space-y-1.5">
-              <Label className="text-[12.5px]">Template</Label>
-              <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="default">Default template</SelectItem>
-                  {channelTemplates.map(t => (
-                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+
+          {/* Timing */}
           <div className="space-y-1.5">
             <Label className="text-[12.5px]">Timing</Label>
             <Select value={delay} onValueChange={setDelay}>
@@ -245,6 +246,8 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
               </SelectContent>
             </Select>
           </div>
+
+          {/* Platforms */}
           {availablePlatforms.length > 0 && (
             <div className="space-y-1.5">
               <Label className="text-[12.5px]">Review platforms <span className="text-muted-foreground font-normal">(select all that apply)</span></Label>
@@ -266,6 +269,84 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
               </div>
             </div>
           )}
+
+          {/* Message mode toggle */}
+          <div className="space-y-2">
+            <Label className="text-[12.5px]">Message</Label>
+            <div className="flex gap-1 p-1 bg-muted rounded-lg">
+              <button
+                type="button"
+                onClick={() => { setMessageMode("template"); setAiMessage(""); }}
+                className={`flex-1 py-1.5 rounded-md text-[12px] font-medium transition-colors ${messageMode === "template" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                Use a template
+              </button>
+              <button
+                type="button"
+                onClick={() => setMessageMode("ai")}
+                className={`flex-1 py-1.5 rounded-md text-[12px] font-medium transition-colors flex items-center justify-center gap-1.5 ${messageMode === "ai" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                <Sparkles className="w-3 h-3" /> Generate with AI
+              </button>
+            </div>
+
+            {/* Template mode */}
+            {messageMode === "template" && (
+              <div className="space-y-2">
+                {channelTemplates.length > 1 && (
+                  <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+                    <SelectTrigger className="text-[12.5px]"><SelectValue placeholder="Choose template…" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="default">{channelTemplates[0]?.name || "Default template"}</SelectItem>
+                      {channelTemplates.slice(1).map(t => (
+                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {selectedTemplate && (
+                  <div className="rounded-lg border border-border bg-muted/30 p-3 text-[12.5px] text-muted-foreground whitespace-pre-wrap line-clamp-5">
+                    {selectedTemplate.body}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* AI mode */}
+            {messageMode === "ai" && (
+              <div className="space-y-2">
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={generateAIMessage}
+                    disabled={isGenerating}
+                    className="flex items-center gap-1.5 text-[11.5px] font-medium text-primary hover:text-primary/80 disabled:opacity-50 transition-colors"
+                  >
+                    {isGenerating
+                      ? <><RefreshCw className="w-3 h-3 animate-spin" />Generating...</>
+                      : <><Sparkles className="w-3 h-3" />{aiMessage ? "Regenerate" : "Generate"}</>
+                    }
+                  </button>
+                </div>
+                {aiMessage ? (
+                  <Textarea
+                    value={aiMessage}
+                    onChange={(e) => setAiMessage(e.target.value)}
+                    rows={channel === "sms" || channel === "whatsapp" ? 3 : 5}
+                    className="text-[12.5px] resize-none"
+                  />
+                ) : (
+                  <div className="rounded-lg bg-muted/50 border border-dashed border-border p-3 text-center">
+                    <p className="text-[11.5px] text-muted-foreground">
+                      Click <span className="font-medium text-primary">Generate</span> to create a personalised message for {customer?.name?.split(" ")[0]}.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Subject (email only) */}
           {channel === "email" && (
             <div className="space-y-1.5">
               <Label className="text-[12.5px]">Subject</Label>
@@ -277,48 +358,10 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
               />
             </div>
           )}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <Label className="text-[12.5px]">Message</Label>
-              <button
-                type="button"
-                onClick={generateAIMessage}
-                disabled={isGenerating}
-                className="flex items-center gap-1.5 text-[11.5px] font-medium text-primary hover:text-primary/80 disabled:opacity-50 transition-colors"
-              >
-                {isGenerating
-                  ? <><RefreshCw className="w-3 h-3 animate-spin" />Generating...</>
-                  : <><Sparkles className="w-3 h-3" />{aiMessage ? "Regenerate" : "Generate with AI"}</>
-                }
-              </button>
-            </div>
-            {aiMessage ? (
-              <Textarea
-                value={aiMessage}
-                onChange={(e) => setAiMessage(e.target.value)}
-                rows={channel === "sms" || channel === "whatsapp" ? 3 : 5}
-                className="text-[12.5px] resize-none"
-                placeholder="AI-generated message will appear here..."
-              />
-            ) : (
-              <div className="rounded-lg bg-muted/50 border border-dashed border-border p-3 text-center">
-                <p className="text-[11.5px] text-muted-foreground">
-                  Click <span className="font-medium text-primary">Generate with AI</span> to create a personalised message based on {customer?.name?.split(" ")[0]}'s job details.
-                </p>
-              </div>
-            )}
-          </div>
-          {!aiMessage && (
-            <div className="rounded-lg bg-primary/5 border border-primary/20 p-3">
-              <p className="text-[12px] text-muted-foreground">
-                <span className="font-medium text-foreground">Pro tip:</span> Sending within 60 minutes of job completion increases response rates by 3x.
-              </p>
-            </div>
-          )}
         </div>
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
-          <Button size="sm" onClick={() => mutation.mutate()} disabled={mutation.isPending || !aiMessage.trim()} data-testid="button-confirm-send">
+          <Button size="sm" onClick={() => mutation.mutate()} disabled={mutation.isPending || !canSend} data-testid="button-confirm-send">
             {mutation.isPending ? "Sending..." : "Send Request"}
           </Button>
         </DialogFooter>

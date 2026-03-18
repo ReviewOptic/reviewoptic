@@ -11,9 +11,13 @@ import {
   ResponsiveContainer, Cell, PieChart, Pie, Legend,
 } from "recharts";
 import { format, parseISO } from "date-fns";
+import { useRef } from "react";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 interface AnalyticsData {
   daily: Array<{ date: string; requests: number; reviews: number }>;
+  dailyByChannel: Array<{ date: string; email: number; sms: number; whatsapp: number }>;
   funnel: { sent: number; clicked: number; completed: number };
   channelBreakdown: { email: number; sms: number; whatsapp: number };
   starBreakdown: Array<{ stars: number; count: number }>;
@@ -39,6 +43,8 @@ export default function Analytics() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [channel, setChannel] = useState("all");
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const queryParams = period === "custom" && from && to
     ? `from=${from}&to=${to}&channel=${channel}`
@@ -52,6 +58,9 @@ export default function Analytics() {
     },
   });
 
+  const { data: settings } = useQuery<{ businessName: string }>({ queryKey: ["/api/settings"] });
+  const businessName = settings?.businessName || "";
+
   const { sent = 0, reviews = 0, avgRating = 0, responseRate = 0 } = data?.summary || {};
   const { sent: fSent = 0, clicked = 0, completed = 0 } = data?.funnel || {};
   const clickRate = fSent > 0 ? Math.round((clicked / fSent) * 100) : 0;
@@ -61,6 +70,15 @@ export default function Analytics() {
     ...d,
     label: format(parseISO(d.date), "MMM d"),
   }));
+
+  const channelDailyForChart = (data?.dailyByChannel || []).map(d => ({
+    ...d,
+    label: format(parseISO(d.date), "MMM d"),
+    ...(channel !== "all" ? { [channel]: d[channel as keyof typeof d] } : {}),
+  }));
+  const activeChannels = channel === "all"
+    ? (["email", "sms", "whatsapp"] as const).filter(ch => (data?.channelBreakdown[ch] || 0) > 0)
+    : [channel as "email" | "sms" | "whatsapp"];
 
   const channelData = [
     { name: "Email", value: data?.channelBreakdown.email || 0 },
@@ -73,11 +91,61 @@ export default function Analytics() {
     count: s.count,
   }));
 
+  async function exportPDF() {
+    if (!contentRef.current) return;
+    setIsExportingPDF(true);
+    // Temporarily show the period label
+    const label = contentRef.current.querySelector(".pdf-period-label") as HTMLElement | null;
+    if (label) label.classList.remove("hidden");
+    try {
+      const canvas = await html2canvas(contentRef.current, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const margin = 24;
+      const titleFontSize = 16;
+      const subtitleFontSize = 11;
+      const periodLabel = period === "custom" ? `${from} – ${to}` : `Last ${period} days`;
+      const channelLabel = channel !== "all" ? ` · ${channel[0].toUpperCase() + channel.slice(1)}` : "";
+
+      // Add title header
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(titleFontSize);
+      pdf.text(businessName ? `${businessName} — Analytics Report` : "Analytics Report", margin, margin + titleFontSize);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(subtitleFontSize);
+      pdf.setTextColor(120, 120, 120);
+      pdf.text(`${periodLabel}${channelLabel}`, margin, margin + titleFontSize + 14);
+      pdf.setTextColor(0, 0, 0);
+
+      const imgY = margin + titleFontSize + 30;
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pageWidth - margin * 2;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let yOffset = 0;
+      while (yOffset < imgHeight) {
+        if (yOffset > 0) {
+          pdf.addPage();
+          pdf.addImage(imgData, "PNG", margin, margin - yOffset, imgWidth, imgHeight);
+        } else {
+          pdf.addImage(imgData, "PNG", margin, imgY, imgWidth, imgHeight);
+        }
+        yOffset += pageHeight - (yOffset === 0 ? imgY : margin);
+      }
+      const fileLabel = period === "custom" ? `${from}-to-${to}` : `last-${period}-days`;
+      pdf.save(`analytics-${fileLabel}.pdf`);
+    } finally {
+      if (label) label.classList.add("hidden");
+      setIsExportingPDF(false);
+    }
+  }
+
   function exportCSV() {
     const lines: string[] = [];
     const periodLabel = period === "custom" ? `${from} to ${to}` : `Last ${period} days`;
 
     lines.push("Analytics Export");
+    if (businessName) lines.push(`Business,${businessName}`);
     lines.push(`Period,${periodLabel}`);
     lines.push(`Channel,${channel === "all" ? "All" : channel}`);
     lines.push("");
@@ -135,6 +203,7 @@ export default function Analytics() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
+          {businessName && <p className="text-[14px] font-medium mt-0.5">{businessName}</p>}
           <p className="text-[13px] text-muted-foreground mt-0.5">Track your review request performance</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -174,12 +243,19 @@ export default function Analytics() {
             <Button variant="outline" size="sm" className="h-8 text-[12px] gap-1.5" onClick={exportCSV} disabled={isLoading || !data}>
               <Download className="w-3.5 h-3.5" />CSV
             </Button>
-            <Button variant="outline" size="sm" className="h-8 text-[12px] gap-1.5" onClick={() => window.print()} disabled={isLoading || !data}>
-              <FileText className="w-3.5 h-3.5" />PDF
+            <Button variant="outline" size="sm" className="h-8 text-[12px] gap-1.5" onClick={exportPDF} disabled={isLoading || !data || isExportingPDF}>
+              <FileText className="w-3.5 h-3.5" />{isExportingPDF ? "Exporting..." : "PDF"}
             </Button>
           </div>
         </div>
       </div>
+
+      {/* PDF export target */}
+      <div ref={contentRef} className="space-y-5">
+      {/* Period label — hidden normally, shown when capturing for PDF */}
+      <p className="text-[13px] font-medium text-muted-foreground hidden pdf-period-label">
+        {period === "custom" ? `${from} – ${to}` : `Last ${period} days`}{channel !== "all" ? ` · ${channel[0].toUpperCase() + channel.slice(1)}` : ""}
+      </p>
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -209,6 +285,29 @@ export default function Analytics() {
                 <Legend wrapperStyle={{ fontSize: "11px" }} />
                 <Line type="monotone" dataKey="requests" stroke="hsl(217 91% 60%)" strokeWidth={2} dot={false} activeDot={{ r: 3 }} name="Requests Sent" />
                 <Line type="monotone" dataKey="reviews" stroke="hsl(142 60% 45%)" strokeWidth={2} dot={false} activeDot={{ r: 3 }} name="Reviews Received" />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Channel over time chart */}
+      <Card className="border-card-border">
+        <CardHeader className="pb-2 pt-4 px-5">
+          <CardTitle className="text-[14px] font-semibold">Requests by Channel Over Time</CardTitle>
+        </CardHeader>
+        <CardContent className="px-5 pb-4">
+          {isLoading ? <Skeleton className="h-52 w-full" /> : (
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={channelDailyForChart} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} interval={Math.max(0, Math.floor(channelDailyForChart.length / 6) - 1)} />
+                <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                <Tooltip contentStyle={tooltipStyle} />
+                <Legend wrapperStyle={{ fontSize: "11px" }} />
+                {activeChannels.includes("email") && <Line type="monotone" dataKey="email" stroke={CHANNEL_COLORS["Email"]} strokeWidth={2} dot={false} activeDot={{ r: 3 }} name="Email" />}
+                {activeChannels.includes("sms") && <Line type="monotone" dataKey="sms" stroke={CHANNEL_COLORS["SMS"]} strokeWidth={2} dot={false} activeDot={{ r: 3 }} name="SMS" />}
+                {activeChannels.includes("whatsapp") && <Line type="monotone" dataKey="whatsapp" stroke={CHANNEL_COLORS["WhatsApp"]} strokeWidth={2} dot={false} activeDot={{ r: 3 }} name="WhatsApp" />}
               </LineChart>
             </ResponsiveContainer>
           )}
@@ -307,6 +406,7 @@ export default function Analytics() {
           </CardContent>
         </Card>
       </div>
+      </div>{/* end pdf export target */}
     </div>
   );
 }

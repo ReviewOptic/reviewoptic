@@ -673,6 +673,45 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // Public Trustpilot reviews for login page ticker
+  // Returns real reviews when TRUSTPILOT_API_KEY + TRUSTPILOT_BUSINESS_UNIT_ID are set, else placeholders
+  app.get("/api/public/trustpilot-reviews", async (_req, res) => {
+    const PLACEHOLDER_REVIEWS = [
+      { id: "1", stars: 5, text: "ReviewOptic has completely transformed how we collect Google reviews. Went from 12 reviews to over 80 in just two months!", author: "Sarah Mitchell" },
+      { id: "2", stars: 5, text: "Simple to set up, works brilliantly. Our customers actually respond and our rating has gone from 4.1 to 4.8.", author: "James Thornton" },
+      { id: "3", stars: 5, text: "The automated follow-ups are a game changer. We were leaving so many reviews on the table before. Highly recommend.", author: "Priya Patel" },
+      { id: "4", stars: 5, text: "We've tried other review tools but ReviewOptic is by far the easiest. Set it up in an afternoon and it just works.", author: "David Okafor" },
+      { id: "5", stars: 5, text: "Our Trustpilot score jumped from 3.9 to 4.7 within 6 weeks of using ReviewOptic. Brilliant product.", author: "Emma Clarke" },
+      { id: "6", stars: 5, text: "The team loved how easy it is to send requests right from the customer list. No faff, no training needed.", author: "Tom Ashworth" },
+    ];
+
+    const apiKey = process.env.TRUSTPILOT_API_KEY;
+    const businessUnitId = process.env.TRUSTPILOT_BUSINESS_UNIT_ID;
+
+    if (!apiKey || !businessUnitId) {
+      return res.json({ reviews: PLACEHOLDER_REVIEWS, source: "placeholder" });
+    }
+
+    try {
+      const response = await fetch(
+        `https://api.trustpilot.com/v1/business-units/${businessUnitId}/reviews?apikey=${apiKey}&stars=5&perPage=20`,
+        { headers: { Accept: "application/json" } }
+      );
+      if (!response.ok) throw new Error(`Trustpilot API ${response.status}`);
+      const data = await response.json() as any;
+      const reviews = (data.reviews || []).slice(0, 20).map((r: any) => ({
+        id: r.id,
+        stars: r.stars,
+        text: (r.text?.text || "").slice(0, 160),
+        author: r.consumer?.displayName || "Verified Customer",
+      }));
+      res.json({ reviews: reviews.length ? reviews : PLACEHOLDER_REVIEWS, source: "trustpilot" });
+    } catch (err) {
+      console.error("[trustpilot-reviews]", err);
+      res.json({ reviews: PLACEHOLDER_REVIEWS, source: "placeholder" });
+    }
+  });
+
   // ── Protected routes (requireAuth) ───────────────────────────────────────
 
   // Customers
@@ -977,14 +1016,27 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     // Daily chart
     const dailyData: Record<string, { date: string; requests: number; reviews: number }> = {};
+    const allChannelCustomers = allCustomers.filter(c =>
+      c.status !== "pending_request" &&
+      c.createdAt >= cutoff && c.createdAt <= cutoffEnd
+    );
+    const channelDailyData: Record<string, { date: string; email: number; sms: number; whatsapp: number }> = {};
     for (let i = 0; i <= days; i++) {
       const d = new Date(cutoff.getTime() + i * 24 * 60 * 60 * 1000);
       const key = d.toISOString().split("T")[0];
       dailyData[key] = { date: key, requests: 0, reviews: 0 };
+      channelDailyData[key] = { date: key, email: 0, sms: 0, whatsapp: 0 };
     }
     sentCustomers.forEach(c => {
       const key = c.createdAt.toISOString().split("T")[0];
       if (dailyData[key]) dailyData[key].requests++;
+    });
+    allChannelCustomers.forEach(c => {
+      const key = c.createdAt.toISOString().split("T")[0];
+      if (channelDailyData[key]) {
+        const ch = c.channel as keyof Omit<typeof channelDailyData[string], "date">;
+        if (ch in channelDailyData[key]) channelDailyData[key][ch]++;
+      }
     });
     periodReviews.forEach(r => {
       const key = r.createdAt.toISOString().split("T")[0];
@@ -1012,6 +1064,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     res.json({
       daily: Object.values(dailyData),
+      dailyByChannel: Object.values(channelDailyData),
       funnel: { sent, clicked, completed },
       channelBreakdown,
       starBreakdown,

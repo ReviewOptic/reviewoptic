@@ -470,3 +470,53 @@ Your job is to be the developer they would hire if they could afford a great one
 - When diagnosing "limit after one message", check the DB directly — the real cause was OpenAI's own rate limiting returning an error that looked like our limit message
 - Never expose raw third-party API error messages to users — always catch and return a friendly string
 - Replit secrets only load on full container restart (Stop + Run), not process restart alone
+
+### Session — 2026-03-18 (eleventh session)
+
+**Tasks completed:**
+- Multiple templates — users can now create, delete, and rename templates
+- "New Template" button top-right of Templates page; opens dialog with name, type (review request/follow-up), and two options: "Create blank" or "Generate with AI"
+- Delete button (trash icon) on each template card with confirmation dialog
+- Template name is now editable inside the Edit view — no separate rename button needed
+- "Generate with AI" button inside each template editor to regenerate body (and subject for email) using OpenAI
+- Added `DELETE /api/templates/:id` route and `deleteTemplate` method in storage
+- Added `POST /api/ai/generate-template` endpoint — generates channel-appropriate body + subject using gpt-4o-mini
+- Template selector in Send Request dialog (both Customers page and CustomerDetail page) — appears when there are multiple templates for the selected channel; only shows review_request type templates
+- `templateId` sent to `POST /api/review-requests`; server uses specified template if provided, otherwise falls back to default
+
+**Notes for next session:**
+- Template selector only appears when >1 template exists for the selected channel — if only one template exists, it's used automatically (no dropdown clutter)
+- AI generation for templates uses `POST /api/ai/generate-template` with `{ channel }` body — separate from the customer-specific AI generation
+- `NewTemplateDialog` passes `channel` from the currently active tab so templates are created under the right channel automatically
+
+### Session — 2026-03-18 (twelfth session)
+
+**Tasks completed:**
+- Analytics PDF export — replaced `window.print()` with `html2canvas` + `jsPDF`; captures only the data section (no sidebar, no filter bar), adds programmatic text header with business name and period label; supports multi-page output
+- Business name on Analytics page — fetches `/api/settings` and shows `businessName` as a subtitle on the page; also included in CSV export as a "Business" row
+- "Requests by Channel Over Time" chart — new `LineChart` on Analytics page with separate Email/SMS/WhatsApp lines; server returns `dailyByChannel` array (aggregated independently of the channel filter); chart filters lines based on active channel selection
+- Send Request dialog redesign — replaced mixed template+AI UI with a clean two-option segmented toggle: "Use a template" / "Generate with AI"; template mode shows template dropdown (if >1 exists) and preview; AI mode shows generate button + textarea
+- Renamed "Golden Hour Request" to "Review Request" in the Send Request dialog title on Customers page
+- Trustpilot review ticker on login page — scrolling strip below T&C links showing green-starred review cards (reviewer name, text snippet); uses CSS `@keyframes` animation with doubled array for seamless loop
+- Added `GET /api/public/trustpilot-reviews` endpoint (no auth) — returns real 5-star reviews from Trustpilot API when `TRUSTPILOT_API_KEY` + `TRUSTPILOT_BUSINESS_UNIT_ID` env vars are set; falls back to 6 hardcoded placeholder reviews in the meantime
+
+**Fixes applied:**
+- TypeScript error on `createMutation.mutate()` with no args — fixed by passing `undefined` explicitly
+- Edit tool "string not found" on Customers.tsx SendRequestDialog replacement — re-read file fresh and matched correctly
+- PDF captured entire page including sidebar — moved `contentRef` to wrap only the data section
+- PDF looked like a screenshot — added programmatic jsPDF text header for business name and period
+
+**Issues discovered:**
+- Trustpilot ticker currently shows placeholder reviews — will switch to live data once `TRUSTPILOT_API_KEY` and `TRUSTPILOT_BUSINESS_UNIT_ID` are added to Replit Secrets after ReviewOptic is listed on Trustpilot
+
+**Notes for next session:**
+- Trustpilot ticker: once ReviewOptic is on Trustpilot, add `TRUSTPILOT_API_KEY` and `TRUSTPILOT_BUSINESS_UNIT_ID` to Replit Secrets — ticker will auto-switch to live reviews, no code change needed
+- `dailyByChannel` is returned by `/api/analytics` regardless of the channel filter param — the chart always shows all 3 lines (filtered in the frontend based on active channel)
+- PDF export uses `html2canvas` on the `contentRef` div — if you add new sections to Analytics, make sure they're inside that div
+- `package.json` / `package-lock.json` updated this session (jsPDF + html2canvas dependencies added)
+- Stripe is still in test mode — use `4242 4242 4242 4242` for testing payments
+- `uploads/` folder is still local-only — logos lost on server restart; needs cloud storage before production
+
+**Lessons learned:**
+- For `useMutation` calls with no arguments, pass `undefined` explicitly: `mutate(undefined)` — TypeScript will error on `mutate()` with zero args
+- When capturing a page section for PDF, wrap only the data content (not header/sidebar) in the ref — use programmatic jsPDF text for titles so it reads as a real document, not a screenshot

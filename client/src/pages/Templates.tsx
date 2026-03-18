@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useState, useRef, useEffect } from "react";
-import { Edit2, Save, X, FileText, Mail, MessageSquare, Video, Mic, StopCircle, RotateCcw, CheckCircle2, Plus, Trash2, Sparkles, Pencil } from "lucide-react";
+import { Edit2, Save, X, FileText, Mail, MessageSquare, Video, Mic, StopCircle, RotateCcw, CheckCircle2, Plus, Trash2, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -276,8 +276,37 @@ function AudioRecorder({ currentUrl, onSaved }: { currentUrl: string; onSaved: (
   );
 }
 
+function GenerateAIButton({ channel, onGenerated }: { channel: string; onGenerated: (body: string, subject?: string) => void }) {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const generate = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/ai/generate-template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ channel }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      onGenerated(data.body, data.subject);
+    } catch (err: any) {
+      toast({ title: "AI generation failed", description: err.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <button type="button" onClick={generate} disabled={loading} className="flex items-center gap-1 text-[11.5px] font-medium text-primary hover:text-primary/80 disabled:opacity-50 transition-colors">
+      {loading ? <><Sparkles className="w-3 h-3 animate-pulse" />Generating...</> : <><Sparkles className="w-3 h-3" />Generate with AI</>}
+    </button>
+  );
+}
+
 function TemplateEditor({ template, onCancel }: { template: Template; onCancel: () => void }) {
   const { toast } = useToast();
+  const [name, setName] = useState(template.name);
   const [subject, setSubject] = useState(template.subject);
   const [body, setBody] = useState(template.body);
   const [videoUrl, setVideoUrl] = useState(template.videoUrl || "");
@@ -296,7 +325,7 @@ function TemplateEditor({ template, onCancel }: { template: Template; onCancel: 
   }, [settings?.logoPosition]);
 
   const mutation = useMutation({
-    mutationFn: async () => apiRequest("PATCH", `/api/templates/${template.id}`, { subject, body, videoUrl, audioUrl }),
+    mutationFn: async () => apiRequest("PATCH", `/api/templates/${template.id}`, { name: name.trim() || template.name, subject, body, videoUrl, audioUrl }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/templates"] });
       toast({ title: "Template saved" });
@@ -331,6 +360,11 @@ function TemplateEditor({ template, onCancel }: { template: Template; onCancel: 
 
   return (
     <div className="space-y-4">
+      {/* Name field */}
+      <div className="space-y-1.5">
+        <Label className="text-[12.5px]">Template name</Label>
+        <Input value={name} onChange={e => setName(e.target.value)} placeholder="Template name" className="text-[13px]" />
+      </div>
       {/* Mode toggle */}
       <div className="flex gap-2">
         <button
@@ -383,9 +417,12 @@ function TemplateEditor({ template, onCancel }: { template: Template; onCancel: 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label className="text-[12.5px]">Message Body</Label>
-              <span className={cn("text-[11px] font-mono", isSmsWarning ? "text-destructive font-semibold" : "text-muted-foreground")}>
-                {charCount} chars {template.channel === "sms" && "(max 160)"}
-              </span>
+              <div className="flex items-center gap-3">
+                <GenerateAIButton channel={template.channel} onGenerated={(b, s) => { setBody(b); if (s) setSubject(s); }} />
+                <span className={cn("text-[11px] font-mono", isSmsWarning ? "text-destructive font-semibold" : "text-muted-foreground")}>
+                  {charCount} chars {template.channel === "sms" && "(max 160)"}
+                </span>
+              </div>
             </div>
             <Textarea
               value={body}
@@ -455,15 +492,7 @@ function TemplateEditor({ template, onCancel }: { template: Template; onCancel: 
 function TemplateCard({ template, isReadOnly }: { template: Template; isReadOnly: boolean }) {
   const { toast } = useToast();
   const [editing, setEditing] = useState(false);
-  const [renaming, setRenaming] = useState(false);
-  const [newName, setNewName] = useState(template.name);
   const [confirmDelete, setConfirmDelete] = useState(false);
-
-  const renameMutation = useMutation({
-    mutationFn: () => apiRequest("PATCH", `/api/templates/${template.id}`, { name: newName.trim() }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/templates"] }); setRenaming(false); },
-    onError: () => toast({ title: "Failed to rename", variant: "destructive" }),
-  });
 
   const deleteMutation = useMutation({
     mutationFn: () => fetch(`/api/templates/${template.id}`, { method: "DELETE", credentials: "include" }),
@@ -481,35 +510,14 @@ function TemplateCard({ template, isReadOnly }: { template: Template; isReadOnly
                 {channelIcons[template.channel] || <FileText className="w-3.5 h-3.5 text-primary" />}
               </div>
               <div className="flex-1 min-w-0">
-                {renaming ? (
-                  <div className="flex items-center gap-1.5">
-                    <Input
-                      value={newName}
-                      onChange={e => setNewName(e.target.value)}
-                      onKeyDown={e => { if (e.key === "Enter") renameMutation.mutate(); if (e.key === "Escape") { setRenaming(false); setNewName(template.name); } }}
-                      className="h-6 text-[13px] px-2 py-0"
-                      autoFocus
-                    />
-                    <button onClick={() => renameMutation.mutate()} className="text-primary hover:text-primary/80"><Save className="w-3.5 h-3.5" /></button>
-                    <button onClick={() => { setRenaming(false); setNewName(template.name); }} className="text-muted-foreground hover:text-foreground"><X className="w-3.5 h-3.5" /></button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1.5">
-                    <CardTitle className="text-[14px] font-semibold truncate">{template.name}</CardTitle>
-                    {!isReadOnly && !editing && (
-                      <button onClick={() => setRenaming(true)} className="text-muted-foreground/50 hover:text-muted-foreground flex-shrink-0">
-                        <Pencil className="w-3 h-3" />
-                      </button>
-                    )}
-                  </div>
-                )}
+                <CardTitle className="text-[14px] font-semibold truncate">{template.name}</CardTitle>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <Badge variant="secondary" className="text-[10px] h-4 px-1.5 capitalize">{template.channel}</Badge>
                   <Badge variant="outline" className="text-[10px] h-4 px-1.5">{template.templateType.replace(/_/g, " ")}</Badge>
                 </div>
               </div>
             </div>
-            {!editing && !renaming && (
+            {!editing && (
               <div className="flex items-center gap-1 flex-shrink-0">
                 <Button variant="outline" size="sm" className="h-7 text-[12px] gap-1" onClick={() => setEditing(true)} disabled={isReadOnly} data-testid={`button-edit-template-${template.id}`}>
                   <Edit2 className="w-3 h-3" /> Edit
@@ -627,7 +635,7 @@ function NewTemplateDialog({ channel, open, onClose }: { channel: string; open: 
               placeholder={`e.g. Follow-up ${channel}`}
               className="text-[13px]"
               autoFocus
-              onKeyDown={e => e.key === "Enter" && createMutation.mutate()}
+              onKeyDown={e => e.key === "Enter" && createMutation.mutate(undefined)}
             />
           </div>
           <div className="space-y-1.5">
@@ -654,7 +662,7 @@ function NewTemplateDialog({ channel, open, onClose }: { channel: string; open: 
           <Button
             size="sm"
             className="gap-1.5 text-[12px]"
-            onClick={() => createMutation.mutate()}
+            onClick={() => createMutation.mutate(undefined)}
             disabled={createMutation.isPending || isGenerating}
           >
             <Plus className="w-3.5 h-3.5" /> Create blank
