@@ -42,7 +42,7 @@ const FEATURES = [
     category: "Marketing & Integrations",
     items: [
       "Embeddable review widget for your website",
-      "Auto-post 4 & 5-star reviews to Facebook, Instagram, LinkedIn & X",
+      "Auto-post 4 & 5-star reviews to Facebook, Instagram & LinkedIn",
       "AI chat assistant for review management advice",
       "Custom branding with your logo",
     ],

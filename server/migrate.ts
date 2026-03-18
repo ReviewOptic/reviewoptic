@@ -164,6 +164,14 @@ export async function runMigrations() {
       )
     `);
 
+    // Track which user sent each review request (for per-user analytics)
+    await pool.query(`ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS sent_by_user_id TEXT`);
+
+    // Team / sub-user columns
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'owner'`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS invite_token TEXT`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS invited_by TEXT`);
+
     // Monthly insight email tracking
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_insight_email_at TIMESTAMP`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS insight_emails_opt_out BOOLEAN NOT NULL DEFAULT false`);

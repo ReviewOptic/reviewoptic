@@ -10,6 +10,10 @@ export interface AuthUser {
   planPeriod: "monthly" | "annual";
   requiresPayment: boolean;
   emailVerified: boolean;
+  role: "owner" | "member";
+  firstName: string;
+  lastName: string;
+  companyName: string;
 }
 
 export interface AuthContextType {

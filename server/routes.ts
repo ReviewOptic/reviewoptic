@@ -55,19 +55,27 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (req.session.originalUserId && ["POST", "PATCH", "PUT", "DELETE"].includes(req.method)) {
     return res.status(403).json({ message: "Cannot make changes while impersonating a user." });
   }
+  // Block members from editing settings or deleting/editing customers
+  if (req.session.userRole === "member") {
+    const blocked =
+      (req.path.startsWith("/api/settings") && req.method !== "GET") ||
+      (req.path.match(/\/api\/customers\/[^/]+$/) && ["PATCH", "DELETE"].includes(req.method));
+    if (blocked) return res.status(403).json({ message: "Team members cannot make this change." });
+  }
   // Enforce payment — free plan users (non-admin, non-impersonated) cannot access protected routes
-  // Billing routes are exempt so users can actually pay
   if (req.path.startsWith("/api/billing/")) return next();
   storage.getUser(req.session.userId).then(user => {
     if (!user) return res.status(401).json({ message: "User not found" });
     const isAdmin = user.isAdmin;
     const isImpersonating = !!req.session.originalUserId;
     if (!isAdmin && !isImpersonating) {
-      pool.query(`SELECT plan_type FROM users WHERE id = $1`, [user.id]).then(({ rows }) => {
+      // For members, check the account owner's plan instead of their own
+      const planQuery = req.session.userRole === "member"
+        ? pool.query(`SELECT plan_type FROM users WHERE account_id = $1 AND role = 'owner' LIMIT 1`, [req.session.accountId])
+        : pool.query(`SELECT plan_type FROM users WHERE id = $1`, [user.id]);
+      planQuery.then(({ rows }) => {
         const planType = rows[0]?.plan_type || "free";
-        if (planType === "free") {
-          return res.status(402).json({ message: "Subscription required" });
-        }
+        if (planType === "free") return res.status(402).json({ message: "Subscription required" });
         next();
       }).catch(() => next());
     } else {
@@ -280,15 +288,28 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
 
     if (!user.isAdmin) {
-      const { rows } = await pool.query(`SELECT plan_type FROM users WHERE id = $1`, [user.id]);
+      const { rows } = await pool.query(`SELECT plan_type, role FROM users WHERE id = $1`, [user.id]);
       const planType = rows[0]?.plan_type || "free";
-      if (planType === "free") {
+      const role = rows[0]?.role || "owner";
+      // Members inherit the owner's plan — check account owner instead
+      if (role === "member") {
+        const { rows: ownerRows } = await pool.query(
+          `SELECT plan_type FROM users WHERE account_id = $1 AND role = 'owner' LIMIT 1`,
+          [user.accountId]
+        );
+        const ownerPlan = ownerRows[0]?.plan_type || "free";
+        if (ownerPlan === "free") {
+          return res.status(403).json({ message: "The account owner hasn't set up a subscription yet." });
+        }
+      } else if (planType === "free") {
         return res.status(403).json({ message: "Please complete your subscription before signing in." });
       }
     }
 
+    const { rows: roleRows } = await pool.query(`SELECT role FROM users WHERE id = $1`, [user.id]);
     req.session.userId = user.id;
     req.session.accountId = user.accountId;
+    (req.session as any).userRole = roleRows[0]?.role || "owner";
     delete req.session.originalUserId;
     delete req.session.originalAccountId;
     res.json({ id: user.id, email: user.email, accountId: user.accountId, isAdmin: user.isAdmin });
@@ -371,12 +392,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     let billing: any = {};
     try {
       const { rows } = await pool.query(
-        `SELECT plan_type, plan_period FROM users WHERE id = $1`,
+        `SELECT plan_type, plan_period, role, first_name, last_name, company_name FROM users WHERE id = $1`,
         [user.id]
       );
       billing = rows[0] || {};
     } catch { /* columns may not exist yet — safe to ignore */ }
     const planType = billing.plan_type || "free";
+    const role = billing.role || "owner";
     res.json({
       id: user.id,
       email: user.email,
@@ -385,8 +407,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       isImpersonating: !!req.session.originalUserId,
       planType,
       planPeriod: billing.plan_period || "monthly",
-      requiresPayment: !user.isAdmin && planType === "free" && !req.session.originalUserId,
+      requiresPayment: !user.isAdmin && planType === "free" && role === "owner" && !req.session.originalUserId,
       emailVerified: user.emailVerified,
+      role,
+      firstName: billing.first_name || "",
+      lastName: billing.last_name || "",
+      companyName: billing.company_name || "",
     });
   });
 
@@ -1521,6 +1547,112 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         : "Something went wrong. Please try again.";
       res.status(500).json({ message: friendly });
     }
+  });
+
+  // ── Team management ──────────────────────────────────────────────────────
+
+  // List team members
+  app.get("/api/team", requireAuth, async (req, res) => {
+    const { rows } = await pool.query(
+      `SELECT id, email, first_name, last_name, role, email_verified, invite_token,
+              last_insight_email_at as last_active
+       FROM users WHERE account_id = $1 AND id != $2 AND role = 'member' ORDER BY created_at ASC`,
+      [req.session.accountId, req.session.userId]
+    );
+    res.json(rows);
+  });
+
+  // Invite a team member
+  app.post("/api/team/invite", requireAuth, async (req, res) => {
+    if (req.session.userRole === "member") {
+      return res.status(403).json({ message: "Only the account owner can invite team members." });
+    }
+    const { email, firstName, lastName } = req.body;
+    if (!email || !firstName) return res.status(400).json({ message: "Email and first name are required" });
+
+    // Check not already a user in this account
+    const { rows: existing } = await pool.query(
+      `SELECT id FROM users WHERE email = $1`, [email.toLowerCase()]
+    );
+    if (existing.length > 0) return res.status(400).json({ message: "A user with this email already exists." });
+
+    // Get owner info for the email
+    const { rows: ownerRows } = await pool.query(
+      `SELECT first_name, last_name, plan_type, plan_period FROM users WHERE id = $1`, [req.session.userId]
+    );
+    const owner = ownerRows[0];
+    const settings = await storage.getSettings(req.session.accountId!);
+    const companyName = settings?.businessName || "your company";
+
+    const inviteToken = randomUUID();
+    const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000");
+    const acceptUrl = `${appUrl}/accept-invite?token=${inviteToken}`;
+
+    await pool.query(
+      `INSERT INTO users (id, email, first_name, last_name, account_id, role, invited_by, invite_token,
+        email_verified, password, plan_type, plan_period)
+       VALUES ($1, $2, $3, $4, $5, 'member', $6, $7, false, '', 'free', 'monthly')`,
+      [randomUUID(), email.toLowerCase(), firstName, lastName || "", req.session.accountId, req.session.userId, inviteToken]
+    );
+
+    const { sendTeamInviteEmail } = await import("./email");
+    await sendTeamInviteEmail(
+      email.toLowerCase(),
+      `${owner?.first_name || ""} ${owner?.last_name || ""}`.trim() || "Your team",
+      companyName,
+      acceptUrl
+    );
+
+    res.json({ ok: true });
+  });
+
+  // Revoke a team member
+  app.delete("/api/team/:userId", requireAuth, async (req, res) => {
+    if (req.session.userRole === "member") {
+      return res.status(403).json({ message: "Only the account owner can remove team members." });
+    }
+    const { userId } = req.params;
+    // Safety: only delete members in same account
+    await pool.query(
+      `DELETE FROM users WHERE id = $1 AND account_id = $2 AND role = 'member'`,
+      [userId, req.session.accountId]
+    );
+    res.json({ ok: true });
+  });
+
+  // Accept invite — validate token
+  app.get("/api/auth/accept-invite", async (req, res) => {
+    const { token } = req.query;
+    if (!token) return res.status(400).json({ message: "Missing token" });
+    const { rows } = await pool.query(
+      `SELECT id, email, first_name, last_name FROM users WHERE invite_token = $1`, [token]
+    );
+    if (!rows[0]) return res.status(400).json({ message: "Invalid or expired invitation link." });
+    res.json({ email: rows[0].email, firstName: rows[0].first_name });
+  });
+
+  // Accept invite — set password
+  app.post("/api/auth/accept-invite", async (req, res) => {
+    const { token, password } = req.body;
+    if (!token || !password) return res.status(400).json({ message: "Missing token or password" });
+    if (password.length < 8) return res.status(400).json({ message: "Password must be at least 8 characters" });
+
+    const { rows } = await pool.query(
+      `SELECT id, account_id FROM users WHERE invite_token = $1`, [token]
+    );
+    if (!rows[0]) return res.status(400).json({ message: "Invalid or expired invitation link." });
+
+    const hashed = await bcrypt.hash(password, 12);
+    await pool.query(
+      `UPDATE users SET password = $1, email_verified = true, invite_token = NULL WHERE id = $2`,
+      [hashed, rows[0].id]
+    );
+
+    req.session.userId = rows[0].id;
+    req.session.accountId = rows[0].account_id;
+    (req.session as any).userRole = "member";
+    await new Promise<void>(resolve => req.session.save(() => resolve()));
+    res.json({ ok: true });
   });
 
   // Insight email open tracking pixel

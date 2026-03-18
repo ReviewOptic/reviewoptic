@@ -158,6 +158,7 @@ export async function runMonthlyInsightEmails(): Promise<void> {
     WHERE NOT is_admin
       AND email_verified = true
       AND plan_type NOT IN ('free', 'complimentary')
+      AND role = 'owner'
       AND insight_email_frequency != 'never'
       AND insight_emails_opt_out = false
       AND (

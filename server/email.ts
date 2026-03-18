@@ -35,6 +35,38 @@ export async function sendVerificationEmail(to: string, verifyUrl: string) {
   console.log(`[verify email] Resend result:`, JSON.stringify(result));
 }
 
+export async function sendTeamInviteEmail(to: string, inviterName: string, companyName: string, acceptUrl: string) {
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`[team invite] No RESEND_API_KEY. Invite link for ${to}: ${acceptUrl}`);
+    return;
+  }
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  await resend.emails.send({
+    from: "ReviewOptic <noreply@reviewoptic.com>",
+    to,
+    subject: `You've been invited to join ${companyName} on ReviewOptic`,
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
+        <div style="margin-bottom:24px;"><span style="font-weight:700;font-size:18px;">ReviewOptic</span></div>
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">You've been invited!</h2>
+        <p style="color:#555;margin:0 0 8px;line-height:1.6;">
+          ${inviterName} has invited you to join <strong>${companyName}</strong> on ReviewOptic.
+        </p>
+        <p style="color:#555;margin:0 0 24px;line-height:1.6;">
+          Click the button below to set your password and get started.
+        </p>
+        <a href="${acceptUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
+          Accept invitation
+        </a>
+        <p style="color:#999;font-size:12px;margin-top:32px;line-height:1.6;">
+          If you weren't expecting this invitation, you can safely ignore this email.
+        </p>
+      </div>
+    `,
+  });
+  console.log(`[team invite] Sent to ${to}`);
+}
+
 function getReviewLink(settings: Settings): string {
   return (
     settings.googleReviewLink ||

@@ -1,7 +1,8 @@
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/use-auth";
 import { useState, useEffect, useCallback, useRef } from "react";
 import Cropper from "react-easy-crop";
-import { Save, ExternalLink, Copy, Check, Globe, Bell, FileCode, Star, Share2, Upload, X } from "lucide-react";
+import { Save, ExternalLink, Copy, Check, Globe, Bell, FileCode, Star, Share2, Upload, X, Trash2, UserPlus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +30,7 @@ function SettingSection({ title, description, children }: { title: string; descr
 
 export default function Settings() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const { data: settings, isLoading } = useQuery<SettingsType>({ queryKey: ["/api/settings"] });
   const [copied, setCopied] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
@@ -101,8 +103,8 @@ export default function Settings() {
   useEffect(() => {
     if (settings) {
       setForm({
-        ownerName: settings.ownerName || "",
-        businessName: settings.businessName || "",
+        ownerName: settings.ownerName || (user ? `${user.firstName} ${user.lastName}`.trim() : ""),
+        businessName: settings.businessName || user?.companyName || "",
         businessEmail: settings.businessEmail || "",
         websiteUrl: settings.websiteUrl || "",
         logoUrl: settings.logoUrl || "",
@@ -189,6 +191,7 @@ export default function Settings() {
           <TabsTrigger value="widget" className="text-[12.5px]" data-testid="tab-widget">Widget</TabsTrigger>
           <TabsTrigger value="social" className="text-[12.5px]" data-testid="tab-social">Social</TabsTrigger>
           <TabsTrigger value="notifications" className="text-[12.5px]" data-testid="tab-notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="team" className="text-[12.5px]" data-testid="tab-team">Team</TabsTrigger>
         </TabsList>
 
         {/* Business Info */}
@@ -284,7 +287,7 @@ export default function Settings() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label className="text-[12.5px]">Business Name</Label>
+                  <Label className="text-[12.5px]">Company Name</Label>
                   <Input
                     value={form.businessName}
                     onChange={e => setForm(f => ({ ...f, businessName: e.target.value }))}
@@ -293,15 +296,20 @@ export default function Settings() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-[12.5px]">Business Email <span className="text-destructive">*</span></Label>
+                  <Label className="text-[12.5px]">Business Email</Label>
                   <Input
                     type="email"
                     value={form.businessEmail}
-                    onChange={e => setForm(f => ({ ...f, businessEmail: e.target.value }))}
-                    placeholder="hello@mybusiness.com"
+                    readOnly
+                    disabled
+                    className="bg-muted cursor-not-allowed"
                     data-testid="input-business-email"
-                    required
                   />
+                  <p className="text-[11.5px] text-muted-foreground">This is set from your account email and cannot be changed here.</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[12.5px]">Password</Label>
+                  <ChangePasswordButton email={form.businessEmail || user?.email || ""} />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[12.5px]">Website</Label>
@@ -698,7 +706,13 @@ export default function Settings() {
         <TabsContent value="notifications">
           <NotificationsTab />
         </TabsContent>
+
+        {/* Team */}
+        <TabsContent value="team">
+          <TeamTab />
+        </TabsContent>
       </Tabs>
+
     </div>
   );
 }
@@ -773,5 +787,171 @@ function NotificationsTab() {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function TeamTab() {
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  const { data: settings } = useQuery<{ businessName: string }>({ queryKey: ["/api/settings"] });
+  const [members, setMembers] = useState<any[]>([]);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [inviting, setInviting] = useState(false);
+  const [confirmRevoke, setConfirmRevoke] = useState<string | null>(null);
+
+  const load = () =>
+    fetch("/api/team", { credentials: "include" })
+      .then(r => r.json())
+      .then(d => Array.isArray(d) ? setMembers(d) : null)
+      .catch(() => {});
+
+  useEffect(() => { load(); }, []);
+
+  const invite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setInviting(true);
+    try {
+      const res = await fetch("/api/team/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email, firstName, lastName }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      toast({ title: "Invitation sent", description: `An invite has been sent to ${email}` });
+      setEmail(""); setFirstName(""); setLastName("");
+      load();
+    } catch (err: any) {
+      toast({ title: "Failed to invite", description: err.message, variant: "destructive" });
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  const revoke = async (memberId: string) => {
+    await fetch(`/api/team/${memberId}`, { method: "DELETE", credentials: "include" });
+    setConfirmRevoke(null);
+    load();
+  };
+
+  if (user?.role === "member") {
+    return (
+      <Card className="border-card-border">
+        <CardContent className="pt-6">
+          <p className="text-sm text-muted-foreground">Only the account owner can manage team members.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Invite form */}
+      <Card className="border-card-border">
+        <CardHeader>
+          <CardTitle className="text-[15px]">Invite a team member</CardTitle>
+          <CardDescription className="text-[12.5px]">
+            They'll receive an email to set their password and join <strong>{settings?.businessName || "your account"}</strong>.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={invite} className="space-y-4">
+            <div className="flex gap-2">
+              <div className="space-y-1.5 flex-1">
+                <Label className="text-[12.5px]">First name</Label>
+                <Input placeholder="Jane" value={firstName} onChange={e => setFirstName(e.target.value)} required />
+              </div>
+              <div className="space-y-1.5 flex-1">
+                <Label className="text-[12.5px]">Last name</Label>
+                <Input placeholder="Smith" value={lastName} onChange={e => setLastName(e.target.value)} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[12.5px]">Email address</Label>
+              <Input type="email" placeholder="jane@example.com" value={email} onChange={e => setEmail(e.target.value)} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[12.5px]">Company</Label>
+              <Input value={settings?.businessName || ""} disabled className="bg-muted cursor-not-allowed" />
+            </div>
+            <Button type="submit" disabled={inviting} className="gap-2">
+              <UserPlus className="w-4 h-4" />
+              {inviting ? "Sending invite…" : "Send invitation"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Team members list */}
+      <Card className="border-card-border">
+        <CardHeader>
+          <CardTitle className="text-[15px]">Team members</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {members.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No team members yet. Invite someone above.</p>
+          ) : (
+            <div className="space-y-2">
+              {members.map(m => (
+                <div key={m.id} className="flex items-center justify-between p-3 rounded-lg border border-border">
+                  <div>
+                    <p className="text-[13.5px] font-medium">{m.first_name} {m.last_name}</p>
+                    <p className="text-[12px] text-muted-foreground">{m.email}</p>
+                    <p className="text-[11px] mt-0.5">
+                      {m.email_verified ? (
+                        <span className="text-green-600 font-medium">Active</span>
+                      ) : (
+                        <span className="text-yellow-600 font-medium">Pending — invite not yet accepted</span>
+                      )}
+                    </p>
+                  </div>
+                  {confirmRevoke === m.id ? (
+                    <div className="flex items-center gap-1.5">
+                      <Button size="sm" variant="destructive" onClick={() => revoke(m.id)}>Confirm</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setConfirmRevoke(null)}>Cancel</Button>
+                    </div>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={() => setConfirmRevoke(m.id)} className="gap-1.5 text-destructive hover:text-destructive">
+                      <Trash2 className="w-3.5 h-3.5" /> Revoke
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function ChangePasswordButton({ email }: { email: string }) {
+  const { toast } = useToast();
+  const [sent, setSent] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const send = async () => {
+    if (!email) return;
+    setLoading(true);
+    await fetch("/api/auth/forgot-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    setSent(true);
+    setLoading(false);
+    toast({ title: "Password reset email sent", description: `Check ${email} for the reset link.` });
+  };
+
+  return sent ? (
+    <p className="text-[12.5px] text-green-600 font-medium">Reset link sent — check your email.</p>
+  ) : (
+    <Button type="button" variant="outline" size="sm" onClick={send} disabled={loading}>
+      {loading ? "Sending…" : "Send password reset email"}
+    </Button>
   );
 }

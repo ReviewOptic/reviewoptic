@@ -93,7 +93,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
       </nav>
       <div className="px-4 py-3 border-t border-sidebar-border">
         <div className="text-[11px] text-muted-foreground/70 truncate mb-2">{user?.email}</div>
-        {!user?.isAdmin && (
+        {!user?.isAdmin && user?.role !== "member" && (
           <Button
             variant="ghost"
             size="sm"

@@ -24,6 +24,8 @@ import Admin from "@/pages/Admin";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import TermsAndConditions from "@/pages/TermsAndConditions";
 import Pricing from "@/pages/Pricing";
+import Features from "@/pages/Features";
+import AcceptInvite from "@/pages/AcceptInvite";
 import BillingSuccess from "@/pages/BillingSuccess";
 import Billing from "@/pages/Billing";
 
@@ -76,11 +78,13 @@ function Router() {
       <Route path="/privacy" component={PrivacyPolicy} />
       <Route path="/terms" component={TermsAndConditions} />
       <Route path="/pricing" component={Pricing} />
+      <Route path="/features" component={Features} />
       <Route path="/billing/success" component={BillingSuccess} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
       <Route path="/reset-password" component={ResetPassword} />
       <Route path="/verify-email" component={VerifyEmail} />
+      <Route path="/accept-invite" component={AcceptInvite} />
       <Route component={ProtectedRoutes} />
     </Switch>
   );
