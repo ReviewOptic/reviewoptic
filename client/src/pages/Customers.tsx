@@ -25,7 +25,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Customer, ReviewRequest } from "@shared/schema";
+import type { Customer, ReviewRequest, Template } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 
@@ -137,8 +137,10 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
   const [aiMessage, setAiMessage] = useState("");
   const [customSubject, setCustomSubject] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("default");
 
   const { data: settings } = useQuery<any>({ queryKey: ["/api/settings"] });
+  const { data: templates } = useQuery<Template[]>({ queryKey: ["/api/templates"] });
 
   useEffect(() => {
     if (settings?.businessName && !customSubject) {
@@ -173,6 +175,8 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
     }
   };
 
+  const channelTemplates = (templates || []).filter(t => t.channel === channel && t.templateType === "review_request");
+
   const mutation = useMutation({
     mutationFn: async () => apiRequest("POST", "/api/review-requests", {
       customerId: customer?.id,
@@ -181,6 +185,7 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
       selectedPlatforms: availablePlatforms.filter(p => selectedPlatforms.includes(p.key)).map(p => ({ name: p.name, url: p.url })),
       customMessage: aiMessage || undefined,
       customSubject: channel === "email" && customSubject ? customSubject : undefined,
+      templateId: selectedTemplateId !== "default" ? selectedTemplateId : undefined,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
@@ -205,7 +210,7 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
         <div className="space-y-3 py-1">
           <div className="space-y-1.5">
             <Label className="text-[12.5px]">Send via</Label>
-            <Select value={channel} onValueChange={(v) => { setChannel(v); setAiMessage(""); }}>
+            <Select value={channel} onValueChange={(v) => { setChannel(v); setAiMessage(""); setSelectedTemplateId("default"); }}>
               <SelectTrigger data-testid="select-send-channel"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="email">Email</SelectItem>
@@ -214,6 +219,20 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
               </SelectContent>
             </Select>
           </div>
+          {channelTemplates.length > 1 && (
+            <div className="space-y-1.5">
+              <Label className="text-[12.5px]">Template</Label>
+              <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Default template</SelectItem>
+                  {channelTemplates.map(t => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label className="text-[12.5px]">Timing</Label>
             <Select value={delay} onValueChange={setDelay}>

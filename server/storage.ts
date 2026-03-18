@@ -51,6 +51,7 @@ export interface IStorage {
   getTemplate(id: string): Promise<Template | undefined>;
   createTemplate(data: InsertTemplate): Promise<Template>;
   updateTemplate(id: string, data: Partial<InsertTemplate>): Promise<Template | undefined>;
+  deleteTemplate(id: string, accountId: string): Promise<void>;
   // Settings
   getSettings(accountId: string): Promise<Settings | undefined>;
   upsertSettings(accountId: string, data: Partial<InsertSettings>): Promise<Settings>;
@@ -178,6 +179,9 @@ export class DatabaseStorage implements IStorage {
   async updateTemplate(id: string, data: Partial<InsertTemplate>): Promise<Template | undefined> {
     const [t] = await db.update(templates).set({ ...data, updatedAt: new Date() }).where(eq(templates.id, id)).returning();
     return t;
+  }
+  async deleteTemplate(id: string, accountId: string): Promise<void> {
+    await db.delete(templates).where(and(eq(templates.id, id), eq(templates.accountId, accountId)));
   }
 
   async getSettings(accountId: string): Promise<Settings | undefined> {

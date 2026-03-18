@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Send, Eye, Star, TrendingUp, BarChart2 } from "lucide-react";
+import { Send, Eye, Star, TrendingUp, BarChart2, Download, FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -73,6 +73,55 @@ export default function Analytics() {
     count: s.count,
   }));
 
+  function exportCSV() {
+    const lines: string[] = [];
+    const periodLabel = period === "custom" ? `${from} to ${to}` : `Last ${period} days`;
+
+    lines.push("Analytics Export");
+    lines.push(`Period,${periodLabel}`);
+    lines.push(`Channel,${channel === "all" ? "All" : channel}`);
+    lines.push("");
+
+    lines.push("Summary");
+    lines.push("Metric,Value");
+    lines.push(`Requests Sent,${sent}`);
+    lines.push(`Reviews Received,${reviews}`);
+    lines.push(`Response Rate,${responseRate}%`);
+    lines.push(`Avg Rating,${avgRating > 0 ? avgRating : "N/A"}`);
+    lines.push("");
+
+    lines.push("Daily Breakdown");
+    lines.push("Date,Requests Sent,Reviews Received");
+    (data?.daily || []).forEach(d => lines.push(`${d.date},${d.requests},${d.reviews}`));
+    lines.push("");
+
+    lines.push("Channel Breakdown");
+    lines.push("Channel,Count");
+    lines.push(`Email,${data?.channelBreakdown.email || 0}`);
+    lines.push(`SMS,${data?.channelBreakdown.sms || 0}`);
+    lines.push(`WhatsApp,${data?.channelBreakdown.whatsapp || 0}`);
+    lines.push("");
+
+    lines.push("Star Distribution");
+    lines.push("Stars,Count");
+    (data?.starBreakdown || []).forEach(s => lines.push(`${s.stars},${s.count}`));
+    lines.push("");
+
+    lines.push("Conversion Funnel");
+    lines.push("Stage,Count");
+    lines.push(`Sent,${fSent}`);
+    lines.push(`Clicked,${clicked}`);
+    lines.push(`Reviewed,${completed}`);
+
+    const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `analytics-${periodLabel.replace(/\s+/g, "-")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   const summaryCards = [
     { label: "Requests Sent", value: sent, icon: <Send className="w-4 h-4" />, color: "text-blue-500" },
     { label: "Reviews Received", value: reviews, icon: <Star className="w-4 h-4" />, color: "text-green-500" },
@@ -121,6 +170,14 @@ export default function Analytics() {
               <SelectItem value="whatsapp">WhatsApp</SelectItem>
             </SelectContent>
           </Select>
+          <div className="flex gap-1.5">
+            <Button variant="outline" size="sm" className="h-8 text-[12px] gap-1.5" onClick={exportCSV} disabled={isLoading || !data}>
+              <Download className="w-3.5 h-3.5" />CSV
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 text-[12px] gap-1.5" onClick={() => window.print()} disabled={isLoading || !data}>
+              <FileText className="w-3.5 h-3.5" />PDF
+            </Button>
+          </div>
         </div>
       </div>
 

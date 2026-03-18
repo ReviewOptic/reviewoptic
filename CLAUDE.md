@@ -437,3 +437,36 @@ Your job is to be the developer they would hire if they could afford a great one
 - Always wrap the entire async route handler in try/catch for billing routes — a failing DB query outside the catch block will cause an unhandled rejection and return HTML instead of JSON
 - When an impersonating admin has stale auth data, call `refreshUser()` on the page they land on to immediately fetch fresh server-computed flags
 - Use `<a href="...">` not wouter's `navigate()` for back buttons on public pages — `navigate()` can behave unexpectedly when the target is a protected route
+
+### Session — 2026-03-18 (tenth session)
+
+**Tasks completed:**
+- Added `chat_messages` table — `id`, `user_id` (FK to users, cascade delete), `message`, `response`, `created_at`
+- Built `POST /api/chat` endpoint — rate limited (4 messages per 5-minute sliding window), calls OpenAI `gpt-4o-mini` with business name in system prompt, saves real AI response to DB
+- Built `GET /api/chat/history` endpoint — returns all messages for the user plus `usedInWindow` count
+- Built `ChatWidget.tsx` — floating chat button (bottom-right), slide-up panel, message history, streaming typing indicator, cooldown banner, suggested questions on empty state
+- Added chat widget to `Layout.tsx` so it appears on all authenticated pages (hidden when impersonating)
+- Chat log cleared on logout (`DELETE FROM chat_messages WHERE user_id = $1` in logout endpoint)
+- Rate limit: 4 messages per 5-minute sliding window — slots open gradually as messages age out
+- Suggested questions shown on empty state: Google reviews, best time to ask, negative review response, write a request
+
+**Fixes applied:**
+- OpenAI rate limit errors were showing raw API error text as a chat bubble — server now returns friendly message; frontend shows errors as red bubbles
+- `throw { status, ...json }` pattern was unreliable with React Query — switched to always resolving mutationFn and checking `data.ok` / `data.httpStatus` in `onSuccess`
+- Incorrect cooldown timing in `onSuccess` (set to `now + 15min` instead of when oldest message expires) — removed manual cooldown set, let `refetch()` + `useEffect` handle it as single source of truth
+- OpenAI API key not loading until full Stop + Run in Replit
+
+**Issues discovered:**
+- OpenAI API requires credits/billing — free tier will block requests silently with rate limit errors
+- Full Stop + Run required in Replit after any Secrets change
+
+**Notes for next session:**
+- Chat widget is in `Layout.tsx` — applies to all authenticated pages
+- Rate limit constants (`LIMIT`, `WINDOW_MS`) are defined locally in both `routes.ts` (server) and `ChatWidget.tsx` (client) — update both if changing
+- Chat history is deleted on logout — each login starts a fresh conversation
+- Suggested questions are hardcoded in `ChatWidget.tsx` around line 172
+
+**Lessons learned:**
+- When diagnosing "limit after one message", check the DB directly — the real cause was OpenAI's own rate limiting returning an error that looked like our limit message
+- Never expose raw third-party API error messages to users — always catch and return a friendly string
+- Replit secrets only load on full container restart (Stop + Run), not process restart alone

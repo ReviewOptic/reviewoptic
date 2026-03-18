@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useState, useRef, useEffect } from "react";
-import { Edit2, Save, X, FileText, Mail, MessageSquare, Video, Mic, StopCircle, RotateCcw, CheckCircle2 } from "lucide-react";
+import { Edit2, Save, X, FileText, Mail, MessageSquare, Video, Mic, StopCircle, RotateCcw, CheckCircle2, Plus, Trash2, Sparkles, Pencil } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,6 +15,8 @@ import type { Template } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/hooks/use-auth";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const MERGE_TAGS = ["{{first_name}}", "{{customer_name}}", "{{business_name}}", "{{service_type}}", "{{review_link}}"];
 
@@ -451,65 +453,215 @@ function TemplateEditor({ template, onCancel }: { template: Template; onCancel: 
 }
 
 function TemplateCard({ template, isReadOnly }: { template: Template; isReadOnly: boolean }) {
+  const { toast } = useToast();
   const [editing, setEditing] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [newName, setNewName] = useState(template.name);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const renameMutation = useMutation({
+    mutationFn: () => apiRequest("PATCH", `/api/templates/${template.id}`, { name: newName.trim() }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/templates"] }); setRenaming(false); },
+    onError: () => toast({ title: "Failed to rename", variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => fetch(`/api/templates/${template.id}`, { method: "DELETE", credentials: "include" }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/templates"] }); setConfirmDelete(false); toast({ title: "Template deleted" }); },
+    onError: () => toast({ title: "Failed to delete", variant: "destructive" }),
+  });
 
   return (
-    <Card className="border-card-border" data-testid={`template-card-${template.id}`}>
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-primary/10">
-              {channelIcons[template.channel] || <FileText className="w-3.5 h-3.5 text-primary" />}
-            </div>
-            <div>
-              <CardTitle className="text-[14px] font-semibold">{template.name}</CardTitle>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <Badge variant="secondary" className="text-[10px] h-4 px-1.5 capitalize">{template.channel}</Badge>
-                <Badge variant="outline" className="text-[10px] h-4 px-1.5">{template.templateType.replace(/_/g, " ")}</Badge>
+    <>
+      <Card className="border-card-border" data-testid={`template-card-${template.id}`}>
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
+              <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-primary/10 flex-shrink-0">
+                {channelIcons[template.channel] || <FileText className="w-3.5 h-3.5 text-primary" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                {renaming ? (
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      value={newName}
+                      onChange={e => setNewName(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter") renameMutation.mutate(); if (e.key === "Escape") { setRenaming(false); setNewName(template.name); } }}
+                      className="h-6 text-[13px] px-2 py-0"
+                      autoFocus
+                    />
+                    <button onClick={() => renameMutation.mutate()} className="text-primary hover:text-primary/80"><Save className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => { setRenaming(false); setNewName(template.name); }} className="text-muted-foreground hover:text-foreground"><X className="w-3.5 h-3.5" /></button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <CardTitle className="text-[14px] font-semibold truncate">{template.name}</CardTitle>
+                    {!isReadOnly && !editing && (
+                      <button onClick={() => setRenaming(true)} className="text-muted-foreground/50 hover:text-muted-foreground flex-shrink-0">
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                )}
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <Badge variant="secondary" className="text-[10px] h-4 px-1.5 capitalize">{template.channel}</Badge>
+                  <Badge variant="outline" className="text-[10px] h-4 px-1.5">{template.templateType.replace(/_/g, " ")}</Badge>
+                </div>
               </div>
             </div>
+            {!editing && !renaming && (
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <Button variant="outline" size="sm" className="h-7 text-[12px] gap-1" onClick={() => setEditing(true)} disabled={isReadOnly} data-testid={`button-edit-template-${template.id}`}>
+                  <Edit2 className="w-3 h-3" /> Edit
+                </Button>
+                {!isReadOnly && (
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive" onClick={() => setConfirmDelete(true)}>
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
-          {!editing && (
-            <Button variant="outline" size="sm" className="h-7 text-[12px] gap-1 flex-shrink-0" onClick={() => setEditing(true)} disabled={isReadOnly} data-testid={`button-edit-template-${template.id}`}>
-              <Edit2 className="w-3 h-3" /> Edit
-            </Button>
+        </CardHeader>
+        <CardContent className="pb-4">
+          {editing ? (
+            <TemplateEditor template={template} onCancel={() => setEditing(false)} />
+          ) : (
+            <div className="space-y-2">
+              {template.subject && (
+                <div>
+                  <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide mb-0.5">Subject</p>
+                  <p className="text-[13px]">{template.subject}</p>
+                </div>
+              )}
+              <div>
+                <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide mb-0.5">Body</p>
+                <p className="text-[13px] text-muted-foreground whitespace-pre-wrap line-clamp-4">{template.body}</p>
+              </div>
+              {template.videoUrl && (
+                <div>
+                  <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide mb-1">Video Message</p>
+                  <video src={template.videoUrl} controls className="w-full max-h-36 rounded-lg bg-black" />
+                </div>
+              )}
+              {template.audioUrl && (
+                <div>
+                  <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide mb-1">Voice Note</p>
+                  <audio src={template.audioUrl} controls className="w-full h-10" />
+                </div>
+              )}
+              <p className="text-[11px] text-muted-foreground/60">
+                Updated {formatDistanceToNow(new Date(template.updatedAt), { addSuffix: true })}
+              </p>
+            </div>
           )}
-        </div>
-      </CardHeader>
-      <CardContent className="pb-4">
-        {editing ? (
-          <TemplateEditor template={template} onCancel={() => setEditing(false)} />
-        ) : (
-          <div className="space-y-2">
-            {template.subject && (
-              <div>
-                <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide mb-0.5">Subject</p>
-                <p className="text-[13px]">{template.subject}</p>
-              </div>
-            )}
-            <div>
-              <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide mb-0.5">Body</p>
-              <p className="text-[13px] text-muted-foreground whitespace-pre-wrap line-clamp-4">{template.body}</p>
-            </div>
-            {template.videoUrl && (
-              <div>
-                <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide mb-1">Video Message</p>
-                <video src={template.videoUrl} controls className="w-full max-h-36 rounded-lg bg-black" />
-              </div>
-            )}
-            {template.audioUrl && (
-              <div>
-                <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide mb-1">Voice Note</p>
-                <audio src={template.audioUrl} controls className="w-full h-10" />
-              </div>
-            )}
-            <p className="text-[11px] text-muted-foreground/60">
-              Updated {formatDistanceToNow(new Date(template.updatedAt), { addSuffix: true })}
-            </p>
+        </CardContent>
+      </Card>
+
+      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader><DialogTitle>Delete template?</DialogTitle></DialogHeader>
+          <p className="text-[13px] text-muted-foreground">"{template.name}" will be permanently deleted.</p>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => setConfirmDelete(false)}>Cancel</Button>
+            <Button variant="destructive" size="sm" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function NewTemplateDialog({ channel, open, onClose }: { channel: string; open: boolean; onClose: () => void }) {
+  const { toast } = useToast();
+  const [name, setName] = useState("");
+  const [templateType, setTemplateType] = useState("review_request");
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const createMutation = useMutation({
+    mutationFn: async (opts?: { body?: string; subject?: string }) => apiRequest("POST", "/api/templates", {
+      name: name.trim() || `New ${channel} template`,
+      channel,
+      templateType,
+      subject: opts?.subject || (channel === "email" ? "How was your experience with {{business_name}}?" : ""),
+      body: opts?.body || "Hi {{first_name}},\n\nThank you for choosing {{business_name}}!\n\n{{review_link}}\n\nThanks,\nThe {{business_name}} team",
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/templates"] });
+      toast({ title: "Template created" });
+      setName("");
+      onClose();
+    },
+    onError: () => toast({ title: "Failed to create template", variant: "destructive" }),
+  });
+
+  const generateAndCreate = async () => {
+    setIsGenerating(true);
+    try {
+      const res = await fetch("/api/ai/generate-template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ channel }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      createMutation.mutate({ body: data.body, subject: data.subject });
+    } catch (err: any) {
+      toast({ title: "AI generation failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader><DialogTitle>New {channel} template</DialogTitle></DialogHeader>
+        <div className="space-y-3 py-1">
+          <div className="space-y-1.5">
+            <Label className="text-[12.5px]">Template name</Label>
+            <Input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder={`e.g. Follow-up ${channel}`}
+              className="text-[13px]"
+              autoFocus
+              onKeyDown={e => e.key === "Enter" && createMutation.mutate()}
+            />
           </div>
-        )}
-      </CardContent>
-    </Card>
+          <div className="space-y-1.5">
+            <Label className="text-[12.5px]">Type</Label>
+            <Select value={templateType} onValueChange={setTemplateType}>
+              <SelectTrigger className="text-[13px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="review_request">Review Request</SelectItem>
+                <SelectItem value="follow_up">Follow Up</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter className="flex-col gap-2 sm:flex-row">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-[12px]"
+            onClick={generateAndCreate}
+            disabled={isGenerating || createMutation.isPending}
+          >
+            {isGenerating ? <><Sparkles className="w-3.5 h-3.5 animate-pulse" />Generating...</> : <><Sparkles className="w-3.5 h-3.5" />Generate with AI</>}
+          </Button>
+          <Button
+            size="sm"
+            className="gap-1.5 text-[12px]"
+            onClick={() => createMutation.mutate()}
+            disabled={createMutation.isPending || isGenerating}
+          >
+            <Plus className="w-3.5 h-3.5" /> Create blank
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -517,6 +669,8 @@ export default function Templates() {
   const { user } = useAuth();
   const isReadOnly = !!user?.isImpersonating;
   const { data: templates, isLoading } = useQuery<Template[]>({ queryKey: ["/api/templates"] });
+  const [activeTab, setActiveTab] = useState("email");
+  const [showNew, setShowNew] = useState(false);
 
   const byChannel = {
     email: templates?.filter(t => t.channel === "email") || [],
@@ -526,11 +680,18 @@ export default function Templates() {
 
   return (
     <div className="px-6 py-7 max-w-4xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">Message Templates</h1>
-        <p className="text-[13.5px] text-muted-foreground mt-0.5">
-          Customize the messages sent to your customers. Use merge tags to personalize.
-        </p>
+      <div className="mb-6 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Message Templates</h1>
+          <p className="text-[13.5px] text-muted-foreground mt-0.5">
+            Customize the messages sent to your customers. Use merge tags to personalize.
+          </p>
+        </div>
+        {!isReadOnly && (
+          <Button size="sm" className="gap-1.5 text-[12px] flex-shrink-0" onClick={() => setShowNew(true)}>
+            <Plus className="w-3.5 h-3.5" /> New Template
+          </Button>
+        )}
       </div>
 
       {/* Merge tag reference */}
@@ -551,7 +712,7 @@ export default function Templates() {
           {[1,2,3].map(i => <Skeleton key={i} className="h-40 w-full" />)}
         </div>
       ) : (
-        <Tabs defaultValue="email">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-5">
             <TabsTrigger value="email" className="gap-1.5 text-[13px]" data-testid="tab-email">
               <Mail className="w-3.5 h-3.5" /> Email ({byChannel.email.length})
@@ -568,7 +729,12 @@ export default function Templates() {
               {byChannel[ch].length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <FileText className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                  <p className="text-[13px]">No {ch} templates found</p>
+                  <p className="text-[13px] mb-3">No {ch} templates yet</p>
+                  {!isReadOnly && (
+                    <Button size="sm" variant="outline" className="gap-1.5 text-[12px]" onClick={() => setShowNew(true)}>
+                      <Plus className="w-3.5 h-3.5" /> Create one
+                    </Button>
+                  )}
                 </div>
               ) : (
                 byChannel[ch].map(t => <TemplateCard key={t.id} template={t} isReadOnly={isReadOnly} />)
@@ -577,6 +743,8 @@ export default function Templates() {
           ))}
         </Tabs>
       )}
+
+      <NewTemplateDialog channel={activeTab} open={showNew} onClose={() => setShowNew(false)} />
     </div>
   );
 }

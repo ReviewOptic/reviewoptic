@@ -292,7 +292,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ success: true });
   });
 
-  app.post("/api/auth/logout", (req, res) => {
+  app.post("/api/auth/logout", async (req, res) => {
+    const userId = req.session.userId;
+    if (userId) {
+      await pool.query(`DELETE FROM chat_messages WHERE user_id = $1`, [userId]).catch(() => {});
+    }
     req.session.destroy(() => {
       res.json({ success: true });
     });
@@ -748,6 +752,50 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.post("/api/ai/generate-template", requireAuth, async (req, res) => {
+    try {
+      const { channel } = req.body;
+      const settings = await storage.getSettings(req.session.accountId!);
+      const businessName = settings?.businessName || "our business";
+
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(503).json({ message: "OpenAI API key not configured" });
+      }
+
+      const isSMS = channel === "sms" || channel === "whatsapp";
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+      if (isSMS) {
+        const completion = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [{ role: "user", content: `Write a friendly SMS review request template for a business called "${businessName}". Use {{first_name}}, {{business_name}}, and {{review_link}} merge tags. Keep it under 160 characters. Just the message text.` }],
+          max_tokens: 200,
+        });
+        res.json({ body: completion.choices[0]?.message?.content?.trim() || "", subject: "" });
+      } else {
+        const [bodyCompletion, subjectCompletion] = await Promise.all([
+          openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: `Write a friendly email review request template for "${businessName}". Use {{first_name}}, {{business_name}}, {{service_type}}, and {{review_link}} merge tags. 3–4 sentences. Start with "Hi {{first_name}}," — just the body text, no subject line, no sign-off.` }],
+            max_tokens: 300,
+          }),
+          openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: `Write a short email subject line for a review request from "${businessName}". Use {{business_name}} if appropriate. Just the subject text, no quotes.` }],
+            max_tokens: 60,
+          }),
+        ]);
+        res.json({
+          body: bodyCompletion.choices[0]?.message?.content?.trim() || "",
+          subject: subjectCompletion.choices[0]?.message?.content?.trim() || "",
+        });
+      }
+    } catch (err: any) {
+      console.error("[ai/generate-template]", err.message);
+      res.status(500).json({ message: "Failed to generate template" });
+    }
+  });
+
   app.post("/api/review-requests", requireAuth, async (req, res) => {
     try {
     const customer = await storage.getCustomer(req.body.customerId, req.session.accountId!);
@@ -776,9 +824,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const allTemplates = await storage.getTemplates(req.session.accountId!);
     const customMessage: string | undefined = req.body.customMessage || undefined;
     const customSubject: string | undefined = req.body.customSubject || undefined;
+    const templateId: string | undefined = req.body.templateId || undefined;
     if (settings) {
       if (channel === "email" && customer.email) {
         const template =
+          (templateId && allTemplates.find(t => t.id === templateId)) ||
           allTemplates.find(t => t.channel === "email" && t.isDefault) ||
           allTemplates.find(t => t.channel === "email") ||
           null;
@@ -790,6 +840,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         );
       } else if (channel === "sms" && customer.phone) {
         const template =
+          (templateId && allTemplates.find(t => t.id === templateId)) ||
           allTemplates.find(t => t.channel === "sms" && t.isDefault) ||
           allTemplates.find(t => t.channel === "sms") ||
           null;
@@ -847,6 +898,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const t = await storage.updateTemplate(String(req.params.id), req.body);
     if (!t) return res.status(404).json({ message: "Not found" });
     res.json(t);
+  });
+  app.delete("/api/templates/:id", requireAuth, async (req, res) => {
+    await storage.deleteTemplate(String(req.params.id), req.session.accountId!);
+    res.json({ success: true });
   });
   app.post("/api/templates/upload-video", requireAuth, videoUpload.single("video"), (req, res) => {
     if (!req.file) return res.status(400).json({ message: "No video uploaded" });
@@ -1273,6 +1328,100 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
 
     res.json({ received: true });
+  });
+
+  // Chat history
+  app.get("/api/chat/history", requireAuth, async (req, res) => {
+    try {
+      const WINDOW_MS = 5 * 60 * 1000;
+      const LIMIT = 4;
+      const windowStart = new Date(Date.now() - WINDOW_MS);
+
+      const { rows } = await pool.query(
+        `SELECT id, message, response, created_at FROM chat_messages WHERE user_id = $1 ORDER BY created_at ASC`,
+        [req.session.userId]
+      );
+
+      const usedInWindow = rows.filter(r => new Date(r.created_at) >= windowStart).length;
+      res.json({ messages: rows, usedInWindow, limit: LIMIT });
+    } catch (err: any) {
+      console.error("[chat/history] Error:", err.message);
+      res.status(500).json({ message: "Failed to fetch history" });
+    }
+  });
+
+  // Chat
+  app.post("/api/chat", requireAuth, async (req, res) => {
+    try {
+      const { message } = req.body;
+      if (!message || typeof message !== "string" || !message.trim()) {
+        return res.status(400).json({ message: "message is required" });
+      }
+
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(503).json({ message: "AI not configured" });
+      }
+
+      const userId = req.session.userId!;
+      const WINDOW_MS = 5 * 60 * 1000;
+      const LIMIT = 4;
+      const windowStart = new Date(Date.now() - WINDOW_MS);
+
+      // Count messages in the last 15 minutes
+      const { rows: windowRows } = await pool.query(
+        `SELECT created_at FROM chat_messages WHERE user_id = $1 AND created_at >= $2 ORDER BY created_at ASC`,
+        [userId, windowStart]
+      );
+
+      if (windowRows.length >= LIMIT) {
+        // Cooldown expires when the oldest message in the window turns 15 mins old
+        const oldestAt = new Date(windowRows[0].created_at).getTime();
+        const availableAt = oldestAt + WINDOW_MS;
+        const remainingMs = availableAt - Date.now();
+        const remainingMinutes = Math.ceil(remainingMs / 60000);
+        return res.status(429).json({
+          message: `You've reached your limit. New questions available in ${remainingMinutes} minute${remainingMinutes === 1 ? "" : "s"}.`,
+          retryAfterMinutes: remainingMinutes,
+          usedInWindow: windowRows.length,
+          limit: LIMIT,
+        });
+      }
+
+      // Fetch business name for the system prompt
+      const settings = await storage.getSettings(req.session.accountId!);
+      const businessName = settings?.businessName || "this business";
+
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: `You help ${businessName} get more customer reviews. Only answer questions about reviews, testimonials, and reputation management. Keep answers short and practical.`,
+          },
+          { role: "user", content: message.trim() },
+        ],
+        max_tokens: 400,
+      });
+
+      const aiResponse = completion.choices[0]?.message?.content?.trim() || "Sorry, I couldn't generate a response.";
+
+      await pool.query(
+        `INSERT INTO chat_messages (id, user_id, message, response) VALUES ($1, $2, $3, $4)`,
+        [randomUUID(), userId, message.trim(), aiResponse]
+      );
+
+      const usedInWindow = windowRows.length + 1;
+      res.json({ response: aiResponse, usedInWindow, limit: LIMIT });
+    } catch (err: any) {
+      console.error("[chat] Error:", err.message, err.status, err.code);
+      // Return a friendly message — don't expose raw OpenAI errors to the user
+      const isRateLimit = err.status === 429 || (err.message || "").toLowerCase().includes("rate limit");
+      const friendly = isRateLimit
+        ? "The AI is temporarily busy. Please try again in a moment."
+        : "Something went wrong. Please try again.";
+      res.status(500).json({ message: friendly });
+    }
   });
 
   return httpServer;
