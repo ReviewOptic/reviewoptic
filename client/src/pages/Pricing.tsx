@@ -14,15 +14,19 @@ const PLANS = [
     description: "For local service businesses",
     monthly: { display: "£49", per: "/month" },
     annual:  { display: "£539", per: "/year", saving: "Save £49 — 1 month free" },
-    features: [
-      "Unlimited review requests",
-      "Email & SMS campaigns",
-      "AI-generated messages",
-      "Analytics dashboard",
-      "Custom email templates",
-      "Google, Trustpilot & more",
-      "Multiple users",
+    keyFeatures: [
+      "Unlimited review requests via email, SMS & WhatsApp",
+      "Request reviews by text, video message or voice note",
+      "Automatic follow-ups & AI-generated messages",
       "No contracts — cancel anytime",
+    ],
+    extraFeatures: [
+      "Custom templates for every channel",
+      "Analytics dashboard with PDF & CSV export",
+      "Weekly AI insight reports & chat assistant",
+      "Review widget & social media auto-posting",
+      "Multiple users",
+      "Works with Google, Trustpilot, Facebook, Checkatrade & more",
     ],
   },
   {
@@ -31,12 +35,13 @@ const PLANS = [
     description: "Manage multiple clients",
     monthly: { display: "£149", per: "/month" },
     annual:  { display: "£1,639", per: "/year", saving: "Save £149 — 1 month free" },
-    features: [
+    keyFeatures: [
       "Everything in Standard",
       "Manage multiple client accounts",
-      "Separate data per client",
+      "Fully separate data per client",
       "No contracts — cancel anytime",
     ],
+    extraFeatures: [],
   },
 ];
 
@@ -153,13 +158,21 @@ export default function Pricing() {
                   </p>
                 )}
               </div>
-              <ul className="flex-1 space-y-3 mb-8">
-                {plan.features.map((f) => (
+              <ul className="flex-1 space-y-3 mb-4">
+                {plan.keyFeatures.map((f) => (
                   <li key={f} className="flex items-start gap-2 text-sm text-gray-700">
                     <Check className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
                     {f}
                   </li>
                 ))}
+                {plan.extraFeatures.length > 0 && (
+                  <li className="text-sm text-gray-500 pt-1">
+                    + {plan.extraFeatures.length} more features —{" "}
+                    <a href="/features" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-medium">
+                      see full list
+                    </a>
+                  </li>
+                )}
               </ul>
               {isCurrentPlan ? (
                 <div className="w-full text-center py-2.5 rounded-lg bg-green-50 text-green-700 text-sm font-semibold border border-green-200">

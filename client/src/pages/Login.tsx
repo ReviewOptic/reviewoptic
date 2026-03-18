@@ -313,6 +313,7 @@ export default function Login() {
           {" "}and{" "}
           <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">Privacy Policy</a>
         </p>
+        {reviewsData?.reviews?.length ? <ReviewCards reviews={reviewsData.reviews} /> : null}
         </div>
       </div>
     </div>
