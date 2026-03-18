@@ -153,6 +153,17 @@ export async function runMigrations() {
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT`);
 
+    // Chat messages table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS chat_messages (
+        id VARCHAR PRIMARY KEY,
+        user_id VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        message TEXT NOT NULL,
+        response TEXT NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();
