@@ -261,3 +261,41 @@ Your job is to be the developer they would hire if they could afford a great one
 - Replit Helium: DATABASE_URL uses `@helium/` as host which resolves to an external IP that rejects connections — always patch to `@localhost/` at startup
 - Session race condition on register: must call `req.session.save()` before `res.json()` so the client can immediately call `/api/auth/me` and get a valid session
 - Don't navigate to /pricing automatically after registration — it causes loops when auth context hasn't loaded yet; instead auto-login + let the user click through naturally
+
+### Session — 2026-03-19 (fourteenth session)
+
+**Tasks completed:**
+- 5 new analytics charts: Best Day to Send, Time to Review, Follow-up Effectiveness, Template Performance, Review Platform Breakdown
+- Analytics: team member chart hidden when no team members (role=member) exist
+- Migration: added `template_id TEXT` to `review_requests`; stamped on send so Template Performance chart works going forward
+- Settings → Team: status pills (Invite pending / Active / Deactivated) replacing small text; Resend invite button for pending members; `POST /api/team/:id/resend-invite` endpoint
+- Settings: renamed "Insight Updates" tab → "Insight Emails"
+- Subscription cancellation: `POST /api/billing/cancel` sets `cancel_at_period_end: true` on Stripe; `POST /api/billing/reactivate` undoes it; cancel button always visible in Current Plan card for non-cancelled owners
+- Cancelled plan state: `plan_type = 'cancelled'` (not 'free') set by webhook + subscription retrieval; paywall allows GET /api/analytics + /api/settings only for cancelled users
+- Cancelled plan gate: clicking any route other than /analytics or /billing shows a full-page lock screen with logo and "Reactivate my subscription" button
+- Red banner shown to cancelled users on every page
+- Cancellation email sent automatically on cancel (access end date, reactivate link, sorry to see you go)
+- Feedback & Feature Requests dialog: button above Sign Out in sidebar; name/email pre-filled and read-only; subject dropdown (Feature Request, General Feedback, Bug Report, Other); sends to hello@reviewoptic.com + auto-reply to user
+- Pricing page: "+ more features" (was "+6 more features"); top-line feature descriptions (no specific chart names)
+- Features page: logo added (h-20), analytics section simplified to top-line descriptions
+- Logo added to all system emails: verification, team invite, cancellation, password reset, feedback auto-reply, insight emails
+- Logo added to Terms & Conditions and Privacy Policy pages
+- Features list audited — items listed but NOT built: Instagram auto-posting, functional review widget (widget.js doesn't exist)
+
+**Issues discovered / things to build:**
+- **Instagram auto-posting** — listed on features page but not built; only Facebook + LinkedIn are wired up
+- **Review widget** — Settings page shows a code snippet but `widget.js` at that URL doesn't exist; feature is non-functional
+- **Logo sizes** — user noted logos on features/T&C/privacy pages may need to be bigger; review at start of next session
+- **Agency plan** — still pending (Option B: agency manages multiple client sub-accounts); deferred again this session
+
+**Architecture notes:**
+- `plan_type` values: `'free'` (never used), `'standard'`, `'agency'`, `'complimentary'` (bypasses paywall), `'cancelled'` (analytics read-only)
+- Cancel flow: Stripe `cancel_at_period_end=true` → user keeps access until period ends → Stripe webhook fires `customer.subscription.deleted` → `plan_type = 'cancelled'`; also detected on next `/api/billing/subscription` call
+- Feedback endpoint: `POST /api/feedback` (requireAuth) — sends two emails via Resend; no DB storage
+
+**Notes for next session:**
+- Review logo sizes on features, T&C, and privacy pages — user wants them bigger
+- Agency plan still needs building — check `project_agency_plan.md` memory file for the 4 questions to ask first
+- Instagram auto-posting and review widget are listed as features but not built — decide whether to build or remove from features list
+- Template Performance chart only works for review requests sent after this session (template_id now stamped on send)
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
