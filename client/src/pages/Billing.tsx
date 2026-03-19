@@ -159,15 +159,15 @@ export default function Billing() {
           </div>
         )}
 
-        {/* Cancel / reactivate — inside the plan card */}
-        {!subLoading && sub?.status === "active" && (
+        {/* Cancel / reactivate — always show for non-cancelled owners */}
+        {user?.role !== "member" && user?.planType !== "cancelled" && (
           <div className="pt-4 border-t border-gray-100">
-            {sub.cancelAtPeriodEnd ? (
+            {sub?.cancelAtPeriodEnd ? (
               <div className="space-y-3">
                 <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg p-4">
                   <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                   <p className="text-sm text-amber-700">
-                    Your subscription is scheduled to cancel on <strong>{formatDate(sub.currentPeriodEnd)}</strong>. You'll have full access until then — after that only analytics will be available.
+                    Your subscription is scheduled to cancel on <strong>{sub?.currentPeriodEnd ? formatDate(sub.currentPeriodEnd) : "the end of your billing period"}</strong>. You'll have full access until then — after that only analytics will be available.
                   </p>
                 </div>
                 <Button variant="outline" onClick={reactivateSubscription} disabled={reactivateLoading} className="gap-2">
@@ -180,7 +180,7 @@ export default function Billing() {
                 <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-lg p-4">
                   <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
                   <p className="text-sm text-red-700">
-                    You'll keep full access until <strong>{formatDate(sub.currentPeriodEnd)}</strong>. After that your account will be locked — you'll only be able to view analytics.
+                    You'll keep full access until <strong>{sub?.currentPeriodEnd ? formatDate(sub.currentPeriodEnd) : "the end of your current billing period"}</strong>. After that your account will be locked — you'll only be able to view analytics.
                   </p>
                 </div>
                 <div className="flex gap-2">

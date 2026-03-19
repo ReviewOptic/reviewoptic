@@ -1676,6 +1676,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const Stripe = (await import("stripe")).default;
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
       const sub = await stripe.subscriptions.update(subscriptionId, { cancel_at_period_end: true }) as any;
+
+      // Send cancellation email
+      const { rows: userRows } = await pool.query(`SELECT email, first_name FROM users WHERE id = $1`, [req.session.userId]);
+      const u = userRows[0];
+      if (u) {
+        const endDate = new Date(sub.current_period_end * 1000).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+        const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000");
+        const { sendCancellationEmail } = await import("./email");
+        sendCancellationEmail(u.email, u.first_name || "", endDate, `${appUrl}/billing`).catch(err =>
+          console.error("[billing/cancel] Failed to send cancellation email:", err.message)
+        );
+      }
+
       res.json({ cancelAtPeriodEnd: sub.cancel_at_period_end, currentPeriodEnd: sub.current_period_end });
     } catch (err: any) {
       console.error("[billing/cancel]", err.message);

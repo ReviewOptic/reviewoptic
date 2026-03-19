@@ -165,3 +165,40 @@ export async function sendReviewEmail(
   });
   console.log(`[sendReviewEmail] result:`, JSON.stringify(result));
 }
+
+export async function sendCancellationEmail(to: string, firstName: string, accessEndsDate: string, reactivateUrl: string) {
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`[cancellation email] No RESEND_API_KEY. Would have sent to ${to}`);
+    return;
+  }
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  await resend.emails.send({
+    from: "ReviewOptic <noreply@reviewoptic.com>",
+    to,
+    subject: "Your ReviewOptic subscription has been cancelled",
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
+        <div style="margin-bottom:24px;">
+          <span style="font-weight:700;font-size:18px;">ReviewOptic</span>
+        </div>
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">We're sorry to see you go${firstName ? `, ${firstName}` : ""}</h2>
+        <p style="color:#555;margin:0 0 16px;line-height:1.6;">
+          Your subscription has been cancelled. You'll continue to have full access to your account until <strong>${accessEndsDate}</strong> — after that, your account will be locked.
+        </p>
+        <p style="color:#555;margin:0 0 16px;line-height:1.6;">
+          Your data is safe and will be waiting for you if you ever decide to come back. We'd love to have you.
+        </p>
+        <a href="${reactivateUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin-bottom:24px;">
+          Reactivate my subscription
+        </a>
+        <p style="color:#555;margin:0 0 8px;line-height:1.6;">
+          If you have any feedback on how we could improve, or if there's anything we could have done differently, we'd genuinely love to hear it — just reply to this email.
+        </p>
+        <p style="color:#555;margin:0;line-height:1.6;">
+          Thank you for being a ReviewOptic customer.
+        </p>
+        <p style="color:#999;font-size:12px;margin-top:32px;">The ReviewOptic team</p>
+      </div>
+    `,
+  });
+}
