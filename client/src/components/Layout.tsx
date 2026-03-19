@@ -124,7 +124,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
           onClick={() => setShowFeedback(true)}
         >
           <MessageSquarePlus className="w-3.5 h-3.5" />
-          Feedback & feature requests
+          Feedback & Feature Requests
         </Button>
         <Button
           variant="ghost"
@@ -145,7 +145,6 @@ const SUBJECTS = [
   "Feature request",
   "General feedback",
   "Bug report",
-  "Billing query",
   "Other",
 ];
 
