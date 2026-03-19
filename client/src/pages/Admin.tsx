@@ -16,18 +16,21 @@ import {
 
 interface AdminUser {
   id: string; email: string; accountId: string; isAdmin: boolean;
-  emailVerified: boolean; customerCount: number; reviewRequestCount: number; lastActive: string | null;
+  emailVerified: boolean; planType: string; customerCount: number; reviewRequestCount: number; lastActive: string | null;
 }
 
 interface Metrics {
   userMetrics: { total: number; newThisWeek: number; newLastWeek: number; pctChange: number | null; activeThisWeek: number; activeToday: number; planBreakdown: { planType: string; planPeriod: string; count: number }[]; };
   requestMetrics: { total: number; thisWeek: number; lastWeek: number; pctChange: number | null; today: number; avgPerUser: number; recentFeed: any[]; };
-  retentionMetrics: { day1Rate: number; week1Rate: number; atRisk: any[]; };
+  retentionMetrics: { day1Rate: number; week1Rate: number; atRisk: any[]; reactivated: any[]; avgDaysToReactivate: number | null; };
   funnelMetrics: { signups: number; firstAction: number; returnVisit: number; powerUsers: number; };
   featureUsage: { type: string; count: string }[];
   topUsers: { email: string; signup_date: string; action_count: string; last_active: string }[];
   timeToFirstAction: number;
   alerts: { severity: string; message: string }[];
+  geography: { country: string; count: number }[];
+  devices: { type: string; count: number }[];
+  browsers: { browser: string; count: number }[];
   charts: {
     usersLast30Days: { date: string; count: string }[];
     requestsLast30Days: { date: string; count: string }[];
@@ -93,6 +96,7 @@ export default function Admin() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [tab, setTab] = useState<"metrics" | "users" | "log">("metrics");
+  const [planFilter, setPlanFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [metricsLoading, setMetricsLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -285,7 +289,7 @@ export default function Admin() {
 
             {/* Plan breakdown */}
             {metrics && (
-              <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="mt-4 grid grid-cols-2 md:grid-cols-5 gap-4">
                 {[
                   { label: "Standard — Monthly", planType: "standard", planPeriod: "monthly" },
                   { label: "Standard — Annual",  planType: "standard", planPeriod: "annual"  },
@@ -297,6 +301,10 @@ export default function Admin() {
                   );
                   return <StatCard key={label} label={label} value={row?.count ?? 0} sub="paid users" color="purple" />;
                 })}
+                {(() => {
+                  const cancelled = metrics.userMetrics.planBreakdown?.filter(r => r.planType === "cancelled").reduce((s, r) => s + r.count, 0) ?? 0;
+                  return <StatCard label="Cancelled" value={cancelled} sub="unsubscribed" color="orange" />;
+                })()}
               </div>
             )}
           </div>
@@ -309,32 +317,6 @@ export default function Admin() {
               <StatCard label="This Week" value={metrics?.requestMetrics.thisWeek ?? "—"} trend={metrics?.requestMetrics.pctChange} sub="vs last week" color="green" />
               <StatCard label="Today" value={metrics?.requestMetrics.today ?? "—"} color="green" />
               <StatCard label="Avg Per User" value={metrics?.requestMetrics.avgPerUser ?? "—"} color="green" />
-            </div>
-            {/* Feed */}
-            <div className="bg-card border border-border rounded-xl overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/40">
-                <p className="text-sm font-medium">Last 50 Review Requests</p>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead><tr className="border-b border-border bg-muted/30">
-                    <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Business</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Channel</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Status</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Date</th>
-                  </tr></thead>
-                  <tbody>
-                    {(metrics?.requestMetrics.recentFeed || []).map((r: any) => (
-                      <tr key={r.id} className="border-b border-border last:border-0 hover:bg-muted/30">
-                        <td className="px-4 py-2.5"><p className="font-medium text-[12.5px]">{r.business_name}</p><p className="text-[11px] text-muted-foreground">{r.email}</p></td>
-                        <td className="px-4 py-2.5 text-[12.5px] capitalize text-muted-foreground">{r.channel}</td>
-                        <td className="px-4 py-2.5"><span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${r.status === "sent" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" : r.status === "clicked" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-muted text-muted-foreground"}`}>{r.status}</span></td>
-                        <td className="px-4 py-2.5 text-[12px] text-muted-foreground">{fmtDateTime(r.created_at)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
             </div>
           </div>
 
@@ -400,21 +382,26 @@ export default function Admin() {
               <StatCard label="Day 1 Retention" value={`${metrics?.retentionMetrics.day1Rate ?? 0}%`} sub="return next day" color="purple" />
               <StatCard label="Week 1 Retention" value={`${metrics?.retentionMetrics.week1Rate ?? 0}%`} sub="return within 7 days" color="purple" />
               <StatCard label="Time to First Action" value={metrics?.timeToFirstAction ? `${metrics.timeToFirstAction}h` : "—"} sub="avg after signup" color="purple" />
-              <StatCard label="At Risk Users" value={metrics?.retentionMetrics.atRisk.length ?? 0} sub="active then 7d+ silent" color="orange" />
+              <StatCard label="Reactivated" value={metrics?.retentionMetrics.reactivated?.length ?? 0} sub="returned after cancelling" color="green" />
+              <StatCard label="Avg. Days to Reactivate" value={metrics?.retentionMetrics.avgDaysToReactivate != null ? `${metrics.retentionMetrics.avgDaysToReactivate}d` : "—"} sub="cancelled → resubscribed" color="green" />
             </div>
-            {(metrics?.retentionMetrics.atRisk.length ?? 0) > 0 && (
-              <div className="bg-card border border-border rounded-xl overflow-hidden">
-                <p className="text-sm font-medium px-4 py-3 border-b border-border bg-muted/40">At Risk Users</p>
+            {(metrics?.retentionMetrics.reactivated?.length ?? 0) > 0 && (
+              <div className="bg-card border border-border rounded-xl overflow-hidden mt-4">
+                <p className="text-sm font-medium px-4 py-3 border-b border-border bg-muted/40">Reactivated Users</p>
                 <table className="w-full text-sm">
                   <thead><tr className="border-b border-border bg-muted/30">
                     <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Email</th>
-                    <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Last Active</th>
+                    <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Cancelled</th>
+                    <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Reactivated</th>
+                    <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Days Away</th>
                   </tr></thead>
                   <tbody>
-                    {metrics!.retentionMetrics.atRisk.map((u: any, i: number) => (
+                    {metrics!.retentionMetrics.reactivated.map((u: any, i: number) => (
                       <tr key={i} className="border-b border-border last:border-0">
                         <td className="px-4 py-2.5 text-[12.5px]">{u.email}</td>
-                        <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground">{fmtDate(u.last_active)}</td>
+                        <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground">{fmtDate(u.cancelled_at)}</td>
+                        <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground">{fmtDate(u.reactivated_at)}</td>
+                        <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground">{u.days_away} days</td>
                       </tr>
                     ))}
                   </tbody>
@@ -426,42 +413,12 @@ export default function Admin() {
           {/* Conversion Funnel */}
           <div>
             <SectionTitle icon={Target} title="Conversion Funnel" />
-            {metrics && (() => {
-              const stages = [
-                { label: "Signed Up", value: metrics.funnelMetrics.signups },
-                { label: "First Action", value: metrics.funnelMetrics.firstAction },
-                { label: "Return Visit", value: metrics.funnelMetrics.returnVisit },
-                { label: "Power User (10+ actions)", value: metrics.funnelMetrics.powerUsers },
-              ];
-              return (
-                <div className="bg-card border border-border rounded-xl p-5">
-                  <div className="space-y-3">
-                    {stages.map((stage, i) => {
-                      const pct = stages[0].value > 0 ? Math.round((stage.value / stages[0].value) * 100) : 0;
-                      const dropOff = i > 0 && stages[i - 1].value > 0 ? Math.round(((stages[i - 1].value - stage.value) / stages[i - 1].value) * 100) : null;
-                      return (
-                        <div key={i}>
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="flex items-center gap-2">
-                              <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center">{i + 1}</span>
-                              <span className="text-sm font-medium">{stage.label}</span>
-                              {dropOff !== null && <span className="text-[11px] text-red-500 font-medium">−{dropOff}% drop-off</span>}
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <span className="text-sm font-bold">{stage.value}</span>
-                              <span className="text-xs text-muted-foreground w-10 text-right">{pct}%</span>
-                            </div>
-                          </div>
-                          <div className="h-2 bg-muted rounded-full overflow-hidden">
-                            <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })()}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <StatCard label="Signed Up" value={metrics?.funnelMetrics.signups ?? "—"} sub="total accounts" color="blue" />
+              <StatCard label="First Action" value={metrics?.funnelMetrics.firstAction ?? "—"} sub="used the app" color="blue" />
+              <StatCard label="Return Visit" value={metrics?.funnelMetrics.returnVisit ?? "—"} sub="came back again" color="blue" />
+              <StatCard label="Power Users" value={metrics?.funnelMetrics.powerUsers ?? "—"} sub="10+ actions" color="blue" />
+            </div>
           </div>
 
           {/* Feature Usage */}
@@ -612,12 +569,85 @@ export default function Admin() {
             )}
           </div>
 
-          {/* Geography - Placeholder */}
+          {/* Geography & Devices */}
           <div>
             <SectionTitle icon={Activity} title="Geography & Devices" />
-            <div className="grid grid-cols-2 gap-4">
-              <PlaceholderCard title="Geography not tracked" message="Add IP geolocation to track users by country and timezone." />
-              <PlaceholderCard title="Device data not tracked" message="Add user-agent logging to see mobile vs desktop and browser breakdown." />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Countries */}
+              <div className="bg-card border border-border rounded-xl overflow-hidden">
+                <p className="text-sm font-medium px-4 py-3 border-b border-border bg-muted/40">Users by Country</p>
+                {(metrics?.geography.length ?? 0) === 0 ? (
+                  <p className="text-sm text-muted-foreground px-4 py-5">No country data yet — users need to set their country in Settings.</p>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {metrics!.geography.map((r, i) => {
+                      const max = metrics!.geography[0].count;
+                      const pct = Math.round((r.count / max) * 100);
+                      return (
+                        <div key={i} className="px-4 py-2.5">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm">{r.country}</span>
+                            <span className="text-sm font-semibold">{r.count}</span>
+                          </div>
+                          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              {/* Devices */}
+              <div className="bg-card border border-border rounded-xl overflow-hidden">
+                <p className="text-sm font-medium px-4 py-3 border-b border-border bg-muted/40">Device Type</p>
+                {(metrics?.devices.length ?? 0) === 0 ? (
+                  <p className="text-sm text-muted-foreground px-4 py-5">No device data yet — logged on each login.</p>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {metrics!.devices.map((r, i) => {
+                      const total = metrics!.devices.reduce((s, d) => s + d.count, 0);
+                      const pct = Math.round((r.count / total) * 100);
+                      return (
+                        <div key={i} className="px-4 py-2.5">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm capitalize">{r.type}</span>
+                            <span className="text-sm font-semibold">{pct}%</span>
+                          </div>
+                          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-500 rounded-full" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              {/* Browsers */}
+              <div className="bg-card border border-border rounded-xl overflow-hidden">
+                <p className="text-sm font-medium px-4 py-3 border-b border-border bg-muted/40">Browser</p>
+                {(metrics?.browsers.length ?? 0) === 0 ? (
+                  <p className="text-sm text-muted-foreground px-4 py-5">No browser data yet — logged on each login.</p>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {metrics!.browsers.map((r, i) => {
+                      const total = metrics!.browsers.reduce((s, b) => s + b.count, 0);
+                      const pct = Math.round((r.count / total) * 100);
+                      return (
+                        <div key={i} className="px-4 py-2.5">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm">{r.browser}</span>
+                            <span className="text-sm font-semibold">{pct}%</span>
+                          </div>
+                          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div className="h-full bg-purple-500 rounded-full" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -628,7 +658,17 @@ export default function Admin() {
       {tab === "users" && (
         <div>
           <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-muted-foreground">{users.length} user{users.length !== 1 ? "s" : ""}</p>
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-muted-foreground">{users.filter(u => planFilter === "all" || u.planType === planFilter).length} user{users.filter(u => planFilter === "all" || u.planType === planFilter).length !== 1 ? "s" : ""}</p>
+              <div className="flex gap-1">
+                {["all", "standard", "agency", "complimentary", "cancelled"].map(p => (
+                  <button key={p} onClick={() => setPlanFilter(p)}
+                    className={`text-xs px-3 py-1 rounded-full font-medium transition-colors capitalize ${planFilter === p ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
+                    {p === "all" ? "All" : p}
+                  </button>
+                ))}
+              </div>
+            </div>
             <Button size="sm" variant="outline" className="gap-1.5" onClick={() => exportCSV(users, "users.csv")}>
               <Download className="w-3.5 h-3.5" />Export CSV
             </Button>
@@ -638,6 +678,7 @@ export default function Admin() {
               <thead>
                 <tr className="border-b border-border bg-muted/50">
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Email</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Plan</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Customers</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Requests</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Last Active</th>
@@ -647,9 +688,18 @@ export default function Admin() {
                 </tr>
               </thead>
               <tbody>
-                {users.map(u => (
+                {users.filter(u => planFilter === "all" || u.planType === planFilter).map(u => (
                   <tr key={u.id} className="border-b border-border last:border-0">
                     <td className="px-4 py-3 font-medium">{u.email}</td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${
+                        u.planType === "standard" ? "bg-blue-100 text-blue-700" :
+                        u.planType === "agency" ? "bg-purple-100 text-purple-700" :
+                        u.planType === "complimentary" ? "bg-green-100 text-green-700" :
+                        u.planType === "cancelled" ? "bg-red-100 text-red-700" :
+                        "bg-muted text-muted-foreground"
+                      }`}>{u.planType}</span>
+                    </td>
                     <td className="px-4 py-3 text-muted-foreground">{u.customerCount}</td>
                     <td className="px-4 py-3 text-muted-foreground">{u.reviewRequestCount}</td>
                     <td className="px-4 py-3 text-muted-foreground">{fmtDate(u.lastActive)}</td>

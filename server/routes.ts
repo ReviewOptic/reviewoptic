@@ -12,6 +12,20 @@ import OpenAI from "openai";
 import { sendReviewEmail, sendVerificationEmail } from "./email";
 import { sendReviewSMS } from "./sms";
 import type { Review, Customer, Settings } from "@shared/schema";
+import { UAParser } from "ua-parser-js";
+
+async function logUserSession(req: Request, userId: string, accountId: string) {
+  try {
+    const ua = new UAParser(req.headers["user-agent"] || "");
+    const device = ua.getDevice().type || "desktop";
+    const browser = ua.getBrowser().name || "Unknown";
+    const os = ua.getOS().name || "Unknown";
+    await pool.query(
+      `INSERT INTO user_sessions (id, user_id, account_id, device_type, browser, os) VALUES ($1, $2, $3, $4, $5, $6)`,
+      [randomUUID(), userId, accountId, device, browser, os]
+    );
+  } catch (_) {}
+}
 
 async function sendResetEmail(to: string, resetUrl: string) {
   if (!process.env.RESEND_API_KEY) {
@@ -331,6 +345,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     (req.session as any).userRole = role;
     delete req.session.originalUserId;
     delete req.session.originalAccountId;
+    logUserSession(req, user.id, user.accountId);
     res.json({
       id: user.id,
       email: user.email,
@@ -477,6 +492,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       accountId: u.accountId,
       isAdmin: u.isAdmin,
       emailVerified: u.emailVerified,
+      planType: planMap[u.id] || "free",
       customerCount: statsMap[u.id]?.customerCount ?? 0,
       reviewRequestCount: statsMap[u.id]?.reviewRequestCount ?? 0,
       lastActive: statsMap[u.id]?.lastActive ?? null,
@@ -549,7 +565,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         retentionDay1R, retentionWeek1R, atRiskR, timeToFirstActionR,
         usersChartR, requestsChartR, activityDowR, activityHourR,
         signupsYesterdayR, activityYesterdayR, activityTodayCountR,
-        planBreakdownR,
+        planBreakdownR, reactivatedR, geoR, devicesR, browsersR,
       ] = await Promise.all([
         pool.query(`SELECT COUNT(*) FROM users WHERE NOT is_admin`),
         pool.query(`SELECT COUNT(*) FROM users WHERE NOT is_admin AND created_at >= NOW() - INTERVAL '7 days'`),
@@ -576,6 +592,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         pool.query(`SELECT COUNT(*) FROM activity_log WHERE created_at >= CURRENT_DATE - INTERVAL '1 day' AND created_at < CURRENT_DATE`),
         pool.query(`SELECT COUNT(*) FROM activity_log WHERE created_at >= CURRENT_DATE`),
         pool.query(`SELECT plan_type, plan_period, COUNT(*) as count FROM users WHERE NOT is_admin AND plan_type NOT IN ('free', 'complimentary') GROUP BY plan_type, plan_period ORDER BY plan_type, plan_period`),
+        pool.query(`SELECT u.email, u.cancelled_at, u.reactivated_at, ROUND(EXTRACT(EPOCH FROM (u.reactivated_at - u.cancelled_at))/86400) as days_away FROM users u WHERE u.cancelled_at IS NOT NULL AND u.reactivated_at IS NOT NULL AND NOT u.is_admin ORDER BY u.reactivated_at DESC`),
+        pool.query(`SELECT s.country, COUNT(*) as count FROM settings s JOIN users u ON u.account_id = s.account_id WHERE s.country != '' AND NOT u.is_admin AND u.role = 'owner' GROUP BY s.country ORDER BY count DESC`),
+        pool.query(`SELECT device_type, COUNT(*) as count FROM user_sessions GROUP BY device_type ORDER BY count DESC`),
+        pool.query(`SELECT browser, COUNT(*) as count FROM user_sessions GROUP BY browser ORDER BY count DESC LIMIT 8`),
       ]);
 
       const totalUsers = parseInt(totalUsersR.rows[0].count);
@@ -634,12 +654,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           day1Rate: parseFloat(retentionDay1R.rows[0]?.rate || 0),
           week1Rate: parseFloat(retentionWeek1R.rows[0]?.rate || 0),
           atRisk: atRiskR.rows,
+          reactivated: reactivatedR.rows,
+          avgDaysToReactivate: reactivatedR.rows.length > 0
+            ? Math.round(reactivatedR.rows.reduce((sum: number, r: any) => sum + parseFloat(r.days_away || 0), 0) / reactivatedR.rows.length)
+            : null,
         },
         funnelMetrics: { signups: funnelSignups, firstAction: funnelFirstAction, returnVisit: funnelReturnVisit, powerUsers: funnelPowerUsers },
         featureUsage: featureUsageR.rows,
         topUsers: topUsersR.rows,
         timeToFirstAction: parseFloat(timeToFirstActionR.rows[0]?.avg_hours || 0),
         alerts,
+        geography: geoR.rows.map((r: any) => ({ country: r.country, count: parseInt(r.count) })),
+        devices: devicesR.rows.map((r: any) => ({ type: r.device_type || "desktop", count: parseInt(r.count) })),
+        browsers: browsersR.rows.map((r: any) => ({ browser: r.browser, count: parseInt(r.count) })),
         charts: {
           usersLast30Days: usersChartR.rows,
           requestsLast30Days: requestsChartR.rows,
@@ -1551,8 +1578,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const customerId = typeof session.customer === "string" ? session.customer : (session.customer as any)?.id ?? "";
     const subscriptionId = typeof session.subscription === "string" ? session.subscription : (session.subscription as any)?.id ?? "";
 
+    const { rows: prevRows } = await pool.query(`SELECT cancelled_at FROM users WHERE id = $1`, [userId]);
+    const wasCancelled = !!prevRows[0]?.cancelled_at;
     await pool.query(
-      `UPDATE users SET plan_type = $1, plan_period = $2, stripe_customer_id = $3, stripe_subscription_id = $4 WHERE id = $5`,
+      `UPDATE users SET plan_type = $1, plan_period = $2, stripe_customer_id = $3, stripe_subscription_id = $4${wasCancelled ? ", reactivated_at = NOW()" : ""} WHERE id = $5`,
       [plan, period, customerId, subscriptionId, userId]
     );
 
@@ -1599,7 +1628,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     // If Stripe says the subscription is fully cancelled, mark the user as cancelled in our DB
     if (sub.status === "canceled" && row.plan_type !== "cancelled" && row.plan_type !== "free" && row.plan_type !== "complimentary") {
-      await pool.query(`UPDATE users SET plan_type = 'cancelled' WHERE id = $1`, [req.session.userId]);
+      await pool.query(`UPDATE users SET plan_type = 'cancelled', cancelled_at = NOW() WHERE id = $1`, [req.session.userId]);
     }
 
     res.json({
@@ -1735,7 +1764,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     if (event.type === "customer.subscription.deleted") {
       await pool.query(
-        `UPDATE users SET plan_type = 'cancelled', plan_period = 'monthly' WHERE stripe_subscription_id = $1`,
+        `UPDATE users SET plan_type = 'cancelled', plan_period = 'monthly', cancelled_at = NOW() WHERE stripe_subscription_id = $1`,
         [event.data.object.id]
       );
     }

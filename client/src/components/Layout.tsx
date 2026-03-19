@@ -40,7 +40,7 @@ const navItems = [
   { href: "/customers", icon: Users, label: "Customers" },
   { href: "/templates", icon: FileText, label: "Templates" },
   { href: "/analytics", icon: BarChart3, label: "Analytics" },
-  { href: "/tutorial", icon: BookOpen, label: "Tutorial" },
+  { href: "/tutorial", icon: BookOpen, label: "Tutorials & Guides" },
   { href: "/settings", icon: Settings, label: "Settings" },
 ];
 
@@ -78,7 +78,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
         <LogoOrText />
       </div>
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        {navItems.map((item) => {
+        {navItems.filter(item => !(user?.isAdmin && item.href === "/tutorial")).map((item) => {
           const active = item.href === "/" ? location === "/" : location.startsWith(item.href);
           return (
             <div key={item.href} className="relative">
@@ -118,15 +118,17 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
             Admin panel
           </Button>
         )}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full justify-start gap-2 text-[12px] h-7 px-2 text-muted-foreground hover:text-foreground mb-1"
-          onClick={() => setShowFeedback(true)}
-        >
-          <MessageSquarePlus className="w-3.5 h-3.5" />
-          Feedback & Feature Requests
-        </Button>
+        {!user?.isAdmin && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start gap-2 text-[12px] h-7 px-2 text-muted-foreground hover:text-foreground mb-1"
+            onClick={() => setShowFeedback(true)}
+          >
+            <MessageSquarePlus className="w-3.5 h-3.5" />
+            Feedback & Feature Requests
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="sm"

@@ -11,27 +11,69 @@ const VIDEOS = [
     url: "", // paste YouTube embed URL here
   },
   {
-    title: "Adding your first customer",
-    description: "How to add customers individually or in bulk, and what happens next.",
+    title: "How to add a customer",
+    description: "How to add customers to ReviewOptic and what happens once they're saved.",
     duration: "2 min",
     url: "", // paste YouTube embed URL here
   },
   {
-    title: "Sending a review request",
+    title: "How to send a review request",
     description: "How to send a review request via email, SMS, or WhatsApp — and how to choose the right channel.",
     duration: "2 min",
     url: "", // paste YouTube embed URL here
   },
   {
-    title: "Setting up your templates",
-    description: "How to customise your message templates so they sound like you, not a robot.",
+    title: "How to set up follow-ups",
+    description: "How to enable automatic follow-up messages so no customer slips through the net.",
+    duration: "2 min",
+    url: "", // paste YouTube embed URL here
+  },
+  {
+    title: "How to customise your templates",
+    description: "How to edit your message templates so they sound like you, not a generic message.",
     duration: "3 min",
     url: "", // paste YouTube embed URL here
   },
   {
-    title: "Understanding your analytics",
-    description: "How to read your dashboard and use your data to improve results over time.",
-    duration: "4 min",
+    title: "How to connect your review platforms",
+    description: "How to add your Google, Trustpilot, or other review page links so customers know where to go.",
+    duration: "2 min",
+    url: "", // paste YouTube embed URL here
+  },
+  {
+    title: "How to read your analytics",
+    description: "How to use your analytics dashboard to understand what's working and improve your results.",
+    duration: "3 min",
+    url: "", // paste YouTube embed URL here
+  },
+  {
+    title: "How to mark a customer as Do Not Contact",
+    description: "How to stop review requests being sent to a specific customer.",
+    duration: "1 min",
+    url: "", // paste YouTube embed URL here
+  },
+  {
+    title: "How to update your business details and logo",
+    description: "How to keep your business name, email, and logo up to date in Settings.",
+    duration: "1 min",
+    url: "", // paste YouTube embed URL here
+  },
+  {
+    title: "How to invite a team member",
+    description: "How to give a colleague access to your ReviewOptic account.",
+    duration: "2 min",
+    url: "", // paste YouTube embed URL here
+  },
+  {
+    title: "Understanding customer statuses",
+    description: "What each customer status means and what action, if any, you need to take.",
+    duration: "2 min",
+    url: "", // paste YouTube embed URL here
+  },
+  {
+    title: "How to reset your password",
+    description: "How to reset your password if you have forgotten it or need to change it.",
+    duration: "1 min",
     url: "", // paste YouTube embed URL here
   },
 ];
@@ -92,6 +134,51 @@ const HOWTOS = [
       "The 'Best Day to Send' chart shows when your customers are most likely to respond.",
     ],
   },
+  {
+    title: "How to mark a customer as Do Not Contact",
+    steps: [
+      "Go to the Customers page from the sidebar.",
+      "Click on the customer's name to open their profile.",
+      "Toggle the 'Do Not Contact' switch — this immediately stops any further review requests or follow-ups being sent to them.",
+      "The customer will remain in your list for your records but will never be contacted again through ReviewOptic.",
+    ],
+  },
+  {
+    title: "How to update your business details and logo",
+    steps: [
+      "Go to Settings in the sidebar.",
+      "Under the General tab, update your business name, email address, and any other details.",
+      "To upload a logo, click the upload area and select an image from your device. Your logo will appear in emails sent to customers.",
+      "Click Save when done. Changes take effect immediately.",
+    ],
+  },
+  {
+    title: "How to invite a team member",
+    steps: [
+      "Go to Settings and open the Team tab.",
+      "Click 'Invite Team Member' and enter their email address.",
+      "They will receive an email invitation with a link to set up their account.",
+      "Once they accept, they will appear in your team list and can log in to ReviewOptic. They share your account but cannot change billing or account settings.",
+    ],
+  },
+  {
+    title: "Understanding customer statuses",
+    steps: [
+      "Pending Request — the customer has been added but no review request has been sent yet.",
+      "Request Sent — a review request has been sent and we are waiting for a response.",
+      "Link Clicked — the customer clicked the review link in your message. They may have left a review.",
+      "Review Received — a review has been recorded for this customer.",
+    ],
+  },
+  {
+    title: "How to reset your password",
+    steps: [
+      "Go to the ReviewOptic login page and click 'Forgot password?' below the sign-in form.",
+      "Enter your email address and click Send. You will receive a password reset link by email.",
+      "Click the link in the email and enter your new password. It must be at least 8 characters and include a number and a symbol.",
+      "Once reset, you will be taken back to the login page. Sign in with your new password.",
+    ],
+  },
 ];
 
 const TIPS = [
@@ -109,7 +196,7 @@ const TIPS = [
   },
   {
     tip: "Timing matters more than you think",
-    detail: "Send review requests within 24–48 hours of a customer's visit while the experience is still fresh. Check your Best Day to Send chart in Analytics to find your sweet spot.",
+    detail: "Send review requests within 24–48 hours of a customer's visit or completed service while the experience is still fresh in their mind. Check your Best Day to Send chart in Analytics to find your sweet spot.",
   },
   {
     tip: "You get out what you put in",

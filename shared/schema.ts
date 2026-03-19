@@ -117,6 +117,7 @@ export const settings = pgTable("settings", {
   linkedinOrganizationId: text("linkedin_organization_id").notNull().default(""),
   socialPostEnabled: boolean("social_post_enabled").notNull().default(false),
   socialPostMessage: text("social_post_message").notNull().default("⭐ We just received a {stars}★ review! Thank you {customer_name}!"),
+  country: text("country").notNull().default(""),
 });
 
 export const insertCustomerSchema = createInsertSchema(customers).omit({ createdAt: true });
