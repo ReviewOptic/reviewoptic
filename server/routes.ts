@@ -25,9 +25,7 @@ async function sendResetEmail(to: string, resetUrl: string) {
     subject: "Reset your ReviewOptic password",
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
-        <div style="margin-bottom:24px;">
-          <span style="font-weight:700;font-size:18px;">ReviewOptic</span>
-        </div>
+        <div style="margin-bottom:28px;"><a href="https://reviewoptic.com" style="text-decoration:none;"><img src="${process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://reviewoptic.com")}/logo.png" alt="ReviewOptic" style="height:36px;max-width:180px;object-fit:contain;display:block;" /></a></div>
         <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Reset your password</h2>
         <p style="color:#555;margin:0 0 24px;line-height:1.6;">
           We received a request to reset your password. Click the button below to choose a new one. This link expires in 1 hour.
@@ -1782,9 +1780,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       subject: "Thanks for your feedback — we've got it!",
       html: `
         <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
-          <div style="margin-bottom:24px;">
-            <span style="font-weight:700;font-size:18px;">ReviewOptic</span>
-          </div>
+          <div style="margin-bottom:28px;"><a href="https://reviewoptic.com" style="text-decoration:none;"><img src="${process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://reviewoptic.com")}/logo.png" alt="ReviewOptic" style="height:36px;max-width:180px;object-fit:contain;display:block;" /></a></div>
           <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Hi ${name.split(" ")[0]}, thanks for reaching out!</h2>
           <p style="color:#555;margin:0 0 16px;line-height:1.6;">
             We've received your message and really appreciate you taking the time to get in touch. It means a lot to us.

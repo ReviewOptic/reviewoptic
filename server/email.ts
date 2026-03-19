@@ -1,6 +1,14 @@
 import { Resend } from "resend";
 import type { Customer, Settings } from "@shared/schema";
 
+const APP_URL = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://reviewoptic.com");
+const LOGO_URL = `${APP_URL}/logo.png`;
+const LOGO_HTML = `<div style="margin-bottom:28px;">
+  <a href="https://reviewoptic.com" style="text-decoration:none;">
+    <img src="${LOGO_URL}" alt="ReviewOptic" style="height:36px;max-width:180px;object-fit:contain;display:block;" />
+  </a>
+</div>`;
+
 export async function sendVerificationEmail(to: string, verifyUrl: string) {
   if (!process.env.RESEND_API_KEY) {
     console.log(`[verify email] No RESEND_API_KEY. Verify link for ${to}: ${verifyUrl}`);
@@ -13,9 +21,7 @@ export async function sendVerificationEmail(to: string, verifyUrl: string) {
     subject: "Verify your email and choose your plan",
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
-        <div style="margin-bottom:24px;">
-          <span style="font-weight:700;font-size:18px;">ReviewOptic</span>
-        </div>
+        ${LOGO_HTML}
         <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">You're almost there!</h2>
         <p style="color:#555;margin:0 0 8px;line-height:1.6;">
           Thanks for signing up! Click the button below to verify your email and choose your plan to get started.
@@ -47,7 +53,7 @@ export async function sendTeamInviteEmail(to: string, inviterName: string, compa
     subject: `You've been invited to join ${companyName} on ReviewOptic`,
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
-        <div style="margin-bottom:24px;"><span style="font-weight:700;font-size:18px;">ReviewOptic</span></div>
+        ${LOGO_HTML}
         <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">You've been invited!</h2>
         <p style="color:#555;margin:0 0 8px;line-height:1.6;">
           ${inviterName} has invited you to join <strong>${companyName}</strong> on ReviewOptic.
@@ -178,9 +184,7 @@ export async function sendCancellationEmail(to: string, firstName: string, acces
     subject: "Your ReviewOptic subscription has been cancelled",
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
-        <div style="margin-bottom:24px;">
-          <span style="font-weight:700;font-size:18px;">ReviewOptic</span>
-        </div>
+        ${LOGO_HTML}
         <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">We're sorry to see you go${firstName ? `, ${firstName}` : ""}</h2>
         <p style="color:#555;margin:0 0 16px;line-height:1.6;">
           Your subscription has been cancelled. You'll continue to have full access to your account until <strong>${accessEndsDate}</strong> — after that, your account will be locked.

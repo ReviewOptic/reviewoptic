@@ -82,7 +82,7 @@ export default function Features() {
     <div className="min-h-screen bg-gray-50 py-16 px-4">
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-12">
-          <img src="/logo.png" alt="ReviewOptic" className="h-10 mx-auto mb-8 object-contain" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+          <img src="/logo.png" alt="ReviewOptic" className="h-20 mx-auto mb-8 object-contain" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
           <h1 className="text-4xl font-bold text-gray-900 mb-3">Everything included in Standard</h1>
           <p className="text-gray-500 text-lg">One plan. Every feature. No hidden extras.</p>
         </div>
