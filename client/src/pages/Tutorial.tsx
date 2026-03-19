@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
-import { Play, BookOpen, Lightbulb, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
+import { Play, BookOpen, Lightbulb, ChevronDown, ChevronUp, CheckCircle2, CheckCircle } from "lucide-react";
 import { HOWTOS } from "@/data/howtos";
 
 // ─── Replace these with your real YouTube embed URLs ───────────────────────
@@ -10,6 +10,30 @@ const VIDEOS = [
     title: "Welcome to ReviewOptic",
     description: "An overview of what ReviewOptic does and how to get the most out of it from day one.",
     duration: "3 min",
+    url: "", // paste YouTube embed URL here
+  },
+  {
+    title: "How to update your business details and logo",
+    description: "How to keep your business name, email, and logo up to date in Settings.",
+    duration: "1 min",
+    url: "", // paste YouTube embed URL here
+  },
+  {
+    title: "How to connect your review platforms",
+    description: "How to add your Google, Trustpilot, or other review page links so customers know where to go.",
+    duration: "2 min",
+    url: "", // paste YouTube embed URL here
+  },
+  {
+    title: "How to customise your templates",
+    description: "How to edit your message templates so they sound like you, not a generic message.",
+    duration: "3 min",
+    url: "", // paste YouTube embed URL here
+  },
+  {
+    title: "How to set up follow-ups",
+    description: "How to enable automatic follow-up messages so no customer slips through the net.",
+    duration: "2 min",
     url: "", // paste YouTube embed URL here
   },
   {
@@ -25,20 +49,8 @@ const VIDEOS = [
     url: "", // paste YouTube embed URL here
   },
   {
-    title: "How to set up follow-ups",
-    description: "How to enable automatic follow-up messages so no customer slips through the net.",
-    duration: "2 min",
-    url: "", // paste YouTube embed URL here
-  },
-  {
-    title: "How to customise your templates",
-    description: "How to edit your message templates so they sound like you, not a generic message.",
-    duration: "3 min",
-    url: "", // paste YouTube embed URL here
-  },
-  {
-    title: "How to connect your review platforms",
-    description: "How to add your Google, Trustpilot, or other review page links so customers know where to go.",
+    title: "Understanding customer statuses",
+    description: "What each customer status means and what action, if any, you need to take.",
     duration: "2 min",
     url: "", // paste YouTube embed URL here
   },
@@ -55,27 +67,9 @@ const VIDEOS = [
     url: "", // paste YouTube embed URL here
   },
   {
-    title: "How to update your business details and logo",
-    description: "How to keep your business name, email, and logo up to date in Settings.",
-    duration: "1 min",
-    url: "", // paste YouTube embed URL here
-  },
-  {
-    title: "How to invite a team member",
+    title: "How to invite a team member (optional)",
     description: "How to give a colleague access to your ReviewOptic account.",
     duration: "2 min",
-    url: "", // paste YouTube embed URL here
-  },
-  {
-    title: "Understanding customer statuses",
-    description: "What each customer status means and what action, if any, you need to take.",
-    duration: "2 min",
-    url: "", // paste YouTube embed URL here
-  },
-  {
-    title: "How to reset your password",
-    description: "How to reset your password if you have forgotten it or need to change it.",
-    duration: "1 min",
     url: "", // paste YouTube embed URL here
   },
 ];
@@ -113,35 +107,73 @@ const TIPS = [
   },
 ];
 
-function VideoCard({ video }: { video: typeof VIDEOS[0] }) {
+function VideoCard({ video, index, watched, onMarkWatched }: { video: typeof VIDEOS[0]; index: number; watched: boolean; onMarkWatched: () => void }) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  useEffect(() => {
+    if (!video.url || watched) return;
+    function onMessage(e: MessageEvent) {
+      if (e.source !== iframeRef.current?.contentWindow) return;
+      try {
+        const data = typeof e.data === "string" ? JSON.parse(e.data) : e.data;
+        // YouTube state 1 = playing
+        if (data.event === "onStateChange" && data.info === 1) onMarkWatched();
+      } catch {}
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [watched, video.url]);
+
   return (
-    <div className="bg-card border border-border rounded-xl overflow-hidden">
-      {video.url ? (
-        <div className="aspect-video w-full bg-black">
-          <iframe
-            src={video.url}
-            title={video.title}
-            className="w-full h-full"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          />
-        </div>
-      ) : (
-        <div className="aspect-video w-full bg-gradient-to-br from-slate-800 to-slate-900 flex flex-col items-center justify-center gap-3">
-          <div className="w-14 h-14 rounded-full bg-white/10 flex items-center justify-center">
-            <Play className="w-6 h-6 text-white ml-0.5" fill="white" />
+    <div className={`bg-card border rounded-xl overflow-hidden ${watched ? "border-green-400" : "border-border"}`}>
+      <div className="relative">
+        {video.url ? (
+          <div className="aspect-video w-full bg-black">
+            <iframe
+              ref={iframeRef}
+              src={`${video.url}?enablejsapi=1`}
+              title={video.title}
+              className="w-full h-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
           </div>
-          <span className="text-white/40 text-sm">Coming soon</span>
-        </div>
-      )}
+        ) : (
+          <div className="aspect-video w-full bg-gradient-to-br from-slate-800 to-slate-900 flex flex-col items-center justify-center gap-3">
+            <div className="w-14 h-14 rounded-full bg-white/10 flex items-center justify-center">
+              <Play className="w-6 h-6 text-white ml-0.5" fill="white" />
+            </div>
+            <span className="text-white/40 text-sm">Coming soon</span>
+          </div>
+        )}
+        {watched && (
+          <div className="absolute top-2 right-2 bg-green-500 rounded-full p-0.5">
+            <CheckCircle className="w-4 h-4 text-white" fill="white" />
+          </div>
+        )}
+      </div>
       <div className="p-4">
         <div className="flex items-start justify-between gap-2 mb-1">
-          <h3 className="font-semibold text-sm">{video.title}</h3>
+          <h3 className="font-semibold text-sm"><span className="text-muted-foreground mr-1">{index + 1}.</span>{video.title}</h3>
           <span className="text-xs text-muted-foreground shrink-0">{video.duration}</span>
         </div>
         <p className="text-sm text-muted-foreground">{video.description}</p>
       </div>
     </div>
+  );
+}
+
+function StepText({ step, onNavigate }: { step: typeof HOWTOS[0]["steps"][0]; onNavigate?: () => void }) {
+  if (!step.link || !step.linkText) {
+    return <p className="text-sm text-muted-foreground leading-relaxed">{step.text}</p>;
+  }
+  const [before, after] = step.text.split(step.linkText);
+  return (
+    <p className="text-sm text-muted-foreground leading-relaxed">
+      {before}
+      <button onClick={onNavigate} className="text-primary hover:underline font-medium">{step.linkText}</button>
+      {after}
+    </p>
   );
 }
 
@@ -154,7 +186,7 @@ function HowToAccordion({ item, index }: { item: typeof HOWTOS[0]; index: number
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-muted/40 transition-colors"
       >
-        <span className="font-medium text-sm">{item.title}</span>
+        <span className="font-medium text-sm"><span className="text-muted-foreground mr-1">{index + 1}.</span>{item.title}</span>
         {open ? <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />}
       </button>
       {open && (
@@ -164,16 +196,10 @@ function HowToAccordion({ item, index }: { item: typeof HOWTOS[0]; index: number
               <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary text-xs font-semibold flex items-center justify-center mt-0.5">
                 {i + 1}
               </div>
-              {step.link ? (
-                <button
-                  onClick={() => navigate(`${step.link}?back=tutorial&tab=howtos&howto=${index}`)}
-                  className="text-sm text-primary hover:underline text-left leading-relaxed"
-                >
-                  {step.text}
-                </button>
-              ) : (
-                <p className="text-sm text-muted-foreground leading-relaxed">{step.text}</p>
-              )}
+              <StepText
+                step={step}
+                onNavigate={step.link ? () => navigate(`${step.link}?back=tutorial&tab=howtos&howto=${index}`) : undefined}
+              />
             </div>
           ))}
         </div>
@@ -200,10 +226,27 @@ const TABS = [
   { id: "tips", label: "Top Tips", icon: Lightbulb },
 ];
 
+const WATCHED_KEY = "reviewoptic_watched_videos";
+
 export default function Tutorial() {
   const search = useSearch();
   const initialTab = new URLSearchParams(search).get("tab") || "videos";
   const [activeTab, setActiveTab] = useState(initialTab);
+  const [watched, setWatched] = useState<Set<number>>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(WATCHED_KEY) || "[]");
+      return new Set(saved);
+    } catch { return new Set(); }
+  });
+
+  function toggleWatched(index: number) {
+    setWatched(prev => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index); else next.add(index);
+      localStorage.setItem(WATCHED_KEY, JSON.stringify([...next]));
+      return next;
+    });
+  }
 
   return (
     <div className="px-6 py-7 max-w-5xl mx-auto space-y-6">
@@ -234,7 +277,7 @@ export default function Tutorial() {
       {activeTab === "videos" && (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {VIDEOS.map((video, i) => (
-            <VideoCard key={i} video={video} />
+            <VideoCard key={i} video={video} index={i} watched={watched.has(i)} onMarkWatched={() => toggleWatched(i)} />
           ))}
         </div>
       )}
