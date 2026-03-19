@@ -1,5 +1,6 @@
 import { Link, useLocation, useSearch } from "wouter";
-import { LayoutDashboard, Users, FileText, BarChart3, Settings, Menu, X, LogOut, Shield, CreditCard, AlertTriangle, MessageSquarePlus, BookOpen, ArrowLeft } from "lucide-react";
+import { HOWTOS } from "@/data/howtos";
+import { LayoutDashboard, Users, FileText, BarChart3, Settings, Menu, X, LogOut, Shield, CreditCard, AlertTriangle, MessageSquarePlus, BookOpen, ArrowLeft, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, Component, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -285,17 +286,44 @@ function ImpersonationBanner() {
 function BackToTutorial() {
   const search = useSearch();
   const [, navigate] = useLocation();
+  const [stepsOpen, setStepsOpen] = useState(false);
   const params = new URLSearchParams(search);
   if (params.get("back") !== "tutorial") return null;
+  const tab = params.get("tab") || "howtos";
+  const howtoIndex = parseInt(params.get("howto") || "-1", 10);
+  const howto = howtoIndex >= 0 ? HOWTOS[howtoIndex] : null;
   return (
-    <div className="px-6 pt-4">
+    <div className="px-6 pt-4 space-y-2">
       <button
-        onClick={() => navigate("/tutorial")}
+        onClick={() => navigate(`/tutorial?tab=${tab}`)}
         className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
-        Back to Tutorial &amp; Guides
+        Back to Tutorials &amp; Guides
       </button>
+      {howto && (
+        <div className="border border-border rounded-xl overflow-hidden max-w-xl">
+          <button
+            onClick={() => setStepsOpen(!stepsOpen)}
+            className="w-full flex items-center justify-between px-4 py-3 text-left bg-muted/40 hover:bg-muted/60 transition-colors"
+          >
+            <span className="text-sm font-medium">{howto.title}</span>
+            {stepsOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />}
+          </button>
+          {stepsOpen && (
+            <div className="px-4 py-3 space-y-2 bg-background">
+              {howto.steps.map((step, i) => (
+                <div key={i} className="flex gap-2.5">
+                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary text-xs font-semibold flex items-center justify-center mt-0.5">
+                    {i + 1}
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{step.text}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

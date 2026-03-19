@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { Play, BookOpen, Lightbulb, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
+import { HOWTOS } from "@/data/howtos";
 
 // ─── Replace these with your real YouTube embed URLs ───────────────────────
 // Format: "https://www.youtube.com/embed/YOUR_VIDEO_ID"
@@ -80,118 +81,6 @@ const VIDEOS = [
 ];
 // ───────────────────────────────────────────────────────────────────────────
 
-const HOWTOS = [
-  {
-    title: "How to add a customer",
-    link: "/customers",
-    steps: [
-      "Go to the Customers page from the sidebar.",
-      "Click 'Add Customer' in the top right.",
-      "Fill in their name, email or phone number, and the date of their last visit.",
-      "Click Save — they'll appear in your customer list, ready to receive a request.",
-    ],
-  },
-  {
-    title: "How to send a review request",
-    link: "/customers",
-    steps: [
-      "On the Customers page, find the customer you want to contact.",
-      "Click 'Send Request' next to their name.",
-      "Choose your channel (Email, SMS, or WhatsApp) and select a template.",
-      "Hit Send — the request is delivered instantly and tracked automatically.",
-    ],
-  },
-  {
-    title: "How to set up follow-ups",
-    link: "/settings",
-    steps: [
-      "Go to Settings and open the Follow-up tab.",
-      "Enable automatic follow-ups and choose your delay (e.g. 3 days after the first request).",
-      "ReviewOptic will automatically send a second nudge to customers who haven't responded.",
-      "Most reviews come from the follow-up — don't skip this step.",
-    ],
-  },
-  {
-    title: "How to customise your templates",
-    link: "/templates",
-    steps: [
-      "Go to Templates in the sidebar.",
-      "Click on any template to open the editor.",
-      "Edit the subject and body — use {{first_name}} and {{business_name}} to personalise automatically.",
-      "Click Save when you're happy. The next request you send will use your updated template.",
-    ],
-  },
-  {
-    title: "How to connect your review platforms",
-    link: "/settings",
-    steps: [
-      "Go to Settings and open the Review Platforms tab.",
-      "Add links to your Google, Trustpilot, or other review profile pages.",
-      "These links are embedded automatically in every review request you send.",
-      "Make sure you test your links are correct before sending to customers.",
-    ],
-  },
-  {
-    title: "How to read your analytics",
-    link: "/analytics",
-    steps: [
-      "Go to Analytics in the sidebar.",
-      "Use the date range filter to choose the period you want to review.",
-      "Check your response rate — if it's below 20%, focus on improving your templates or timing.",
-      "The 'Best Day to Send' chart shows when your customers are most likely to respond.",
-    ],
-  },
-  {
-    title: "How to mark a customer as Do Not Contact",
-    link: "/customers",
-    steps: [
-      "Go to the Customers page from the sidebar.",
-      "Click on the customer's name to open their profile.",
-      "Toggle the 'Do Not Contact' switch — this immediately stops any further review requests or follow-ups being sent to them.",
-      "The customer will remain in your list for your records but will never be contacted again through ReviewOptic.",
-    ],
-  },
-  {
-    title: "How to update your business details and logo",
-    link: "/settings",
-    steps: [
-      "Go to Settings in the sidebar.",
-      "Under the General tab, update your business name, email address, and any other details.",
-      "To upload a logo, click the upload area and select an image from your device. Your logo will appear in emails sent to customers.",
-      "Click Save when done. Changes take effect immediately.",
-    ],
-  },
-  {
-    title: "How to invite a team member",
-    link: "/settings",
-    steps: [
-      "Go to Settings and open the Team tab.",
-      "Click 'Invite Team Member' and enter their email address.",
-      "They will receive an email invitation with a link to set up their account.",
-      "Once they accept, they will appear in your team list and can log in to ReviewOptic. They share your account but cannot change billing or account settings.",
-    ],
-  },
-  {
-    title: "Understanding customer statuses",
-    link: "/customers",
-    steps: [
-      "Pending Request — the customer has been added but no review request has been sent yet.",
-      "Request Sent — a review request has been sent and we are waiting for a response.",
-      "Link Clicked — the customer clicked the review link in your message. They may have left a review.",
-      "Review Received — a review has been recorded for this customer.",
-    ],
-  },
-  {
-    title: "How to reset your password",
-    link: "/login",
-    steps: [
-      "Go to the ReviewOptic login page and click 'Forgot password?' below the sign-in form.",
-      "Enter your email address and click Send. You will receive a password reset link by email.",
-      "Click the link in the email and enter your new password. It must be at least 8 characters and include a number and a symbol.",
-      "Once reset, you will be taken back to the login page. Sign in with your new password.",
-    ],
-  },
-];
 
 const TIPS = [
   {
@@ -256,22 +145,18 @@ function VideoCard({ video }: { video: typeof VIDEOS[0] }) {
   );
 }
 
-function HowToAccordion({ item }: { item: typeof HOWTOS[0] }) {
+function HowToAccordion({ item, index }: { item: typeof HOWTOS[0]; index: number }) {
   const [open, setOpen] = useState(false);
   const [, navigate] = useLocation();
   return (
     <div className="border border-border rounded-xl overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-4 hover:bg-muted/40 transition-colors">
-        <button
-          onClick={() => navigate(`${item.link}?back=tutorial`)}
-          className="font-medium text-sm text-primary hover:underline text-left"
-        >
-          {item.title}
-        </button>
-        <button onClick={() => setOpen(!open)} className="ml-3 shrink-0">
-          {open ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-        </button>
-      </div>
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-muted/40 transition-colors"
+      >
+        <span className="font-medium text-sm">{item.title}</span>
+        {open ? <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />}
+      </button>
       {open && (
         <div className="px-5 pb-5 space-y-2.5">
           {item.steps.map((step, i) => (
@@ -279,7 +164,16 @@ function HowToAccordion({ item }: { item: typeof HOWTOS[0] }) {
               <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary text-xs font-semibold flex items-center justify-center mt-0.5">
                 {i + 1}
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">{step}</p>
+              {step.link ? (
+                <button
+                  onClick={() => navigate(`${step.link}?back=tutorial&tab=howtos&howto=${index}`)}
+                  className="text-sm text-primary hover:underline text-left leading-relaxed"
+                >
+                  {step.text}
+                </button>
+              ) : (
+                <p className="text-sm text-muted-foreground leading-relaxed">{step.text}</p>
+              )}
             </div>
           ))}
         </div>
@@ -307,12 +201,14 @@ const TABS = [
 ];
 
 export default function Tutorial() {
-  const [activeTab, setActiveTab] = useState("videos");
+  const search = useSearch();
+  const initialTab = new URLSearchParams(search).get("tab") || "videos";
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   return (
     <div className="px-6 py-7 max-w-5xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Tutorial & Help</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Tutorials &amp; Guides</h1>
         <p className="text-muted-foreground text-sm mt-1">Everything you need to get the most out of ReviewOptic.</p>
       </div>
 
@@ -347,7 +243,7 @@ export default function Tutorial() {
       {activeTab === "howtos" && (
         <div className="space-y-3 max-w-2xl">
           {HOWTOS.map((item, i) => (
-            <HowToAccordion key={i} item={item} />
+            <HowToAccordion key={i} item={item} index={i} />
           ))}
         </div>
       )}
