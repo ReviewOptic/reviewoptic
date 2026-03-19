@@ -72,7 +72,7 @@ export default function AcceptInvite() {
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-background">
       <div className="w-full max-w-sm">
-        <img src="/logo.png" alt="ReviewOptic" className="h-12 w-auto mx-auto mb-8" />
+        <img src="/logo.png" alt="ReviewOptic" className="h-28 object-contain mx-auto mb-8" />
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
           <h2 className="text-xl font-bold mb-1">Set your password</h2>
           <p className="text-muted-foreground text-sm mb-6">

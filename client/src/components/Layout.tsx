@@ -1,5 +1,5 @@
-import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, FileText, BarChart3, Settings, Menu, X, LogOut, Shield, CreditCard, AlertTriangle, MessageSquarePlus, BookOpen } from "lucide-react";
+import { Link, useLocation, useSearch } from "wouter";
+import { LayoutDashboard, Users, FileText, BarChart3, Settings, Menu, X, LogOut, Shield, CreditCard, AlertTriangle, MessageSquarePlus, BookOpen, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, Component, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -282,6 +282,24 @@ function ImpersonationBanner() {
   );
 }
 
+function BackToTutorial() {
+  const search = useSearch();
+  const [, navigate] = useLocation();
+  const params = new URLSearchParams(search);
+  if (params.get("back") !== "tutorial") return null;
+  return (
+    <div className="px-6 pt-4">
+      <button
+        onClick={() => navigate("/tutorial")}
+        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Back to Tutorial &amp; Guides
+      </button>
+    </div>
+  );
+}
+
 export default function Layout({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user } = useAuth();
@@ -325,6 +343,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           <div className="w-8" />
         </header>
         <main className="flex-1 overflow-y-auto">
+          <BackToTutorial />
           {children}
         </main>
       </div>

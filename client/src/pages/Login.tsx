@@ -180,7 +180,7 @@ export default function Login() {
       <div className="md:w-1/2 flex flex-col items-center justify-start p-8 md:p-12">
         <div className="w-full max-w-sm">
           <div className="flex justify-center mb-6">
-            <img src={branding?.logoUrl || "/logo.png"} alt="ReviewOptic" style={{maxWidth: "220px", height: "auto"}} />
+            <img src={branding?.logoUrl || "/logo.png"} alt="ReviewOptic" className="h-28 object-contain" />
           </div>
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm text-left">
           {mode === "forgot" ? (

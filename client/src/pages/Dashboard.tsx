@@ -81,14 +81,14 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!user?.id) return;
-    const key = `hasSeenIntro_${user.id}`;
+    const key = `hasSeenIntro_v2_${user.id}`;
     if (!localStorage.getItem(key)) {
       setShowIntro(true);
     }
   }, [user?.id]);
 
   function dismissIntro() {
-    if (user?.id) localStorage.setItem(`hasSeenIntro_${user.id}`, "true");
+    if (user?.id) localStorage.setItem(`hasSeenIntro_v2_${user.id}`, "true");
     setShowIntro(false);
   }
   const isReadOnly = !!user?.isImpersonating;
@@ -130,10 +130,10 @@ export default function Dashboard() {
     <div className="px-6 py-7 max-w-7xl mx-auto space-y-7">
 
       {/* Intro welcome popup */}
-      <Dialog open={showIntro} onOpenChange={(open) => { if (!open) dismissIntro(); }}>
-        <DialogContent className="max-w-xl p-0 overflow-hidden" aria-describedby={undefined}>
+      <Dialog open={showIntro}>
+        <DialogContent className="max-w-xl p-0 overflow-hidden [&>button]:hidden" aria-describedby={undefined}>
           <div className="px-7 pt-7 pb-2 text-center">
-            <img src="/logo.png" alt="ReviewOptic" className="h-8 object-contain mx-auto mb-5" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+            <img src="/logo.png" alt="ReviewOptic" className="h-28 object-contain mx-auto mb-5" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
             <h2 className="text-2xl font-bold mb-1">Welcome to ReviewOptic</h2>
             <p className="text-muted-foreground text-sm mb-5">Your review growth starts here.</p>
           </div>
@@ -142,7 +142,7 @@ export default function Dashboard() {
           <div className="mx-7">
             {INTRO_VIDEO_URL ? (
               <div className="aspect-video w-full rounded-xl overflow-hidden bg-black">
-                <iframe src={INTRO_VIDEO_URL} title="Welcome to ReviewOptic" className="w-full h-full"
+                <iframe src={`${INTRO_VIDEO_URL}?autoplay=1`} title="Welcome to ReviewOptic" className="w-full h-full"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
               </div>
             ) : (
@@ -155,18 +155,9 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div className="px-7 pt-5 pb-1 text-center">
-            <button
-              onClick={() => { dismissIntro(); navigate("/tutorial"); }}
-              className="text-sm text-primary hover:underline font-medium"
-            >
-              Click here for tutorials
-            </button>
-          </div>
-
           <div className="px-7 pb-7 pt-5">
             <button
-              onClick={dismissIntro}
+              onClick={() => { dismissIntro(); navigate("/tutorial"); }}
               className="w-full bg-primary text-primary-foreground font-semibold py-2.5 rounded-lg hover:bg-primary/90 transition-colors text-sm"
             >
               Let's get started

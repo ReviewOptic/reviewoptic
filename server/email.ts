@@ -116,7 +116,7 @@ export async function sendReviewEmail(
   const baseUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "");
   const logoSrc = settings.logoUrl?.startsWith("http") ? settings.logoUrl : settings.logoUrl ? `${baseUrl}${settings.logoUrl}` : "";
   const logoImg = logoSrc
-    ? `<img src="${logoSrc}" alt="${settings.businessName}" style="max-height:60px;max-width:200px;object-fit:contain;display:inline-block;" />`
+    ? `<img src="${logoSrc}" alt="${settings.businessName}" style="max-height:112px;max-width:300px;object-fit:contain;display:inline-block;" />`
     : "";
   const websiteHref = settings.websiteUrl
     ? (settings.websiteUrl.startsWith("http") ? settings.websiteUrl : `https://${settings.websiteUrl}`)

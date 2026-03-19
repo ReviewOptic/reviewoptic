@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { Play, BookOpen, Lightbulb, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
 
 // ─── Replace these with your real YouTube embed URLs ───────────────────────
@@ -82,6 +83,7 @@ const VIDEOS = [
 const HOWTOS = [
   {
     title: "How to add a customer",
+    link: "/customers",
     steps: [
       "Go to the Customers page from the sidebar.",
       "Click 'Add Customer' in the top right.",
@@ -91,6 +93,7 @@ const HOWTOS = [
   },
   {
     title: "How to send a review request",
+    link: "/customers",
     steps: [
       "On the Customers page, find the customer you want to contact.",
       "Click 'Send Request' next to their name.",
@@ -100,6 +103,7 @@ const HOWTOS = [
   },
   {
     title: "How to set up follow-ups",
+    link: "/settings",
     steps: [
       "Go to Settings and open the Follow-up tab.",
       "Enable automatic follow-ups and choose your delay (e.g. 3 days after the first request).",
@@ -109,6 +113,7 @@ const HOWTOS = [
   },
   {
     title: "How to customise your templates",
+    link: "/templates",
     steps: [
       "Go to Templates in the sidebar.",
       "Click on any template to open the editor.",
@@ -118,6 +123,7 @@ const HOWTOS = [
   },
   {
     title: "How to connect your review platforms",
+    link: "/settings",
     steps: [
       "Go to Settings and open the Review Platforms tab.",
       "Add links to your Google, Trustpilot, or other review profile pages.",
@@ -127,6 +133,7 @@ const HOWTOS = [
   },
   {
     title: "How to read your analytics",
+    link: "/analytics",
     steps: [
       "Go to Analytics in the sidebar.",
       "Use the date range filter to choose the period you want to review.",
@@ -136,6 +143,7 @@ const HOWTOS = [
   },
   {
     title: "How to mark a customer as Do Not Contact",
+    link: "/customers",
     steps: [
       "Go to the Customers page from the sidebar.",
       "Click on the customer's name to open their profile.",
@@ -145,6 +153,7 @@ const HOWTOS = [
   },
   {
     title: "How to update your business details and logo",
+    link: "/settings",
     steps: [
       "Go to Settings in the sidebar.",
       "Under the General tab, update your business name, email address, and any other details.",
@@ -154,6 +163,7 @@ const HOWTOS = [
   },
   {
     title: "How to invite a team member",
+    link: "/settings",
     steps: [
       "Go to Settings and open the Team tab.",
       "Click 'Invite Team Member' and enter their email address.",
@@ -163,6 +173,7 @@ const HOWTOS = [
   },
   {
     title: "Understanding customer statuses",
+    link: "/customers",
     steps: [
       "Pending Request — the customer has been added but no review request has been sent yet.",
       "Request Sent — a review request has been sent and we are waiting for a response.",
@@ -172,6 +183,7 @@ const HOWTOS = [
   },
   {
     title: "How to reset your password",
+    link: "/login",
     steps: [
       "Go to the ReviewOptic login page and click 'Forgot password?' below the sign-in form.",
       "Enter your email address and click Send. You will receive a password reset link by email.",
@@ -246,15 +258,20 @@ function VideoCard({ video }: { video: typeof VIDEOS[0] }) {
 
 function HowToAccordion({ item }: { item: typeof HOWTOS[0] }) {
   const [open, setOpen] = useState(false);
+  const [, navigate] = useLocation();
   return (
     <div className="border border-border rounded-xl overflow-hidden">
-      <button
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-muted/40 transition-colors"
-      >
-        <span className="font-medium text-sm">{item.title}</span>
-        {open ? <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />}
-      </button>
+      <div className="flex items-center justify-between px-5 py-4 hover:bg-muted/40 transition-colors">
+        <button
+          onClick={() => navigate(`${item.link}?back=tutorial`)}
+          className="font-medium text-sm text-primary hover:underline text-left"
+        >
+          {item.title}
+        </button>
+        <button onClick={() => setOpen(!open)} className="ml-3 shrink-0">
+          {open ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+        </button>
+      </div>
       {open && (
         <div className="px-5 pb-5 space-y-2.5">
           {item.steps.map((step, i) => (

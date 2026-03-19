@@ -34,7 +34,7 @@ function PlanCancelled() {
   const [, navigate] = useLocation();
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
-      <img src="/logo.png" alt="ReviewOptic" className="h-10 mb-8 object-contain" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+      <img src="/logo.png" alt="ReviewOptic" className="h-28 mb-8 object-contain" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-10 max-w-md w-full text-center space-y-4">
         <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto">
           <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>

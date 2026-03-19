@@ -44,14 +44,7 @@ export default function VerifyEmail() {
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-sm text-center">
-        <div className="flex justify-center mb-5">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary">
-              <Star className="w-4 h-4 text-primary-foreground fill-primary-foreground" />
-            </div>
-            <span className="font-bold text-[15px] tracking-tight">ReviewOptic</span>
-          </div>
-        </div>
+        <img src="/logo.png" alt="ReviewOptic" className="h-28 object-contain mx-auto mb-5" />
 
         <div className="bg-card border border-border rounded-xl p-8 shadow-sm text-center">
           {status === "loading" && (

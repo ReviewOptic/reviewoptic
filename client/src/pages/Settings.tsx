@@ -151,6 +151,7 @@ export default function Settings() {
   useEffect(() => {
     if (isFirstRender.current) { isFirstRender.current = false; return; }
     if (!form.businessEmail) return;
+    if (!form.country && !user?.isAdmin) { toast({ title: "Please select your country before saving", variant: "destructive" }); return; }
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     setSaveStatus("saving");
     debounceTimer.current = setTimeout(() => mutation.mutate(), 1500);
@@ -313,8 +314,8 @@ export default function Settings() {
                   <Label className="text-[12.5px]">Password</Label>
                   <ChangePasswordButton email={form.businessEmail || user?.email || ""} />
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[12.5px]">Country</Label>
+                {!user?.isAdmin && <div className="space-y-1.5">
+                  <Label className="text-[12.5px]">Country <span className="text-destructive">*</span></Label>
                   <select
                     value={form.country}
                     onChange={e => setForm(f => ({ ...f, country: e.target.value }))}
@@ -325,7 +326,7 @@ export default function Settings() {
                       <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
-                </div>
+                </div>}
                 <div className="space-y-1.5">
                   <Label className="text-[12.5px]">Website</Label>
                   <Input

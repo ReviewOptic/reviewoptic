@@ -83,7 +83,7 @@ export default function BillingSuccess() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4 text-center">
-      <img src="/logo.png" alt="ReviewOptic" style={{ maxWidth: "180px", height: "auto" }} className="mb-6" />
+      <img src="/logo.png" alt="ReviewOptic" className="h-28 object-contain mx-auto mb-6" />
       <CheckCircle className="w-16 h-16 text-green-500 mb-5" />
       <h1 className="text-2xl font-bold text-gray-900 mb-2">Payment successful!</h1>
       <p className="text-gray-600 mb-6">
