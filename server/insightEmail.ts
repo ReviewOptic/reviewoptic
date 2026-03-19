@@ -121,9 +121,7 @@ async function sendInsightEmail(stats: UserStats, insights: string, userId: stri
     subject: `Your ${periodLabel.toLowerCase()} review report — ${monthName}`,
     html: `
       <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#111;">
-        <div style="margin-bottom:24px;">
-          <span style="font-weight:700;font-size:18px;">ReviewOptic</span>
-        </div>
+        <div style="margin-bottom:28px;"><a href="https://reviewoptic.com" style="text-decoration:none;"><img src="${process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://reviewoptic.com")}/logo.png" alt="ReviewOptic" style="height:36px;max-width:180px;object-fit:contain;display:block;" /></a></div>
         <h2 style="font-size:20px;font-weight:700;margin:0 0 4px;">${periodLabel} Review Report</h2>
         <p style="color:#888;font-size:13px;margin:0 0 24px;">${monthName} · ${stats.businessName}</p>
 
