@@ -114,32 +114,36 @@ export default function Billing() {
       <h1 className="text-2xl font-bold text-gray-900">Billing</h1>
 
       {/* Current plan */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Current plan</h2>
-        {subLoading ? (
-          <div className="flex items-center gap-2 text-gray-400"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</div>
-        ) : (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-lg font-semibold text-gray-900">{planLabel} — {periodLabel}</span>
-              {sub?.status === "active" && (
-                <span className="text-xs bg-green-100 text-green-700 font-semibold px-2.5 py-1 rounded-full">Active</span>
+      <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
+        <div>
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Current plan</h2>
+          {subLoading ? (
+            <div className="flex items-center gap-2 text-gray-400"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</div>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-lg font-semibold text-gray-900">{planLabel} — {periodLabel}</span>
+                {sub?.status === "active" && !sub.cancelAtPeriodEnd && (
+                  <span className="text-xs bg-green-100 text-green-700 font-semibold px-2.5 py-1 rounded-full">Active</span>
+                )}
+                {sub?.cancelAtPeriodEnd && (
+                  <span className="text-xs bg-amber-100 text-amber-700 font-semibold px-2.5 py-1 rounded-full">Cancelling</span>
+                )}
+              </div>
+              {sub?.currentPeriodEnd && (
+                <p className="text-sm text-gray-500">
+                  {sub.cancelAtPeriodEnd
+                    ? `Access ends on ${formatDate(sub.currentPeriodEnd)}`
+                    : `Renews on ${formatDate(sub.currentPeriodEnd)}`}
+                </p>
               )}
             </div>
-            {sub?.currentPeriodEnd && (
-              <p className="text-sm text-gray-500">
-                {sub.cancelAtPeriodEnd
-                  ? `Cancels on ${formatDate(sub.currentPeriodEnd)}`
-                  : `Renews on ${formatDate(sub.currentPeriodEnd)}`}
-              </p>
-            )}
-            {!sub && <p className="text-sm text-gray-400">No active subscription found.</p>}
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Upgrade to annual */}
-        {user?.planPeriod === "monthly" && sub?.status === "active" && (
-          <div className="mt-5 pt-5 border-t border-gray-100">
+        {user?.planPeriod === "monthly" && sub?.status === "active" && !sub.cancelAtPeriodEnd && (
+          <div className="pt-4 border-t border-gray-100">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-sm font-semibold text-gray-800">Switch to annual billing</p>
@@ -152,6 +156,48 @@ export default function Billing() {
                 Upgrade
               </Button>
             </div>
+          </div>
+        )}
+
+        {/* Cancel / reactivate — inside the plan card */}
+        {!subLoading && sub?.status === "active" && (
+          <div className="pt-4 border-t border-gray-100">
+            {sub.cancelAtPeriodEnd ? (
+              <div className="space-y-3">
+                <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg p-4">
+                  <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                  <p className="text-sm text-amber-700">
+                    Your subscription is scheduled to cancel on <strong>{formatDate(sub.currentPeriodEnd)}</strong>. You'll have full access until then — after that only analytics will be available.
+                  </p>
+                </div>
+                <Button variant="outline" onClick={reactivateSubscription} disabled={reactivateLoading} className="gap-2">
+                  {reactivateLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Keep my subscription
+                </Button>
+              </div>
+            ) : cancelStep === "confirm" ? (
+              <div className="space-y-3">
+                <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-lg p-4">
+                  <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                  <p className="text-sm text-red-700">
+                    You'll keep full access until <strong>{formatDate(sub.currentPeriodEnd)}</strong>. After that your account will be locked — you'll only be able to view analytics.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="destructive" onClick={cancelSubscription} disabled={cancelLoading} className="gap-2">
+                    {cancelLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                    Yes, cancel my subscription
+                  </Button>
+                  <Button variant="ghost" onClick={() => setCancelStep("idle")} disabled={cancelLoading}>
+                    Never mind
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button variant="outline" className="text-red-600 hover:text-red-700 hover:border-red-300 text-sm" onClick={() => setCancelStep("confirm")}>
+                Cancel subscription
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -221,63 +267,6 @@ export default function Billing() {
         </div>
       )}
 
-      {/* Cancel / Reactivate section */}
-      {sub?.status === "active" && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Cancel subscription</h2>
-
-          {sub.cancelAtPeriodEnd ? (
-            /* Already scheduled to cancel */
-            <div className="space-y-4">
-              <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg p-4">
-                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-semibold text-amber-800">Cancellation scheduled</p>
-                  <p className="text-sm text-amber-700 mt-0.5">
-                    Your subscription will end on <strong>{formatDate(sub.currentPeriodEnd)}</strong>. You'll have full access until then — after that, your account will be locked and you'll only be able to view your analytics.
-                  </p>
-                </div>
-              </div>
-              <Button variant="outline" onClick={reactivateSubscription} disabled={reactivateLoading} className="gap-2">
-                {reactivateLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                Keep my subscription
-              </Button>
-            </div>
-          ) : cancelStep === "confirm" ? (
-            /* Confirmation step */
-            <div className="space-y-4">
-              <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-lg p-4">
-                <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-semibold text-red-800">Are you sure you want to cancel?</p>
-                  <p className="text-sm text-red-700 mt-0.5">
-                    You'll keep full access until <strong>{formatDate(sub.currentPeriodEnd)}</strong>. After that, your account will be locked — you won't be able to send review requests, view customers, or use any features except analytics.
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="destructive" onClick={cancelSubscription} disabled={cancelLoading} className="gap-2">
-                  {cancelLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                  Yes, cancel my subscription
-                </Button>
-                <Button variant="ghost" onClick={() => setCancelStep("idle")} disabled={cancelLoading}>
-                  Never mind
-                </Button>
-              </div>
-            </div>
-          ) : (
-            /* Default state */
-            <div className="space-y-3">
-              <p className="text-sm text-gray-500">
-                Your subscription will remain active until the end of your current billing period — you won't be charged again after that.
-              </p>
-              <Button variant="outline" className="text-red-600 hover:text-red-700 hover:border-red-300" onClick={() => setCancelStep("confirm")}>
-                Cancel subscription
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Upgrade to annual modal */}
       {upgradeClientSecret && (

@@ -29,9 +29,33 @@ import AcceptInvite from "@/pages/AcceptInvite";
 import BillingSuccess from "@/pages/BillingSuccess";
 import Billing from "@/pages/Billing";
 
+function PlanCancelled() {
+  const [, navigate] = useLocation();
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
+      <img src="/logo.png" alt="ReviewOptic" className="h-10 mb-8 object-contain" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-10 max-w-md w-full text-center space-y-4">
+        <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto">
+          <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        </div>
+        <h1 className="text-xl font-bold text-gray-900">Your plan has been cancelled</h1>
+        <p className="text-sm text-gray-500 leading-relaxed">
+          Your subscription has ended and your account is locked. Reactivate to regain access to all features — your data is safe and waiting for you.
+        </p>
+        <button
+          onClick={() => navigate("/billing")}
+          className="inline-block w-full bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-blue-700 transition-colors text-sm mt-2"
+        >
+          Reactivate my subscription
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ProtectedRoutes() {
   const { user, loading } = useAuth();
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -51,6 +75,14 @@ function ProtectedRoutes() {
 
   if (!user || user.requiresPayment) {
     return null;
+  }
+
+  // Cancelled plan — only /analytics and /billing are allowed
+  if (user.planType === "cancelled") {
+    const allowed = location === "/analytics" || location === "/billing";
+    if (!allowed) {
+      return <PlanCancelled />;
+    }
   }
 
   return (
