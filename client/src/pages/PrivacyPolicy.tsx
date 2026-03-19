@@ -3,6 +3,7 @@ export default function PrivacyPolicy() {
     <div className="min-h-screen bg-background">
       <div className="max-w-3xl mx-auto px-6 py-16">
         <div className="mb-10">
+          <img src="/logo.png" alt="ReviewOptic" className="h-16 mb-8 object-contain" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
           <h1 className="text-3xl font-bold tracking-tight mb-2">Privacy Policy</h1>
           <p className="text-muted-foreground text-sm">Last updated: [DATE]</p>
         </div>
