@@ -142,9 +142,9 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
 }
 
 const SUBJECTS = [
-  "Feature request",
-  "General feedback",
-  "Bug report",
+  "Feature Request",
+  "General Feedback",
+  "Bug Report",
   "Other",
 ];
 
