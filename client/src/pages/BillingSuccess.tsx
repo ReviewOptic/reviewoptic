@@ -83,6 +83,7 @@ export default function BillingSuccess() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4 text-center">
+      <img src="/logo.png" alt="ReviewOptic" style={{ maxWidth: "180px", height: "auto" }} className="mb-6" />
       <CheckCircle className="w-16 h-16 text-green-500 mb-5" />
       <h1 className="text-2xl font-bold text-gray-900 mb-2">Payment successful!</h1>
       <p className="text-gray-600 mb-6">
@@ -93,8 +94,11 @@ export default function BillingSuccess() {
           <Mail className="w-5 h-5 text-blue-600 shrink-0" />
           <h2 className="font-semibold text-gray-900">One last step — verify your email</h2>
         </div>
-        <p className="text-sm text-gray-500 mb-4">
+        <p className="text-sm text-gray-500 mb-2">
           We sent a verification link to <strong>{user?.email}</strong>. Click it to activate your account and access your dashboard.
+        </p>
+        <p className="text-sm text-gray-400 mb-4">
+          Can't see it? Check your spam or junk folder.
         </p>
         <button
           onClick={resend}

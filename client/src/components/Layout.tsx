@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, FileText, BarChart3, Settings, Menu, X, LogOut, Shield, CreditCard, AlertTriangle, MessageSquarePlus } from "lucide-react";
+import { LayoutDashboard, Users, FileText, BarChart3, Settings, Menu, X, LogOut, Shield, CreditCard, AlertTriangle, MessageSquarePlus, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, Component, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,7 @@ const navItems = [
   { href: "/customers", icon: Users, label: "Customers" },
   { href: "/templates", icon: FileText, label: "Templates" },
   { href: "/analytics", icon: BarChart3, label: "Analytics" },
+  { href: "/tutorial", icon: BookOpen, label: "Tutorial" },
   { href: "/settings", icon: Settings, label: "Settings" },
 ];
 

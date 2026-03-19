@@ -24,8 +24,15 @@ export default function VerifyEmail() {
           setTimeout(() => navigate("/"), 1500);
         } else {
           const data = await res.json();
-          setStatus("error");
-          setErrorMsg(data.message || "Verification failed.");
+          if (data.message?.includes("already used")) {
+            // Already verified — treat as success
+            await refreshUser();
+            setStatus("success");
+            setTimeout(() => navigate("/"), 1500);
+          } else {
+            setStatus("error");
+            setErrorMsg(data.message || "Verification failed.");
+          }
         }
       })
       .catch(() => {

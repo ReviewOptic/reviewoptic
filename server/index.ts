@@ -1,8 +1,4 @@
 import "dotenv/config";
-// Replit Helium sets DATABASE_URL with host "helium" which resolves externally — replace with localhost
-if (process.env.DATABASE_URL?.includes("@helium/")) {
-  process.env.DATABASE_URL = process.env.DATABASE_URL.replace("@helium/", "@localhost/");
-}
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";

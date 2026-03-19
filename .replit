@@ -43,7 +43,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "bash -c 'pg_ctl start -D /home/runner/pgdata -l /home/runner/pgdata/logfile 2>/dev/null || true; while true; do fuser -k 5000/tcp 2>/dev/null; sleep 1; npm run dev; echo \"[watchdog] Server exited (code $?), restarting in 3s...\"; sleep 3; done'"
+args = "bash -c 'while true; do fuser -k 5000/tcp 2>/dev/null; sleep 1; npm run dev; echo \"[watchdog] Server exited (code $?), restarting in 3s...\"; sleep 3; done'"
 waitForPort = 5000
 
 [agent]

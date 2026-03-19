@@ -28,6 +28,7 @@ import Features from "@/pages/Features";
 import AcceptInvite from "@/pages/AcceptInvite";
 import BillingSuccess from "@/pages/BillingSuccess";
 import Billing from "@/pages/Billing";
+import Tutorial from "@/pages/Tutorial";
 
 function PlanCancelled() {
   const [, navigate] = useLocation();
@@ -96,6 +97,7 @@ function ProtectedRoutes() {
         <Route path="/analytics" component={Analytics} />
         <Route path="/settings" component={SettingsPage} />
         <Route path="/billing" component={Billing} />
+        <Route path="/tutorial" component={Tutorial} />
         <Route path="/admin" component={Admin} />
         <Route component={NotFound} />
       </Switch>

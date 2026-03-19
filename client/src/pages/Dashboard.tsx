@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import {
   Send, Star, TrendingUp, Users, Clock, MessageSquare, CheckCircle2,
-  AlertTriangle, ArrowRight, Plus, Zap, Eye, BarChart2
+  AlertTriangle, ArrowRight, Plus, Zap, Eye, BarChart2, Play
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -68,11 +68,29 @@ function getDailyQuote() {
   return inspirationalQuotes[dayOfYear % inspirationalQuotes.length];
 }
 
+// Replace with your real YouTube embed URL when ready
+// Format: "https://www.youtube.com/embed/YOUR_VIDEO_ID"
+const INTRO_VIDEO_URL = "";
+
 export default function Dashboard() {
   const [, navigate] = useLocation();
   const [statModal, setStatModal] = useState<string | null>(null);
+  const [showIntro, setShowIntro] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const key = `hasSeenIntro_${user.id}`;
+    if (!localStorage.getItem(key)) {
+      setShowIntro(true);
+    }
+  }, [user?.id]);
+
+  function dismissIntro() {
+    if (user?.id) localStorage.setItem(`hasSeenIntro_${user.id}`, "true");
+    setShowIntro(false);
+  }
   const isReadOnly = !!user?.isImpersonating;
   const { data: stats, isLoading: statsLoading } = useQuery<{
     requestsThisMonth: number; pendingRequests: number; reviewsThisMonth: number;
@@ -110,6 +128,53 @@ export default function Dashboard() {
 
   return (
     <div className="px-6 py-7 max-w-7xl mx-auto space-y-7">
+
+      {/* Intro welcome popup */}
+      <Dialog open={showIntro} onOpenChange={(open) => { if (!open) dismissIntro(); }}>
+        <DialogContent className="max-w-xl p-0 overflow-hidden" aria-describedby={undefined}>
+          <div className="px-7 pt-7 pb-2 text-center">
+            <img src="/logo.png" alt="ReviewOptic" className="h-8 object-contain mx-auto mb-5" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+            <h2 className="text-2xl font-bold mb-1">Welcome to ReviewOptic</h2>
+            <p className="text-muted-foreground text-sm mb-5">Your review growth starts here.</p>
+          </div>
+
+          {/* Video */}
+          <div className="mx-7">
+            {INTRO_VIDEO_URL ? (
+              <div className="aspect-video w-full rounded-xl overflow-hidden bg-black">
+                <iframe src={INTRO_VIDEO_URL} title="Welcome to ReviewOptic" className="w-full h-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+              </div>
+            ) : (
+              <div className="aspect-video w-full rounded-xl overflow-hidden bg-gradient-to-br from-slate-800 to-slate-900 flex flex-col items-center justify-center gap-3">
+                <div className="w-14 h-14 rounded-full bg-white/10 flex items-center justify-center">
+                  <Play className="w-6 h-6 text-white ml-0.5" fill="white" />
+                </div>
+                <span className="text-white/40 text-sm">Intro video coming soon</span>
+              </div>
+            )}
+          </div>
+
+          <div className="px-7 pt-5 pb-1 text-center">
+            <button
+              onClick={() => { dismissIntro(); navigate("/tutorial"); }}
+              className="text-sm text-primary hover:underline font-medium"
+            >
+              Click here for tutorials
+            </button>
+          </div>
+
+          <div className="px-7 pb-7 pt-5">
+            <button
+              onClick={dismissIntro}
+              className="w-full bg-primary text-primary-foreground font-semibold py-2.5 rounded-lg hover:bg-primary/90 transition-colors text-sm"
+            >
+              Let's get started
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
