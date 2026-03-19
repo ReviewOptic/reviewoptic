@@ -190,6 +190,9 @@ export async function runMigrations() {
     // Team member active/inactive status
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true`);
 
+    // Template tracking on review requests
+    await pool.query(`ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS template_id TEXT`);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();

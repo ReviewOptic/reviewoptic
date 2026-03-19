@@ -934,8 +934,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       sentAt: new Date(),
       scheduledAt: req.body.scheduledAt ? new Date(req.body.scheduledAt) : null,
     });
-    // Track who sent this request
+    // Track who sent this request and which template was used
     await pool.query(`UPDATE review_requests SET sent_by_user_id = $1 WHERE id = $2`, [req.session.userId, rr.id]).catch(() => {});
+    const templateId: string | undefined = req.body.templateId || undefined;
+    if (templateId) {
+      await pool.query(`UPDATE review_requests SET template_id = $1 WHERE id = $2`, [templateId, rr.id]).catch(() => {});
+    }
     await storage.updateCustomer(customer.id, { status: "request_sent" }, req.session.accountId!);
     await storage.createActivity({
       id: randomUUID(),
@@ -953,7 +957,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const allTemplates = await storage.getTemplates(req.session.accountId!);
     const customMessage: string | undefined = req.body.customMessage || undefined;
     const customSubject: string | undefined = req.body.customSubject || undefined;
-    const templateId: string | undefined = req.body.templateId || undefined;
     if (settings) {
       if (channel === "email" && customer.email) {
         const template =
@@ -1203,7 +1206,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const { rows: userRows } = await pool.query(`
         SELECT u.first_name, u.last_name, u.email, u.role,
                COUNT(rr.id) as requests_sent,
-               COUNT(CASE WHEN rr.status IN ('clicked','review_completed') THEN 1 END) as responses
+               COUNT(CASE WHEN rr.status = 'review_completed' THEN 1 END) as responses
         FROM users u
         LEFT JOIN review_requests rr ON rr.sent_by_user_id = u.id
           AND rr.account_id = $1
@@ -1221,6 +1224,126 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }));
     } catch { /* column may not exist on older installs */ }
 
+    // Best day to send
+    let bestDayData: any[] = [];
+    try {
+      const { rows: dowRows } = await pool.query(`
+        SELECT EXTRACT(DOW FROM created_at)::int as dow,
+               COUNT(*) as requests_sent,
+               COUNT(CASE WHEN status = 'review_completed' THEN 1 END) as reviews_completed
+        FROM review_requests
+        WHERE account_id = $1 AND created_at >= $2 AND created_at <= $3
+        GROUP BY dow ORDER BY dow
+      `, [accountId, cutoff, cutoffEnd]);
+      const DOW_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      bestDayData = DOW_NAMES.map((name, i) => {
+        const row = dowRows.find((r: any) => r.dow === i);
+        const sent = parseInt(row?.requests_sent || "0");
+        const completed = parseInt(row?.reviews_completed || "0");
+        return { day: name, requestsSent: sent, reviewsCompleted: completed, conversionRate: sent > 0 ? Math.round((completed / sent) * 100) : 0 };
+      });
+    } catch { /* ignore */ }
+
+    // Average time to review
+    let timeToReviewData: any[] = [];
+    try {
+      const { rows: ttrRows } = await pool.query(`
+        SELECT
+          CASE
+            WHEN r.created_at - rr.first_sent < INTERVAL '1 day' THEN 'Same day'
+            WHEN r.created_at - rr.first_sent < INTERVAL '2 days' THEN '1 day'
+            WHEN r.created_at - rr.first_sent < INTERVAL '4 days' THEN '2-3 days'
+            WHEN r.created_at - rr.first_sent < INTERVAL '8 days' THEN '4-7 days'
+            ELSE '7+ days'
+          END as bucket,
+          COUNT(*) as count
+        FROM reviews r
+        JOIN (
+          SELECT customer_id, MIN(created_at) as first_sent
+          FROM review_requests WHERE account_id = $1
+          GROUP BY customer_id
+        ) rr ON rr.customer_id = r.customer_id
+        WHERE r.account_id = $1 AND r.created_at >= $2 AND r.created_at <= $3
+        GROUP BY bucket
+      `, [accountId, cutoff, cutoffEnd]);
+      const BUCKETS = ["Same day", "1 day", "2-3 days", "4-7 days", "7+ days"];
+      timeToReviewData = BUCKETS.map(bucket => ({
+        bucket,
+        count: parseInt(ttrRows.find((r: any) => r.bucket === bucket)?.count || "0"),
+      }));
+    } catch { /* ignore */ }
+
+    // Follow-up effectiveness
+    let followUpData: any[] = [];
+    try {
+      const { rows: fuRows } = await pool.query(`
+        SELECT
+          CASE
+            WHEN rr_count = 1 THEN 'No follow-up'
+            WHEN rr_count = 2 THEN '1 follow-up'
+            ELSE '2+ follow-ups'
+          END as bucket,
+          COUNT(*) as customers,
+          COUNT(CASE WHEN has_review THEN 1 END) as converted
+        FROM (
+          SELECT customer_id,
+                 COUNT(id) as rr_count,
+                 bool_or(status = 'review_completed') as has_review
+          FROM review_requests
+          WHERE account_id = $1 AND created_at >= $2 AND created_at <= $3
+          GROUP BY customer_id
+        ) t
+        GROUP BY bucket
+        ORDER BY bucket
+      `, [accountId, cutoff, cutoffEnd]);
+      const FU_BUCKETS = ["No follow-up", "1 follow-up", "2+ follow-ups"];
+      followUpData = FU_BUCKETS.map(bucket => {
+        const row = fuRows.find((r: any) => r.bucket === bucket);
+        const customers = parseInt(row?.customers || "0");
+        const converted = parseInt(row?.converted || "0");
+        return { bucket, customers, converted, conversionRate: customers > 0 ? Math.round((converted / customers) * 100) : 0 };
+      });
+    } catch { /* ignore */ }
+
+    // Template performance
+    let templatePerformance: any[] = [];
+    try {
+      const { rows: tplRows } = await pool.query(`
+        SELECT t.name as template_name,
+               COUNT(rr.id) as total_sent,
+               COUNT(CASE WHEN rr.status = 'review_completed' THEN 1 END) as reviews_completed
+        FROM templates t
+        LEFT JOIN review_requests rr ON rr.template_id = t.id
+          AND rr.account_id = $1
+          AND rr.created_at >= $2 AND rr.created_at <= $3
+        WHERE t.account_id = $1
+        GROUP BY t.id, t.name
+        HAVING COUNT(rr.id) > 0
+        ORDER BY reviews_completed DESC
+      `, [accountId, cutoff, cutoffEnd]);
+      templatePerformance = tplRows.map((r: any) => ({
+        name: r.template_name,
+        sent: parseInt(r.total_sent),
+        completed: parseInt(r.reviews_completed),
+        responseRate: parseInt(r.total_sent) > 0 ? Math.round((parseInt(r.reviews_completed) / parseInt(r.total_sent)) * 100) : 0,
+      }));
+    } catch { /* ignore */ }
+
+    // Review platform breakdown
+    let platformBreakdown: any[] = [];
+    try {
+      const { rows: platformRows } = await pool.query(`
+        SELECT platform, COUNT(*) as count
+        FROM reviews
+        WHERE account_id = $1 AND created_at >= $2 AND created_at <= $3
+        GROUP BY platform ORDER BY count DESC
+      `, [accountId, cutoff, cutoffEnd]);
+      platformBreakdown = platformRows.map((r: any) => ({
+        name: r.platform.charAt(0).toUpperCase() + r.platform.slice(1),
+        value: parseInt(r.count),
+      }));
+    } catch { /* ignore */ }
+
     res.json({
       daily: Object.values(dailyData),
       dailyByChannel: Object.values(channelDailyData),
@@ -1229,6 +1352,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       starBreakdown,
       summary: { sent, reviews: periodReviews.length, avgRating, responseRate: sent > 0 ? Math.round((completed / sent) * 100) : 0 },
       byUser,
+      bestDayData,
+      timeToReviewData,
+      followUpData,
+      templatePerformance,
+      platformBreakdown,
     });
   });
 
@@ -1716,6 +1844,31 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       acceptUrl
     );
 
+    res.json({ ok: true });
+  });
+
+  // Resend invite email
+  app.post("/api/team/:userId/resend-invite", requireAuth, async (req, res) => {
+    if (req.session.userRole === "member") return res.status(403).json({ message: "Forbidden" });
+    const { userId } = req.params;
+    const { rows } = await pool.query(
+      `SELECT email, first_name, invite_token FROM users WHERE id = $1 AND account_id = $2 AND email_verified = false`,
+      [userId, req.session.accountId]
+    );
+    if (!rows.length) return res.status(404).json({ message: "Pending invite not found" });
+    const member = rows[0];
+    const { rows: ownerRows } = await pool.query(`SELECT first_name, last_name FROM users WHERE id = $1`, [req.session.userId]);
+    const owner = ownerRows[0];
+    const settings = await storage.getSettings(req.session.accountId!);
+    const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000");
+    const acceptUrl = `${appUrl}/accept-invite?token=${member.invite_token}`;
+    const { sendTeamInviteEmail } = await import("./email");
+    await sendTeamInviteEmail(
+      member.email,
+      `${owner?.first_name || ""} ${owner?.last_name || ""}`.trim() || "Your team",
+      settings?.businessName || "your company",
+      acceptUrl
+    );
     res.json({ ok: true });
   });
 

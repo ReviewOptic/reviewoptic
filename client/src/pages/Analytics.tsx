@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Send, Eye, Star, TrendingUp, BarChart2, Download, FileText } from "lucide-react";
+import { Send, Eye, Star, TrendingUp, BarChart2, Download, FileText, Palette } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,34 @@ import { useRef } from "react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
+// ── Chart colour system ───────────────────────────────────────────────────
+const COLOR_THEMES: Record<string, { label: string; requests: string; reviews: string; email: string; sms: string; whatsapp: string }> = {
+  classic:  { label: "Classic",  requests: "#4f86f7", reviews: "#4caf82", email: "#4f86f7", sms: "#4caf82",  whatsapp: "#2d7a56" },
+  sunset:   { label: "Sunset",   requests: "#f7794f", reviews: "#f74f8a", email: "#f7794f", sms: "#f74f8a",  whatsapp: "#c73d6e" },
+  ocean:    { label: "Ocean",    requests: "#0bc5ea", reviews: "#0ed9b3", email: "#0bc5ea", sms: "#0ed9b3",  whatsapp: "#0891b2" },
+  candy:    { label: "Candy",    requests: "#c084fc", reviews: "#f472b6", email: "#c084fc", sms: "#f472b6",  whatsapp: "#a855f7" },
+  fire:     { label: "Fire",     requests: "#ef4444", reviews: "#f97316", email: "#ef4444", sms: "#f97316",  whatsapp: "#dc2626" },
+  midnight: { label: "Midnight", requests: "#818cf8", reviews: "#34d399", email: "#818cf8", sms: "#34d399",  whatsapp: "#6366f1" },
+};
+type ChartColors = typeof COLOR_THEMES["classic"];
+
+function useChartColors() {
+  const stored = (() => { try { return JSON.parse(localStorage.getItem("chartColors") || "null"); } catch { return null; } })();
+  const [colors, setColors] = useState<ChartColors>(stored || COLOR_THEMES.classic);
+  const applyTheme = (themeKey: string) => {
+    const t = COLOR_THEMES[themeKey];
+    setColors(t);
+    localStorage.setItem("chartColors", JSON.stringify(t));
+  };
+  const updateColor = (key: keyof ChartColors, value: string) => {
+    if (key === "label") return;
+    const next = { ...colors, [key]: value };
+    setColors(next);
+    localStorage.setItem("chartColors", JSON.stringify(next));
+  };
+  return { colors, applyTheme, updateColor };
+}
+
 interface AnalyticsData {
   daily: Array<{ date: string; requests: number; reviews: number }>;
   dailyByChannel: Array<{ date: string; email: number; sms: number; whatsapp: number; emailReviews: number; smsReviews: number; whatsappReviews: number }>;
@@ -24,6 +52,11 @@ interface AnalyticsData {
   starBreakdown: Array<{ stars: number; count: number }>;
   summary: { sent: number; reviews: number; avgRating: number; responseRate: number };
   byUser?: Array<{ name: string; email: string; role: string; requestsSent: number; responses: number }>;
+  bestDayData?: Array<{ day: string; requestsSent: number; reviewsCompleted: number; conversionRate: number }>;
+  timeToReviewData?: Array<{ bucket: string; count: number }>;
+  followUpData?: Array<{ bucket: string; customers: number; converted: number; conversionRate: number }>;
+  templatePerformance?: Array<{ name: string; sent: number; completed: number; responseRate: number }>;
+  platformBreakdown?: Array<{ name: string; value: number }>;
 }
 
 const CHANNELS = ["email", "sms", "whatsapp"] as const;
@@ -46,11 +79,6 @@ function ChannelToggle({ active, onChange }: { active: Channel[]; onChange: (c: 
   );
 }
 
-const CHANNEL_COLORS: Record<string, string> = {
-  Email: "hsl(217 91% 60%)",
-  SMS: "hsl(142 60% 45%)",
-  WhatsApp: "hsl(142 60% 35%)",
-};
 const STAR_COLORS = ["hsl(0 72% 55%)", "hsl(22 90% 55%)", "hsl(45 95% 55%)", "hsl(100 60% 50%)", "hsl(142 60% 45%)"];
 
 const tooltipStyle = {
@@ -62,14 +90,16 @@ const tooltipStyle = {
 
 export default function Analytics() {
   const { user } = useAuth();
-  const isOwner = user?.role === "owner";
+  const isOwner = user?.role !== "member";
+  const { colors, applyTheme, updateColor } = useChartColors();
+  const [showColorPanel, setShowColorPanel] = useState(false);
   const [period, setPeriod] = useState<"7" | "30" | "60" | "custom">("30");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [userFilter, setUserFilter] = useState("all");
   const [reqVsRevChannels, setReqVsRevChannels] = useState<Channel[]>([]);
   const [channelChartChannels, setChannelChartChannels] = useState<Channel[]>([]);
-  const [channel, setChannel] = useState("all");
+  const [memberFilter, setMemberFilter] = useState("all");
   const [isExportingPDF, setIsExportingPDF] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -112,6 +142,18 @@ export default function Analytics() {
   const activeChannels = channelChartChannels.length > 0
     ? channelChartChannels
     : CHANNELS.filter(ch => (data?.channelBreakdown[ch] || 0) > 0);
+
+  // Grouped bar data: one entry per channel with requests + reviews
+  const channelReviewTotals = {
+    email: (data?.dailyByChannel || []).reduce((s, d) => s + (d.emailReviews || 0), 0),
+    sms: (data?.dailyByChannel || []).reduce((s, d) => s + (d.smsReviews || 0), 0),
+    whatsapp: (data?.dailyByChannel || []).reduce((s, d) => s + (d.whatsappReviews || 0), 0),
+  };
+  const channelBarData = [
+    { channel: "Email", key: "email", requests: data?.channelBreakdown.email || 0, reviews: channelReviewTotals.email },
+    { channel: "SMS", key: "sms", requests: data?.channelBreakdown.sms || 0, reviews: channelReviewTotals.sms },
+    { channel: "WhatsApp", key: "whatsapp", requests: data?.channelBreakdown.whatsapp || 0, reviews: channelReviewTotals.whatsapp },
+  ].filter(d => activeChannels.includes(d.key as Channel));
 
   const channelData = [
     { name: "Email", value: data?.channelBreakdown.email || 0 },
@@ -287,15 +329,56 @@ export default function Analytics() {
             <Button variant="outline" size="sm" className="h-8 text-[12px] gap-1.5" onClick={exportPDF} disabled={isLoading || !data || isExportingPDF}>
               <FileText className="w-3.5 h-3.5" />{isExportingPDF ? "Exporting..." : "PDF"}
             </Button>
+            <Button variant="outline" size="sm" className={`h-8 text-[12px] gap-1.5 ${showColorPanel ? "bg-primary text-primary-foreground border-primary" : ""}`} onClick={() => setShowColorPanel(v => !v)}>
+              <Palette className="w-3.5 h-3.5" />Colours
+            </Button>
           </div>
         </div>
       </div>
+
+      {/* Colour customiser panel */}
+      {showColorPanel && (
+        <div className="rounded-xl border border-border bg-card p-4 space-y-4">
+          <div className="space-y-2">
+            <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wide">Themes</p>
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(COLOR_THEMES).map(([key, theme]) => (
+                <button key={key} onClick={() => applyTheme(key)}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border text-[12px] font-medium hover:border-primary transition-colors"
+                  style={{ borderColor: colors.requests === theme.requests && colors.reviews === theme.reviews ? theme.requests : undefined }}>
+                  <span className="w-3 h-3 rounded-full inline-block" style={{ background: theme.requests }} />
+                  <span className="w-3 h-3 rounded-full inline-block" style={{ background: theme.reviews }} />
+                  {theme.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wide">Custom colours</p>
+            <div className="flex flex-wrap gap-4">
+              {([
+                { key: "requests" as const, label: "Requests Sent" },
+                { key: "reviews" as const, label: "Reviews Received" },
+                { key: "email" as const, label: "Email" },
+                { key: "sms" as const, label: "SMS" },
+                { key: "whatsapp" as const, label: "WhatsApp" },
+              ]).map(({ key, label }) => (
+                <label key={key} className="flex items-center gap-1.5 cursor-pointer text-[12px]">
+                  <input type="color" value={colors[key]} onChange={e => updateColor(key, e.target.value)}
+                    className="w-7 h-7 rounded cursor-pointer border border-border p-0.5 bg-transparent" />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* PDF export target */}
       <div ref={contentRef} className="space-y-5">
       {/* Period label — hidden normally, shown when capturing for PDF */}
       <p className="text-[13px] font-medium text-muted-foreground hidden pdf-period-label">
-        {period === "custom" ? `${from} – ${to}` : `Last ${period} days`}{channel !== "all" ? ` · ${channel[0].toUpperCase() + channel.slice(1)}` : ""}
+        {period === "custom" ? `${from} – ${to}` : `Last ${period} days`}
       </p>
 
       {/* Summary cards */}
@@ -324,61 +407,85 @@ export default function Analytics() {
                 <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
                 <Tooltip contentStyle={tooltipStyle} />
                 <Legend wrapperStyle={{ fontSize: "11px" }} />
-                <Line type="monotone" dataKey="requests" stroke="hsl(217 91% 60%)" strokeWidth={2} dot={false} activeDot={{ r: 3 }} name="Requests Sent" />
-                <Line type="monotone" dataKey="reviews" stroke="hsl(142 60% 45%)" strokeWidth={2} dot={false} activeDot={{ r: 3 }} name="Reviews Received" />
+                <Line type="monotone" dataKey="requests" stroke={colors.requests} strokeWidth={2} dot={false} activeDot={{ r: 3 }} name="Requests Sent" />
+                <Line type="monotone" dataKey="reviews" stroke={colors.reviews} strokeWidth={2} dot={false} activeDot={{ r: 3 }} name="Reviews Received" />
               </LineChart>
             </ResponsiveContainer>
           )}
         </CardContent>
       </Card>
 
-      {/* Channel over time chart */}
+      {/* Channel chart — grouped bars: requests vs reviews per channel */}
       <Card className="border-card-border">
         <CardHeader className="pb-2 pt-4 px-5">
-          <CardTitle className="text-[14px] font-semibold">Requests by Channel</CardTitle>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <CardTitle className="text-[14px] font-semibold">Requests vs Reviews by Channel</CardTitle>
+            <ChannelToggle active={channelChartChannels} onChange={setChannelChartChannels} />
+          </div>
         </CardHeader>
         <CardContent className="px-5 pb-4">
-          {isLoading ? <Skeleton className="h-52 w-full" /> : (
-            <ResponsiveContainer width="100%" height={200}>
-              <LineChart data={channelDailyForChart} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
+          {isLoading ? <Skeleton className="h-40 w-full" /> : channelBarData.length === 0 ? (
+            <div className="text-center py-6 text-muted-foreground">
+              <p className="text-[12px]">No channel data</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={channelBarData} margin={{ top: 5, right: 10, bottom: 5, left: -20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} interval={Math.max(0, Math.floor(channelDailyForChart.length / 6) - 1)} />
+                <XAxis dataKey="channel" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
                 <Tooltip contentStyle={tooltipStyle} />
                 <Legend wrapperStyle={{ fontSize: "11px" }} />
-                {activeChannels.includes("email") && <Line type="monotone" dataKey="email" stroke={CHANNEL_COLORS["Email"]} strokeWidth={2} dot={false} activeDot={{ r: 3 }} name="Email" />}
-                {activeChannels.includes("sms") && <Line type="monotone" dataKey="sms" stroke={CHANNEL_COLORS["SMS"]} strokeWidth={2} dot={false} activeDot={{ r: 3 }} name="SMS" />}
-                {activeChannels.includes("whatsapp") && <Line type="monotone" dataKey="whatsapp" stroke={CHANNEL_COLORS["WhatsApp"]} strokeWidth={2} dot={false} activeDot={{ r: 3 }} name="WhatsApp" />}
-              </LineChart>
+                <Bar dataKey="requests" name="Requests Sent" fill={colors.requests} radius={[4, 4, 0, 0]} barSize={28} />
+                <Bar dataKey="reviews" name="Reviews Received" fill={colors.reviews} radius={[4, 4, 0, 0]} barSize={28} />
+              </BarChart>
             </ResponsiveContainer>
           )}
         </CardContent>
       </Card>
 
-      {/* By User bar chart — owner only */}
-      {isOwner && (
+      {/* By User bar chart — owner only, only shown when there are team members */}
+      {isOwner && data?.byUser && data.byUser.some(u => u.role === "member") && (
         <Card className="border-card-border">
           <CardHeader className="pb-2 pt-4 px-5">
-            <CardTitle className="text-[14px] font-semibold">Requests by Team Member</CardTitle>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <CardTitle className="text-[14px] font-semibold">Requests vs Reviews by Team Member</CardTitle>
+              {data?.byUser && data.byUser.length > 0 && (
+                <Select value={memberFilter} onValueChange={setMemberFilter}>
+                  <SelectTrigger className="h-7 w-36 text-[11px]">
+                    <SelectValue placeholder="All members" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All members</SelectItem>
+                    {data.byUser.map(m => (
+                      <SelectItem key={m.email} value={m.email}>{m.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="px-5 pb-4">
-            {isLoading ? <Skeleton className="h-52 w-full" /> : !data?.byUser || data.byUser.length === 0 ? (
+            {isLoading ? <Skeleton className="h-40 w-full" /> : !data?.byUser || data.byUser.length === 0 ? (
               <div className="text-center py-6 text-muted-foreground">
                 <p className="text-[12px]">No team data</p>
               </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={Math.max(120, data.byUser.length * 52)}>
-                <BarChart data={data.byUser} layout="vertical" margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
-                  <XAxis type="number" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
-                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} width={110} />
-                  <Tooltip contentStyle={tooltipStyle} />
-                  <Legend wrapperStyle={{ fontSize: "11px" }} />
-                  <Bar dataKey="requestsSent" name="Requests Sent" fill="hsl(217 91% 60%)" radius={[0, 4, 4, 0]} barSize={14} />
-                  <Bar dataKey="responses" name="Reviews Received" fill="hsl(142 60% 45%)" radius={[0, 4, 4, 0]} barSize={14} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
+            ) : (() => {
+              const filtered = memberFilter === "all" ? data.byUser! : data.byUser!.filter(m => m.email === memberFilter);
+              return (
+                <ResponsiveContainer width="100%" height={180}>
+                  <BarChart data={filtered} margin={{ top: 5, right: 10, bottom: 5, left: -20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                    <Tooltip contentStyle={tooltipStyle} />
+                    <Legend wrapperStyle={{ fontSize: "11px" }} />
+                    <Bar dataKey="requestsSent" name="Requests Sent" fill={colors.requests} radius={[4, 4, 0, 0]} barSize={28} />
+                    <Bar dataKey="responses" name="Reviews Received" fill={colors.reviews} radius={[4, 4, 0, 0]} barSize={28} />
+                  </BarChart>
+                </ResponsiveContainer>
+              );
+            })()}
           </CardContent>
         </Card>
       )}
@@ -397,9 +504,9 @@ export default function Analytics() {
                 <p className="text-[12px]">No data yet</p>
               </div>
             ) : (
-              [{label: "Sent", value: fSent, pct: null, color: "hsl(217 91% 60%)"},
-               {label: "Clicked", value: clicked, pct: clickRate, color: "hsl(262 80% 60%)"},
-               {label: "Reviewed", value: completed, pct: completeRate, color: "hsl(142 60% 45%)"}
+              [{label: "Sent", value: fSent, pct: null, color: colors.requests},
+               {label: "Clicked", value: clicked, pct: clickRate, color: "#a78bfa"},
+               {label: "Reviewed", value: completed, pct: completeRate, color: colors.reviews}
               ].map(row => (
                 <div key={row.label} className="space-y-1">
                   <div className="flex justify-between text-[12px]">
@@ -430,18 +537,23 @@ export default function Analytics() {
                 <ResponsiveContainer width="100%" height={130}>
                   <PieChart>
                     <Pie data={channelData} dataKey="value" cx="50%" cy="50%" innerRadius={35} outerRadius={55} paddingAngle={3}>
-                      {channelData.map((d, i) => <Cell key={i} fill={CHANNEL_COLORS[d.name] || "hsl(217 91% 60%)"} />)}
+                      {channelData.map((d) => {
+                        const c = d.name === "Email" ? colors.email : d.name === "SMS" ? colors.sms : colors.whatsapp;
+                        return <Cell key={d.name} fill={c} />;
+                      })}
                     </Pie>
                     <Tooltip contentStyle={tooltipStyle} />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="flex flex-wrap gap-3 justify-center mt-1">
-                  {channelData.map(d => (
+                  {channelData.map(d => {
+                    const c = d.name === "Email" ? colors.email : d.name === "SMS" ? colors.sms : colors.whatsapp;
+                    return (
                     <div key={d.name} className="flex items-center gap-1.5">
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: CHANNEL_COLORS[d.name] }} />
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: c }} />
                       <span className="text-[11.5px] text-muted-foreground">{d.name}: <strong className="text-foreground">{d.value}</strong></span>
                     </div>
-                  ))}
+                  );})}
                 </div>
               </>
             )}
@@ -475,6 +587,135 @@ export default function Analytics() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Best day to send */}
+      <Card className="border-card-border">
+        <CardHeader className="pb-2 pt-4 px-5">
+          <CardTitle className="text-[14px] font-semibold">Best Day to Send</CardTitle>
+        </CardHeader>
+        <CardContent className="px-5 pb-4">
+          {isLoading ? <Skeleton className="h-48 w-full" /> : !data?.bestDayData || data.bestDayData.every(d => d.requestsSent === 0) ? (
+            <div className="text-center py-6 text-muted-foreground"><p className="text-[12px]">No data yet</p></div>
+          ) : (
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={data.bestDayData} margin={{ top: 5, right: 10, bottom: 5, left: -20 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis dataKey="day" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                <Tooltip contentStyle={tooltipStyle} />
+                <Legend wrapperStyle={{ fontSize: "11px" }} />
+                <Bar dataKey="requestsSent" name="Requests Sent" fill={colors.requests} radius={[4, 4, 0, 0]} barSize={24} />
+                <Bar dataKey="reviewsCompleted" name="Reviews Received" fill={colors.reviews} radius={[4, 4, 0, 0]} barSize={24} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Bottom 3-column row: time to review, follow-up effectiveness, platform breakdown */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Average time to review */}
+        <Card className="border-card-border">
+          <CardHeader className="pb-2 pt-4 px-5">
+            <CardTitle className="text-[14px] font-semibold">Time to Review</CardTitle>
+          </CardHeader>
+          <CardContent className="px-5 pb-4">
+            {isLoading ? <Skeleton className="h-40 w-full" /> : !data?.timeToReviewData || data.timeToReviewData.every(d => d.count === 0) ? (
+              <div className="text-center py-6 text-muted-foreground"><p className="text-[12px]">No reviews yet</p></div>
+            ) : (
+              <ResponsiveContainer width="100%" height={160}>
+                <BarChart data={data.timeToReviewData} margin={{ top: 5, right: 5, bottom: 5, left: -25 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="bucket" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                  <Tooltip contentStyle={tooltipStyle} />
+                  <Bar dataKey="count" name="Reviews" fill={colors.reviews} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Follow-up effectiveness */}
+        <Card className="border-card-border">
+          <CardHeader className="pb-2 pt-4 px-5">
+            <CardTitle className="text-[14px] font-semibold">Follow-up Effectiveness</CardTitle>
+          </CardHeader>
+          <CardContent className="px-5 pb-4">
+            {isLoading ? <Skeleton className="h-40 w-full" /> : !data?.followUpData || data.followUpData.every(d => d.customers === 0) ? (
+              <div className="text-center py-6 text-muted-foreground"><p className="text-[12px]">No data yet</p></div>
+            ) : (
+              <ResponsiveContainer width="100%" height={160}>
+                <BarChart data={data.followUpData} margin={{ top: 5, right: 5, bottom: 5, left: -25 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="bucket" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                  <Tooltip contentStyle={tooltipStyle} formatter={(v, name) => [v, name === "converted" ? "Got a review" : "Customers"]} />
+                  <Legend wrapperStyle={{ fontSize: "11px" }} />
+                  <Bar dataKey="customers" name="Customers" fill={colors.requests} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="converted" name="Got a review" fill={colors.reviews} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Review platform breakdown */}
+        <Card className="border-card-border">
+          <CardHeader className="pb-2 pt-4 px-5">
+            <CardTitle className="text-[14px] font-semibold">Review Platforms</CardTitle>
+          </CardHeader>
+          <CardContent className="px-5 pb-4">
+            {isLoading ? <Skeleton className="h-40 w-full" /> : !data?.platformBreakdown || data.platformBreakdown.length === 0 ? (
+              <div className="text-center py-6 text-muted-foreground"><p className="text-[12px]">No reviews yet</p></div>
+            ) : (
+              <>
+                <ResponsiveContainer width="100%" height={110}>
+                  <PieChart>
+                    <Pie data={data.platformBreakdown} dataKey="value" cx="50%" cy="50%" innerRadius={30} outerRadius={50} paddingAngle={3}>
+                      {data.platformBreakdown.map((_, i) => (
+                        <Cell key={i} fill={[colors.requests, colors.reviews, colors.email, colors.sms, colors.whatsapp][i % 5]} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={tooltipStyle} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex flex-wrap gap-2 justify-center mt-1">
+                  {data.platformBreakdown.map((d, i) => (
+                    <div key={d.name} className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: [colors.requests, colors.reviews, colors.email, colors.sms, colors.whatsapp][i % 5] }} />
+                      <span className="text-[11px] text-muted-foreground">{d.name}: <strong className="text-foreground">{d.value}</strong></span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Template performance */}
+      {data?.templatePerformance && data.templatePerformance.length > 0 && (
+        <Card className="border-card-border">
+          <CardHeader className="pb-2 pt-4 px-5">
+            <CardTitle className="text-[14px] font-semibold">Template Performance</CardTitle>
+          </CardHeader>
+          <CardContent className="px-5 pb-4">
+            {isLoading ? <Skeleton className="h-40 w-full" /> : (
+              <ResponsiveContainer width="100%" height={Math.max(120, data.templatePerformance.length * 40)}>
+                <BarChart data={data.templatePerformance} layout="vertical" margin={{ top: 5, right: 40, bottom: 5, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+                  <XAxis type="number" unit="%" domain={[0, 100]} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} width={120} />
+                  <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${v}%`, "Response Rate"]} />
+                  <Bar dataKey="responseRate" name="Response Rate" fill={colors.reviews} radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       </div>{/* end pdf export target */}
     </div>
   );

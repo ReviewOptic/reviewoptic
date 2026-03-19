@@ -190,7 +190,7 @@ export default function Settings() {
           <TabsTrigger value="followup" className="text-[12.5px]" data-testid="tab-followup">Follow-Ups</TabsTrigger>
           <TabsTrigger value="widget" className="text-[12.5px]" data-testid="tab-widget">Widget</TabsTrigger>
           <TabsTrigger value="social" className="text-[12.5px]" data-testid="tab-social">Social</TabsTrigger>
-          <TabsTrigger value="notifications" className="text-[12.5px]" data-testid="tab-notifications">Insight Updates</TabsTrigger>
+          <TabsTrigger value="notifications" className="text-[12.5px]" data-testid="tab-notifications">Insight Emails</TabsTrigger>
           <TabsTrigger value="team" className="text-[12.5px]" data-testid="tab-team">Team</TabsTrigger>
         </TabsList>
 
@@ -911,17 +911,31 @@ function TeamTab() {
                   <div>
                     <p className="text-[13.5px] font-medium">{m.first_name} {m.last_name}</p>
                     <p className="text-[12px] text-muted-foreground">{m.email}</p>
-                    <p className="text-[11px] mt-0.5">
+                    <div className="mt-1">
                       {!m.email_verified ? (
-                        <span className="text-yellow-600 font-medium">Pending — invite not yet accepted</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+                          Invite pending
+                        </span>
                       ) : m.is_active === false ? (
-                        <span className="text-red-500 font-medium">Deactivated</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                          Deactivated
+                        </span>
                       ) : (
-                        <span className="text-green-600 font-medium">Active</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                          Active
+                        </span>
                       )}
-                    </p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-1.5">
+                    {!m.email_verified && (
+                      <Button size="sm" variant="outline" className="text-[12px]" onClick={async () => {
+                        await fetch(`/api/team/${m.id}/resend-invite`, { method: "POST", credentials: "include" });
+                        toast({ title: "Invite resent", description: `A new invite has been sent to ${m.email}` });
+                      }}>
+                        Resend invite
+                      </Button>
+                    )}
                     {m.email_verified && (
                       m.is_active === false ? (
                         <Button size="sm" variant="outline" onClick={() => toggleActive(m.id, true)} className="text-green-600 hover:text-green-600">
