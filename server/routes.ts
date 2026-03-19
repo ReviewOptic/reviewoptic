@@ -85,6 +85,14 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
       planQuery.then(({ rows }) => {
         const planType = rows[0]?.plan_type || "free";
         if (planType === "free") return res.status(402).json({ message: "Subscription required" });
+        // Cancelled plan — analytics read-only
+        if (planType === "cancelled") {
+          const isAnalyticsRead = req.path === "/api/analytics" && req.method === "GET";
+          const isSettingsRead = req.path === "/api/settings" && req.method === "GET";
+          if (!isAnalyticsRead && !isSettingsRead) {
+            return res.status(402).json({ message: "Your subscription has ended. Please reactivate to regain access.", code: "subscription_ended" });
+          }
+        }
         next();
       }).catch(() => next());
     } else {
@@ -1590,6 +1598,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const Stripe = (await import("stripe")).default;
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
     const sub = await stripe.subscriptions.retrieve(row.stripe_subscription_id) as any;
+
+    // If Stripe says the subscription is fully cancelled, mark the user as cancelled in our DB
+    if (sub.status === "canceled" && row.plan_type !== "cancelled" && row.plan_type !== "free" && row.plan_type !== "complimentary") {
+      await pool.query(`UPDATE users SET plan_type = 'cancelled' WHERE id = $1`, [req.session.userId]);
+    }
+
     res.json({
       subscription: {
         status: sub.status,
@@ -1651,6 +1665,42 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // Cancel subscription at period end
+  app.post("/api/billing/cancel", requireAuth, async (req, res) => {
+    try {
+      if (!process.env.STRIPE_SECRET_KEY) return res.status(500).json({ message: "Stripe not configured" });
+      const { rows } = await pool.query(`SELECT stripe_subscription_id FROM users WHERE id = $1`, [req.session.userId]);
+      const subscriptionId = rows[0]?.stripe_subscription_id;
+      if (!subscriptionId) return res.status(400).json({ message: "No active subscription found" });
+
+      const Stripe = (await import("stripe")).default;
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+      const sub = await stripe.subscriptions.update(subscriptionId, { cancel_at_period_end: true }) as any;
+      res.json({ cancelAtPeriodEnd: sub.cancel_at_period_end, currentPeriodEnd: sub.current_period_end });
+    } catch (err: any) {
+      console.error("[billing/cancel]", err.message);
+      res.status(500).json({ message: err?.raw?.message || err.message || "Failed to cancel subscription" });
+    }
+  });
+
+  // Reactivate subscription (undo cancel_at_period_end)
+  app.post("/api/billing/reactivate", requireAuth, async (req, res) => {
+    try {
+      if (!process.env.STRIPE_SECRET_KEY) return res.status(500).json({ message: "Stripe not configured" });
+      const { rows } = await pool.query(`SELECT stripe_subscription_id FROM users WHERE id = $1`, [req.session.userId]);
+      const subscriptionId = rows[0]?.stripe_subscription_id;
+      if (!subscriptionId) return res.status(400).json({ message: "No subscription found" });
+
+      const Stripe = (await import("stripe")).default;
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+      const sub = await stripe.subscriptions.update(subscriptionId, { cancel_at_period_end: false }) as any;
+      res.json({ cancelAtPeriodEnd: sub.cancel_at_period_end, currentPeriodEnd: sub.current_period_end });
+    } catch (err: any) {
+      console.error("[billing/reactivate]", err.message);
+      res.status(500).json({ message: err?.raw?.message || err.message || "Failed to reactivate subscription" });
+    }
+  });
+
   // Stripe webhook — handles subscription cancellations asynchronously
   app.post("/api/billing/webhook", express.raw({ type: "application/json" }), async (req, res) => {
     if (!process.env.STRIPE_SECRET_KEY) return res.status(500).send("Stripe not configured");
@@ -1674,7 +1724,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     if (event.type === "customer.subscription.deleted") {
       await pool.query(
-        `UPDATE users SET plan_type = 'free', plan_period = 'monthly' WHERE stripe_subscription_id = $1`,
+        `UPDATE users SET plan_type = 'cancelled', plan_period = 'monthly' WHERE stripe_subscription_id = $1`,
         [event.data.object.id]
       );
     }

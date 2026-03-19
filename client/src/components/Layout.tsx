@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, FileText, BarChart3, Settings, Menu, X, LogOut, Shield, CreditCard } from "lucide-react";
+import { LayoutDashboard, Users, FileText, BarChart3, Settings, Menu, X, LogOut, Shield, CreditCard, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, Component, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -129,6 +129,23 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   );
 }
 
+function CancelledBanner() {
+  const { user } = useAuth();
+  const [, navigate] = useLocation();
+  if (user?.planType !== "cancelled") return null;
+  return (
+    <div className="bg-red-600 text-white text-sm px-4 py-2.5 flex items-center justify-between flex-shrink-0 gap-4">
+      <div className="flex items-center gap-2">
+        <AlertTriangle className="w-4 h-4 shrink-0" />
+        <span>Your subscription has ended. You can view analytics but all other features are locked.</span>
+      </div>
+      <button onClick={() => navigate("/billing")} className="underline font-semibold whitespace-nowrap hover:text-white/80">
+        Reactivate
+      </button>
+    </div>
+  );
+}
+
 function ImpersonationBanner() {
   const { user, refreshUser } = useAuth();
   const queryClient = useQueryClient();
@@ -183,6 +200,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <ImpersonationBanner />
+        <CancelledBanner />
         {/* Mobile header */}
         <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-background flex-shrink-0">
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMobileOpen(true)}>

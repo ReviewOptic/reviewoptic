@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { CreditCard, Download, ArrowUpCircle, ExternalLink, Loader2 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { CreditCard, Download, ArrowUpCircle, ExternalLink, Loader2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -18,8 +18,12 @@ function formatAmount(amount: number, currency: string) {
 export default function Billing() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const qc = useQueryClient();
   const [portalLoading, setPortalLoading] = useState(false);
   const [upgradeClientSecret, setUpgradeClientSecret] = useState<string | null>(null);
+  const [cancelStep, setCancelStep] = useState<"idle" | "confirm">("idle");
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [reactivateLoading, setReactivateLoading] = useState(false);
   const [stripePromise] = useState(() =>
     fetch("/api/billing/config").then(r => r.json()).then(d => loadStripe(d.publishableKey))
   );
@@ -47,6 +51,41 @@ export default function Billing() {
     } catch (err: any) {
       toast({ title: "Could not open billing portal", description: err.message, variant: "destructive" });
       setPortalLoading(false);
+    }
+  }
+
+  async function cancelSubscription() {
+    setCancelLoading(true);
+    try {
+      const res = await fetch("/api/billing/cancel", { method: "POST", credentials: "include" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to cancel");
+      qc.invalidateQueries({ queryKey: ["/api/billing/subscription"] });
+      setCancelStep("idle");
+      toast({
+        title: "Subscription cancelled",
+        description: `You'll still have full access until ${formatDate(data.currentPeriodEnd)}. After that, your account will be locked.`,
+        duration: 8000,
+      });
+    } catch (err: any) {
+      toast({ title: "Could not cancel", description: err.message, variant: "destructive" });
+    } finally {
+      setCancelLoading(false);
+    }
+  }
+
+  async function reactivateSubscription() {
+    setReactivateLoading(true);
+    try {
+      const res = await fetch("/api/billing/reactivate", { method: "POST", credentials: "include" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to reactivate");
+      qc.invalidateQueries({ queryKey: ["/api/billing/subscription"] });
+      toast({ title: "Subscription reactivated", description: "Your plan will continue as normal." });
+    } catch (err: any) {
+      toast({ title: "Could not reactivate", description: err.message, variant: "destructive" });
+    } finally {
+      setReactivateLoading(false);
     }
   }
 
@@ -163,6 +202,82 @@ export default function Billing() {
           View all invoices in Stripe
         </Button>
       </div>
+
+      {/* Fully cancelled — subscription ended */}
+      {user?.planType === "cancelled" && !sub && (
+        <div className="bg-white rounded-xl border border-red-200 p-6">
+          <div className="flex items-start gap-3 mb-4">
+            <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+            <div>
+              <h2 className="text-sm font-semibold text-red-700">Your subscription has ended</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                You currently have read-only access to your analytics. All other features are locked until you reactivate.
+              </p>
+            </div>
+          </div>
+          <Button onClick={() => window.location.href = "/pricing"} className="gap-2">
+            Reactivate subscription
+          </Button>
+        </div>
+      )}
+
+      {/* Cancel / Reactivate section */}
+      {sub?.status === "active" && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Cancel subscription</h2>
+
+          {sub.cancelAtPeriodEnd ? (
+            /* Already scheduled to cancel */
+            <div className="space-y-4">
+              <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-800">Cancellation scheduled</p>
+                  <p className="text-sm text-amber-700 mt-0.5">
+                    Your subscription will end on <strong>{formatDate(sub.currentPeriodEnd)}</strong>. You'll have full access until then — after that, your account will be locked and you'll only be able to view your analytics.
+                  </p>
+                </div>
+              </div>
+              <Button variant="outline" onClick={reactivateSubscription} disabled={reactivateLoading} className="gap-2">
+                {reactivateLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                Keep my subscription
+              </Button>
+            </div>
+          ) : cancelStep === "confirm" ? (
+            /* Confirmation step */
+            <div className="space-y-4">
+              <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-lg p-4">
+                <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-red-800">Are you sure you want to cancel?</p>
+                  <p className="text-sm text-red-700 mt-0.5">
+                    You'll keep full access until <strong>{formatDate(sub.currentPeriodEnd)}</strong>. After that, your account will be locked — you won't be able to send review requests, view customers, or use any features except analytics.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="destructive" onClick={cancelSubscription} disabled={cancelLoading} className="gap-2">
+                  {cancelLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                  Yes, cancel my subscription
+                </Button>
+                <Button variant="ghost" onClick={() => setCancelStep("idle")} disabled={cancelLoading}>
+                  Never mind
+                </Button>
+              </div>
+            </div>
+          ) : (
+            /* Default state */
+            <div className="space-y-3">
+              <p className="text-sm text-gray-500">
+                Your subscription will remain active until the end of your current billing period — you won't be charged again after that.
+              </p>
+              <Button variant="outline" className="text-red-600 hover:text-red-700 hover:border-red-300" onClick={() => setCancelStep("confirm")}>
+                Cancel subscription
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Upgrade to annual modal */}
       {upgradeClientSecret && (

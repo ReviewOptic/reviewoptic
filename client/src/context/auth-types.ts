@@ -6,7 +6,7 @@ export interface AuthUser {
   accountId: string;
   isAdmin: boolean;
   isImpersonating: boolean;
-  planType: "free" | "standard" | "agency";
+  planType: "free" | "standard" | "agency" | "cancelled" | "complimentary";
   planPeriod: "monthly" | "annual";
   requiresPayment: boolean;
   emailVerified: boolean;
