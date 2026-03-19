@@ -16,17 +16,19 @@ const PLANS = [
     annual:  { display: "£539", per: "/year", saving: "Save £49 — 1 month free" },
     keyFeatures: [
       "Unlimited review requests via email, SMS & WhatsApp",
-      "Request reviews by text, video message or voice note",
       "Automatic follow-ups & AI-generated messages",
-      "No contracts — cancel anytime",
+      "Full analytics dashboard with PDF & CSV export",
+      "Multiple users & team management",
     ],
     extraFeatures: [
-      "Custom templates for every channel",
-      "Analytics dashboard with PDF & CSV export",
-      "Weekly AI insight reports & chat assistant",
-      "Review widget & social media auto-posting",
-      "Multiple users",
+      "Custom message templates",
+      "Insight emails with performance tips",
+      "Review widget for your website",
+      "Auto-post reviews to social media",
+      "AI chat assistant",
       "Works with Google, Trustpilot, Facebook, Checkatrade & more",
+      "Private feedback capture",
+      "No contracts — cancel anytime",
     ],
   },
   {
@@ -167,7 +169,7 @@ export default function Pricing() {
                 ))}
                 {plan.extraFeatures.length > 0 && (
                   <li className="text-sm text-gray-500 pt-1">
-                    + {plan.extraFeatures.length} more features —{" "}
+                    + more features —{" "}
                     <a href="/features" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-medium">
                       see full list
                     </a>

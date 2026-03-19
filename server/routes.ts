@@ -1746,6 +1746,64 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // Chat history
+  // Feedback & feature requests
+  app.post("/api/feedback", requireAuth, async (req, res) => {
+    const { name, email, subject, message } = req.body;
+    if (!name || !email || !message) return res.status(400).json({ message: "Name, email and message are required" });
+
+    if (!process.env.RESEND_API_KEY) {
+      console.log(`[feedback] No RESEND_API_KEY — from=${email} subject=${subject} message=${message}`);
+      return res.json({ ok: true });
+    }
+
+    const resend = new Resend(process.env.RESEND_API_KEY);
+
+    // Email to ReviewOptic team
+    await resend.emails.send({
+      from: "ReviewOptic Feedback <noreply@reviewoptic.com>",
+      to: "hello@reviewoptic.com",
+      replyTo: email,
+      subject: `[${subject}] from ${name}`,
+      html: `
+        <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111;">
+          <h2 style="margin:0 0 16px;">New ${subject}</h2>
+          <p><strong>From:</strong> ${name} &lt;${email}&gt;</p>
+          <p><strong>Subject:</strong> ${subject}</p>
+          <hr style="border:none;border-top:1px solid #eee;margin:16px 0;" />
+          <p style="white-space:pre-wrap;line-height:1.6;">${message}</p>
+        </div>
+      `,
+    }).catch(err => console.error("[feedback] Failed to send to team:", err.message));
+
+    // Auto-reply to the user
+    await resend.emails.send({
+      from: "ReviewOptic <hello@reviewoptic.com>",
+      to: email,
+      subject: "Thanks for your feedback — we've got it!",
+      html: `
+        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
+          <div style="margin-bottom:24px;">
+            <span style="font-weight:700;font-size:18px;">ReviewOptic</span>
+          </div>
+          <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Hi ${name.split(" ")[0]}, thanks for reaching out!</h2>
+          <p style="color:#555;margin:0 0 16px;line-height:1.6;">
+            We've received your message and really appreciate you taking the time to get in touch. It means a lot to us.
+          </p>
+          <p style="color:#555;margin:0 0 16px;line-height:1.6;">
+            Our team will review your <strong>${subject.toLowerCase()}</strong> carefully. If we have any questions or updates, we'll reply directly to this email.
+          </p>
+          <p style="color:#555;margin:0 0 16px;line-height:1.6;">
+            In the meantime, keep an eye out for updates — your feedback helps shape the product and we take every message seriously.
+          </p>
+          <p style="color:#555;margin:0;line-height:1.6;">Thanks again,<br /><strong>The ReviewOptic team</strong></p>
+          <p style="color:#999;font-size:12px;margin-top:32px;">This is an automated reply to confirm we received your message.</p>
+        </div>
+      `,
+    }).catch(err => console.error("[feedback] Failed to send auto-reply:", err.message));
+
+    res.json({ ok: true });
+  });
+
   app.get("/api/chat/history", requireAuth, async (req, res) => {
     try {
       const WINDOW_MS = 5 * 60 * 1000;

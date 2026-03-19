@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, FileText, BarChart3, Settings, Menu, X, LogOut, Shield, CreditCard, AlertTriangle } from "lucide-react";
+import { LayoutDashboard, Users, FileText, BarChart3, Settings, Menu, X, LogOut, Shield, CreditCard, AlertTriangle, MessageSquarePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, Component, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import type { PrivateFeedback } from "@shared/schema";
 import ChatWidget from "@/components/ChatWidget";
+import { useToast } from "@/hooks/use-toast";
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null };
@@ -67,6 +68,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const { data: feedback } = useQuery<PrivateFeedback[]>({ queryKey: ["/api/private-feedback"] });
   const { user, logout } = useAuth();
   const [, navigate] = useLocation();
+  const [showFeedback, setShowFeedback] = useState(false);
   const unrespondedFeedback = feedback?.filter(f => !f.responded).length || 0;
 
   return (
@@ -118,6 +120,15 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
         <Button
           variant="ghost"
           size="sm"
+          className="w-full justify-start gap-2 text-[12px] h-7 px-2 text-muted-foreground hover:text-foreground mb-1"
+          onClick={() => setShowFeedback(true)}
+        >
+          <MessageSquarePlus className="w-3.5 h-3.5" />
+          Feedback & feature requests
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
           className="w-full justify-start gap-2 text-[12px] h-7 px-2 text-muted-foreground hover:text-foreground"
           onClick={logout}
         >
@@ -125,7 +136,109 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
           Sign out
         </Button>
       </div>
+      <FeedbackDialog open={showFeedback} onClose={() => setShowFeedback(false)} />
     </>
+  );
+}
+
+const SUBJECTS = [
+  "Feature request",
+  "General feedback",
+  "Bug report",
+  "Billing query",
+  "Other",
+];
+
+function FeedbackDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [name, setName] = useState([user?.firstName, user?.lastName].filter(Boolean).join(" "));
+  const [email, setEmail] = useState(user?.email || "");
+  const [subject, setSubject] = useState(SUBJECTS[0]);
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+
+  if (!open) return null;
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !email.trim() || !message.trim()) return;
+    setSending(true);
+    try {
+      const res = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ name, email, subject, message }),
+      });
+      if (!res.ok) throw new Error((await res.json()).message || "Failed to send");
+      toast({ title: "Feedback sent!", description: "Thank you — we'll review your message and be in touch." });
+      setMessage("");
+      onClose();
+    } catch (err: any) {
+      toast({ title: "Could not send", description: err.message, variant: "destructive" });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h2 className="text-[16px] font-bold text-gray-900">Feedback & Feature Requests</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-lg leading-none">✕</button>
+        </div>
+        <p className="text-[13px] text-gray-500">We read every message. Let us know what you think or what you'd love to see.</p>
+        <form onSubmit={submit} className="space-y-3">
+          <div className="flex gap-2">
+            <div className="flex-1 space-y-1">
+              <label className="text-[12px] font-medium text-gray-700">Your name</label>
+              <input
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-[13px] bg-gray-50 text-gray-500 cursor-not-allowed"
+                value={name} readOnly
+              />
+            </div>
+            <div className="flex-1 space-y-1">
+              <label className="text-[12px] font-medium text-gray-700">Email address</label>
+              <input
+                type="email"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-[13px] bg-gray-50 text-gray-500 cursor-not-allowed"
+                value={email} readOnly
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[12px] font-medium text-gray-700">Subject</label>
+            <select
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              value={subject} onChange={e => setSubject(e.target.value)}
+            >
+              {SUBJECTS.map(s => <option key={s}>{s}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[12px] font-medium text-gray-700">Message</label>
+            <textarea
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              rows={4} value={message} onChange={e => setMessage(e.target.value)} required
+              placeholder="Tell us what you'd like to see, or anything on your mind…"
+            />
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button
+              type="submit" disabled={sending}
+              className="flex-1 bg-blue-600 text-white font-semibold py-2.5 rounded-lg text-[13px] hover:bg-blue-700 transition-colors disabled:opacity-50"
+            >
+              {sending ? "Sending…" : "Send message"}
+            </button>
+            <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-lg border border-gray-300 text-[13px] text-gray-600 hover:bg-gray-50 transition-colors">
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
 
