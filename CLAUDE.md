@@ -299,3 +299,33 @@ Your job is to be the developer they would hire if they could afford a great one
 - Instagram auto-posting and review widget are listed as features but not built — decide whether to build or remove from features list
 - Template Performance chart only works for review requests sent after this session (template_id now stamped on send)
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+
+### Session — 2026-03-19 (fifteenth session)
+
+**Tasks completed:**
+- Logo updated to `h-28` across all popup/dialog screens: BillingSuccess, AcceptInvite, VerifyEmail (replaced star icon with actual logo), PlanCancelled (App.tsx), Login page
+- Email logo max-height increased from 60px → 112px (h-28 equivalent) in server/email.ts
+- First-login intro popup: removed X button and outside-click dismiss — only "Let's get started" closes it; localStorage key bumped to `hasSeenIntro_v2_` to reset for all users
+- Tutorial & Guides how-to's: titles are now plain accordion toggles; "Go to..." step text has inline link on just the relevant word(s) (e.g. "Customers page", "Settings", "Analytics") — not the whole sentence
+- Floating guide panel: when navigating from a how-to step link, a draggable floating panel appears on the destination page showing the step-by-step instructions; collapse button minimises to title bar; "← Back to Tutorials & Guides" returns to how-to's tab
+- Videos and how-to's reordered to match user journey: setup first (business details, review platforms, templates, follow-ups), then core actions (add customer, send request), then monitoring/management, then optional (invite team member)
+- "How to reset your password" removed from both videos and how-to's
+- "Invite a team member" moved last and labelled "(optional)"
+- Videos and how-to's numbered (1. 2. 3. etc)
+- Video watched detection: YouTube IFrame API `postMessage` used to auto-mark videos as watched when they start playing (`?enablejsapi=1` appended to URL); green tick badge + green border appear on watched cards; persisted in localStorage
+- How-to content fixes: removed "from the sidebar" / "in the sidebar" phrasing; "General tab" → "Business tab"; email address removed from business details step; "Changes save automatically." added; "Do not contact" capitalisation left as-is (it's a UI feature name)
+- Page title fixed: "Tutorial & Help" → "Tutorials & Guides"
+
+**Architecture notes:**
+- Shared how-to data lives in `client/src/data/howtos.ts` — imported by both Tutorial.tsx and Layout.tsx (for the floating panel)
+- Step type: `{ text: string; link?: string; linkText?: string }` — `linkText` is the specific word(s) that become the clickable link inline
+- Floating panel: fixed-position, draggable via mousedown/mousemove/mouseup on window; shown when `?back=tutorial&tab=howtos&howto=INDEX` is in the URL
+- Watched videos stored in localStorage under key `reviewoptic_watched_videos` as JSON array of indices
+- YouTube autoplay detection: `?enablejsapi=1` on iframe src; listen for `window.message` where `event.source === iframe.contentWindow` and `data.event === "onStateChange" && data.info === 1`
+
+**Notes for next session:**
+- Videos are all still "Coming soon" placeholders — paste YouTube embed URLs into the `VIDEOS` array in `client/src/pages/Tutorial.tsx` when ready
+- Intro popup video URL: set `INTRO_VIDEO_URL` constant at top of `client/src/pages/Dashboard.tsx`
+- Agency plan still needs building
+- Instagram auto-posting and review widget still not built — decide whether to build or remove from features list
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
