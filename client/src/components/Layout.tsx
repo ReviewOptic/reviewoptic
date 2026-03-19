@@ -2,7 +2,7 @@ import { Link, useLocation, useSearch } from "wouter";
 import { HOWTOS } from "@/data/howtos";
 import { LayoutDashboard, Users, FileText, BarChart3, Settings, Menu, X, LogOut, Shield, CreditCard, AlertTriangle, MessageSquarePlus, BookOpen, ArrowLeft, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState, Component, type ReactNode } from "react";
+import { useState, useRef, useEffect, Component, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -286,42 +286,68 @@ function ImpersonationBanner() {
 function BackToTutorial() {
   const search = useSearch();
   const [, navigate] = useLocation();
-  const [stepsOpen, setStepsOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const [pos, setPos] = useState({ x: window.innerWidth - 340, y: window.innerHeight - 400 });
+  const dragging = useRef(false);
+  const dragOffset = useRef({ x: 0, y: 0 });
+
+  useEffect(() => {
+    function onMouseMove(e: MouseEvent) {
+      if (!dragging.current) return;
+      setPos({ x: e.clientX - dragOffset.current.x, y: e.clientY - dragOffset.current.y });
+    }
+    function onMouseUp() { dragging.current = false; }
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => { window.removeEventListener("mousemove", onMouseMove); window.removeEventListener("mouseup", onMouseUp); };
+  }, []);
+
   const params = new URLSearchParams(search);
   if (params.get("back") !== "tutorial") return null;
   const tab = params.get("tab") || "howtos";
   const howtoIndex = parseInt(params.get("howto") || "-1", 10);
   const howto = howtoIndex >= 0 ? HOWTOS[howtoIndex] : null;
+
+  function onMouseDown(e: React.MouseEvent) {
+    dragging.current = true;
+    dragOffset.current = { x: e.clientX - pos.x, y: e.clientY - pos.y };
+    e.preventDefault();
+  }
+
   return (
-    <div className="px-6 pt-4 space-y-2">
-      <button
-        onClick={() => navigate(`/tutorial?tab=${tab}`)}
-        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+    <div
+      className="fixed z-50 w-72 bg-background border border-border rounded-xl shadow-lg overflow-hidden"
+      style={{ left: pos.x, top: pos.y }}
+    >
+      {/* Drag handle / title bar */}
+      <div
+        onMouseDown={onMouseDown}
+        className="flex items-center justify-between px-3 py-2.5 bg-muted/60 cursor-grab active:cursor-grabbing select-none"
       >
-        <ArrowLeft className="w-4 h-4" />
-        Back to Tutorials &amp; Guides
-      </button>
-      {howto && (
-        <div className="border border-border rounded-xl overflow-hidden max-w-xl">
-          <button
-            onClick={() => setStepsOpen(!stepsOpen)}
-            className="w-full flex items-center justify-between px-4 py-3 text-left bg-muted/40 hover:bg-muted/60 transition-colors"
-          >
-            <span className="text-sm font-medium">{howto.title}</span>
-            {stepsOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />}
-          </button>
-          {stepsOpen && (
-            <div className="px-4 py-3 space-y-2 bg-background">
-              {howto.steps.map((step, i) => (
-                <div key={i} className="flex gap-2.5">
-                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary text-xs font-semibold flex items-center justify-center mt-0.5">
-                    {i + 1}
-                  </div>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{step.text}</p>
-                </div>
-              ))}
+        <button
+          onClick={() => navigate(`/tutorial?tab=${tab}`)}
+          className="flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+          onMouseDown={e => e.stopPropagation()}
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          Back to Tutorials &amp; Guides
+        </button>
+        <button onClick={() => setCollapsed(!collapsed)} className="text-muted-foreground hover:text-foreground ml-2 shrink-0" onMouseDown={e => e.stopPropagation()}>
+          {collapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+        </button>
+      </div>
+
+      {!collapsed && howto && (
+        <div className="px-3 py-3 space-y-2.5 max-h-72 overflow-y-auto">
+          <p className="text-xs font-semibold text-foreground mb-1">{howto.title}</p>
+          {howto.steps.map((step, i) => (
+            <div key={i} className="flex gap-2.5">
+              <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary text-xs font-semibold flex items-center justify-center mt-0.5">
+                {i + 1}
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">{step.text}</p>
             </div>
-          )}
+          ))}
         </div>
       )}
     </div>
@@ -371,11 +397,11 @@ export default function Layout({ children }: { children: ReactNode }) {
           <div className="w-8" />
         </header>
         <main className="flex-1 overflow-y-auto">
-          <BackToTutorial />
           {children}
         </main>
       </div>
       {!user?.isImpersonating && <ChatWidget />}
+      <BackToTutorial />
     </div>
     </ErrorBoundary>
   );
