@@ -73,3 +73,29 @@ export async function sendReviewSMS(
     body,
   });
 }
+
+export async function sendWhatsAppMessage(
+  phone: string,
+  body: string,
+  mediaUrl?: string
+): Promise<void> {
+  if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
+    console.log(`[whatsapp] No Twilio credentials. Would WhatsApp ${phone}`);
+    return;
+  }
+  if (!process.env.TWILIO_WHATSAPP_FROM) {
+    console.log(`[whatsapp] No TWILIO_WHATSAPP_FROM set. Would WhatsApp ${phone}`);
+    return;
+  }
+
+  const normPhone = phone.replace(/\s+/g, "");
+  const to = normPhone.startsWith("+") ? normPhone : `+44${normPhone.slice(1)}`;
+
+  const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+  await client.messages.create({
+    from: `whatsapp:${process.env.TWILIO_WHATSAPP_FROM}`,
+    to: `whatsapp:${to}`,
+    body,
+    ...(mediaUrl ? { mediaUrl: [mediaUrl] } : {}),
+  });
+}

@@ -42,6 +42,9 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer; op
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("default");
   const [messageType, setMessageType] = useState<"text" | "voice" | "video">("text");
+  const [phonetic, setPhonetic] = useState(customer.namePronunciation || "");
+  const [previewId, setPreviewId] = useState<string | null>(null);
+  const [isPreviewing, setIsPreviewing] = useState(false);
 
   const { data: settings } = useQuery<any>({ queryKey: ["/api/settings"] });
   const { data: templates } = useQuery<Template[]>({ queryKey: ["/api/templates"] });
@@ -74,6 +77,25 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer; op
   };
 
   const channelTemplates = (templates || []).filter(t => t.channel === channel && t.templateType === "review_request");
+
+  const generatePreview = async () => {
+    setIsPreviewing(true);
+    setPreviewId(null);
+    try {
+      const res = await apiRequest("POST", "/api/recordings/preview", { customerId: customer.id, messageType, phonetic });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      setPreviewId(data.previewId);
+      const firstName = customer.name.split(" ")[0];
+      if (phonetic && phonetic !== firstName) {
+        await apiRequest("PATCH", `/api/customers/${customer.id}`, { namePronunciation: phonetic });
+      }
+    } catch (err: any) {
+      toast({ title: "Preview failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsPreviewing(false);
+    }
+  };
 
   const mutation = useMutation({
     mutationFn: async () => apiRequest("POST", "/api/review-requests", {
@@ -184,14 +206,52 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer; op
           )}
 
           {channel === "whatsapp" && messageType !== "text" ? (
-            <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-center space-y-1">
-              <p className="text-[12.5px] font-medium text-amber-800">
-                {messageType === "voice" ? "Voice note" : "Video message"} not set up yet
-              </p>
-              <p className="text-[11.5px] text-amber-700">
-                Record your {messageType === "voice" ? "voice note" : "video"} during onboarding or in Settings to use this option.
-              </p>
-            </div>
+            (() => {
+              const url = messageType === "voice" ? settings?.voiceNoteUrl : settings?.videoMessageUrl;
+              const firstName = customer.name.split(" ")[0];
+              return url ? (
+                <div className="space-y-3">
+                  {previewId ? (
+                    <div className="space-y-2">
+                      <Label className="text-[12.5px]">Preview — with {firstName}'s name</Label>
+                      {messageType === "voice" ? (
+                        <audio controls src={`/api/recordings/preview/${previewId}`} className="w-full h-10" />
+                      ) : (
+                        <video controls src={`/api/recordings/preview/${previewId}`} className="w-full rounded-lg max-h-40 bg-black" />
+                      )}
+                    </div>
+                  ) : (
+                    <div className="rounded-lg bg-muted/40 border border-border p-3 text-center">
+                      <p className="text-[12px] text-muted-foreground">Generate a preview to hear how it sounds with {firstName}'s name before sending.</p>
+                    </div>
+                  )}
+                  <div className="space-y-1.5">
+                    <Label className="text-[12.5px]">How to pronounce this name <span className="text-muted-foreground font-normal">(for voice only)</span></Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={phonetic}
+                        onChange={e => { setPhonetic(e.target.value); setPreviewId(null); }}
+                        placeholder={firstName}
+                        className="text-[12.5px] flex-1"
+                      />
+                      <Button size="sm" variant="outline" onClick={generatePreview} disabled={isPreviewing} className="text-[12.5px] shrink-0">
+                        {isPreviewing ? <><RefreshCw className="w-3 h-3 animate-spin mr-1" />Generating...</> : previewId ? "Re-generate" : "Preview"}
+                      </Button>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">Only used to pronounce the name in voice/video — the spelling in text messages is never changed. E.g. type <span className="italic">See-oh-bhan</span> for Siobhan.</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-center space-y-1">
+                  <p className="text-[12.5px] font-medium text-amber-800">
+                    {messageType === "voice" ? "Voice note" : "Video message"} not set up yet
+                  </p>
+                  <p className="text-[11.5px] text-amber-700">
+                    Upload your {messageType === "voice" ? "voice note" : "video"} in <a href="/settings?tab=recordings" className="underline font-medium">Settings → Recordings</a>.
+                  </p>
+                </div>
+              );
+            })()
           ) : (
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
@@ -227,7 +287,7 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer; op
         </div>
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
-          <Button size="sm" onClick={() => mutation.mutate()} disabled={mutation.isPending || (channel === "whatsapp" && messageType !== "text")} data-testid="button-confirm-send-detail">
+          <Button size="sm" onClick={() => mutation.mutate()} disabled={mutation.isPending || (channel === "whatsapp" && messageType !== "text" && !previewId)} data-testid="button-confirm-send-detail">
             {mutation.isPending ? "Sending..." : "Send Now"}
           </Button>
         </DialogFooter>

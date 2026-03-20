@@ -86,6 +86,16 @@ export const HOWTOS: HowTo[] = [
     ],
   },
   {
+    title: "How to record a voice note or video message (optional)",
+    steps: [
+      { text: "Go to Settings and open the Recordings tab.", link: "/settings", linkText: "Settings" },
+      { text: "Under Voice Note, click 'Upload audio file' and select a recording from your device. Speak naturally — say something like: 'Hi, it's [your business name] — could you spare a minute to leave us a review?'" },
+      { text: "Under Video Message, click 'Upload video file' and select a short video (15–30 seconds). Keep it warm and personal." },
+      { text: "Once uploaded, play it back to check how it sounds before sending to any customers." },
+      { text: "When sending a WhatsApp review request, select 'Voice note' or 'Video' as the message type — you'll see a preview before you send." },
+    ],
+  },
+  {
     title: "How to invite a team member (optional)",
     steps: [
       { text: "Go to Settings and open the Team tab.", link: "/settings", linkText: "Settings" },

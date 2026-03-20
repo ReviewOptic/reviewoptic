@@ -140,6 +140,9 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
   const [aiMessage, setAiMessage] = useState("");
   const [customSubject, setCustomSubject] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [phonetic, setPhonetic] = useState("");
+  const [previewId, setPreviewId] = useState<string | null>(null);
+  const [isPreviewing, setIsPreviewing] = useState(false);
 
   const { data: settings } = useQuery<any>({ queryKey: ["/api/settings"] });
   const { data: templates } = useQuery<Template[]>({ queryKey: ["/api/templates"] });
@@ -154,6 +157,10 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
       setCustomSubject(`How was your experience with ${settings.businessName}?`);
     }
   }, [settings]);
+
+  useEffect(() => {
+    if (customer) setPhonetic(customer.namePronunciation || "");
+  }, [customer?.id]);
 
   useEffect(() => {
     if (messageMode === "template" && selectedTemplate?.subject) {
@@ -187,8 +194,33 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
     }
   };
 
+  const generatePreview = async (phon?: string) => {
+    setIsPreviewing(true);
+    setPreviewId(null);
+    try {
+      const res = await apiRequest("POST", "/api/recordings/preview", {
+        customerId: customer?.id,
+        messageType,
+        phonetic: phon ?? phonetic,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      setPreviewId(data.previewId);
+      // Save phonetic spelling to customer if different from their name
+      const firstName = customer?.name.split(" ")[0] || "";
+      const spellingToSave = phon ?? phonetic;
+      if (spellingToSave && spellingToSave !== firstName) {
+        await apiRequest("PATCH", `/api/customers/${customer?.id}`, { namePronunciation: spellingToSave });
+      }
+    } catch (err: any) {
+      toast({ title: "Preview failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsPreviewing(false);
+    }
+  };
+
   const canSend = (channel === "whatsapp" && messageType !== "text")
-    ? false  // voice/video not yet set up
+    ? !!previewId
     : (messageMode === "template" || aiMessage.trim().length > 0);
 
   const mutation = useMutation({
@@ -296,16 +328,54 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
             </div>
           )}
 
-          {/* Voice / Video placeholder */}
+          {/* Voice / Video preview + pronunciation */}
           {channel === "whatsapp" && messageType !== "text" ? (
-            <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-center space-y-1">
-              <p className="text-[12.5px] font-medium text-amber-800">
-                {messageType === "voice" ? "Voice note" : "Video message"} not set up yet
-              </p>
-              <p className="text-[11.5px] text-amber-700">
-                Record your {messageType === "voice" ? "voice note" : "video"} during onboarding or in Settings to use this option.
-              </p>
-            </div>
+            (() => {
+              const url = messageType === "voice" ? settings?.voiceNoteUrl : settings?.videoMessageUrl;
+              const firstName = customer?.name?.split(" ")[0] || "";
+              return url ? (
+                <div className="space-y-3">
+                  {previewId ? (
+                    <div className="space-y-2">
+                      <Label className="text-[12.5px]">Preview — with {firstName}'s name</Label>
+                      {messageType === "voice" ? (
+                        <audio controls src={`/api/recordings/preview/${previewId}`} className="w-full h-10" />
+                      ) : (
+                        <video controls src={`/api/recordings/preview/${previewId}`} className="w-full rounded-lg max-h-40 bg-black" />
+                      )}
+                    </div>
+                  ) : (
+                    <div className="rounded-lg bg-muted/40 border border-border p-3 text-center">
+                      <p className="text-[12px] text-muted-foreground">Generate a preview to hear how it sounds with {firstName}'s name before sending.</p>
+                    </div>
+                  )}
+                  <div className="space-y-1.5">
+                    <Label className="text-[12.5px]">How to pronounce this name <span className="text-muted-foreground font-normal">(for voice only)</span></Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={phonetic}
+                        onChange={e => { setPhonetic(e.target.value); setPreviewId(null); }}
+                        placeholder={firstName}
+                        className="text-[12.5px] flex-1"
+                      />
+                      <Button size="sm" variant="outline" onClick={() => generatePreview()} disabled={isPreviewing} className="text-[12.5px] shrink-0">
+                        {isPreviewing ? <><RefreshCw className="w-3 h-3 animate-spin mr-1" />Generating...</> : previewId ? "Re-generate" : "Preview"}
+                      </Button>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">Only used to pronounce the name in voice/video — the spelling in text messages is never changed. E.g. type <span className="italic">See-oh-bhan</span> for Siobhan.</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-center space-y-1">
+                  <p className="text-[12.5px] font-medium text-amber-800">
+                    {messageType === "voice" ? "Voice note" : "Video message"} not set up yet
+                  </p>
+                  <p className="text-[11.5px] text-amber-700">
+                    Upload your {messageType === "voice" ? "voice note" : "video"} in <a href="/settings?tab=recordings" className="underline font-medium">Settings → Recordings</a>.
+                  </p>
+                </div>
+              );
+            })()
           ) : (
             /* Text message mode toggle */
             <div className="space-y-2">

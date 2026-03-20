@@ -18,6 +18,7 @@ export const customers = pgTable("customers", {
   notes: text("notes").notNull().default(""),
   status: text("status").notNull().default("pending_request"),
   doNotContact: boolean("do_not_contact").notNull().default(false),
+  namePronunciation: text("name_pronunciation").notNull().default(""),
   channel: text("channel").notNull().default("email"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
@@ -120,6 +121,7 @@ export const settings = pgTable("settings", {
   country: text("country").notNull().default(""),
   voiceNoteUrl: text("voice_note_url").notNull().default(""),
   videoMessageUrl: text("video_message_url").notNull().default(""),
+  elevenLabsVoiceId: text("elevenlabs_voice_id").notNull().default(""),
 });
 
 export const insertCustomerSchema = createInsertSchema(customers).omit({ createdAt: true });

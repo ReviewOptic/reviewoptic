@@ -10,8 +10,9 @@ import bcrypt from "bcryptjs";
 import { Resend } from "resend";
 import OpenAI from "openai";
 import { sendReviewEmail, sendVerificationEmail } from "./email";
-import { sendReviewSMS } from "./sms";
+import { sendReviewSMS, sendWhatsAppMessage } from "./sms";
 import { isCloudinaryConfigured, uploadToCloudinary, deleteFromCloudinary } from "./cloudinary";
+import { cloneVoice, deleteVoice, generateNameAudio, stitchNameToFront } from "./elevenlabs";
 import type { Review, Customer, Settings } from "@shared/schema";
 import { UAParser } from "ua-parser-js";
 
@@ -193,6 +194,19 @@ const audioUpload = multer({
     else cb(new Error("Only audio files allowed"));
   },
 });
+
+// Temporary in-memory store for preview files (keyed by previewId)
+const previewFiles = new Map<string, { path: string; expires: number }>();
+// Clean up expired previews every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, entry] of Array.from(previewFiles.entries())) {
+    if (now > entry.expires) {
+      fs.unlink(entry.path, () => {});
+      previewFiles.delete(id);
+    }
+  }
+}, 5 * 60 * 1000);
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
 
@@ -1016,6 +1030,63 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         sendReviewSMS(customer, settings, effectiveTemplate, selectedPlatforms).catch(err =>
           console.error("[review request] Failed to send SMS:", err.message)
         );
+      } else if (channel === "whatsapp" && customer.phone) {
+        const messageType: string = req.body.messageType || "text";
+        const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "");
+        if (messageType === "voice" && settings.voiceNoteUrl && settings.elevenLabsVoiceId) {
+          // Generate personalised voice note: "[Name]!" + voice recording, then send via WhatsApp
+          (async () => {
+            try {
+              const firstName = customer.name.split(" ")[0];
+              const nameAudioPath = await generateNameAudio(settings.elevenLabsVoiceId, `${firstName}!`);
+              const mergedPath = await stitchNameToFront(nameAudioPath, settings.voiceNoteUrl, "audio");
+              const filename = path.basename(mergedPath);
+              const mediaUrl = `${appUrl}/uploads/tmp/${filename}`;
+              await sendWhatsAppMessage(customer.phone, "", mediaUrl);
+              // Delete after 60s to allow Twilio to fetch it
+              setTimeout(() => fs.unlink(mergedPath, () => {}), 60_000);
+            } catch (err: any) {
+              console.error("[whatsapp voice] Failed:", err.message);
+            }
+          })();
+        } else if (messageType === "video" && settings.videoMessageUrl && settings.elevenLabsVoiceId) {
+          // Generate personalised video: black frame with "[Name]!" audio + video, then send via WhatsApp
+          (async () => {
+            try {
+              const firstName = customer.name.split(" ")[0];
+              const nameAudioPath = await generateNameAudio(settings.elevenLabsVoiceId, `${firstName}!`);
+              const mergedPath = await stitchNameToFront(nameAudioPath, settings.videoMessageUrl, "video");
+              const filename = path.basename(mergedPath);
+              const mediaUrl = `${appUrl}/uploads/tmp/${filename}`;
+              await sendWhatsAppMessage(customer.phone, "", mediaUrl);
+              setTimeout(() => fs.unlink(mergedPath, () => {}), 60_000);
+            } catch (err: any) {
+              console.error("[whatsapp video] Failed:", err.message);
+            }
+          })();
+        } else {
+          // Plain text WhatsApp message
+          const template =
+            (templateId && allTemplates.find(t => t.id === templateId)) ||
+            allTemplates.find(t => t.channel === "whatsapp" && t.isDefault) ||
+            allTemplates.find(t => t.channel === "whatsapp") ||
+            null;
+          const effectiveTemplate = customMessage
+            ? { ...(template || { subject: "", body: "" }), body: customMessage }
+            : template;
+          const reviewLink = selectedPlatforms?.[0]?.url || settings.googleReviewLink || settings.facebookReviewLink || settings.trustpilotLink || "";
+          const body = effectiveTemplate?.body
+            ? effectiveTemplate.body
+                .replace(/\{\{first_name\}\}/g, customer.name.split(" ")[0])
+                .replace(/\{\{customer_name\}\}/g, customer.name)
+                .replace(/\{\{business_name\}\}/g, settings.businessName)
+                .replace(/\{\{service_type\}\}/g, customer.serviceType || "")
+                .replace(/\{\{review_link\}\}/g, reviewLink)
+            : `Hi ${customer.name.split(" ")[0]}, thanks for choosing ${settings.businessName}! We'd love a quick review: ${reviewLink}`;
+          sendWhatsAppMessage(customer.phone, body).catch(err =>
+            console.error("[whatsapp text] Failed:", err.message)
+          );
+        }
       }
     }
 
@@ -1091,7 +1162,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       fs.unlink(req.file.path, () => {});
       const current = await storage.getSettings(req.session.accountId!);
       if (current?.voiceNoteUrl) await deleteFromCloudinary(current.voiceNoteUrl);
-      await storage.upsertSettings(req.session.accountId!, { voiceNoteUrl: url });
+      // Delete old ElevenLabs voice clone if one exists
+      if (current?.elevenLabsVoiceId) await deleteVoice(current.elevenLabsVoiceId).catch(() => {});
+      // Clone the voice via ElevenLabs
+      let elevenLabsVoiceId = "";
+      if (process.env.ELEVENLABS_API_KEY) {
+        const businessName = current?.businessName || "ReviewOptic";
+        elevenLabsVoiceId = await cloneVoice(url, businessName).catch(err => {
+          console.error("[recordings] ElevenLabs clone failed:", err.message);
+          return "";
+        });
+      }
+      await storage.upsertSettings(req.session.accountId!, { voiceNoteUrl: url, elevenLabsVoiceId });
       res.json({ url });
     } catch (err: any) {
       console.error("[recordings] voice upload failed:", err.message);
@@ -1115,10 +1197,45 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // Preview endpoint — generates stitched audio/video and serves it temporarily
+  app.post("/api/recordings/preview", requireAuth, async (req, res) => {
+    const { customerId, messageType, phonetic } = req.body;
+    if (!customerId || !messageType) return res.status(400).json({ message: "Missing customerId or messageType" });
+    const settings = await storage.getSettings(req.session.accountId!);
+    if (!settings?.elevenLabsVoiceId) return res.status(400).json({ message: "No voice clone set up — upload a voice note first" });
+
+    const customer = await storage.getCustomer(customerId, req.session.accountId!);
+    if (!customer) return res.status(404).json({ message: "Customer not found" });
+
+    const firstName = customer.name.split(" ")[0];
+    const nameText = `${phonetic || customer.namePronunciation || firstName}!`;
+    const sourceUrl = messageType === "voice" ? settings.voiceNoteUrl : settings.videoMessageUrl;
+    if (!sourceUrl) return res.status(400).json({ message: `No ${messageType} recording uploaded` });
+
+    try {
+      const nameAudioPath = await generateNameAudio(settings.elevenLabsVoiceId, nameText);
+      const mergedPath = await stitchNameToFront(nameAudioPath, sourceUrl, messageType === "voice" ? "audio" : "video");
+      const previewId = randomUUID();
+      // Store path temporarily in memory (expires after 10 min)
+      previewFiles.set(previewId, { path: mergedPath, expires: Date.now() + 10 * 60 * 1000 });
+      res.json({ previewId });
+    } catch (err: any) {
+      console.error("[preview] failed:", err.message);
+      res.status(500).json({ message: "Failed to generate preview: " + err.message });
+    }
+  });
+
+  app.get("/api/recordings/preview/:id", (req, res) => {
+    const entry = previewFiles.get(req.params.id);
+    if (!entry || Date.now() > entry.expires) return res.status(404).json({ message: "Preview expired" });
+    res.sendFile(entry.path, { root: "/" });
+  });
+
   app.delete("/api/recordings/voice", requireAuth, async (req, res) => {
     const current = await storage.getSettings(req.session.accountId!);
     if (current?.voiceNoteUrl) await deleteFromCloudinary(current.voiceNoteUrl);
-    await storage.upsertSettings(req.session.accountId!, { voiceNoteUrl: "" });
+    if (current?.elevenLabsVoiceId) await deleteVoice(current.elevenLabsVoiceId).catch(() => {});
+    await storage.upsertSettings(req.session.accountId!, { voiceNoteUrl: "", elevenLabsVoiceId: "" });
     res.json({ success: true });
   });
 

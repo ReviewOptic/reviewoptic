@@ -72,6 +72,12 @@ const VIDEOS = [
     duration: "2 min",
     url: "", // paste YouTube embed URL here
   },
+  {
+    title: "How to record a voice note or video message (optional)",
+    description: "How to upload a voice note or video so customers receive a personal message from you via WhatsApp.",
+    duration: "2 min",
+    url: "", // paste YouTube embed URL here
+  },
 ];
 // ───────────────────────────────────────────────────────────────────────────
 

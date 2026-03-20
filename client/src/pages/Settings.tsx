@@ -107,9 +107,9 @@ function RecordingsTab() {
               <div>
                 <p className="text-[13px] font-medium text-foreground">No voice note uploaded yet</p>
                 <p className="text-[12px] text-muted-foreground mt-1">
-                  Say something like: <span className="italic">"Hi [pause], it's [your business name] — could you spare a minute to leave us a review? It would mean the world to us."</span>
+                  Record something like: <span className="italic">"It's [your business name] — we'd love to hear what you thought. Could you spare a moment to leave us a review? It really does make a difference."</span>
                 </p>
-                <p className="text-[11.5px] text-muted-foreground mt-1">Leave a natural pause where the customer's name will be inserted.</p>
+                <p className="text-[11.5px] text-muted-foreground mt-1">The customer's first name is added automatically to the very start — e.g. <span className="italic font-medium">"Sarah! It's [your business name]..."</span></p>
               </div>
               <Button variant="outline" size="sm" className="text-[12.5px]" onClick={() => voiceInputRef.current?.click()} disabled={uploadingVoice}>
                 <Upload className="w-3.5 h-3.5 mr-1.5" />
@@ -158,8 +158,9 @@ function RecordingsTab() {
               <div>
                 <p className="text-[13px] font-medium text-foreground">No video uploaded yet</p>
                 <p className="text-[12px] text-muted-foreground mt-1">
-                  Film a short video (15–30 seconds) asking for a review. Keep it warm and personal — customers respond much better to a real face than a text message.
+                  Film a short video (15–30 seconds) saying something like: <span className="italic">"It's [your business name] — thank you so much for choosing us. We'd really appreciate it if you could take a moment to leave us a review."</span>
                 </p>
+                <p className="text-[11.5px] text-muted-foreground mt-1">The customer's first name is added as a text caption at the start of the video — e.g. <span className="italic font-medium">"Hi Sarah!"</span> — before your video plays.</p>
               </div>
               <Button variant="outline" size="sm" className="text-[12.5px]" onClick={() => videoInputRef.current?.click()} disabled={uploadingVideo}>
                 <Upload className="w-3.5 h-3.5 mr-1.5" />
