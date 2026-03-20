@@ -76,6 +76,7 @@ export default function Dashboard() {
   const [, navigate] = useLocation();
   const [statModal, setStatModal] = useState<string | null>(null);
   const [showIntro, setShowIntro] = useState(false);
+  const [videoWatched, setVideoWatched] = useState(!INTRO_VIDEO_URL);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -84,8 +85,24 @@ export default function Dashboard() {
     const key = `hasSeenIntro_v2_${user.id}`;
     if (!localStorage.getItem(key)) {
       setShowIntro(true);
+      setVideoWatched(!INTRO_VIDEO_URL);
     }
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!INTRO_VIDEO_URL || !showIntro) return;
+    function handleMessage(e: MessageEvent) {
+      try {
+        const data = typeof e.data === "string" ? JSON.parse(e.data) : e.data;
+        // YouTube state 0 = ended
+        if (data.event === "onStateChange" && data.info === 0) {
+          setVideoWatched(true);
+        }
+      } catch {}
+    }
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [showIntro]);
 
   function dismissIntro() {
     if (user?.id) localStorage.setItem(`hasSeenIntro_v2_${user.id}`, "true");
@@ -142,7 +159,7 @@ export default function Dashboard() {
           <div className="mx-7">
             {INTRO_VIDEO_URL ? (
               <div className="aspect-video w-full rounded-xl overflow-hidden bg-black">
-                <iframe src={`${INTRO_VIDEO_URL}?autoplay=1`} title="Welcome to ReviewOptic" className="w-full h-full"
+                <iframe src={`${INTRO_VIDEO_URL}?autoplay=1&enablejsapi=1`} title="Welcome to ReviewOptic" className="w-full h-full"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
               </div>
             ) : (
@@ -155,12 +172,16 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div className="px-7 pb-7 pt-5">
+          <div className="px-7 pb-7 pt-5 space-y-2">
+            {INTRO_VIDEO_URL && !videoWatched && (
+              <p className="text-center text-[12px] text-muted-foreground">Please watch the video to continue.</p>
+            )}
             <button
               onClick={() => { dismissIntro(); navigate("/tutorial"); }}
-              className="w-full bg-primary text-primary-foreground font-semibold py-2.5 rounded-lg hover:bg-primary/90 transition-colors text-sm"
+              disabled={!videoWatched}
+              className="w-full bg-primary text-primary-foreground font-semibold py-2.5 rounded-lg hover:bg-primary/90 transition-colors text-sm disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              Let's get started
+              {videoWatched ? "Let's get started" : "Watch the video to continue"}
             </button>
           </div>
         </DialogContent>

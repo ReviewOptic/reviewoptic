@@ -329,3 +329,16 @@ Your job is to be the developer they would hire if they could afford a great one
 - Agency plan still needs building
 - Instagram auto-posting and review widget still not built — decide whether to build or remove from features list
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+
+### Session — 2026-03-20 (sixteenth session)
+
+**Tasks completed:**
+- Confirmed name pronunciation feature is fully built — phonetic field in Send Request dialog (CustomerDetail), pre-fills from `customer.namePronunciation`, preview required before send, saves back to customer record after preview
+- Intro popup video gate — "Let's get started" button now disabled until user has watched the video to the end; button label changes to "Watch the video to continue" while locked; small note above button reads "Please watch the video to continue."; uses YouTube IFrame API `postMessage` (`?enablejsapi=1`, state `0` = ended) to detect completion; if no `INTRO_VIDEO_URL` set, button remains immediately enabled as before
+
+**Notes for next session:**
+- Agency pricing tier has been removed — do not reference or rebuild it
+- Intro video gate is ready — paste YouTube embed URL into `INTRO_VIDEO_URL` constant at top of `client/src/pages/Dashboard.tsx` when video is ready
+- Agency plan build still pending
+- Instagram auto-posting and review widget still not built — decide whether to build or remove from features list
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
