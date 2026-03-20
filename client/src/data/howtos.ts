@@ -16,7 +16,7 @@ export const HOWTOS: HowTo[] = [
     steps: [
       { text: "Go to Settings and open the Review Platforms tab.", link: "/settings", linkText: "Settings" },
       { text: "Add links to your Google, Trustpilot, or other review profile pages." },
-      { text: "These links are embedded automatically in every review request you send." },
+      { text: "When sending a review request, you'll be able to choose which platform(s) to include — one, several, or all of them." },
       { text: "Make sure you test your links are correct before sending to customers." },
     ],
   },
@@ -53,6 +53,7 @@ export const HOWTOS: HowTo[] = [
       { text: "Go to the Customers page.", link: "/customers", linkText: "Customers page" },
       { text: "Find the customer you want to contact and click 'Send Request' next to their name." },
       { text: "Choose your channel (Email, SMS, or WhatsApp) and select a template." },
+      { text: "Select which review platform(s) to include — you can choose one, several, or all of the platforms you've connected." },
       { text: "Hit Send — the request is delivered instantly and tracked automatically." },
     ],
   },

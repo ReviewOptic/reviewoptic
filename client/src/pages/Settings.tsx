@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useState, useEffect, useCallback, useRef } from "react";
 import Cropper from "react-easy-crop";
-import { Save, ExternalLink, Copy, Check, Globe, Bell, FileCode, Star, Share2, Upload, X, Trash2, UserPlus } from "lucide-react";
+import { Save, ExternalLink, Copy, Check, Globe, Bell, FileCode, Star, Share2, Upload, X, Trash2, UserPlus, Mic, Video } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,153 @@ function SettingSection({ title, description, children }: { title: string; descr
         {description && <p className="text-[12.5px] text-muted-foreground mt-0.5">{description}</p>}
       </div>
       {children}
+    </div>
+  );
+}
+
+function RecordingsTab() {
+  const { data: settings, refetch } = useQuery<any>({ queryKey: ["/api/settings"] });
+  const { toast } = useToast();
+  const voiceInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingVoice, setUploadingVoice] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+
+  async function handleUpload(type: "voice" | "video", file: File) {
+    const endpoint = type === "voice" ? "/api/recordings/upload-voice" : "/api/recordings/upload-video";
+    const fieldName = type === "voice" ? "audio" : "video";
+    const setter = type === "voice" ? setUploadingVoice : setUploadingVideo;
+    setter(true);
+    try {
+      const fd = new FormData();
+      fd.append(fieldName, file);
+      const res = await fetch(endpoint, { method: "POST", credentials: "include", body: fd });
+      if (!res.ok) throw new Error((await res.json()).message);
+      toast({ title: `${type === "voice" ? "Voice note" : "Video"} uploaded successfully` });
+      refetch();
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    } finally {
+      setter(false);
+    }
+  }
+
+  async function handleDelete(type: "voice" | "video") {
+    const endpoint = type === "voice" ? "/api/recordings/voice" : "/api/recordings/video";
+    try {
+      await fetch(endpoint, { method: "DELETE", credentials: "include" });
+      toast({ title: `${type === "voice" ? "Voice note" : "Video"} removed` });
+      refetch();
+    } catch {
+      toast({ title: "Failed to remove", variant: "destructive" });
+    }
+  }
+
+  const voiceUrl: string = settings?.voiceNoteUrl || "";
+  const videoUrl: string = settings?.videoMessageUrl || "";
+
+  return (
+    <div className="space-y-4">
+      {/* Voice note */}
+      <Card className="border-card-border">
+        <CardHeader>
+          <CardTitle className="text-[15px] flex items-center gap-2">
+            <Mic className="w-4 h-4 text-primary" />
+            Voice Note
+          </CardTitle>
+          <CardDescription className="text-[12.5px]">
+            Record a short voice message requesting a review. We'll personalise it with each customer's name using AI voice synthesis before sending via WhatsApp.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pb-5">
+          {voiceUrl ? (
+            <div className="space-y-3">
+              <audio controls src={voiceUrl} className="w-full h-10" />
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="text-[12.5px]" onClick={() => voiceInputRef.current?.click()} disabled={uploadingVoice}>
+                  <Upload className="w-3.5 h-3.5 mr-1.5" />
+                  Replace
+                </Button>
+                <Button variant="outline" size="sm" className="text-[12.5px] text-destructive hover:text-destructive" onClick={() => handleDelete("voice")}>
+                  <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                  Remove
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-lg border-2 border-dashed border-border bg-muted/30 p-6 text-center space-y-3">
+              <div className="flex justify-center">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Mic className="w-5 h-5 text-primary" />
+                </div>
+              </div>
+              <div>
+                <p className="text-[13px] font-medium text-foreground">No voice note uploaded yet</p>
+                <p className="text-[12px] text-muted-foreground mt-1">
+                  Say something like: <span className="italic">"Hi [pause], it's [your business name] — could you spare a minute to leave us a review? It would mean the world to us."</span>
+                </p>
+                <p className="text-[11.5px] text-muted-foreground mt-1">Leave a natural pause where the customer's name will be inserted.</p>
+              </div>
+              <Button variant="outline" size="sm" className="text-[12.5px]" onClick={() => voiceInputRef.current?.click()} disabled={uploadingVoice}>
+                <Upload className="w-3.5 h-3.5 mr-1.5" />
+                {uploadingVoice ? "Uploading..." : "Upload audio file"}
+              </Button>
+            </div>
+          )}
+          <input ref={voiceInputRef} type="file" accept="audio/*,video/webm" className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload("voice", f); e.target.value = ""; }} />
+        </CardContent>
+      </Card>
+
+      {/* Video message */}
+      <Card className="border-card-border">
+        <CardHeader>
+          <CardTitle className="text-[15px] flex items-center gap-2">
+            <Video className="w-4 h-4 text-primary" />
+            Video Message
+          </CardTitle>
+          <CardDescription className="text-[12.5px]">
+            Upload a short video requesting a review. Sent directly to customers via WhatsApp as a personalised video message.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pb-5">
+          {videoUrl ? (
+            <div className="space-y-3">
+              <video controls src={videoUrl} className="w-full rounded-lg max-h-48 bg-black" />
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="text-[12.5px]" onClick={() => videoInputRef.current?.click()} disabled={uploadingVideo}>
+                  <Upload className="w-3.5 h-3.5 mr-1.5" />
+                  Replace
+                </Button>
+                <Button variant="outline" size="sm" className="text-[12.5px] text-destructive hover:text-destructive" onClick={() => handleDelete("video")}>
+                  <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                  Remove
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-lg border-2 border-dashed border-border bg-muted/30 p-6 text-center space-y-3">
+              <div className="flex justify-center">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Video className="w-5 h-5 text-primary" />
+                </div>
+              </div>
+              <div>
+                <p className="text-[13px] font-medium text-foreground">No video uploaded yet</p>
+                <p className="text-[12px] text-muted-foreground mt-1">
+                  Film a short video (15–30 seconds) asking for a review. Keep it warm and personal — customers respond much better to a real face than a text message.
+                </p>
+              </div>
+              <Button variant="outline" size="sm" className="text-[12.5px]" onClick={() => videoInputRef.current?.click()} disabled={uploadingVideo}>
+                <Upload className="w-3.5 h-3.5 mr-1.5" />
+                {uploadingVideo ? "Uploading..." : "Upload video file"}
+              </Button>
+            </div>
+          )}
+          <input ref={videoInputRef} type="file" accept="video/*" className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload("video", f); e.target.value = ""; }} />
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -195,6 +342,7 @@ export default function Settings() {
           <TabsTrigger value="social" className="text-[12.5px]" data-testid="tab-social">Social</TabsTrigger>
           <TabsTrigger value="notifications" className="text-[12.5px]" data-testid="tab-notifications">Insight Emails</TabsTrigger>
           <TabsTrigger value="team" className="text-[12.5px]" data-testid="tab-team">Team</TabsTrigger>
+          <TabsTrigger value="recordings" className="text-[12.5px]" data-testid="tab-recordings">Recordings</TabsTrigger>
         </TabsList>
 
         {/* Business Info */}
@@ -389,12 +537,6 @@ export default function Settings() {
                   </div>
                 </div>
               ))}
-              <div className="p-3 rounded-lg bg-green-50/50 dark:bg-green-900/10 border border-green-200/50 dark:border-green-900/30">
-                <p className="text-[12.5px] text-green-700 dark:text-green-400 font-medium">Sentiment Pre-Screen Filter</p>
-                <p className="text-[12px] text-muted-foreground mt-0.5">
-                  Customers who rate 4-5 stars will be directed to your review platforms. Customers who rate 1-3 stars will be redirected to a private feedback form — protecting your public rating.
-                </p>
-              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -726,6 +868,11 @@ export default function Settings() {
         {/* Team */}
         <TabsContent value="team">
           <TeamTab />
+        </TabsContent>
+
+        {/* Recordings */}
+        <TabsContent value="recordings">
+          <RecordingsTab />
         </TabsContent>
       </Tabs>
 

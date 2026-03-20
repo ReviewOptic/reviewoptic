@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import {
   Plus, Search, Send, MoreHorizontal, Ban, Trash2, Users,
-  Upload, X, CheckCircle2, Clock, Star, Eye, AlertCircle, Edit2, Sparkles, RefreshCw
+  Upload, X, CheckCircle2, Clock, Star, Eye, AlertCircle, Edit2, Sparkles, RefreshCw, Mic, Video
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -135,6 +135,7 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
   const [delay, setDelay] = useState("now");
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [messageMode, setMessageMode] = useState<"template" | "ai">("template");
+  const [messageType, setMessageType] = useState<"text" | "voice" | "video">("text");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("default");
   const [aiMessage, setAiMessage] = useState("");
   const [customSubject, setCustomSubject] = useState("");
@@ -186,7 +187,9 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
     }
   };
 
-  const canSend = messageMode === "template" || aiMessage.trim().length > 0;
+  const canSend = (channel === "whatsapp" && messageType !== "text")
+    ? false  // voice/video not yet set up
+    : (messageMode === "template" || aiMessage.trim().length > 0);
 
   const mutation = useMutation({
     mutationFn: async () => apiRequest("POST", "/api/review-requests", {
@@ -223,7 +226,7 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
           {/* Channel */}
           <div className="space-y-1.5">
             <Label className="text-[12.5px]">Send via</Label>
-            <Select value={channel} onValueChange={(v) => { setChannel(v); setAiMessage(""); setSelectedTemplateId("default"); }}>
+            <Select value={channel} onValueChange={(v) => { setChannel(v); setAiMessage(""); setSelectedTemplateId("default"); setMessageType("text"); }}>
               <SelectTrigger data-testid="select-send-channel"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="email">Email</SelectItem>
@@ -270,81 +273,116 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
             </div>
           )}
 
-          {/* Message mode toggle */}
-          <div className="space-y-2">
-            <Label className="text-[12.5px]">Message</Label>
-            <div className="flex gap-1 p-1 bg-muted rounded-lg">
-              <button
-                type="button"
-                onClick={() => { setMessageMode("template"); setAiMessage(""); }}
-                className={`flex-1 py-1.5 rounded-md text-[12px] font-medium transition-colors ${messageMode === "template" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                Use a template
-              </button>
-              <button
-                type="button"
-                onClick={() => setMessageMode("ai")}
-                className={`flex-1 py-1.5 rounded-md text-[12px] font-medium transition-colors flex items-center justify-center gap-1.5 ${messageMode === "ai" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                <Sparkles className="w-3 h-3" /> Generate with AI
-              </button>
-            </div>
-
-            {/* Template mode */}
-            {messageMode === "template" && (
-              <div className="space-y-2">
-                {channelTemplates.length > 1 && (
-                  <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
-                    <SelectTrigger className="text-[12.5px]"><SelectValue placeholder="Choose template…" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="default">{channelTemplates[0]?.name || "Default template"}</SelectItem>
-                      {channelTemplates.slice(1).map(t => (
-                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-                {selectedTemplate && (
-                  <div className="rounded-lg border border-border bg-muted/30 p-3 text-[12.5px] text-muted-foreground whitespace-pre-wrap line-clamp-5">
-                    {selectedTemplate.body}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* AI mode */}
-            {messageMode === "ai" && (
-              <div className="space-y-2">
-                <div className="flex justify-end">
+          {/* WhatsApp message type selector */}
+          {channel === "whatsapp" && (
+            <div className="space-y-1.5">
+              <Label className="text-[12.5px]">Message type</Label>
+              <div className="flex gap-1 p-1 bg-muted rounded-lg">
+                {([
+                  { value: "text", label: "Text", icon: null },
+                  { value: "voice", label: "Voice note", icon: <Mic className="w-3 h-3" /> },
+                  { value: "video", label: "Video", icon: <Video className="w-3 h-3" /> },
+                ] as const).map(opt => (
                   <button
+                    key={opt.value}
                     type="button"
-                    onClick={generateAIMessage}
-                    disabled={isGenerating}
-                    className="flex items-center gap-1.5 text-[11.5px] font-medium text-primary hover:text-primary/80 disabled:opacity-50 transition-colors"
+                    onClick={() => setMessageType(opt.value)}
+                    className={`flex-1 py-1.5 rounded-md text-[12px] font-medium transition-colors flex items-center justify-center gap-1 ${messageType === opt.value ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                   >
-                    {isGenerating
-                      ? <><RefreshCw className="w-3 h-3 animate-spin" />Generating...</>
-                      : <><Sparkles className="w-3 h-3" />{aiMessage ? "Regenerate" : "Generate"}</>
-                    }
+                    {opt.icon}{opt.label}
                   </button>
-                </div>
-                {aiMessage ? (
-                  <Textarea
-                    value={aiMessage}
-                    onChange={(e) => setAiMessage(e.target.value)}
-                    rows={channel === "sms" || channel === "whatsapp" ? 3 : 5}
-                    className="text-[12.5px] resize-none"
-                  />
-                ) : (
-                  <div className="rounded-lg bg-muted/50 border border-dashed border-border p-3 text-center">
-                    <p className="text-[11.5px] text-muted-foreground">
-                      Click <span className="font-medium text-primary">Generate</span> to create a personalised message for {customer?.name?.split(" ")[0]}.
-                    </p>
-                  </div>
-                )}
+                ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* Voice / Video placeholder */}
+          {channel === "whatsapp" && messageType !== "text" ? (
+            <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-center space-y-1">
+              <p className="text-[12.5px] font-medium text-amber-800">
+                {messageType === "voice" ? "Voice note" : "Video message"} not set up yet
+              </p>
+              <p className="text-[11.5px] text-amber-700">
+                Record your {messageType === "voice" ? "voice note" : "video"} during onboarding or in Settings to use this option.
+              </p>
+            </div>
+          ) : (
+            /* Text message mode toggle */
+            <div className="space-y-2">
+              <Label className="text-[12.5px]">Message</Label>
+              <div className="flex gap-1 p-1 bg-muted rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => { setMessageMode("template"); setAiMessage(""); }}
+                  className={`flex-1 py-1.5 rounded-md text-[12px] font-medium transition-colors ${messageMode === "template" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  Use a template
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMessageMode("ai")}
+                  className={`flex-1 py-1.5 rounded-md text-[12px] font-medium transition-colors flex items-center justify-center gap-1.5 ${messageMode === "ai" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  <Sparkles className="w-3 h-3" /> Generate with AI
+                </button>
+              </div>
+
+              {/* Template mode */}
+              {messageMode === "template" && (
+                <div className="space-y-2">
+                  {channelTemplates.length > 1 && (
+                    <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+                      <SelectTrigger className="text-[12.5px]"><SelectValue placeholder="Choose template…" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="default">{channelTemplates[0]?.name || "Default template"}</SelectItem>
+                        {channelTemplates.slice(1).map(t => (
+                          <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {selectedTemplate && (
+                    <div className="rounded-lg border border-border bg-muted/30 p-3 text-[12.5px] text-muted-foreground whitespace-pre-wrap line-clamp-5">
+                      {selectedTemplate.body}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* AI mode */}
+              {messageMode === "ai" && (
+                <div className="space-y-2">
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={generateAIMessage}
+                      disabled={isGenerating}
+                      className="flex items-center gap-1.5 text-[11.5px] font-medium text-primary hover:text-primary/80 disabled:opacity-50 transition-colors"
+                    >
+                      {isGenerating
+                        ? <><RefreshCw className="w-3 h-3 animate-spin" />Generating...</>
+                        : <><Sparkles className="w-3 h-3" />{aiMessage ? "Regenerate" : "Generate"}</>
+                      }
+                    </button>
+                  </div>
+                  {aiMessage ? (
+                    <Textarea
+                      value={aiMessage}
+                      onChange={(e) => setAiMessage(e.target.value)}
+                      rows={channel === "sms" || channel === "whatsapp" ? 3 : 5}
+                      className="text-[12.5px] resize-none"
+                    />
+                  ) : (
+                    <div className="rounded-lg bg-muted/50 border border-dashed border-border p-3 text-center">
+                      <p className="text-[11.5px] text-muted-foreground">
+                        Click <span className="font-medium text-primary">Generate</span> to create a personalised message for {customer?.name?.split(" ")[0]}.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Subject (email only) */}
           {channel === "email" && (

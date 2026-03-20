@@ -118,6 +118,8 @@ export const settings = pgTable("settings", {
   socialPostEnabled: boolean("social_post_enabled").notNull().default(false),
   socialPostMessage: text("social_post_message").notNull().default("⭐ We just received a {stars}★ review! Thank you {customer_name}!"),
   country: text("country").notNull().default(""),
+  voiceNoteUrl: text("voice_note_url").notNull().default(""),
+  videoMessageUrl: text("video_message_url").notNull().default(""),
 });
 
 export const insertCustomerSchema = createInsertSchema(customers).omit({ createdAt: true });

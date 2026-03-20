@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 const PLANS = [
   {
     id: "standard",
-    name: "Standard",
+    name: "Business Plan",
     description: "For local service businesses",
     monthly: { display: "£49", per: "/month" },
     annual:  { display: "£539", per: "/year", saving: "Save £49 — 1 month free" },
@@ -30,20 +30,6 @@ const PLANS = [
       "Private feedback capture",
       "No contracts — cancel anytime",
     ],
-  },
-  {
-    id: "agency",
-    name: "Agency",
-    description: "Manage multiple clients",
-    monthly: { display: "£149", per: "/month" },
-    annual:  { display: "£1,639", per: "/year", saving: "Save £149 — 1 month free" },
-    keyFeatures: [
-      "Everything in Standard",
-      "Manage multiple client accounts",
-      "Fully separate data per client",
-      "No contracts — cancel anytime",
-    ],
-    extraFeatures: [],
   },
 ];
 
@@ -182,7 +168,7 @@ export default function Pricing() {
                 </div>
               ) : (
                 <Button className="w-full" variant="default" onClick={() => openCheckout(plan.id)}>
-                  Get {plan.name}
+                  Get started
                 </Button>
               )}
             </div>

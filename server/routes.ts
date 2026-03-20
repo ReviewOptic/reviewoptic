@@ -11,6 +11,7 @@ import { Resend } from "resend";
 import OpenAI from "openai";
 import { sendReviewEmail, sendVerificationEmail } from "./email";
 import { sendReviewSMS } from "./sms";
+import { isCloudinaryConfigured, uploadToCloudinary, deleteFromCloudinary } from "./cloudinary";
 import type { Review, Customer, Settings } from "@shared/schema";
 import { UAParser } from "ua-parser-js";
 
@@ -1075,6 +1076,57 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/templates/upload-audio", requireAuth, audioUpload.single("audio"), (req, res) => {
     if (!req.file) return res.status(400).json({ message: "No audio uploaded" });
     res.json({ url: `/uploads/${req.file.filename}` });
+  });
+
+  // Recording uploads (voice note + video) — stored in Cloudinary
+  app.get("/api/recordings/status", requireAuth, (_req, res) => {
+    res.json({ configured: isCloudinaryConfigured() });
+  });
+
+  app.post("/api/recordings/upload-voice", requireAuth, audioUpload.single("audio"), async (req, res) => {
+    if (!req.file) return res.status(400).json({ message: "No audio file uploaded" });
+    if (!isCloudinaryConfigured()) return res.status(503).json({ message: "Cloud storage not configured" });
+    try {
+      const url = await uploadToCloudinary(req.file.path, { folder: "reviewoptic/voice-notes", resource_type: "video" });
+      fs.unlink(req.file.path, () => {});
+      const current = await storage.getSettings(req.session.accountId!);
+      if (current?.voiceNoteUrl) await deleteFromCloudinary(current.voiceNoteUrl);
+      await storage.upsertSettings(req.session.accountId!, { voiceNoteUrl: url });
+      res.json({ url });
+    } catch (err: any) {
+      console.error("[recordings] voice upload failed:", err.message);
+      res.status(500).json({ message: "Upload failed" });
+    }
+  });
+
+  app.post("/api/recordings/upload-video", requireAuth, videoUpload.single("video"), async (req, res) => {
+    if (!req.file) return res.status(400).json({ message: "No video file uploaded" });
+    if (!isCloudinaryConfigured()) return res.status(503).json({ message: "Cloud storage not configured" });
+    try {
+      const url = await uploadToCloudinary(req.file.path, { folder: "reviewoptic/video-messages", resource_type: "video" });
+      fs.unlink(req.file.path, () => {});
+      const current = await storage.getSettings(req.session.accountId!);
+      if (current?.videoMessageUrl) await deleteFromCloudinary(current.videoMessageUrl);
+      await storage.upsertSettings(req.session.accountId!, { videoMessageUrl: url });
+      res.json({ url });
+    } catch (err: any) {
+      console.error("[recordings] video upload failed:", err.message);
+      res.status(500).json({ message: "Upload failed" });
+    }
+  });
+
+  app.delete("/api/recordings/voice", requireAuth, async (req, res) => {
+    const current = await storage.getSettings(req.session.accountId!);
+    if (current?.voiceNoteUrl) await deleteFromCloudinary(current.voiceNoteUrl);
+    await storage.upsertSettings(req.session.accountId!, { voiceNoteUrl: "" });
+    res.json({ success: true });
+  });
+
+  app.delete("/api/recordings/video", requireAuth, async (req, res) => {
+    const current = await storage.getSettings(req.session.accountId!);
+    if (current?.videoMessageUrl) await deleteFromCloudinary(current.videoMessageUrl);
+    await storage.upsertSettings(req.session.accountId!, { videoMessageUrl: "" });
+    res.json({ success: true });
   });
   app.post("/api/settings/upload-logo", requireAuth, logoUpload.single("logo"), (req, res) => {
     if (!req.file) return res.status(400).json({ message: "No image uploaded" });
