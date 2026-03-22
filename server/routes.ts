@@ -1300,10 +1300,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // Analytics
   app.get("/api/analytics", requireAuth, async (req, res) => {
     const accountId = req.session.accountId!;
-    const [allCustomers, allReviews] = await Promise.all([
-      storage.getCustomers(accountId),
-      storage.getReviews(accountId),
-    ]);
+    const allCustomers = await storage.getCustomers(accountId);
     const now = new Date();
 
     // Support either custom from/to or a days rolling window
@@ -1341,63 +1338,38 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       (channel === "all" || c.channel === channel) &&
       (!userCustomerIds || userCustomerIds.has(c.id))
     );
-    const periodReviews = allReviews.filter(r =>
-      r.createdAt >= cutoff && r.createdAt <= cutoffEnd
-    );
-
     // Daily chart
-    const dailyData: Record<string, { date: string; requests: number; reviews: number }> = {};
+    const dailyData: Record<string, { date: string; requests: number; clicks: number }> = {};
     const allChannelCustomers = allCustomers.filter(c =>
       c.status !== "pending_request" &&
       c.createdAt >= cutoff && c.createdAt <= cutoffEnd
     );
-    const channelDailyData: Record<string, { date: string; email: number; sms: number; whatsapp: number; emailReviews: number; smsReviews: number; whatsappReviews: number }> = {};
+    const channelDailyData: Record<string, { date: string; email: number; sms: number; whatsapp: number; emailClicks: number; smsClicks: number; whatsappClicks: number }> = {};
     for (let i = 0; i <= days; i++) {
       const d = new Date(cutoff.getTime() + i * 24 * 60 * 60 * 1000);
       const key = d.toISOString().split("T")[0];
-      dailyData[key] = { date: key, requests: 0, reviews: 0 };
-      channelDailyData[key] = { date: key, email: 0, sms: 0, whatsapp: 0, emailReviews: 0, smsReviews: 0, whatsappReviews: 0 };
+      dailyData[key] = { date: key, requests: 0, clicks: 0 };
+      channelDailyData[key] = { date: key, email: 0, sms: 0, whatsapp: 0, emailClicks: 0, smsClicks: 0, whatsappClicks: 0 };
     }
     sentCustomers.forEach(c => {
       const key = c.createdAt.toISOString().split("T")[0];
-      if (dailyData[key]) dailyData[key].requests++;
+      if (dailyData[key]) {
+        dailyData[key].requests++;
+        if (c.status === "clicked") dailyData[key].clicks++;
+      }
     });
     allChannelCustomers.forEach(c => {
       const key = c.createdAt.toISOString().split("T")[0];
       if (channelDailyData[key]) {
         const ch = c.channel as string;
-        if (ch === "email") channelDailyData[key].email++;
-        else if (ch === "sms") channelDailyData[key].sms++;
-        else if (ch === "whatsapp") channelDailyData[key].whatsapp++;
+        if (ch === "email") { channelDailyData[key].email++; if (c.status === "clicked") channelDailyData[key].emailClicks++; }
+        else if (ch === "sms") { channelDailyData[key].sms++; if (c.status === "clicked") channelDailyData[key].smsClicks++; }
+        else if (ch === "whatsapp") { channelDailyData[key].whatsapp++; if (c.status === "clicked") channelDailyData[key].whatsappClicks++; }
       }
     });
-    periodReviews.forEach(r => {
-      const key = r.createdAt.toISOString().split("T")[0];
-      if (dailyData[key]) dailyData[key].reviews++;
-    });
-    // Map customer_id → channel from all review_requests in period
-    try {
-      const { rows: rrRows } = await pool.query(
-        `SELECT DISTINCT ON (customer_id) customer_id, channel, created_at
-         FROM review_requests WHERE account_id=$1 ORDER BY customer_id, created_at DESC`,
-        [accountId]
-      );
-      const customerChannel: Record<string, string> = {};
-      rrRows.forEach((r: any) => { customerChannel[r.customer_id] = r.channel; });
-      periodReviews.forEach(r => {
-        const key = r.createdAt.toISOString().split("T")[0];
-        const ch = customerChannel[r.customerId];
-        if (channelDailyData[key]) {
-          if (ch === "email") channelDailyData[key].emailReviews++;
-          else if (ch === "sms") channelDailyData[key].smsReviews++;
-          else if (ch === "whatsapp") channelDailyData[key].whatsappReviews++;
-        }
-      });
-    } catch { /* ignore */ }
 
     const sent = sentCustomers.length;
-    const clicked = sentCustomers.filter(c => c.status === "clicked" || c.status === "review_completed").length;
-    const completed = sentCustomers.filter(c => c.status === "review_completed").length;
+    const clicked = sentCustomers.filter(c => c.status === "clicked").length;
 
     const channelBreakdown = { email: 0, sms: 0, whatsapp: 0 };
     sentCustomers.forEach(c => {
@@ -1405,14 +1377,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (channelBreakdown[ch] !== undefined) channelBreakdown[ch]++;
     });
 
-    const starBreakdown = [1, 2, 3, 4, 5].map(s => ({
-      stars: s,
-      count: periodReviews.filter(r => r.stars === s).length,
-    }));
-
-    const avgRating = periodReviews.length > 0
-      ? Math.round((periodReviews.reduce((sum, r) => sum + r.stars, 0) / periodReviews.length) * 10) / 10
-      : 0;
 
     // Per-user breakdown (owner only)
     let byUser: any[] = [];
@@ -1420,7 +1384,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const { rows: userRows } = await pool.query(`
         SELECT u.first_name, u.last_name, u.email, u.role,
                COUNT(rr.id) as requests_sent,
-               COUNT(CASE WHEN rr.status = 'review_completed' THEN 1 END) as responses
+               COUNT(CASE WHEN rr.status = 'clicked' THEN 1 END) as clicked
         FROM users u
         LEFT JOIN review_requests rr ON rr.sent_by_user_id = u.id
           AND rr.account_id = $1
@@ -1434,7 +1398,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         email: r.email,
         role: r.role,
         requestsSent: parseInt(r.requests_sent) || 0,
-        responses: parseInt(r.responses) || 0,
+        clicked: parseInt(r.clicked) || 0,
       }));
     } catch { /* column may not exist on older installs */ }
 
@@ -1444,7 +1408,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const { rows: dowRows } = await pool.query(`
         SELECT EXTRACT(DOW FROM created_at)::int as dow,
                COUNT(*) as requests_sent,
-               COUNT(CASE WHEN status = 'review_completed' THEN 1 END) as reviews_completed
+               COUNT(CASE WHEN status = 'clicked' THEN 1 END) as clicked
         FROM review_requests
         WHERE account_id = $1 AND created_at >= $2 AND created_at <= $3
         GROUP BY dow ORDER BY dow
@@ -1453,38 +1417,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       bestDayData = DOW_NAMES.map((name, i) => {
         const row = dowRows.find((r: any) => r.dow === i);
         const sent = parseInt(row?.requests_sent || "0");
-        const completed = parseInt(row?.reviews_completed || "0");
-        return { day: name, requestsSent: sent, reviewsCompleted: completed, conversionRate: sent > 0 ? Math.round((completed / sent) * 100) : 0 };
+        const clicks = parseInt(row?.clicked || "0");
+        return { day: name, requestsSent: sent, clicked: clicks, clickRate: sent > 0 ? Math.round((clicks / sent) * 100) : 0 };
       });
-    } catch { /* ignore */ }
-
-    // Average time to review
-    let timeToReviewData: any[] = [];
-    try {
-      const { rows: ttrRows } = await pool.query(`
-        SELECT
-          CASE
-            WHEN r.created_at - rr.first_sent < INTERVAL '1 day' THEN 'Same day'
-            WHEN r.created_at - rr.first_sent < INTERVAL '2 days' THEN '1 day'
-            WHEN r.created_at - rr.first_sent < INTERVAL '4 days' THEN '2-3 days'
-            WHEN r.created_at - rr.first_sent < INTERVAL '8 days' THEN '4-7 days'
-            ELSE '7+ days'
-          END as bucket,
-          COUNT(*) as count
-        FROM reviews r
-        JOIN (
-          SELECT customer_id, MIN(created_at) as first_sent
-          FROM review_requests WHERE account_id = $1
-          GROUP BY customer_id
-        ) rr ON rr.customer_id = r.customer_id
-        WHERE r.account_id = $1 AND r.created_at >= $2 AND r.created_at <= $3
-        GROUP BY bucket
-      `, [accountId, cutoff, cutoffEnd]);
-      const BUCKETS = ["Same day", "1 day", "2-3 days", "4-7 days", "7+ days"];
-      timeToReviewData = BUCKETS.map(bucket => ({
-        bucket,
-        count: parseInt(ttrRows.find((r: any) => r.bucket === bucket)?.count || "0"),
-      }));
     } catch { /* ignore */ }
 
     // Follow-up effectiveness
@@ -1498,11 +1433,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             ELSE '2+ follow-ups'
           END as bucket,
           COUNT(*) as customers,
-          COUNT(CASE WHEN has_review THEN 1 END) as converted
+          COUNT(CASE WHEN has_clicked THEN 1 END) as clicked
         FROM (
           SELECT customer_id,
                  COUNT(id) as rr_count,
-                 bool_or(status = 'review_completed') as has_review
+                 bool_or(status = 'clicked') as has_clicked
           FROM review_requests
           WHERE account_id = $1 AND created_at >= $2 AND created_at <= $3
           GROUP BY customer_id
@@ -1514,8 +1449,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       followUpData = FU_BUCKETS.map(bucket => {
         const row = fuRows.find((r: any) => r.bucket === bucket);
         const customers = parseInt(row?.customers || "0");
-        const converted = parseInt(row?.converted || "0");
-        return { bucket, customers, converted, conversionRate: customers > 0 ? Math.round((converted / customers) * 100) : 0 };
+        const clicks = parseInt(row?.clicked || "0");
+        return { bucket, customers, clicked: clicks, clickRate: customers > 0 ? Math.round((clicks / customers) * 100) : 0 };
       });
     } catch { /* ignore */ }
 
@@ -1525,7 +1460,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const { rows: tplRows } = await pool.query(`
         SELECT t.name as template_name,
                COUNT(rr.id) as total_sent,
-               COUNT(CASE WHEN rr.status = 'review_completed' THEN 1 END) as reviews_completed
+               COUNT(CASE WHEN rr.status = 'clicked' THEN 1 END) as clicked
         FROM templates t
         LEFT JOIN review_requests rr ON rr.template_id = t.id
           AND rr.account_id = $1
@@ -1533,44 +1468,26 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         WHERE t.account_id = $1
         GROUP BY t.id, t.name
         HAVING COUNT(rr.id) > 0
-        ORDER BY reviews_completed DESC
+        ORDER BY clicked DESC
       `, [accountId, cutoff, cutoffEnd]);
       templatePerformance = tplRows.map((r: any) => ({
         name: r.template_name,
         sent: parseInt(r.total_sent),
-        completed: parseInt(r.reviews_completed),
-        responseRate: parseInt(r.total_sent) > 0 ? Math.round((parseInt(r.reviews_completed) / parseInt(r.total_sent)) * 100) : 0,
-      }));
-    } catch { /* ignore */ }
-
-    // Review platform breakdown
-    let platformBreakdown: any[] = [];
-    try {
-      const { rows: platformRows } = await pool.query(`
-        SELECT platform, COUNT(*) as count
-        FROM reviews
-        WHERE account_id = $1 AND created_at >= $2 AND created_at <= $3
-        GROUP BY platform ORDER BY count DESC
-      `, [accountId, cutoff, cutoffEnd]);
-      platformBreakdown = platformRows.map((r: any) => ({
-        name: r.platform.charAt(0).toUpperCase() + r.platform.slice(1),
-        value: parseInt(r.count),
+        clicked: parseInt(r.clicked),
+        clickRate: parseInt(r.total_sent) > 0 ? Math.round((parseInt(r.clicked) / parseInt(r.total_sent)) * 100) : 0,
       }));
     } catch { /* ignore */ }
 
     res.json({
       daily: Object.values(dailyData),
       dailyByChannel: Object.values(channelDailyData),
-      funnel: { sent, clicked, completed },
+      funnel: { sent, clicked },
       channelBreakdown,
-      starBreakdown,
-      summary: { sent, reviews: periodReviews.length, avgRating, responseRate: sent > 0 ? Math.round((completed / sent) * 100) : 0 },
+      summary: { sent, clicks: clicked, clickRate: sent > 0 ? Math.round((clicked / sent) * 100) : 0 },
       byUser,
       bestDayData,
-      timeToReviewData,
       followUpData,
       templatePerformance,
-      platformBreakdown,
     });
   });
 

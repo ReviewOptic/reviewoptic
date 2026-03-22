@@ -47,6 +47,9 @@ function StatusBadge({ status, doNotContact }: { status: string; doNotContact: b
   );
 }
 
+const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+const isValidPhone = (v: string) => /^\+?[\d\s\-().]{7,}$/.test(v);
+
 function AddCustomerDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { toast } = useToast();
   const [form, setForm] = useState({
@@ -74,18 +77,36 @@ function AddCustomerDialog({ open, onClose }: { open: boolean; onClose: () => vo
         <div className="space-y-3 py-1">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="name" className="text-[12.5px]">Full Name *</Label>
+              <Label htmlFor="name" className="text-[12.5px]">Name *</Label>
               <Input id="name" placeholder="Sarah Johnson" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} data-testid="input-customer-name" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="phone" className="text-[12.5px]">Phone *</Label>
-              <Input id="phone" placeholder="+1 555 000 0000" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} data-testid="input-customer-phone" />
+              <Input id="phone" placeholder="+1 555 000 0000" value={form.phone} onChange={e => {
+                const phone = e.target.value;
+                setForm(f => {
+                  const hasEmail = !!f.email;
+                  const hasPhone = !!phone;
+                  const channel = !hasPhone && (f.channel === "sms" || f.channel === "whatsapp") ? (hasEmail ? "email" : f.channel) : f.channel;
+                  return { ...f, phone, channel };
+                });
+              }} className={form.phone && !isValidPhone(form.phone) ? "border-destructive" : ""} data-testid="input-customer-phone" />
+              {form.phone && !isValidPhone(form.phone) && <p className="text-[11px] text-destructive">Enter a valid phone number</p>}
             </div>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="email" className="text-[12.5px]">Email *</Label>
             <p className="text-[11px] text-muted-foreground -mt-0.5">Email or phone required</p>
-            <Input id="email" type="email" placeholder="sarah@example.com" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} data-testid="input-customer-email" />
+            <Input id="email" type="email" placeholder="sarah@example.com" value={form.email} onChange={e => {
+              const email = e.target.value;
+              setForm(f => {
+                const hasPhone = !!f.phone;
+                const hasEmail = !!email;
+                const channel = !hasEmail && f.channel === "email" ? (hasPhone ? "sms" : f.channel) : f.channel;
+                return { ...f, email, channel };
+              });
+            }} className={form.email && !isValidEmail(form.email) ? "border-destructive" : ""} data-testid="input-customer-email" />
+            {form.email && !isValidEmail(form.email) && <p className="text-[11px] text-destructive">Enter a valid email address</p>}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -98,17 +119,6 @@ function AddCustomerDialog({ open, onClose }: { open: boolean; onClose: () => vo
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-[12.5px]">Preferred Channel</Label>
-            <Select value={form.channel} onValueChange={v => setForm(f => ({ ...f, channel: v }))}>
-              <SelectTrigger data-testid="select-channel"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="email">Email</SelectItem>
-                <SelectItem value="sms">SMS</SelectItem>
-                <SelectItem value="whatsapp">WhatsApp</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
             <Label htmlFor="notes" className="text-[12.5px]">Notes</Label>
             <Textarea id="notes" placeholder="Any notes about this customer or job..." className="resize-none h-16 text-[13px]" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} data-testid="input-notes" />
           </div>
@@ -118,7 +128,7 @@ function AddCustomerDialog({ open, onClose }: { open: boolean; onClose: () => vo
           <Button
             size="sm"
             onClick={() => mutation.mutate(form)}
-            disabled={!form.name || (!form.email && !form.phone) || mutation.isPending}
+            disabled={!form.name || (!form.email && !form.phone) || (!!form.email && !isValidEmail(form.email)) || (!!form.phone && !isValidPhone(form.phone)) || mutation.isPending}
             data-testid="button-submit-customer"
           >
             {mutation.isPending ? "Adding..." : "Add Customer"}
@@ -131,12 +141,19 @@ function AddCustomerDialog({ open, onClose }: { open: boolean; onClose: () => vo
 
 function SendRequestDialog({ customer, open, onClose }: { customer: Customer | null; open: boolean; onClose: () => void }) {
   const { toast } = useToast();
-  const [channel, setChannel] = useState(customer?.channel || "email");
+  const getValidChannel = (c: typeof customer) => {
+    const preferred = c?.channel || "email";
+    if (preferred === "email" && !c?.email) return c?.phone ? "sms" : "email";
+    if ((preferred === "sms" || preferred === "whatsapp") && !c?.phone) return c?.email ? "email" : preferred;
+    return preferred;
+  };
+  const [channel, setChannel] = useState(() => getValidChannel(customer));
   const [delay, setDelay] = useState("now");
+  const [customTime, setCustomTime] = useState("");
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [messageMode, setMessageMode] = useState<"template" | "ai">("template");
   const [messageType, setMessageType] = useState<"text" | "voice" | "video">("text");
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("default");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [aiMessage, setAiMessage] = useState("");
   const [customSubject, setCustomSubject] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -148,15 +165,17 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
   const { data: templates } = useQuery<Template[]>({ queryKey: ["/api/templates"] });
 
   const channelTemplates = (templates || []).filter(t => t.channel === channel && t.templateType === "review_request");
-  const selectedTemplate = selectedTemplateId === "default"
-    ? channelTemplates[0]
-    : channelTemplates.find(t => t.id === selectedTemplateId);
+  const selectedTemplate = channelTemplates.find(t => t.id === selectedTemplateId) ?? channelTemplates[0];
 
   useEffect(() => {
     if (settings?.businessName && !customSubject) {
       setCustomSubject(`How was your experience with ${settings.businessName}?`);
     }
   }, [settings]);
+
+  useEffect(() => {
+    setChannel(getValidChannel(customer));
+  }, [customer?.id]);
 
   useEffect(() => {
     if (customer) setPhonetic(customer.namePronunciation || "");
@@ -219,7 +238,8 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
     }
   };
 
-  const canSend = (channel === "whatsapp" && messageType !== "text")
+  const canSend = (delay === "custom" && !customTime) ? false
+    : (channel === "whatsapp" && messageType !== "text")
     ? !!previewId
     : (messageMode === "template" || aiMessage.trim().length > 0);
 
@@ -227,11 +247,15 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
     mutationFn: async () => apiRequest("POST", "/api/review-requests", {
       customerId: customer?.id,
       channel,
-      scheduledAt: delay === "now" ? new Date() : null,
+      scheduledAt: delay === "now" ? new Date()
+        : delay === "1h" ? new Date(Date.now() + 60 * 60 * 1000)
+        : delay === "2h" ? new Date(Date.now() + 2 * 60 * 60 * 1000)
+        : delay === "custom" && customTime ? new Date(customTime)
+        : new Date(),
       selectedPlatforms: availablePlatforms.filter(p => selectedPlatforms.includes(p.key)).map(p => ({ name: p.name, url: p.url })),
       customMessage: messageMode === "ai" ? (aiMessage || undefined) : undefined,
       customSubject: channel === "email" && customSubject ? customSubject : undefined,
-      templateId: messageMode === "template" && selectedTemplateId !== "default" ? selectedTemplateId : undefined,
+      templateId: messageMode === "template" && selectedTemplate ? selectedTemplate.id : undefined,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
@@ -258,12 +282,12 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
           {/* Channel */}
           <div className="space-y-1.5">
             <Label className="text-[12.5px]">Send via</Label>
-            <Select value={channel} onValueChange={(v) => { setChannel(v); setAiMessage(""); setSelectedTemplateId("default"); setMessageType("text"); }}>
+            <Select value={channel} onValueChange={(v) => { setChannel(v); setAiMessage(""); setSelectedTemplateId(""); setMessageType("text"); }}>
               <SelectTrigger data-testid="select-send-channel"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="email">Email</SelectItem>
-                <SelectItem value="sms">SMS</SelectItem>
-                <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                <SelectItem value="email" disabled={!customer?.email}>Email</SelectItem>
+                <SelectItem value="sms" disabled={!customer?.phone}>SMS</SelectItem>
+                <SelectItem value="whatsapp" disabled={!customer?.phone}>WhatsApp</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -271,7 +295,7 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
           {/* Timing */}
           <div className="space-y-1.5">
             <Label className="text-[12.5px]">Timing</Label>
-            <Select value={delay} onValueChange={setDelay}>
+            <Select value={delay} onValueChange={v => { setDelay(v); setCustomTime(""); }}>
               <SelectTrigger data-testid="select-send-timing"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="now">Send now</SelectItem>
@@ -280,6 +304,15 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
                 <SelectItem value="custom">Custom time</SelectItem>
               </SelectContent>
             </Select>
+            {delay === "custom" && (
+              <Input
+                type="datetime-local"
+                value={customTime}
+                min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+                onChange={e => setCustomTime(e.target.value)}
+                className="mt-1.5 text-[13px]"
+              />
+            )}
           </div>
 
           {/* Platforms */}
@@ -400,21 +433,30 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
               {/* Template mode */}
               {messageMode === "template" && (
                 <div className="space-y-2">
-                  {channelTemplates.length > 1 && (
-                    <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
-                      <SelectTrigger className="text-[12.5px]"><SelectValue placeholder="Choose template…" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="default">{channelTemplates[0]?.name || "Default template"}</SelectItem>
-                        {channelTemplates.slice(1).map(t => (
-                          <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                  {selectedTemplate && (
-                    <div className="rounded-lg border border-border bg-muted/30 p-3 text-[12.5px] text-muted-foreground whitespace-pre-wrap line-clamp-5">
-                      {selectedTemplate.body}
+                  {channelTemplates.length === 0 ? (
+                    <div className="rounded-lg bg-muted/50 border border-dashed border-border p-3 text-center">
+                      <p className="text-[11.5px] text-muted-foreground">
+                        No {channel} templates yet. <a href="/templates" className="font-medium text-primary underline">Create one in Templates</a>.
+                      </p>
                     </div>
+                  ) : (
+                    <>
+                      {channelTemplates.length > 1 && (
+                        <Select value={selectedTemplate?.id ?? ""} onValueChange={setSelectedTemplateId}>
+                          <SelectTrigger className="text-[12.5px]"><SelectValue placeholder="Choose template…" /></SelectTrigger>
+                          <SelectContent>
+                            {channelTemplates.map(t => (
+                              <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                      {selectedTemplate && (
+                        <div className="rounded-lg border border-border bg-muted/30 p-3 text-[12.5px] text-muted-foreground whitespace-pre-wrap line-clamp-5">
+                          {selectedTemplate.body}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )}
@@ -515,17 +557,35 @@ function EditCustomerDialog({ customer, open, onClose }: { customer: Customer | 
         <div className="space-y-3 py-1">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-[12.5px]">Full Name *</Label>
+              <Label className="text-[12.5px]">Name *</Label>
               <Input placeholder="Sarah Johnson" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-[12.5px]">Phone</Label>
-              <Input placeholder="07xxx xxxxxx" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
+              <Input placeholder="07xxx xxxxxx" value={form.phone} onChange={e => {
+                const phone = e.target.value;
+                setForm(f => {
+                  const hasEmail = !!f.email;
+                  const hasPhone = !!phone;
+                  const channel = !hasPhone && (f.channel === "sms" || f.channel === "whatsapp") ? (hasEmail ? "email" : f.channel) : f.channel;
+                  return { ...f, phone, channel };
+                });
+              }} className={form.phone && !isValidPhone(form.phone) ? "border-destructive" : ""} />
+              {form.phone && !isValidPhone(form.phone) && <p className="text-[11px] text-destructive">Enter a valid phone number</p>}
             </div>
           </div>
           <div className="space-y-1.5">
             <Label className="text-[12.5px]">Email</Label>
-            <Input type="email" placeholder="sarah@example.com" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+            <Input type="email" placeholder="sarah@example.com" value={form.email} onChange={e => {
+              const email = e.target.value;
+              setForm(f => {
+                const hasPhone = !!f.phone;
+                const hasEmail = !!email;
+                const channel = !hasEmail && f.channel === "email" ? (hasPhone ? "sms" : f.channel) : f.channel;
+                return { ...f, email, channel };
+              });
+            }} className={form.email && !isValidEmail(form.email) ? "border-destructive" : ""} />
+            {form.email && !isValidEmail(form.email) && <p className="text-[11px] text-destructive">Enter a valid email address</p>}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -542,9 +602,9 @@ function EditCustomerDialog({ customer, open, onClose }: { customer: Customer | 
             <Select value={form.channel} onValueChange={v => setForm(f => ({ ...f, channel: v }))}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="email">Email</SelectItem>
-                <SelectItem value="sms">SMS</SelectItem>
-                <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                <SelectItem value="email" disabled={!form.email}>Email</SelectItem>
+                <SelectItem value="sms" disabled={!form.phone}>SMS</SelectItem>
+                <SelectItem value="whatsapp" disabled={!form.phone}>WhatsApp</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -555,7 +615,7 @@ function EditCustomerDialog({ customer, open, onClose }: { customer: Customer | 
         </div>
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
-          <Button size="sm" onClick={() => mutation.mutate()} disabled={!form.name || mutation.isPending}>
+          <Button size="sm" onClick={() => mutation.mutate()} disabled={!form.name || (!!form.email && !isValidEmail(form.email)) || (!!form.phone && !isValidPhone(form.phone)) || mutation.isPending}>
             {mutation.isPending ? "Saving..." : "Save Changes"}
           </Button>
         </DialogFooter>

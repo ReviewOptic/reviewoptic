@@ -43,7 +43,8 @@ export const HOWTOS: HowTo[] = [
     steps: [
       { text: "Go to the Customers page.", link: "/customers", linkText: "Customers page" },
       { text: "Click 'Add Customer' in the top right." },
-      { text: "Fill in their name, email or phone number, and the date of their last visit." },
+      { text: "Fill in their name, and at least one of: email address or phone number. Both must be in a valid format." },
+      { text: "Optionally add the service type and date of their last visit." },
       { text: "Click Save — they'll appear in your customer list, ready to receive a request." },
     ],
   },
@@ -52,7 +53,7 @@ export const HOWTOS: HowTo[] = [
     steps: [
       { text: "Go to the Customers page.", link: "/customers", linkText: "Customers page" },
       { text: "Find the customer you want to contact and click 'Send Request' next to their name." },
-      { text: "Choose your channel (Email, SMS, or WhatsApp) and select a template." },
+      { text: "Choose your channel — Email is available if the customer has an email address saved; SMS and WhatsApp are available if they have a phone number saved." },
       { text: "Select which review platform(s) to include — you can choose one, several, or all of the platforms you've connected." },
       { text: "Hit Send — the request is delivered instantly and tracked automatically." },
     ],
@@ -63,8 +64,8 @@ export const HOWTOS: HowTo[] = [
       { text: "Go to the Customers page.", link: "/customers", linkText: "Customers page" },
       { text: "Pending Request — the customer has been added but no review request has been sent yet." },
       { text: "Request Sent — a review request has been sent and we are waiting for a response." },
-      { text: "Link Clicked — the customer clicked the review link in your message. They may have left a review." },
-      { text: "Review Received — a review has been recorded for this customer." },
+      { text: "Link Clicked — the customer clicked the review link in your message and was directed to leave a review." },
+      { text: "No Response — the customer did not click the link within the expected timeframe." },
     ],
   },
   {
@@ -72,7 +73,7 @@ export const HOWTOS: HowTo[] = [
     steps: [
       { text: "Go to Analytics.", link: "/analytics", linkText: "Analytics" },
       { text: "Use the date range filter to choose the period you want to review." },
-      { text: "Check your response rate — if it's below 20%, focus on improving your templates or timing." },
+      { text: "Check your click rate — if it's below 20%, focus on improving your templates or timing." },
       { text: "The 'Best Day to Send' chart shows when your customers are most likely to respond." },
     ],
   },

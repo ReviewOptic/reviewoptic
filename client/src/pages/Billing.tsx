@@ -159,47 +159,6 @@ export default function Billing() {
           </div>
         )}
 
-        {/* Cancel / reactivate — always show for non-cancelled owners */}
-        {user?.role !== "member" && user?.planType !== "cancelled" && (
-          <div className="pt-4 border-t border-gray-100">
-            {sub?.cancelAtPeriodEnd ? (
-              <div className="space-y-3">
-                <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg p-4">
-                  <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                  <p className="text-sm text-amber-700">
-                    Your subscription is scheduled to cancel on <strong>{sub?.currentPeriodEnd ? formatDate(sub.currentPeriodEnd) : "the end of your billing period"}</strong>. You'll have full access until then — after that only analytics will be available.
-                  </p>
-                </div>
-                <Button variant="outline" onClick={reactivateSubscription} disabled={reactivateLoading} className="gap-2">
-                  {reactivateLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                  Keep my subscription
-                </Button>
-              </div>
-            ) : cancelStep === "confirm" ? (
-              <div className="space-y-3">
-                <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-lg p-4">
-                  <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-                  <p className="text-sm text-red-700">
-                    You'll keep full access until <strong>{sub?.currentPeriodEnd ? formatDate(sub.currentPeriodEnd) : "the end of your current billing period"}</strong>. After that your account will be locked — you'll only be able to view analytics.
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="destructive" onClick={cancelSubscription} disabled={cancelLoading} className="gap-2">
-                    {cancelLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                    Yes, cancel my subscription
-                  </Button>
-                  <Button variant="ghost" onClick={() => setCancelStep("idle")} disabled={cancelLoading}>
-                    Never mind
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <Button variant="outline" className="text-red-600 hover:text-red-700 hover:border-red-300 text-sm" onClick={() => setCancelStep("confirm")}>
-                Cancel subscription
-              </Button>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Payment details */}
@@ -248,6 +207,48 @@ export default function Billing() {
           View all invoices in Stripe
         </Button>
       </div>
+
+      {/* Cancel / reactivate — always show for non-cancelled owners */}
+      {user?.role !== "member" && user?.planType !== "cancelled" && (
+        <div>
+          {sub?.cancelAtPeriodEnd ? (
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                <p className="text-sm text-amber-700">
+                  Your subscription is scheduled to cancel on <strong>{sub?.currentPeriodEnd ? formatDate(sub.currentPeriodEnd) : "the end of your billing period"}</strong>. You'll have full access until then — after that only analytics will be available.
+                </p>
+              </div>
+              <Button variant="outline" onClick={reactivateSubscription} disabled={reactivateLoading} className="gap-2">
+                {reactivateLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                Keep my subscription
+              </Button>
+            </div>
+          ) : cancelStep === "confirm" ? (
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-lg p-4">
+                <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                <p className="text-sm text-red-700">
+                  You'll keep full access until <strong>{sub?.currentPeriodEnd ? formatDate(sub.currentPeriodEnd) : "the end of your current billing period"}</strong>. After that your account will be locked — you'll only be able to view analytics.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="destructive" onClick={cancelSubscription} disabled={cancelLoading} className="gap-2">
+                  {cancelLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Yes, cancel my subscription
+                </Button>
+                <Button variant="ghost" onClick={() => setCancelStep("idle")} disabled={cancelLoading}>
+                  Never mind
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button variant="ghost" size="sm" className="text-gray-400 hover:text-red-600 text-xs" onClick={() => setCancelStep("confirm")}>
+              Cancel subscription
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* Fully cancelled — subscription ended */}
       {user?.planType === "cancelled" && !sub && (

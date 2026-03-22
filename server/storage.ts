@@ -77,9 +77,8 @@ export interface IStorage {
   getStats(accountId: string): Promise<{
     requestsThisMonth: number;
     pendingRequests: number;
-    reviewsThisMonth: number;
-    responseRate: number;
-    avgRating: number;
+    clicksThisMonth: number;
+    clickRate: number;
   }>;
   markNoResponse(): Promise<number>;
   sendFollowUps(): Promise<number>;
@@ -288,24 +287,19 @@ export class DatabaseStorage implements IStorage {
   async getStats(accountId: string): Promise<{
     requestsThisMonth: number;
     pendingRequests: number;
-    reviewsThisMonth: number;
-    responseRate: number;
-    avgRating: number;
+    clicksThisMonth: number;
+    clickRate: number;
   }> {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const allCustomers = await db.select().from(customers).where(eq(customers.accountId, accountId));
     const requestsThisMonth = allCustomers.filter(c => c.createdAt >= monthStart && c.status !== "pending_request").length;
     const pendingRequests = allCustomers.filter(c => c.status === "request_sent" && !c.doNotContact).length;
-    const allReviews = await db.select().from(reviews).where(eq(reviews.accountId, accountId));
-    const reviewsThisMonth = allReviews.filter(r => r.createdAt >= monthStart).length;
+    const clicksThisMonth = allCustomers.filter(c => c.status === "clicked" && c.createdAt >= monthStart).length;
     const sent = allCustomers.filter(c => c.status !== "pending_request").length;
-    const reviewed = allCustomers.filter(c => c.status === "review_completed").length;
-    const responseRate = sent > 0 ? Math.round((reviewed / sent) * 100) : 0;
-    const avgRating = allReviews.length > 0
-      ? Math.round((allReviews.reduce((s, r) => s + r.stars, 0) / allReviews.length) * 10) / 10
-      : 0;
-    return { requestsThisMonth, pendingRequests, reviewsThisMonth, responseRate, avgRating };
+    const clicked = allCustomers.filter(c => c.status === "clicked").length;
+    const clickRate = sent > 0 ? Math.round((clicked / sent) * 100) : 0;
+    return { requestsThisMonth, pendingRequests, clicksThisMonth, clickRate };
   }
 
   async markNoResponse(): Promise<number> {

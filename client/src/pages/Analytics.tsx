@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Send, Eye, Star, TrendingUp, BarChart2, Download, FileText, Palette } from "lucide-react";
+import { Send, Eye, TrendingUp, BarChart2, Download, FileText, Palette } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -45,18 +45,15 @@ function useChartColors() {
 }
 
 interface AnalyticsData {
-  daily: Array<{ date: string; requests: number; reviews: number }>;
-  dailyByChannel: Array<{ date: string; email: number; sms: number; whatsapp: number; emailReviews: number; smsReviews: number; whatsappReviews: number }>;
-  funnel: { sent: number; clicked: number; completed: number };
+  daily: Array<{ date: string; requests: number; clicks: number }>;
+  dailyByChannel: Array<{ date: string; email: number; sms: number; whatsapp: number; emailClicks: number; smsClicks: number; whatsappClicks: number }>;
+  funnel: { sent: number; clicked: number };
   channelBreakdown: { email: number; sms: number; whatsapp: number };
-  starBreakdown: Array<{ stars: number; count: number }>;
-  summary: { sent: number; reviews: number; avgRating: number; responseRate: number };
-  byUser?: Array<{ name: string; email: string; role: string; requestsSent: number; responses: number }>;
-  bestDayData?: Array<{ day: string; requestsSent: number; reviewsCompleted: number; conversionRate: number }>;
-  timeToReviewData?: Array<{ bucket: string; count: number }>;
-  followUpData?: Array<{ bucket: string; customers: number; converted: number; conversionRate: number }>;
-  templatePerformance?: Array<{ name: string; sent: number; completed: number; responseRate: number }>;
-  platformBreakdown?: Array<{ name: string; value: number }>;
+  summary: { sent: number; clicks: number; clickRate: number };
+  byUser?: Array<{ name: string; email: string; role: string; requestsSent: number; clicked: number }>;
+  bestDayData?: Array<{ day: string; requestsSent: number; clicked: number; clickRate: number }>;
+  followUpData?: Array<{ bucket: string; customers: number; clicked: number; clickRate: number }>;
+  templatePerformance?: Array<{ name: string; sent: number; clicked: number; clickRate: number }>;
 }
 
 const CHANNELS = ["email", "sms", "whatsapp"] as const;
@@ -79,7 +76,6 @@ function ChannelToggle({ active, onChange }: { active: Channel[]; onChange: (c: 
   );
 }
 
-const STAR_COLORS = ["hsl(0 72% 55%)", "hsl(22 90% 55%)", "hsl(45 95% 55%)", "hsl(100 60% 50%)", "hsl(142 60% 45%)"];
 
 const tooltipStyle = {
   backgroundColor: "hsl(var(--popover))",
@@ -125,10 +121,9 @@ export default function Analytics() {
   const businessName = settings?.businessName || "";
   const ownerDisplayName = settings?.ownerName || [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email?.split("@")[0] || "You";
 
-  const { sent = 0, reviews = 0, avgRating = 0, responseRate = 0 } = data?.summary || {};
-  const { sent: fSent = 0, clicked = 0, completed = 0 } = data?.funnel || {};
-  const clickRate = fSent > 0 ? Math.round((clicked / fSent) * 100) : 0;
-  const completeRate = clicked > 0 ? Math.round((completed / clicked) * 100) : 0;
+  const { sent = 0, clicks = 0, clickRate = 0 } = data?.summary || {};
+  const { sent: fSent = 0, clicked = 0 } = data?.funnel || {};
+  const fClickRate = fSent > 0 ? Math.round((clicked / fSent) * 100) : 0;
 
   const dailyForChart = (data?.daily || []).map(d => ({
     ...d,
@@ -143,16 +138,16 @@ export default function Analytics() {
     ? channelChartChannels
     : CHANNELS.filter(ch => (data?.channelBreakdown[ch] || 0) > 0);
 
-  // Grouped bar data: one entry per channel with requests + reviews
-  const channelReviewTotals = {
-    email: (data?.dailyByChannel || []).reduce((s, d) => s + (d.emailReviews || 0), 0),
-    sms: (data?.dailyByChannel || []).reduce((s, d) => s + (d.smsReviews || 0), 0),
-    whatsapp: (data?.dailyByChannel || []).reduce((s, d) => s + (d.whatsappReviews || 0), 0),
+  // Grouped bar data: one entry per channel with requests + clicks
+  const channelClickTotals = {
+    email: (data?.dailyByChannel || []).reduce((s, d) => s + (d.emailClicks || 0), 0),
+    sms: (data?.dailyByChannel || []).reduce((s, d) => s + (d.smsClicks || 0), 0),
+    whatsapp: (data?.dailyByChannel || []).reduce((s, d) => s + (d.whatsappClicks || 0), 0),
   };
   const channelBarData = [
-    { channel: "Email", key: "email", requests: data?.channelBreakdown.email || 0, reviews: channelReviewTotals.email },
-    { channel: "SMS", key: "sms", requests: data?.channelBreakdown.sms || 0, reviews: channelReviewTotals.sms },
-    { channel: "WhatsApp", key: "whatsapp", requests: data?.channelBreakdown.whatsapp || 0, reviews: channelReviewTotals.whatsapp },
+    { channel: "Email", key: "email", requests: data?.channelBreakdown.email || 0, clicks: channelClickTotals.email },
+    { channel: "SMS", key: "sms", requests: data?.channelBreakdown.sms || 0, clicks: channelClickTotals.sms },
+    { channel: "WhatsApp", key: "whatsapp", requests: data?.channelBreakdown.whatsapp || 0, clicks: channelClickTotals.whatsapp },
   ].filter(d => activeChannels.includes(d.key as Channel));
 
   const channelData = [
@@ -161,10 +156,6 @@ export default function Analytics() {
     { name: "WhatsApp", value: data?.channelBreakdown.whatsapp || 0 },
   ].filter(d => d.value > 0);
 
-  const starData = (data?.starBreakdown || []).map(s => ({
-    name: `${s.stars}★`,
-    count: s.count,
-  }));
 
   async function exportPDF() {
     if (!contentRef.current) return;
@@ -227,14 +218,13 @@ export default function Analytics() {
     lines.push("Summary");
     lines.push("Metric,Value");
     lines.push(`Requests Sent,${sent}`);
-    lines.push(`Reviews Received,${reviews}`);
-    lines.push(`Response Rate,${responseRate}%`);
-    lines.push(`Avg Rating,${avgRating > 0 ? avgRating : "N/A"}`);
+    lines.push(`Links Clicked,${clicks}`);
+    lines.push(`Click Rate,${clickRate}%`);
     lines.push("");
 
     lines.push("Daily Breakdown");
-    lines.push("Date,Requests Sent,Reviews Received");
-    (data?.daily || []).forEach(d => lines.push(`${d.date},${d.requests},${d.reviews}`));
+    lines.push("Date,Requests Sent,Links Clicked");
+    (data?.daily || []).forEach(d => lines.push(`${d.date},${d.requests},${d.clicks}`));
     lines.push("");
 
     lines.push("Channel Breakdown");
@@ -244,16 +234,10 @@ export default function Analytics() {
     lines.push(`WhatsApp,${data?.channelBreakdown.whatsapp || 0}`);
     lines.push("");
 
-    lines.push("Star Distribution");
-    lines.push("Stars,Count");
-    (data?.starBreakdown || []).forEach(s => lines.push(`${s.stars},${s.count}`));
-    lines.push("");
-
     lines.push("Conversion Funnel");
     lines.push("Stage,Count");
     lines.push(`Sent,${fSent}`);
     lines.push(`Clicked,${clicked}`);
-    lines.push(`Reviewed,${completed}`);
 
     const blob = new Blob([lines.join("\n")], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -266,9 +250,8 @@ export default function Analytics() {
 
   const summaryCards = [
     { label: "Requests Sent", value: sent, icon: <Send className="w-4 h-4" />, color: "text-blue-500" },
-    { label: "Reviews Received", value: reviews, icon: <Star className="w-4 h-4" />, color: "text-green-500" },
-    { label: "Response Rate", value: `${responseRate}%`, icon: <TrendingUp className="w-4 h-4" />, color: "text-purple-500" },
-    { label: "Avg Rating", value: avgRating > 0 ? `${avgRating}★` : "—", icon: <Eye className="w-4 h-4" />, color: "text-amber-500" },
+    { label: "Links Clicked", value: clicks, icon: <Eye className="w-4 h-4" />, color: "text-green-500" },
+    { label: "Click Rate", value: `${clickRate}%`, icon: <TrendingUp className="w-4 h-4" />, color: "text-purple-500" },
   ];
 
   return (
@@ -358,7 +341,7 @@ export default function Analytics() {
             <div className="flex flex-wrap gap-4">
               {([
                 { key: "requests" as const, label: "Requests Sent" },
-                { key: "reviews" as const, label: "Reviews Received" },
+                { key: "reviews" as const, label: "Links Clicked" },
                 { key: "email" as const, label: "Email" },
                 { key: "sms" as const, label: "SMS" },
                 { key: "whatsapp" as const, label: "WhatsApp" },
@@ -396,7 +379,7 @@ export default function Analytics() {
       {/* Line chart */}
       <Card className="border-card-border">
         <CardHeader className="pb-2 pt-4 px-5">
-          <CardTitle className="text-[14px] font-semibold">Requests vs Reviews</CardTitle>
+          <CardTitle className="text-[14px] font-semibold">Requests vs Clicks</CardTitle>
         </CardHeader>
         <CardContent className="px-5 pb-4">
           {isLoading ? <Skeleton className="h-52 w-full" /> : (
@@ -408,7 +391,7 @@ export default function Analytics() {
                 <Tooltip contentStyle={tooltipStyle} />
                 <Legend wrapperStyle={{ fontSize: "11px" }} />
                 <Line type="monotone" dataKey="requests" stroke={colors.requests} strokeWidth={2} dot={false} activeDot={{ r: 3 }} name="Requests Sent" />
-                <Line type="monotone" dataKey="reviews" stroke={colors.reviews} strokeWidth={2} dot={false} activeDot={{ r: 3 }} name="Reviews Received" />
+                <Line type="monotone" dataKey="clicks" stroke={colors.reviews} strokeWidth={2} dot={false} activeDot={{ r: 3 }} name="Links Clicked" />
               </LineChart>
             </ResponsiveContainer>
           )}
@@ -419,7 +402,7 @@ export default function Analytics() {
       <Card className="border-card-border">
         <CardHeader className="pb-2 pt-4 px-5">
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <CardTitle className="text-[14px] font-semibold">Requests vs Reviews by Channel</CardTitle>
+            <CardTitle className="text-[14px] font-semibold">Requests vs Clicks by Channel</CardTitle>
             <ChannelToggle active={channelChartChannels} onChange={setChannelChartChannels} />
           </div>
         </CardHeader>
@@ -437,7 +420,7 @@ export default function Analytics() {
                 <Tooltip contentStyle={tooltipStyle} />
                 <Legend wrapperStyle={{ fontSize: "11px" }} />
                 <Bar dataKey="requests" name="Requests Sent" fill={colors.requests} radius={[4, 4, 0, 0]} barSize={28} />
-                <Bar dataKey="reviews" name="Reviews Received" fill={colors.reviews} radius={[4, 4, 0, 0]} barSize={28} />
+                <Bar dataKey="clicks" name="Links Clicked" fill={colors.reviews} radius={[4, 4, 0, 0]} barSize={28} />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -449,7 +432,7 @@ export default function Analytics() {
         <Card className="border-card-border">
           <CardHeader className="pb-2 pt-4 px-5">
             <div className="flex items-center justify-between flex-wrap gap-2">
-              <CardTitle className="text-[14px] font-semibold">Requests vs Reviews by Team Member</CardTitle>
+              <CardTitle className="text-[14px] font-semibold">Requests vs Clicks by Team Member</CardTitle>
               {data?.byUser && data.byUser.length > 0 && (
                 <Select value={memberFilter} onValueChange={setMemberFilter}>
                   <SelectTrigger className="h-7 w-36 text-[11px]">
@@ -481,7 +464,7 @@ export default function Analytics() {
                     <Tooltip contentStyle={tooltipStyle} />
                     <Legend wrapperStyle={{ fontSize: "11px" }} />
                     <Bar dataKey="requestsSent" name="Requests Sent" fill={colors.requests} radius={[4, 4, 0, 0]} barSize={28} />
-                    <Bar dataKey="responses" name="Reviews Received" fill={colors.reviews} radius={[4, 4, 0, 0]} barSize={28} />
+                    <Bar dataKey="clicked" name="Links Clicked" fill={colors.reviews} radius={[4, 4, 0, 0]} barSize={28} />
                   </BarChart>
                 </ResponsiveContainer>
               );
@@ -490,8 +473,8 @@ export default function Analytics() {
         </Card>
       )}
 
-      {/* Funnel | Channel | Stars — 3 columns */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Funnel | Channel — 2 columns */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Funnel */}
         <Card className="border-card-border">
           <CardHeader className="pb-2 pt-4 px-5">
@@ -505,8 +488,7 @@ export default function Analytics() {
               </div>
             ) : (
               [{label: "Sent", value: fSent, pct: null, color: colors.requests},
-               {label: "Clicked", value: clicked, pct: clickRate, color: "#a78bfa"},
-               {label: "Reviewed", value: completed, pct: completeRate, color: colors.reviews}
+               {label: "Clicked", value: clicked, pct: fClickRate, color: "#a78bfa"},
               ].map(row => (
                 <div key={row.label} className="space-y-1">
                   <div className="flex justify-between text-[12px]">
@@ -560,32 +542,6 @@ export default function Analytics() {
           </CardContent>
         </Card>
 
-        {/* Star distribution */}
-        <Card className="border-card-border">
-          <CardHeader className="pb-2 pt-4 px-5">
-            <CardTitle className="text-[14px] font-semibold">Star Distribution</CardTitle>
-          </CardHeader>
-          <CardContent className="px-5 pb-4">
-            {isLoading ? <Skeleton className="h-32 w-full" /> : reviews === 0 ? (
-              <div className="text-center py-6 text-muted-foreground">
-                <Star className="w-6 h-6 mx-auto mb-1 opacity-40" />
-                <p className="text-[12px]">No reviews yet</p>
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={160}>
-                <BarChart data={starData} margin={{ top: 5, right: 5, bottom: 5, left: -25 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
-                  <Tooltip contentStyle={tooltipStyle} />
-                  <Bar dataKey="count" radius={[4, 4, 0, 0]} name="Reviews">
-                    {starData.map((_, i) => <Cell key={i} fill={STAR_COLORS[i]} />)}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
       </div>
 
       {/* Best day to send */}
@@ -605,94 +561,36 @@ export default function Analytics() {
                 <Tooltip contentStyle={tooltipStyle} />
                 <Legend wrapperStyle={{ fontSize: "11px" }} />
                 <Bar dataKey="requestsSent" name="Requests Sent" fill={colors.requests} radius={[4, 4, 0, 0]} barSize={24} />
-                <Bar dataKey="reviewsCompleted" name="Reviews Received" fill={colors.reviews} radius={[4, 4, 0, 0]} barSize={24} />
+                <Bar dataKey="clicked" name="Links Clicked" fill={colors.reviews} radius={[4, 4, 0, 0]} barSize={24} />
               </BarChart>
             </ResponsiveContainer>
           )}
         </CardContent>
       </Card>
 
-      {/* Bottom 3-column row: time to review, follow-up effectiveness, platform breakdown */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Average time to review */}
-        <Card className="border-card-border">
-          <CardHeader className="pb-2 pt-4 px-5">
-            <CardTitle className="text-[14px] font-semibold">Time to Review</CardTitle>
-          </CardHeader>
-          <CardContent className="px-5 pb-4">
-            {isLoading ? <Skeleton className="h-40 w-full" /> : !data?.timeToReviewData || data.timeToReviewData.every(d => d.count === 0) ? (
-              <div className="text-center py-6 text-muted-foreground"><p className="text-[12px]">No reviews yet</p></div>
-            ) : (
-              <ResponsiveContainer width="100%" height={160}>
-                <BarChart data={data.timeToReviewData} margin={{ top: 5, right: 5, bottom: 5, left: -25 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                  <XAxis dataKey="bucket" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
-                  <Tooltip contentStyle={tooltipStyle} />
-                  <Bar dataKey="count" name="Reviews" fill={colors.reviews} radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Follow-up effectiveness */}
+      {/* Follow-up effectiveness */}
+      {data?.followUpData && data.followUpData.some(d => d.customers > 0) && (
         <Card className="border-card-border">
           <CardHeader className="pb-2 pt-4 px-5">
             <CardTitle className="text-[14px] font-semibold">Follow-up Effectiveness</CardTitle>
           </CardHeader>
           <CardContent className="px-5 pb-4">
-            {isLoading ? <Skeleton className="h-40 w-full" /> : !data?.followUpData || data.followUpData.every(d => d.customers === 0) ? (
-              <div className="text-center py-6 text-muted-foreground"><p className="text-[12px]">No data yet</p></div>
-            ) : (
+            {isLoading ? <Skeleton className="h-40 w-full" /> : (
               <ResponsiveContainer width="100%" height={160}>
                 <BarChart data={data.followUpData} margin={{ top: 5, right: 5, bottom: 5, left: -25 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                   <XAxis dataKey="bucket" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
                   <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v, name) => [v, name === "converted" ? "Got a review" : "Customers"]} />
+                  <Tooltip contentStyle={tooltipStyle} formatter={(v, name) => [v, name === "clicked" ? "Clicked link" : "Customers"]} />
                   <Legend wrapperStyle={{ fontSize: "11px" }} />
                   <Bar dataKey="customers" name="Customers" fill={colors.requests} radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="converted" name="Got a review" fill={colors.reviews} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="clicked" name="Clicked link" fill={colors.reviews} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}
           </CardContent>
         </Card>
-
-        {/* Review platform breakdown */}
-        <Card className="border-card-border">
-          <CardHeader className="pb-2 pt-4 px-5">
-            <CardTitle className="text-[14px] font-semibold">Review Platforms</CardTitle>
-          </CardHeader>
-          <CardContent className="px-5 pb-4">
-            {isLoading ? <Skeleton className="h-40 w-full" /> : !data?.platformBreakdown || data.platformBreakdown.length === 0 ? (
-              <div className="text-center py-6 text-muted-foreground"><p className="text-[12px]">No reviews yet</p></div>
-            ) : (
-              <>
-                <ResponsiveContainer width="100%" height={110}>
-                  <PieChart>
-                    <Pie data={data.platformBreakdown} dataKey="value" cx="50%" cy="50%" innerRadius={30} outerRadius={50} paddingAngle={3}>
-                      {data.platformBreakdown.map((_, i) => (
-                        <Cell key={i} fill={[colors.requests, colors.reviews, colors.email, colors.sms, colors.whatsapp][i % 5]} />
-                      ))}
-                    </Pie>
-                    <Tooltip contentStyle={tooltipStyle} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="flex flex-wrap gap-2 justify-center mt-1">
-                  {data.platformBreakdown.map((d, i) => (
-                    <div key={d.name} className="flex items-center gap-1">
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: [colors.requests, colors.reviews, colors.email, colors.sms, colors.whatsapp][i % 5] }} />
-                      <span className="text-[11px] text-muted-foreground">{d.name}: <strong className="text-foreground">{d.value}</strong></span>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      )}
 
       {/* Template performance */}
       {data?.templatePerformance && data.templatePerformance.length > 0 && (
@@ -707,8 +605,8 @@ export default function Analytics() {
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
                   <XAxis type="number" unit="%" domain={[0, 100]} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
                   <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} width={120} />
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${v}%`, "Response Rate"]} />
-                  <Bar dataKey="responseRate" name="Response Rate" fill={colors.reviews} radius={[0, 4, 4, 0]} />
+                  <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${v}%`, "Click Rate"]} />
+                  <Bar dataKey="clickRate" name="Click Rate" fill={colors.reviews} radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}

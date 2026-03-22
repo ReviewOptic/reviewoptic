@@ -286,16 +286,14 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Instagram auto-posting** — listed on features page but not built; only Facebook + LinkedIn are wired up
 - **Review widget** — Settings page shows a code snippet but `widget.js` at that URL doesn't exist; feature is non-functional
 - **Logo sizes** — user noted logos on features/T&C/privacy pages may need to be bigger; review at start of next session
-- **Agency plan** — still pending (Option B: agency manages multiple client sub-accounts); deferred again this session
 
 **Architecture notes:**
-- `plan_type` values: `'free'` (never used), `'standard'`, `'agency'`, `'complimentary'` (bypasses paywall), `'cancelled'` (analytics read-only)
+- `plan_type` values: `'free'` (never used), `'standard'`, `'complimentary'` (bypasses paywall), `'cancelled'` (analytics read-only)
 - Cancel flow: Stripe `cancel_at_period_end=true` → user keeps access until period ends → Stripe webhook fires `customer.subscription.deleted` → `plan_type = 'cancelled'`; also detected on next `/api/billing/subscription` call
 - Feedback endpoint: `POST /api/feedback` (requireAuth) — sends two emails via Resend; no DB storage
 
 **Notes for next session:**
 - Review logo sizes on features, T&C, and privacy pages — user wants them bigger
-- Agency plan still needs building — check `project_agency_plan.md` memory file for the 4 questions to ask first
 - Instagram auto-posting and review widget are listed as features but not built — decide whether to build or remove from features list
 - Template Performance chart only works for review requests sent after this session (template_id now stamped on send)
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
@@ -326,7 +324,6 @@ Your job is to be the developer they would hire if they could afford a great one
 **Notes for next session:**
 - Videos are all still "Coming soon" placeholders — paste YouTube embed URLs into the `VIDEOS` array in `client/src/pages/Tutorial.tsx` when ready
 - Intro popup video URL: set `INTRO_VIDEO_URL` constant at top of `client/src/pages/Dashboard.tsx`
-- Agency plan still needs building
 - Instagram auto-posting and review widget still not built — decide whether to build or remove from features list
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
 
@@ -337,9 +334,7 @@ Your job is to be the developer they would hire if they could afford a great one
 - Intro popup video gate — "Let's get started" button now disabled until user has watched the video to the end; button label changes to "Watch the video to continue" while locked; small note above button reads "Please watch the video to continue."; uses YouTube IFrame API `postMessage` (`?enablejsapi=1`, state `0` = ended) to detect completion; if no `INTRO_VIDEO_URL` set, button remains immediately enabled as before
 
 **Notes for next session:**
-- Agency pricing tier has been removed — do not reference or rebuild it
 - Intro video gate is ready — paste YouTube embed URL into `INTRO_VIDEO_URL` constant at top of `client/src/pages/Dashboard.tsx` when video is ready
-- Agency plan build still pending
 - Instagram auto-posting and review widget still not built — decide whether to build or remove from features list
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
 
@@ -357,6 +352,30 @@ Your job is to be the developer they would hire if they could afford a great one
 - Brand colours are now live in the app — Deep Blue `#0E679D` is the primary action colour everywhere
 - WhatsApp templates now seed automatically for new accounts; all existing accounts were seeded directly in the DB
 - If the user wants to explore themes/layouts again, do it on a branch — not on main — so reverting is a simple branch switch, not a hard reset
-- Agency plan still needs building
+- Instagram auto-posting and review widget still not built — decide whether to build or remove from features list
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+
+### Session — 2026-03-22 (eighteenth session)
+
+**Tasks completed:**
+- Analytics overhauled to reflect what can actually be tracked — reviews are not submitted on the platform (customers are redirected to Google/Trustpilot etc.), so all "reviews received" metrics replaced with "links clicked"; removed Time to Review and Review Platforms charts (both relied on internal reviews table); renamed `responseRate` → `clickRate`, `reviews` → `clicks` throughout server and frontend
+- Removed `sendNewReviewNotification` from email.ts — can't detect when a review is left on an external platform
+- ReviewLanding page simplified — now just shows platform buttons (Email/click-through only); no internal review submission form
+- Billing page — cancel/reactivate section removed
+- Dashboard redesigned — new stat cards layout with greeting, cleaner layout
+- Add Customer form — "Preferred Channel" field removed; channel is now selected at point of sending only
+- Add/Edit Customer — email and phone format validation added; red border + error message shown inline when format is invalid; submit blocked until valid
+- Send Request dialog — channel options now disabled based on available contact info (Email disabled if no email saved, SMS/WhatsApp disabled if no phone saved); auto-selects a valid channel on open
+- Send Request dialog — Custom time option now shows a datetime-local picker; 1h/2h options correctly calculate future timestamps; send blocked until custom time is picked
+- Send Request dialog — Template dropdown shows all templates for the selected channel; dropdown only appears when >1 templates exist; if 0 templates, shows a link to create one; always passes correct template ID to server
+- How-to guides updated to reflect all the above changes; "Review Received" status replaced with "No Response"; analytics how-to updated to say "click rate"
+
+**Architecture notes:**
+- `review_completed` status is effectively dead — the old review submission form has been removed from ReviewLanding; only `clicked`, `request_sent`, `no_response`, `pending_request` statuses are active
+- `POST /api/reviews` endpoint still exists in routes.ts but is no longer called by the frontend — safe to remove in a future cleanup session
+- Analytics `daily` data now tracks `clicks` (customers with `status = 'clicked'`) not review submissions
+
+**Notes for next session:**
+- `POST /api/reviews` endpoint in routes.ts is orphaned — the ReviewLanding no longer submits reviews; can be removed in a cleanup pass
 - Instagram auto-posting and review widget still not built — decide whether to build or remove from features list
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
