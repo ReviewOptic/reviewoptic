@@ -283,6 +283,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         subject: "",
         body: "Hi {{first_name}}, just a quick follow-up from {{business_name}}. We'd really appreciate your review: {{review_link}}",
       },
+      {
+        id: randomUUID(), accountId: account.id, name: "Review Request", templateType: "review_request",
+        channel: "whatsapp", isDefault: true,
+        subject: "",
+        body: "Hi {{first_name}} 👋 Thanks for choosing {{business_name}}! We hope you had a great experience. Could you spare 30 seconds to leave us a review? It really helps us out 🙏\n\n{{review_link}}",
+      },
+      {
+        id: randomUUID(), accountId: account.id, name: "Follow-up", templateType: "follow_up",
+        channel: "whatsapp", isDefault: true,
+        subject: "",
+        body: "Hi {{first_name}}, just a friendly follow-up from {{business_name}} 😊 If you have a moment, we'd love to hear what you thought. Your review means a lot to us:\n\n{{review_link}}",
+      },
     ];
     for (const t of defaultTemplates) {
       await storage.createTemplate(t);

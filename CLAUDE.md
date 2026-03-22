@@ -342,3 +342,21 @@ Your job is to be the developer they would hire if they could afford a great one
 - Agency plan build still pending
 - Instagram auto-posting and review widget still not built — decide whether to build or remove from features list
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+
+### Session — 2026-03-22 (seventeenth session)
+
+**Tasks completed:**
+- WhatsApp default templates — added "Review Request" and "Follow-up" WhatsApp templates to the registration seed (new accounts get them automatically); seeded them directly into all 5 existing accounts that were missing them via psql
+- Brand colours applied — updated `client/src/index.css` CSS variables to use official ReviewOptic palette: Deep Blue `#0E679D` as primary, Light Blue `#64A1C2` as secondary/charts, Gold `#DDA636` as chart highlight, Soft Grey `#DCDFD1`-derived tones for borders/muted; dark mode updated to deep navy with Light Blue as primary
+
+**Things that went wrong / lessons:**
+- Built a full 5-theme switcher with layout variants (top nav, icon sidebar, wide sidebar, etc.) and different login styles — user reversed it; they want a theme chosen and locked, not a picker on the live app
+- The `git reset --hard` to reverse the themes also wiped the routes.ts WhatsApp seed change (it was made before the theme commit) — re-applied manually at end of session
+
+**Notes for next session:**
+- Brand colours are now live in the app — Deep Blue `#0E679D` is the primary action colour everywhere
+- WhatsApp templates now seed automatically for new accounts; all existing accounts were seeded directly in the DB
+- If the user wants to explore themes/layouts again, do it on a branch — not on main — so reverting is a simple branch switch, not a hard reset
+- Agency plan still needs building
+- Instagram auto-posting and review widget still not built — decide whether to build or remove from features list
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
