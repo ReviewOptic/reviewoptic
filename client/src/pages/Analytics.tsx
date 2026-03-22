@@ -51,7 +51,7 @@ interface AnalyticsData {
   channelBreakdown: { email: number; sms: number; whatsapp: number };
   summary: { sent: number; clicks: number; clickRate: number };
   byUser?: Array<{ name: string; email: string; role: string; requestsSent: number; clicked: number }>;
-  bestDayData?: Array<{ day: string; requestsSent: number; clicked: number; clickRate: number }>;
+  bestDayData?: Array<{ day: string; clicked: number }>;
   followUpData?: Array<{ bucket: string; customers: number; clicked: number; clickRate: number }>;
   templatePerformance?: Array<{ name: string; sent: number; clicked: number; clickRate: number }>;
 }
@@ -550,17 +550,15 @@ export default function Analytics() {
           <CardTitle className="text-[14px] font-semibold">Best Day to Send</CardTitle>
         </CardHeader>
         <CardContent className="px-5 pb-4">
-          {isLoading ? <Skeleton className="h-48 w-full" /> : !data?.bestDayData || data.bestDayData.every(d => d.requestsSent === 0) ? (
-            <div className="text-center py-6 text-muted-foreground"><p className="text-[12px]">No data yet</p></div>
+          {isLoading ? <Skeleton className="h-48 w-full" /> : !data?.bestDayData || data.bestDayData.every(d => d.clicked === 0) ? (
+            <div className="text-center py-6 text-muted-foreground"><p className="text-[12px]">No click data yet — check back once customers start clicking</p></div>
           ) : (
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={data.bestDayData} margin={{ top: 5, right: 10, bottom: 5, left: -20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                 <XAxis dataKey="day" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Legend wrapperStyle={{ fontSize: "11px" }} />
-                <Bar dataKey="requestsSent" name="Requests Sent" fill={colors.requests} radius={[4, 4, 0, 0]} barSize={24} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(v) => [v, "Links Clicked"]} />
                 <Bar dataKey="clicked" name="Links Clicked" fill={colors.reviews} radius={[4, 4, 0, 0]} barSize={24} />
               </BarChart>
             </ResponsiveContainer>

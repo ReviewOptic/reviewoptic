@@ -293,8 +293,18 @@ export class DatabaseStorage implements IStorage {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const allCustomers = await db.select().from(customers).where(eq(customers.accountId, accountId));
-    const requestsThisMonth = allCustomers.filter(c => c.createdAt >= monthStart && c.status !== "pending_request").length;
-    const pendingRequests = allCustomers.filter(c => c.status === "request_sent" && !c.doNotContact).length;
+    // Count total review requests sent this month (multiple per customer counted)
+    const [{ count: rrCount }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(reviewRequests)
+      .where(and(eq(reviewRequests.accountId, accountId), sql`${reviewRequests.createdAt} >= ${monthStart}`));
+    const requestsThisMonth = Number(rrCount);
+    // Count pending (unclicked) review requests — consistent with total requests count
+    const [{ count: pendingCount }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(reviewRequests)
+      .where(and(eq(reviewRequests.accountId, accountId), eq(reviewRequests.status, "pending")));
+    const pendingRequests = Number(pendingCount);
     const clicksThisMonth = allCustomers.filter(c => c.status === "clicked" && c.createdAt >= monthStart).length;
     const sent = allCustomers.filter(c => c.status !== "pending_request").length;
     const clicked = allCustomers.filter(c => c.status === "clicked").length;

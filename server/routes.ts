@@ -1000,14 +1000,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (templateId) {
       await pool.query(`UPDATE review_requests SET template_id = $1 WHERE id = $2`, [templateId, rr.id]).catch(() => {});
     }
+    // Update customer status and log activity immediately regardless of schedule
     await storage.updateCustomer(customer.id, { status: "request_sent" }, req.session.accountId!);
+    const scheduledAt = req.body.scheduledAt ? new Date(req.body.scheduledAt) : new Date();
+    const sendDelay = Math.max(0, scheduledAt.getTime() - Date.now());
+    const isScheduled = sendDelay > 5000;
+    console.log(`[schedule] raw=${req.body.scheduledAt} parsed=${scheduledAt.toISOString()} delay=${sendDelay}ms isScheduled=${isScheduled}`);
     await storage.createActivity({
       id: randomUUID(),
       accountId: req.session.accountId!,
       type: "request_sent",
       customerId: customer.id,
       customerName: customer.name,
-      message: `Review request sent to ${customer.name} via ${req.body.channel || customer.channel}`,
+      message: isScheduled
+        ? `Review request scheduled for ${customer.name} via ${req.body.channel || customer.channel} at ${scheduledAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+        : `Review request sent to ${customer.name} via ${req.body.channel || customer.channel}`,
       metadata: "{}",
     });
 
@@ -1017,92 +1024,77 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const allTemplates = await storage.getTemplates(req.session.accountId!);
     const customMessage: string | undefined = req.body.customMessage || undefined;
     const customSubject: string | undefined = req.body.customSubject || undefined;
-    if (settings) {
-      if (channel === "email" && customer.email) {
-        const template =
-          (templateId && allTemplates.find(t => t.id === templateId)) ||
-          allTemplates.find(t => t.channel === "email" && t.isDefault) ||
-          allTemplates.find(t => t.channel === "email") ||
-          null;
-        const effectiveTemplate = (customMessage || customSubject)
-          ? { ...(template || { subject: "", body: "" }), ...(customSubject ? { subject: customSubject } : {}), ...(customMessage ? { body: customMessage } : {}) }
-          : template;
-        sendReviewEmail(customer, settings, effectiveTemplate, selectedPlatforms).catch(err =>
-          console.error("[review request] Failed to send email:", err.message, err.statusCode, JSON.stringify(err.body ?? err))
-        );
-      } else if (channel === "sms" && customer.phone) {
-        const template =
-          (templateId && allTemplates.find(t => t.id === templateId)) ||
-          allTemplates.find(t => t.channel === "sms" && t.isDefault) ||
-          allTemplates.find(t => t.channel === "sms") ||
-          null;
-        const effectiveTemplate = customMessage
-          ? { ...(template || { subject: "", body: "" }), body: customMessage }
-          : template;
-        sendReviewSMS(customer, settings, effectiveTemplate, selectedPlatforms).catch(err =>
-          console.error("[review request] Failed to send SMS:", err.message)
-        );
-      } else if (channel === "whatsapp" && customer.phone) {
-        const messageType: string = req.body.messageType || "text";
-        const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "");
-        if (messageType === "voice" && settings.voiceNoteUrl && settings.elevenLabsVoiceId) {
-          // Generate personalised voice note: "[Name]!" + voice recording, then send via WhatsApp
-          (async () => {
-            try {
-              const firstName = customer.name.split(" ")[0];
-              const nameAudioPath = await generateNameAudio(settings.elevenLabsVoiceId, `${firstName}!`);
-              const mergedPath = await stitchNameToFront(nameAudioPath, settings.voiceNoteUrl, "audio");
-              const filename = path.basename(mergedPath);
-              const mediaUrl = `${appUrl}/uploads/tmp/${filename}`;
-              await sendWhatsAppMessage(customer.phone, "", mediaUrl);
-              // Delete after 60s to allow Twilio to fetch it
-              setTimeout(() => fs.unlink(mergedPath, () => {}), 60_000);
-            } catch (err: any) {
-              console.error("[whatsapp voice] Failed:", err.message);
-            }
-          })();
-        } else if (messageType === "video" && settings.videoMessageUrl && settings.elevenLabsVoiceId) {
-          // Generate personalised video: black frame with "[Name]!" audio + video, then send via WhatsApp
-          (async () => {
-            try {
-              const firstName = customer.name.split(" ")[0];
-              const nameAudioPath = await generateNameAudio(settings.elevenLabsVoiceId, `${firstName}!`);
-              const mergedPath = await stitchNameToFront(nameAudioPath, settings.videoMessageUrl, "video");
-              const filename = path.basename(mergedPath);
-              const mediaUrl = `${appUrl}/uploads/tmp/${filename}`;
-              await sendWhatsAppMessage(customer.phone, "", mediaUrl);
-              setTimeout(() => fs.unlink(mergedPath, () => {}), 60_000);
-            } catch (err: any) {
-              console.error("[whatsapp video] Failed:", err.message);
-            }
-          })();
-        } else {
-          // Plain text WhatsApp message
+
+    // Schedule the actual send — fires immediately if sendDelay is 0
+    setTimeout(async () => {
+      if (!settings) return;
+      try {
+        if (channel === "email" && customer.email) {
           const template =
             (templateId && allTemplates.find(t => t.id === templateId)) ||
-            allTemplates.find(t => t.channel === "whatsapp" && t.isDefault) ||
-            allTemplates.find(t => t.channel === "whatsapp") ||
+            allTemplates.find(t => t.channel === "email" && t.isDefault) ||
+            allTemplates.find(t => t.channel === "email") ||
+            null;
+          const effectiveTemplate = (customMessage || customSubject)
+            ? { ...(template || { subject: "", body: "" }), ...(customSubject ? { subject: customSubject } : {}), ...(customMessage ? { body: customMessage } : {}) }
+            : template;
+          await sendReviewEmail(customer, settings, effectiveTemplate, selectedPlatforms);
+        } else if (channel === "sms" && customer.phone) {
+          const template =
+            (templateId && allTemplates.find(t => t.id === templateId)) ||
+            allTemplates.find(t => t.channel === "sms" && t.isDefault) ||
+            allTemplates.find(t => t.channel === "sms") ||
             null;
           const effectiveTemplate = customMessage
             ? { ...(template || { subject: "", body: "" }), body: customMessage }
             : template;
-          const reviewLink = selectedPlatforms?.[0]?.url || settings.googleReviewLink || settings.facebookReviewLink || settings.trustpilotLink || "";
-          const body = effectiveTemplate?.body
-            ? effectiveTemplate.body
-                .replace(/\{\{first_name\}\}/g, customer.name.split(" ")[0])
-                .replace(/\{\{customer_name\}\}/g, customer.name)
-                .replace(/\{\{business_name\}\}/g, settings.businessName)
-                .replace(/\{\{service_type\}\}/g, customer.serviceType || "")
-                .replace(/\{\{review_link\}\}/g, reviewLink)
-            : `Hi ${customer.name.split(" ")[0]}, thanks for choosing ${settings.businessName}! We'd love a quick review: ${reviewLink}`;
-          sendWhatsAppMessage(customer.phone, body).catch(err =>
-            console.error("[whatsapp text] Failed:", err.message)
-          );
+          await sendReviewSMS(customer, settings, effectiveTemplate, selectedPlatforms);
+        } else if (channel === "whatsapp" && customer.phone) {
+          const messageType: string = req.body.messageType || "text";
+          const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "");
+          if (messageType === "voice" && settings.voiceNoteUrl && settings.elevenLabsVoiceId) {
+            const firstName = customer.name.split(" ")[0];
+            const nameAudioPath = await generateNameAudio(settings.elevenLabsVoiceId, `${firstName}!`);
+            const mergedPath = await stitchNameToFront(nameAudioPath, settings.voiceNoteUrl, "audio");
+            const filename = path.basename(mergedPath);
+            const mediaUrl = `${appUrl}/uploads/tmp/${filename}`;
+            await sendWhatsAppMessage(customer.phone, "", mediaUrl);
+            setTimeout(() => fs.unlink(mergedPath, () => {}), 60_000);
+          } else if (messageType === "video" && settings.videoMessageUrl && settings.elevenLabsVoiceId) {
+            const firstName = customer.name.split(" ")[0];
+            const nameAudioPath = await generateNameAudio(settings.elevenLabsVoiceId, `${firstName}!`);
+            const mergedPath = await stitchNameToFront(nameAudioPath, settings.videoMessageUrl, "video");
+            const filename = path.basename(mergedPath);
+            const mediaUrl = `${appUrl}/uploads/tmp/${filename}`;
+            await sendWhatsAppMessage(customer.phone, "", mediaUrl);
+            setTimeout(() => fs.unlink(mergedPath, () => {}), 60_000);
+          } else {
+            const template =
+              (templateId && allTemplates.find(t => t.id === templateId)) ||
+              allTemplates.find(t => t.channel === "whatsapp" && t.isDefault) ||
+              allTemplates.find(t => t.channel === "whatsapp") ||
+              null;
+            const effectiveTemplate = customMessage
+              ? { ...(template || { subject: "", body: "" }), body: customMessage }
+              : template;
+            const reviewLink = selectedPlatforms?.[0]?.url || settings.googleReviewLink || settings.facebookReviewLink || settings.trustpilotLink || "";
+            const body = effectiveTemplate?.body
+              ? effectiveTemplate.body
+                  .replace(/\{\{first_name\}\}/g, customer.name.split(" ")[0])
+                  .replace(/\{\{customer_name\}\}/g, customer.name)
+                  .replace(/\{\{business_name\}\}/g, settings.businessName)
+                  .replace(/\{\{service_type\}\}/g, customer.serviceType || "")
+                  .replace(/\{\{review_link\}\}/g, reviewLink)
+              : `Hi ${customer.name.split(" ")[0]}, thanks for choosing ${settings.businessName}! We'd love a quick review: ${reviewLink}`;
+            await sendWhatsAppMessage(customer.phone, body);
+          }
         }
+      } catch (err: any) {
+        console.error(`[review request] Failed to send ${channel} to ${customer.name}:`, err.message);
       }
-    }
+    }, sendDelay);
 
-    res.json(rr);
+    res.json({ ...rr, scheduledAt: scheduledAt.toISOString(), isScheduled });
     } catch (err: any) {
       console.error("[review-request] Error:", err.message, err.stack);
       res.status(500).json({ message: err.message || "Internal server error" });
@@ -1300,7 +1292,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // Analytics
   app.get("/api/analytics", requireAuth, async (req, res) => {
     const accountId = req.session.accountId!;
-    const allCustomers = await storage.getCustomers(accountId);
     const now = new Date();
 
     // Support either custom from/to or a days rolling window
@@ -1320,61 +1311,76 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const channel = (req.query.channel as string) || "all";
     const userId = req.query.userId as string | undefined;
 
-    // If filtering by user, get customer IDs from their review_requests
-    let userCustomerIds: Set<string> | null = null;
-    if (userId) {
-      try {
-        const { rows: rr } = await pool.query(
-          `SELECT DISTINCT customer_id FROM review_requests WHERE account_id=$1 AND sent_by_user_id=$2 AND created_at>=$3 AND created_at<=$4`,
-          [accountId, userId, cutoff, cutoffEnd]
-        );
-        userCustomerIds = new Set(rr.map((r: any) => r.customer_id));
-      } catch { /* ignore */ }
-    }
+    // Build WHERE clause fragments for review_requests queries
+    const baseParams: any[] = [accountId, cutoff, cutoffEnd];
+    let baseWhere = `account_id = $1 AND created_at >= $2 AND created_at <= $3`;
+    if (channel !== "all") { baseParams.push(channel); baseWhere += ` AND channel = $${baseParams.length}`; }
+    if (userId) { baseParams.push(userId); baseWhere += ` AND sent_by_user_id = $${baseParams.length}`; }
 
-    const sentCustomers = allCustomers.filter(c =>
-      c.status !== "pending_request" &&
-      c.createdAt >= cutoff && c.createdAt <= cutoffEnd &&
-      (channel === "all" || c.channel === channel) &&
-      (!userCustomerIds || userCustomerIds.has(c.id))
-    );
-    // Daily chart
+    // Core totals — all from review_requests
+    const { rows: totals } = await pool.query(`
+      SELECT COUNT(*) as sent,
+             COUNT(CASE WHEN status = 'clicked' THEN 1 END) as clicked
+      FROM review_requests WHERE ${baseWhere}
+    `, baseParams);
+    const sent = parseInt(totals[0]?.sent || "0");
+    const clicked = parseInt(totals[0]?.clicked || "0");
+
+    // Daily requests (by sent date) and clicks (by click date) from review_requests
     const dailyData: Record<string, { date: string; requests: number; clicks: number }> = {};
-    const allChannelCustomers = allCustomers.filter(c =>
-      c.status !== "pending_request" &&
-      c.createdAt >= cutoff && c.createdAt <= cutoffEnd
-    );
-    const channelDailyData: Record<string, { date: string; email: number; sms: number; whatsapp: number; emailClicks: number; smsClicks: number; whatsappClicks: number }> = {};
     for (let i = 0; i <= days; i++) {
       const d = new Date(cutoff.getTime() + i * 24 * 60 * 60 * 1000);
       const key = d.toISOString().split("T")[0];
       dailyData[key] = { date: key, requests: 0, clicks: 0 };
+    }
+    const { rows: dailyRows } = await pool.query(`
+      SELECT DATE(created_at) as date, COUNT(*) as requests,
+             COUNT(CASE WHEN status = 'clicked' THEN 1 END) as clicks
+      FROM review_requests WHERE ${baseWhere}
+      GROUP BY DATE(created_at)
+    `, baseParams);
+    dailyRows.forEach((r: any) => {
+      const key = r.date instanceof Date ? r.date.toISOString().split("T")[0] : String(r.date);
+      if (dailyData[key]) {
+        dailyData[key].requests = parseInt(r.requests);
+        dailyData[key].clicks = parseInt(r.clicks);
+      }
+    });
+
+    // Daily by channel (all channels, ignore channel filter for this chart)
+    const channelDailyData: Record<string, { date: string; email: number; sms: number; whatsapp: number; emailClicks: number; smsClicks: number; whatsappClicks: number }> = {};
+    for (let i = 0; i <= days; i++) {
+      const d = new Date(cutoff.getTime() + i * 24 * 60 * 60 * 1000);
+      const key = d.toISOString().split("T")[0];
       channelDailyData[key] = { date: key, email: 0, sms: 0, whatsapp: 0, emailClicks: 0, smsClicks: 0, whatsappClicks: 0 };
     }
-    sentCustomers.forEach(c => {
-      const key = c.createdAt.toISOString().split("T")[0];
-      if (dailyData[key]) {
-        dailyData[key].requests++;
-        if (c.status === "clicked") dailyData[key].clicks++;
-      }
-    });
-    allChannelCustomers.forEach(c => {
-      const key = c.createdAt.toISOString().split("T")[0];
-      if (channelDailyData[key]) {
-        const ch = c.channel as string;
-        if (ch === "email") { channelDailyData[key].email++; if (c.status === "clicked") channelDailyData[key].emailClicks++; }
-        else if (ch === "sms") { channelDailyData[key].sms++; if (c.status === "clicked") channelDailyData[key].smsClicks++; }
-        else if (ch === "whatsapp") { channelDailyData[key].whatsapp++; if (c.status === "clicked") channelDailyData[key].whatsappClicks++; }
-      }
+    const { rows: chDailyRows } = await pool.query(`
+      SELECT DATE(created_at) as date, channel,
+             COUNT(*) as requests,
+             COUNT(CASE WHEN status = 'clicked' THEN 1 END) as clicks
+      FROM review_requests WHERE account_id = $1 AND created_at >= $2 AND created_at <= $3
+      GROUP BY DATE(created_at), channel
+    `, [accountId, cutoff, cutoffEnd]);
+    chDailyRows.forEach((r: any) => {
+      const key = r.date instanceof Date ? r.date.toISOString().split("T")[0] : String(r.date);
+      if (!channelDailyData[key]) return;
+      const ch = r.channel as string;
+      const req = parseInt(r.requests); const cl = parseInt(r.clicks);
+      if (ch === "email") { channelDailyData[key].email += req; channelDailyData[key].emailClicks += cl; }
+      else if (ch === "sms") { channelDailyData[key].sms += req; channelDailyData[key].smsClicks += cl; }
+      else if (ch === "whatsapp") { channelDailyData[key].whatsapp += req; channelDailyData[key].whatsappClicks += cl; }
     });
 
-    const sent = sentCustomers.length;
-    const clicked = sentCustomers.filter(c => c.status === "clicked").length;
-
+    // Channel breakdown
+    const { rows: cbRows } = await pool.query(`
+      SELECT channel, COUNT(*) as cnt
+      FROM review_requests WHERE ${baseWhere}
+      GROUP BY channel
+    `, baseParams);
     const channelBreakdown = { email: 0, sms: 0, whatsapp: 0 };
-    sentCustomers.forEach(c => {
-      const ch = c.channel as keyof typeof channelBreakdown;
-      if (channelBreakdown[ch] !== undefined) channelBreakdown[ch]++;
+    cbRows.forEach((r: any) => {
+      const ch = r.channel as keyof typeof channelBreakdown;
+      if (channelBreakdown[ch] !== undefined) channelBreakdown[ch] = parseInt(r.cnt);
     });
 
 
@@ -1402,23 +1408,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }));
     } catch { /* column may not exist on older installs */ }
 
-    // Best day to send
+    // Best day to send — based on which day of week clicks actually happen
     let bestDayData: any[] = [];
     try {
       const { rows: dowRows } = await pool.query(`
-        SELECT EXTRACT(DOW FROM created_at)::int as dow,
-               COUNT(*) as requests_sent,
-               COUNT(CASE WHEN status = 'clicked' THEN 1 END) as clicked
+        SELECT EXTRACT(DOW FROM clicked_at)::int as dow,
+               COUNT(*) as clicks
         FROM review_requests
-        WHERE account_id = $1 AND created_at >= $2 AND created_at <= $3
+        WHERE account_id = $1 AND clicked_at >= $2 AND clicked_at <= $3
         GROUP BY dow ORDER BY dow
       `, [accountId, cutoff, cutoffEnd]);
       const DOW_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
       bestDayData = DOW_NAMES.map((name, i) => {
         const row = dowRows.find((r: any) => r.dow === i);
-        const sent = parseInt(row?.requests_sent || "0");
-        const clicks = parseInt(row?.clicked || "0");
-        return { day: name, requestsSent: sent, clicked: clicks, clickRate: sent > 0 ? Math.round((clicks / sent) * 100) : 0 };
+        const clicks = parseInt(row?.clicks || "0");
+        return { day: name, clicked: clicks };
       });
     } catch { /* ignore */ }
 
@@ -1428,19 +1432,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const { rows: fuRows } = await pool.query(`
         SELECT
           CASE
-            WHEN rr_count = 1 THEN 'No follow-up'
-            WHEN rr_count = 2 THEN '1 follow-up'
+            WHEN followup_count = 0 THEN 'No follow-up'
+            WHEN followup_count = 1 THEN '1 follow-up'
             ELSE '2+ follow-ups'
           END as bucket,
           COUNT(*) as customers,
           COUNT(CASE WHEN has_clicked THEN 1 END) as clicked
         FROM (
-          SELECT customer_id,
-                 COUNT(id) as rr_count,
-                 bool_or(status = 'clicked') as has_clicked
-          FROM review_requests
-          WHERE account_id = $1 AND created_at >= $2 AND created_at <= $3
-          GROUP BY customer_id
+          SELECT rr.customer_id,
+                 COUNT(CASE WHEN t.template_type = 'follow_up' THEN 1 END) as followup_count,
+                 bool_or(rr.status = 'clicked') as has_clicked
+          FROM review_requests rr
+          LEFT JOIN templates t ON t.id = rr.template_id
+          WHERE rr.account_id = $1 AND rr.created_at >= $2 AND rr.created_at <= $3
+          GROUP BY rr.customer_id
         ) t
         GROUP BY bucket
         ORDER BY bucket

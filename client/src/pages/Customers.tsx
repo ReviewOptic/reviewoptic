@@ -244,25 +244,33 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
     : (messageMode === "template" || aiMessage.trim().length > 0);
 
   const mutation = useMutation({
-    mutationFn: async () => apiRequest("POST", "/api/review-requests", {
-      customerId: customer?.id,
-      channel,
-      scheduledAt: delay === "now" ? new Date()
-        : delay === "1h" ? new Date(Date.now() + 60 * 60 * 1000)
-        : delay === "2h" ? new Date(Date.now() + 2 * 60 * 60 * 1000)
-        : delay === "custom" && customTime ? new Date(customTime)
-        : new Date(),
-      selectedPlatforms: availablePlatforms.filter(p => selectedPlatforms.includes(p.key)).map(p => ({ name: p.name, url: p.url })),
-      customMessage: messageMode === "ai" ? (aiMessage || undefined) : undefined,
-      customSubject: channel === "email" && customSubject ? customSubject : undefined,
-      templateId: messageMode === "template" && selectedTemplate ? selectedTemplate.id : undefined,
-    }),
-    onSuccess: () => {
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/review-requests", {
+        customerId: customer?.id,
+        channel,
+        scheduledAt: delay === "now" ? new Date()
+          : delay === "1h" ? new Date(Date.now() + 60 * 60 * 1000)
+          : delay === "2h" ? new Date(Date.now() + 2 * 60 * 60 * 1000)
+          : delay === "custom" && customTime ? new Date(customTime)
+          : new Date(),
+        selectedPlatforms: availablePlatforms.filter(p => selectedPlatforms.includes(p.key)).map(p => ({ name: p.name, url: p.url })),
+        customMessage: messageMode === "ai" ? (aiMessage || undefined) : undefined,
+        customSubject: channel === "email" && customSubject ? customSubject : undefined,
+        templateId: messageMode === "template" && selectedTemplate ? selectedTemplate.id : undefined,
+      });
+      return res.json();
+    },
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
       queryClient.invalidateQueries({ queryKey: ["/api/review-requests"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activity"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
-      toast({ title: "Review request sent!", description: `Sent to ${customer?.name} via ${channel}` });
+      if (data?.isScheduled && data?.scheduledAt) {
+        const time = new Date(data.scheduledAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        toast({ title: `Request scheduled for ${time}`, description: `Will be sent to ${customer?.name} via ${channel}` });
+      } else {
+        toast({ title: "Review request sent!", description: `Sent to ${customer?.name} via ${channel}` });
+      }
       onClose();
     },
     onError: () => toast({ title: "Failed to send request", variant: "destructive" }),

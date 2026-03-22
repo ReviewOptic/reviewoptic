@@ -379,3 +379,26 @@ Your job is to be the developer they would hire if they could afford a great one
 - `POST /api/reviews` endpoint in routes.ts is orphaned — the ReviewLanding no longer submits reviews; can be removed in a cleanup pass
 - Instagram auto-posting and review widget still not built — decide whether to build or remove from features list
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+
+### Session — 2026-03-22 (nineteenth session)
+
+**Tasks completed:**
+- Dashboard "Requests This Month" stat now counts total rows from `review_requests` table (not unique customers) — correctly counts re-sends to the same customer for multiple jobs
+- Dashboard "Awaiting Response" stat now counts `review_requests` with `status = 'pending'` (not customers with `status = 'request_sent'`) — keeps both stats consistent and comparable
+- Analytics — full rewrite of core data source: all key metrics (sent, clicked, daily chart, channel breakdown) now query from `review_requests` table directly instead of the `customers` table; previously, filtering by `customer.createdAt` meant re-sends and multi-job customers were invisible or miscounted
+- Analytics — daily chart now groups by `DATE(created_at)` and `DATE(clicked_at)` from review_requests, not customer creation date
+- Analytics — channel breakdown and daily-by-channel charts now use review_requests grouped by channel
+- Analytics — Follow-up Effectiveness chart fixed: now detects actual follow-ups by joining to `templates` table and checking `template_type = 'follow_up'`, instead of counting total requests per customer (which wrongly flagged re-sends for different jobs as follow-ups)
+- Analytics — Best Day to Send chart: now based on `clicked_at` day-of-week (when customers actually click), not when requests were sent; only shows when there is actual click data
+
+**Architecture notes:**
+- Analytics endpoint no longer loads `allCustomers` for core stats — everything flows from `review_requests` SQL queries
+- `baseParams` / `baseWhere` pattern used in analytics to cleanly handle channel and userId filter additions
+- `review_requests.clicked_at` column stores when the link was clicked — used for Best Day to Send
+- `review_requests.status` values: `pending` (sent, not yet clicked), `clicked`
+
+**Notes for next session:**
+- Server restart required for all server-side changes to take effect (HMR only applies to Vite/client code)
+- `POST /api/reviews` endpoint in routes.ts is still orphaned — safe to remove in a cleanup pass
+- Instagram auto-posting and review widget still not built — decide whether to build or remove from features list
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
