@@ -677,143 +677,350 @@ function NewTemplateDialog({ channel, open, onClose }: { channel: string; open: 
 }
 
 function RecordingsTab() {
-  const { data: settings, refetch } = useQuery<any>({ queryKey: ["/api/settings"] });
+  const { data: recordings = [], refetch } = useQuery<any[]>({ queryKey: ["/api/recordings"] });
   const { toast } = useToast();
-  const voiceInputRef = useRef<HTMLInputElement>(null);
-  const videoInputRef = useRef<HTMLInputElement>(null);
-  const [uploadingVoice, setUploadingVoice] = useState(false);
-  const [uploadingVideo, setUploadingVideo] = useState(false);
 
-  async function handleUpload(type: "voice" | "video", file: File) {
-    const endpoint = type === "voice" ? "/api/recordings/upload-voice" : "/api/recordings/upload-video";
-    const fieldName = type === "voice" ? "audio" : "video";
-    const setter = type === "voice" ? setUploadingVoice : setUploadingVideo;
-    setter(true);
+  // Which type is being added right now
+  const [addingType, setAddingType] = useState<"voice" | "video" | null>(null);
+  const [newLabel, setNewLabel] = useState("");
+  const [uploading, setUploading] = useState(false);
+
+  // Inline recorder state
+  const [recState, setRecState] = useState<"idle" | "previewing" | "recording" | "recorded">("idle");
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
+  const [recDuration, setRecDuration] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const videoPreviewRef = useRef<HTMLVideoElement>(null);
+
+  // Label editing for existing recordings
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editLabel, setEditLabel] = useState("");
+
+  const voiceRecs = (recordings as any[]).filter(r => r.type === "voice");
+  const videoRecs = (recordings as any[]).filter(r => r.type === "video");
+
+  function resetRecorder() {
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+    setRecordedUrl(null);
+    setRecordedBlob(null);
+    setRecDuration(0);
+    setRecState("idle");
+    if (videoPreviewRef.current) { videoPreviewRef.current.src = ""; videoPreviewRef.current.srcObject = null; }
+  }
+
+  function cancelAdding() {
+    if (recState === "recording") mediaRecorderRef.current?.stop();
+    // Stop any live camera/mic stream
+    const vid = videoPreviewRef.current;
+    if (vid?.srcObject) (vid.srcObject as MediaStream).getTracks().forEach(t => t.stop());
+    resetRecorder();
+    setAddingType(null);
+    setNewLabel("");
+  }
+
+  async function startVoiceRecording() {
     try {
-      const fd = new FormData();
-      fd.append(fieldName, file);
-      const res = await fetch(endpoint, { method: "POST", credentials: "include", body: fd });
-      if (!res.ok) throw new Error((await res.json()).message);
-      toast({ title: `${type === "voice" ? "Voice note" : "Video"} uploaded successfully` });
-      refetch();
-    } catch (err: any) {
-      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
-    } finally {
-      setter(false);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      chunksRef.current = [];
+      const mr = new MediaRecorder(stream);
+      mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      mr.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        const url = URL.createObjectURL(blob);
+        setRecordedBlob(blob);
+        setRecordedUrl(url);
+        stream.getTracks().forEach(t => t.stop());
+        if (timerRef.current) clearInterval(timerRef.current);
+        setRecState("recorded");
+      };
+      mr.start();
+      mediaRecorderRef.current = mr;
+      setRecDuration(0);
+      timerRef.current = setInterval(() => setRecDuration(d => d + 1), 1000);
+      setRecState("recording");
+    } catch {
+      toast({ title: "Microphone access denied", description: "Allow microphone access to record.", variant: "destructive" });
     }
   }
 
-  async function handleDelete(type: "voice" | "video") {
-    const endpoint = type === "voice" ? "/api/recordings/voice" : "/api/recordings/video";
+  async function startVideoPreview() {
     try {
-      await fetch(endpoint, { method: "DELETE", credentials: "include" });
-      toast({ title: `${type === "voice" ? "Voice note" : "Video"} removed` });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      if (videoPreviewRef.current) {
+        videoPreviewRef.current.srcObject = stream;
+        videoPreviewRef.current.muted = true;
+        videoPreviewRef.current.play();
+      }
+      setRecState("previewing");
+    } catch {
+      toast({ title: "Camera access denied", description: "Allow camera and microphone to record.", variant: "destructive" });
+    }
+  }
+
+  function startVideoRecording() {
+    const stream = videoPreviewRef.current?.srcObject as MediaStream;
+    if (!stream) return;
+    chunksRef.current = [];
+    const mr = new MediaRecorder(stream, { mimeType: "video/webm" });
+    mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+    mr.onstop = () => {
+      const blob = new Blob(chunksRef.current, { type: "video/webm" });
+      const url = URL.createObjectURL(blob);
+      setRecordedBlob(blob);
+      setRecordedUrl(url);
+      if (videoPreviewRef.current) {
+        videoPreviewRef.current.srcObject = null;
+        videoPreviewRef.current.src = url;
+        videoPreviewRef.current.muted = false;
+        videoPreviewRef.current.load();
+      }
+      stream.getTracks().forEach(t => t.stop());
+      setRecState("recorded");
+    };
+    mr.start();
+    mediaRecorderRef.current = mr;
+    setRecState("recording");
+  }
+
+  function retake() {
+    if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+    setRecordedUrl(null);
+    setRecordedBlob(null);
+    if (videoPreviewRef.current) { videoPreviewRef.current.src = ""; videoPreviewRef.current.srcObject = null; }
+    setRecState("idle");
+    setRecDuration(0);
+  }
+
+  async function handleSave() {
+    if (!recordedBlob || !addingType) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      const filename = addingType === "voice" ? "voice-note.webm" : "video-message.webm";
+      fd.append("file", recordedBlob, filename);
+      fd.append("type", addingType);
+      fd.append("label", newLabel.trim() || (addingType === "voice" ? "Voice Note" : "Video Message"));
+      const res = await fetch("/api/recordings/upload", { method: "POST", credentials: "include", body: fd });
+      if (!res.ok) throw new Error((await res.json()).message);
+      toast({ title: "Recording saved" });
+      cancelAdding();
+      refetch();
+    } catch (err: any) {
+      toast({ title: "Save failed", description: err.message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    try {
+      const res = await fetch(`/api/recordings/${id}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error();
+      toast({ title: "Recording removed" });
       refetch();
     } catch {
       toast({ title: "Failed to remove", variant: "destructive" });
     }
   }
 
-  const voiceUrl: string = settings?.voiceNoteUrl || "";
-  const videoUrl: string = settings?.videoMessageUrl || "";
+  async function handleRename(id: string) {
+    try {
+      await fetch(`/api/recordings/${id}`, {
+        method: "PATCH", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: editLabel }),
+      });
+      refetch();
+    } catch {
+      toast({ title: "Failed to rename", variant: "destructive" });
+    }
+    setEditingId(null);
+  }
+
+  const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+
+  const sections = [
+    {
+      type: "voice" as const,
+      recs: voiceRecs,
+      title: "Voice Notes",
+      icon: <Mic className="w-4 h-4 text-primary" />,
+      description: "Record a short voice message requesting a review. We'll personalise it with each customer's name using AI voice synthesis before sending via WhatsApp.",
+      emptyHint: <>Try: <span className="italic">"It's [your business name] — we'd love to hear what you thought. Could you spare a moment to leave us a review?"</span><br /><span className="text-[11px] mt-1 block">The customer's first name is added automatically to the start — e.g. <span className="font-medium italic">"Sarah! It's [your business name]..."</span></span></>,
+      addLabel: "Record voice note",
+    },
+    {
+      type: "video" as const,
+      recs: videoRecs,
+      title: "Video Messages",
+      icon: <Video className="w-4 h-4 text-primary" />,
+      description: "Record a short video requesting a review. Sent directly to customers via WhatsApp as a personalised video message.",
+      emptyHint: <>Try: <span className="italic">"Thank you so much for choosing us. Could you take a moment to leave us a review?"</span><br /><span className="text-[11px] mt-1 block">The customer's first name is added as a caption at the start of the video.</span></>,
+      addLabel: "Record video message",
+    },
+  ];
 
   return (
     <div className="space-y-4">
-      <Card className="border-card-border">
-        <CardHeader>
-          <CardTitle className="text-[15px] flex items-center gap-2">
-            <Mic className="w-4 h-4 text-primary" />
-            Voice Note
-          </CardTitle>
-          <CardDescription className="text-[12.5px]">
-            Record a short voice message requesting a review. We'll personalise it with each customer's name using AI voice synthesis before sending via WhatsApp.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="pb-5">
-          {voiceUrl ? (
-            <div className="space-y-3">
-              <audio controls src={voiceUrl} className="w-full h-10" />
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="text-[12.5px]" onClick={() => voiceInputRef.current?.click()} disabled={uploadingVoice}>
-                  <Upload className="w-3.5 h-3.5 mr-1.5" /> Replace
-                </Button>
-                <Button variant="outline" size="sm" className="text-[12.5px] text-destructive hover:text-destructive" onClick={() => handleDelete("voice")}>
-                  <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Remove
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-lg border-2 border-dashed border-border bg-muted/30 p-6 text-center space-y-3">
-              <div className="flex justify-center">
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Mic className="w-5 h-5 text-primary" />
+      {sections.map(({ type, recs, title, icon, description, emptyHint, addLabel }) => (
+        <Card key={type} className="border-card-border">
+          <CardHeader>
+            <CardTitle className="text-[15px] flex items-center gap-2">{icon}{title}</CardTitle>
+            <CardDescription className="text-[12.5px]">{description}</CardDescription>
+          </CardHeader>
+          <CardContent className="pb-5 space-y-3">
+            {/* Existing recordings */}
+            {recs.map((rec: any) => (
+              <div key={rec.id} className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  {editingId === rec.id ? (
+                    <>
+                      <Input value={editLabel} onChange={e => setEditLabel(e.target.value)}
+                        className="text-[12.5px] h-7 flex-1"
+                        onKeyDown={e => { if (e.key === "Enter") handleRename(rec.id); if (e.key === "Escape") setEditingId(null); }}
+                        autoFocus />
+                      <Button size="sm" variant="outline" className="text-[11.5px] h-7 px-2" onClick={() => handleRename(rec.id)}>Save</Button>
+                      <Button size="sm" variant="ghost" className="text-[11.5px] h-7 px-2" onClick={() => setEditingId(null)}>Cancel</Button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-[12.5px] font-medium flex-1">{rec.label}</span>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0"
+                        onClick={() => { setEditingId(rec.id); setEditLabel(rec.label); }}>
+                        <Edit2 className="w-3 h-3" />
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                        onClick={() => handleDelete(rec.id)}>
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </>
+                  )}
                 </div>
+                {type === "voice"
+                  ? <audio controls src={rec.url} className="w-full h-10" />
+                  : <video controls src={rec.url} className="w-full rounded-lg max-h-48 bg-black" />}
               </div>
-              <div>
-                <p className="text-[13px] font-medium text-foreground">No voice note uploaded yet</p>
-                <p className="text-[12px] text-muted-foreground mt-1">
-                  Record something like: <span className="italic">"It's [your business name] — we'd love to hear what you thought. Could you spare a moment to leave us a review? It really does make a difference."</span>
-                </p>
-                <p className="text-[11.5px] text-muted-foreground mt-1">The customer's first name is added automatically to the very start — e.g. <span className="italic font-medium">"Sarah! It's [your business name]..."</span></p>
-              </div>
-              <Button variant="outline" size="sm" className="text-[12.5px]" onClick={() => voiceInputRef.current?.click()} disabled={uploadingVoice}>
-                <Upload className="w-3.5 h-3.5 mr-1.5" />
-                {uploadingVoice ? "Uploading..." : "Upload audio file"}
-              </Button>
-            </div>
-          )}
-          <input ref={voiceInputRef} type="file" accept="audio/*,video/webm" className="hidden"
-            onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload("voice", f); e.target.value = ""; }} />
-        </CardContent>
-      </Card>
+            ))}
 
-      <Card className="border-card-border">
-        <CardHeader>
-          <CardTitle className="text-[15px] flex items-center gap-2">
-            <Video className="w-4 h-4 text-primary" />
-            Video Message
-          </CardTitle>
-          <CardDescription className="text-[12.5px]">
-            Upload a short video requesting a review. Sent directly to customers via WhatsApp as a personalised video message.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="pb-5">
-          {videoUrl ? (
-            <div className="space-y-3">
-              <video controls src={videoUrl} className="w-full rounded-lg max-h-48 bg-black" />
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="text-[12.5px]" onClick={() => videoInputRef.current?.click()} disabled={uploadingVideo}>
-                  <Upload className="w-3.5 h-3.5 mr-1.5" /> Replace
-                </Button>
-                <Button variant="outline" size="sm" className="text-[12.5px] text-destructive hover:text-destructive" onClick={() => handleDelete("video")}>
-                  <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Remove
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-lg border-2 border-dashed border-border bg-muted/30 p-6 text-center space-y-3">
-              <div className="flex justify-center">
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Video className="w-5 h-5 text-primary" />
+            {recs.length === 0 && addingType !== type && (
+              <p className="text-[12px] text-muted-foreground text-center italic px-2">{emptyHint}</p>
+            )}
+
+            {/* In-app recorder */}
+            {addingType === type ? (
+              <div className="rounded-lg border-2 border-dashed border-primary/40 bg-primary/5 p-4 space-y-3">
+                {/* Label */}
+                <div className="space-y-1.5">
+                  <Label className="text-[12px]">Label <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                  <Input value={newLabel} onChange={e => setNewLabel(e.target.value)}
+                    placeholder={type === "voice" ? "e.g. Standard voice note" : "e.g. Main video message"}
+                    className="text-[12.5px]" />
                 </div>
+
+                {/* Voice recorder */}
+                {type === "voice" && (
+                  <div className="space-y-2">
+                    {recState === "recorded" && recordedUrl && (
+                      <audio src={recordedUrl} controls className="w-full h-10" />
+                    )}
+                    {recState === "recording" && (
+                      <div className="flex items-center gap-2 text-red-500">
+                        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                        <span className="text-[12px] font-mono">Recording {fmt(recDuration)}</span>
+                      </div>
+                    )}
+                    <div className="flex gap-2 flex-wrap">
+                      {recState === "idle" && (
+                        <Button size="sm" variant="outline" className="text-[12px] gap-1.5" onClick={startVoiceRecording}>
+                          <Mic className="w-3.5 h-3.5" /> Start recording
+                        </Button>
+                      )}
+                      {recState === "recording" && (
+                        <Button size="sm" variant="destructive" className="text-[12px] gap-1.5" onClick={() => mediaRecorderRef.current?.stop()}>
+                          <StopCircle className="w-3.5 h-3.5" /> Stop
+                        </Button>
+                      )}
+                      {recState === "recorded" && (
+                        <>
+                          <Button size="sm" className="text-[12px] gap-1.5" onClick={handleSave} disabled={uploading}>
+                            <Save className="w-3.5 h-3.5" /> {uploading ? "Saving..." : "Save"}
+                          </Button>
+                          <Button size="sm" variant="outline" className="text-[12px] gap-1.5" onClick={retake} disabled={uploading}>
+                            <RotateCcw className="w-3.5 h-3.5" /> Re-record
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Video recorder */}
+                {type === "video" && (
+                  <div className="space-y-2">
+                    {(recState === "previewing" || recState === "recording" || recState === "recorded") && (
+                      <video ref={videoPreviewRef}
+                        className="w-full max-h-48 rounded-lg bg-black"
+                        playsInline
+                        autoPlay={recState === "previewing" || recState === "recording"}
+                        controls={recState === "recorded"}
+                      />
+                    )}
+                    {recState === "recording" && (
+                      <div className="flex items-center gap-2 text-red-500">
+                        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                        <span className="text-[12px]">Recording…</span>
+                      </div>
+                    )}
+                    <div className="flex gap-2 flex-wrap">
+                      {recState === "idle" && (
+                        <Button size="sm" variant="outline" className="text-[12px] gap-1.5" onClick={startVideoPreview}>
+                          <Video className="w-3.5 h-3.5" /> Open camera
+                        </Button>
+                      )}
+                      {recState === "previewing" && (
+                        <Button size="sm" className="text-[12px] gap-1.5 bg-red-500 hover:bg-red-600" onClick={startVideoRecording}>
+                          <StopCircle className="w-3.5 h-3.5" /> Start recording
+                        </Button>
+                      )}
+                      {recState === "recording" && (
+                        <Button size="sm" variant="destructive" className="text-[12px] gap-1.5" onClick={() => mediaRecorderRef.current?.stop()}>
+                          <StopCircle className="w-3.5 h-3.5" /> Stop
+                        </Button>
+                      )}
+                      {recState === "recorded" && (
+                        <>
+                          <Button size="sm" className="text-[12px] gap-1.5" onClick={handleSave} disabled={uploading}>
+                            <Save className="w-3.5 h-3.5" /> {uploading ? "Saving..." : "Save"}
+                          </Button>
+                          <Button size="sm" variant="outline" className="text-[12px] gap-1.5" onClick={retake} disabled={uploading}>
+                            <RotateCcw className="w-3.5 h-3.5" /> Re-record
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <Button variant="ghost" size="sm" className="text-[12px] w-full" onClick={cancelAdding}>
+                  Cancel
+                </Button>
               </div>
-              <div>
-                <p className="text-[13px] font-medium text-foreground">No video uploaded yet</p>
-                <p className="text-[12px] text-muted-foreground mt-1">
-                  Film a short video (15–30 seconds) saying something like: <span className="italic">"It's [your business name] — thank you so much for choosing us. We'd really appreciate it if you could take a moment to leave us a review."</span>
-                </p>
-                <p className="text-[11.5px] text-muted-foreground mt-1">The customer's first name is added as a text caption at the start of the video — e.g. <span className="italic font-medium">"Hi Sarah!"</span> — before your video plays.</p>
-              </div>
-              <Button variant="outline" size="sm" className="text-[12.5px]" onClick={() => videoInputRef.current?.click()} disabled={uploadingVideo}>
-                <Upload className="w-3.5 h-3.5 mr-1.5" />
-                {uploadingVideo ? "Uploading..." : "Upload video file"}
+            ) : recs.length < 2 ? (
+              <Button variant="outline" size="sm" className="text-[12.5px] w-full gap-1.5"
+                onClick={() => { setAddingType(type); setNewLabel(""); resetRecorder(); }}>
+                <Plus className="w-3.5 h-3.5" />
+                {recs.length === 0 ? addLabel : "Add another"}
               </Button>
-            </div>
-          )}
-          <input ref={videoInputRef} type="file" accept="video/*" className="hidden"
-            onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload("video", f); e.target.value = ""; }} />
-        </CardContent>
-      </Card>
+            ) : (
+              <p className="text-[11.5px] text-muted-foreground text-center">Maximum of 2 recordings reached.</p>
+            )}
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }

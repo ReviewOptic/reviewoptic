@@ -45,9 +45,11 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer; op
   const [phonetic, setPhonetic] = useState(customer.namePronunciation || "");
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
+  const [selectedRecordingId, setSelectedRecordingId] = useState<string | null>(null);
 
   const { data: settings } = useQuery<any>({ queryKey: ["/api/settings"] });
   const { data: templates } = useQuery<Template[]>({ queryKey: ["/api/templates"] });
+  const { data: recordings = [] } = useQuery<any[]>({ queryKey: ["/api/recordings"] });
 
   const availablePlatforms = settings ? [
     { key: "google", name: "Google", url: settings.googleReviewLink },
@@ -81,8 +83,10 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer; op
   const generatePreview = async () => {
     setIsPreviewing(true);
     setPreviewId(null);
+    const typeRecs = (recordings as any[]).filter((r: any) => r.type === messageType);
+    const activeRecId = selectedRecordingId ?? typeRecs[0]?.id ?? null;
     try {
-      const res = await apiRequest("POST", "/api/recordings/preview", { customerId: customer.id, messageType, phonetic });
+      const res = await apiRequest("POST", "/api/recordings/preview", { customerId: customer.id, recordingId: activeRecId, phonetic });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
       setPreviewId(data.previewId);
@@ -207,10 +211,22 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer; op
 
           {channel === "whatsapp" && messageType !== "text" ? (
             (() => {
-              const url = messageType === "voice" ? settings?.voiceNoteUrl : settings?.videoMessageUrl;
+              const typeRecs = (recordings as any[]).filter((r: any) => r.type === messageType);
+              const activeRecId = selectedRecordingId ?? typeRecs[0]?.id ?? null;
               const firstName = customer.name.split(" ")[0];
-              return url ? (
+              return typeRecs.length > 0 ? (
                 <div className="space-y-3">
+                  {typeRecs.length > 1 && (
+                    <div className="space-y-1.5">
+                      <Label className="text-[12.5px]">Recording</Label>
+                      <Select value={activeRecId ?? ""} onValueChange={v => { setSelectedRecordingId(v); setPreviewId(null); }}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {typeRecs.map((r: any) => <SelectItem key={r.id} value={r.id}>{r.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   {previewId ? (
                     <div className="space-y-2">
                       <Label className="text-[12.5px]">Preview — with {firstName}'s name</Label>
@@ -234,7 +250,7 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer; op
                         placeholder={firstName}
                         className="text-[12.5px] flex-1"
                       />
-                      <Button size="sm" variant="outline" onClick={generatePreview} disabled={isPreviewing} className="text-[12.5px] shrink-0">
+                      <Button size="sm" variant="outline" onClick={generatePreview} disabled={isPreviewing || !activeRecId} className="text-[12.5px] shrink-0">
                         {isPreviewing ? <><RefreshCw className="w-3 h-3 animate-spin mr-1" />Generating...</> : previewId ? "Re-generate" : "Preview"}
                       </Button>
                     </div>
@@ -247,7 +263,7 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer; op
                     {messageType === "voice" ? "Voice note" : "Video message"} not set up yet
                   </p>
                   <p className="text-[11.5px] text-amber-700">
-                    Upload your {messageType === "voice" ? "voice note" : "video"} in <a href="/settings?tab=recordings" className="underline font-medium">Settings → Recordings</a>.
+                    Upload your {messageType === "voice" ? "voice note" : "video"} in <a href="/templates?tab=recordings" className="underline font-medium">Templates → Recordings</a>.
                   </p>
                 </div>
               );

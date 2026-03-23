@@ -236,6 +236,39 @@ export async function runMigrations() {
       WHERE template_type = 'follow_up' AND channel = 'whatsapp' AND is_default = true
     `);
 
+    // Recordings table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS recordings (
+        id VARCHAR PRIMARY KEY,
+        account_id VARCHAR NOT NULL,
+        type TEXT NOT NULL,
+        label TEXT NOT NULL DEFAULT '',
+        url TEXT NOT NULL,
+        elevenlabs_voice_id TEXT NOT NULL DEFAULT '',
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    // Migrate existing voice/video from settings into recordings table
+    const { rows: settingsRows } = await pool.query(`SELECT account_id, voice_note_url, video_message_url, elevenlabs_voice_id FROM settings WHERE (voice_note_url <> '' OR video_message_url <> '')`);
+    for (const s of settingsRows) {
+      if (s.voice_note_url) {
+        const { rows: existing } = await pool.query(`SELECT id FROM recordings WHERE account_id = $1 AND type = 'voice' AND url = $2`, [s.account_id, s.voice_note_url]);
+        if (existing.length === 0) {
+          const { randomUUID } = await import("crypto");
+          await pool.query(`INSERT INTO recordings (id, account_id, type, label, url, elevenlabs_voice_id) VALUES ($1, $2, 'voice', 'Default', $3, $4)`,
+            [randomUUID(), s.account_id, s.voice_note_url, s.elevenlabs_voice_id || ""]);
+        }
+      }
+      if (s.video_message_url) {
+        const { rows: existing } = await pool.query(`SELECT id FROM recordings WHERE account_id = $1 AND type = 'video' AND url = $2`, [s.account_id, s.video_message_url]);
+        if (existing.length === 0) {
+          const { randomUUID } = await import("crypto");
+          await pool.query(`INSERT INTO recordings (id, account_id, type, label, url) VALUES ($1, $2, 'video', 'Default', $3)`,
+            [randomUUID(), s.account_id, s.video_message_url]);
+        }
+      }
+    }
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();

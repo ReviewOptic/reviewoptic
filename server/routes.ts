@@ -1393,69 +1393,104 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ configured: isCloudinaryConfigured() });
   });
 
-  app.post("/api/recordings/upload-voice", requireAuth, audioUpload.single("audio"), async (req, res) => {
-    if (!req.file) return res.status(400).json({ message: "No audio file uploaded" });
+  // List all recordings for account
+  app.get("/api/recordings", requireAuth, async (req, res) => {
+    const { rows } = await pool.query(
+      `SELECT * FROM recordings WHERE account_id = $1 ORDER BY type, created_at ASC`,
+      [req.session.accountId]
+    );
+    res.json(rows);
+  });
+
+  // Upload a new recording (voice or video) — max 2 per type
+  const recordingUpload = multer({ dest: "uploads/" });
+  app.post("/api/recordings/upload", requireAuth, recordingUpload.single("file"), async (req, res) => {
+    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
     if (!isCloudinaryConfigured()) return res.status(503).json({ message: "Cloud storage not configured" });
+    const type = req.body.type as string; // 'voice' or 'video'
+    const label = (req.body.label || "").trim() || (type === "voice" ? "Voice Note" : "Video Message");
+    if (type !== "voice" && type !== "video") return res.status(400).json({ message: "type must be voice or video" });
+
+    // Enforce max 2 per type
+    const { rows: existing } = await pool.query(
+      `SELECT id FROM recordings WHERE account_id = $1 AND type = $2`,
+      [req.session.accountId, type]
+    );
+    if (existing.length >= 2) return res.status(400).json({ message: `Maximum of 2 ${type} recordings allowed` });
+
     try {
-      const url = await uploadToCloudinary(req.file.path, { folder: "reviewoptic/voice-notes", resource_type: "video" });
+      const folder = type === "voice" ? "reviewoptic/voice-notes" : "reviewoptic/video-messages";
+      const url = await uploadToCloudinary(req.file.path, { folder, resource_type: "video" });
       fs.unlink(req.file.path, () => {});
-      const current = await storage.getSettings(req.session.accountId!);
-      if (current?.voiceNoteUrl) await deleteFromCloudinary(current.voiceNoteUrl);
-      // Delete old ElevenLabs voice clone if one exists
-      if (current?.elevenLabsVoiceId) await deleteVoice(current.elevenLabsVoiceId).catch(() => {});
-      // Clone the voice via ElevenLabs
+
       let elevenLabsVoiceId = "";
-      if (process.env.ELEVENLABS_API_KEY) {
-        const businessName = current?.businessName || "ReviewOptic";
-        elevenLabsVoiceId = await cloneVoice(url, businessName).catch(err => {
+      if (type === "voice" && process.env.ELEVENLABS_API_KEY) {
+        const settings = await storage.getSettings(req.session.accountId!);
+        elevenLabsVoiceId = await cloneVoice(url, settings?.businessName || "ReviewOptic").catch(err => {
           console.error("[recordings] ElevenLabs clone failed:", err.message);
           return "";
         });
       }
-      await storage.upsertSettings(req.session.accountId!, { voiceNoteUrl: url, elevenLabsVoiceId });
-      res.json({ url });
+
+      const id = randomUUID();
+      await pool.query(
+        `INSERT INTO recordings (id, account_id, type, label, url, elevenlabs_voice_id) VALUES ($1, $2, $3, $4, $5, $6)`,
+        [id, req.session.accountId, type, label, url, elevenLabsVoiceId]
+      );
+      const { rows } = await pool.query(`SELECT * FROM recordings WHERE id = $1`, [id]);
+      res.json(rows[0]);
     } catch (err: any) {
-      console.error("[recordings] voice upload failed:", err.message);
+      console.error("[recordings] upload failed:", err.message);
       res.status(500).json({ message: "Upload failed" });
     }
   });
 
-  app.post("/api/recordings/upload-video", requireAuth, videoUpload.single("video"), async (req, res) => {
-    if (!req.file) return res.status(400).json({ message: "No video file uploaded" });
-    if (!isCloudinaryConfigured()) return res.status(503).json({ message: "Cloud storage not configured" });
-    try {
-      const url = await uploadToCloudinary(req.file.path, { folder: "reviewoptic/video-messages", resource_type: "video" });
-      fs.unlink(req.file.path, () => {});
-      const current = await storage.getSettings(req.session.accountId!);
-      if (current?.videoMessageUrl) await deleteFromCloudinary(current.videoMessageUrl);
-      await storage.upsertSettings(req.session.accountId!, { videoMessageUrl: url });
-      res.json({ url });
-    } catch (err: any) {
-      console.error("[recordings] video upload failed:", err.message);
-      res.status(500).json({ message: "Upload failed" });
-    }
+  // Update recording label
+  app.patch("/api/recordings/:id", requireAuth, async (req, res) => {
+    const { label } = req.body;
+    if (!label?.trim()) return res.status(400).json({ message: "Label is required" });
+    const { rows } = await pool.query(
+      `UPDATE recordings SET label = $1 WHERE id = $2 AND account_id = $3 RETURNING *`,
+      [label.trim(), req.params.id, req.session.accountId]
+    );
+    if (rows.length === 0) return res.status(404).json({ message: "Not found" });
+    res.json(rows[0]);
+  });
+
+  // Delete a recording
+  app.delete("/api/recordings/:id", requireAuth, async (req, res) => {
+    const { rows } = await pool.query(
+      `SELECT * FROM recordings WHERE id = $1 AND account_id = $2`,
+      [req.params.id, req.session.accountId]
+    );
+    if (rows.length === 0) return res.status(404).json({ message: "Not found" });
+    const rec = rows[0];
+    await deleteFromCloudinary(rec.url).catch(() => {});
+    if (rec.elevenlabs_voice_id) await deleteVoice(rec.elevenlabs_voice_id).catch(() => {});
+    await pool.query(`DELETE FROM recordings WHERE id = $1`, [req.params.id]);
+    res.json({ success: true });
   });
 
   // Preview endpoint — generates stitched audio/video and serves it temporarily
   app.post("/api/recordings/preview", requireAuth, async (req, res) => {
-    const { customerId, messageType, phonetic } = req.body;
-    if (!customerId || !messageType) return res.status(400).json({ message: "Missing customerId or messageType" });
-    const settings = await storage.getSettings(req.session.accountId!);
-    if (!settings?.elevenLabsVoiceId) return res.status(400).json({ message: "No voice clone set up — upload a voice note first" });
+    const { customerId, recordingId, phonetic } = req.body;
+    if (!customerId || !recordingId) return res.status(400).json({ message: "Missing customerId or recordingId" });
+
+    const { rows: recRows } = await pool.query(`SELECT * FROM recordings WHERE id = $1 AND account_id = $2`, [recordingId, req.session.accountId]);
+    if (recRows.length === 0) return res.status(404).json({ message: "Recording not found" });
+    const recording = recRows[0];
+    if (recording.type === "voice" && !recording.elevenlabs_voice_id) return res.status(400).json({ message: "No voice clone for this recording — please re-upload" });
 
     const customer = await storage.getCustomer(customerId, req.session.accountId!);
     if (!customer) return res.status(404).json({ message: "Customer not found" });
 
     const firstName = customer.name.split(" ")[0];
     const nameText = `${phonetic || customer.namePronunciation || firstName}!`;
-    const sourceUrl = messageType === "voice" ? settings.voiceNoteUrl : settings.videoMessageUrl;
-    if (!sourceUrl) return res.status(400).json({ message: `No ${messageType} recording uploaded` });
 
     try {
-      const nameAudioPath = await generateNameAudio(settings.elevenLabsVoiceId, nameText);
-      const mergedPath = await stitchNameToFront(nameAudioPath, sourceUrl, messageType === "voice" ? "audio" : "video");
+      const nameAudioPath = await generateNameAudio(recording.elevenlabs_voice_id, nameText);
+      const mergedPath = await stitchNameToFront(nameAudioPath, recording.url, recording.type === "voice" ? "audio" : "video");
       const previewId = randomUUID();
-      // Store path temporarily in memory (expires after 10 min)
       previewFiles.set(previewId, { path: mergedPath, expires: Date.now() + 10 * 60 * 1000 });
       res.json({ previewId });
     } catch (err: any) {
@@ -1468,21 +1503,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const entry = previewFiles.get(req.params.id);
     if (!entry || Date.now() > entry.expires) return res.status(404).json({ message: "Preview expired" });
     res.sendFile(entry.path, { root: "/" });
-  });
-
-  app.delete("/api/recordings/voice", requireAuth, async (req, res) => {
-    const current = await storage.getSettings(req.session.accountId!);
-    if (current?.voiceNoteUrl) await deleteFromCloudinary(current.voiceNoteUrl);
-    if (current?.elevenLabsVoiceId) await deleteVoice(current.elevenLabsVoiceId).catch(() => {});
-    await storage.upsertSettings(req.session.accountId!, { voiceNoteUrl: "", elevenLabsVoiceId: "" });
-    res.json({ success: true });
-  });
-
-  app.delete("/api/recordings/video", requireAuth, async (req, res) => {
-    const current = await storage.getSettings(req.session.accountId!);
-    if (current?.videoMessageUrl) await deleteFromCloudinary(current.videoMessageUrl);
-    await storage.upsertSettings(req.session.accountId!, { videoMessageUrl: "" });
-    res.json({ success: true });
   });
   app.post("/api/settings/upload-logo", requireAuth, logoUpload.single("logo"), (req, res) => {
     if (!req.file) return res.status(400).json({ message: "No image uploaded" });
