@@ -402,3 +402,34 @@ Your job is to be the developer they would hire if they could afford a great one
 - `POST /api/reviews` endpoint in routes.ts is still orphaned — safe to remove in a cleanup pass
 - Instagram auto-posting and review widget still not built — decide whether to build or remove from features list
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+
+### Session — 2026-03-23 (twentieth session)
+
+**Tasks completed:**
+- Recordings system overhauled — replaced single voice/video URL per account (stored in settings) with a `recordings` DB table supporting up to 2 recordings per type per account
+- New DB migration: creates `recordings` table; migrates any existing `voice_note_url` / `video_message_url` from `settings` automatically on startup
+- New API endpoints: `GET /api/recordings`, `POST /api/recordings/upload`, `PATCH /api/recordings/:id` (rename label), `DELETE /api/recordings/:id`
+- Preview endpoint updated: now takes `recordingId` instead of `messageType`
+- Templates → Recordings tab rewritten: in-app browser recording (no file picker); voice uses microphone, video uses camera; record → review → label → Save; up to 2 recordings per type; rename and delete each recording
+- Send Request dialogs (Customers + CustomerDetail): load recordings list from API; auto-select first recording; show dropdown when 2 exist for the type; pass `recordingId` to preview; fixed broken link from "Settings → Recordings" to "Templates → Recordings"
+- Added `uploads/` to `.gitignore` (was missing — runtime files were showing as untracked)
+
+**Fixes applied:**
+- Video recorder "Start recording" did nothing — video `<video>` element was conditionally rendered, so `videoPreviewRef.current` was null when stream was assigned; fixed by always rendering the element (hidden via CSS when idle)
+- Voice/video save failed — `CLOUDINARY_CLOUD_NAME` secret is set to `"ReviewOptic"` (business name) instead of the actual Cloudinary account ID, causing 401 errors; fixed by falling back to local disk storage when Cloudinary upload fails (same approach as template audio/video uploads)
+- `recordingUpload` multer instance was declared inside `registerRoutes` with a relative `dest` path; moved to module level with absolute `uploadsDir` path and proper `.webm` filename extension
+
+**Issues discovered:**
+- **Cloudinary misconfigured** — `CLOUDINARY_CLOUD_NAME` is set to `"ReviewOptic"` not the actual cloud identifier; recordings currently save to local disk and will be lost on server restart. To fix: update `CLOUDINARY_CLOUD_NAME` secret to the real value from cloudinary.com → Dashboard
+
+**Architecture notes:**
+- `recordings` table columns: `id, account_id, type, label, url, elevenlabs_voice_id, created_at`
+- Upload fallback order: try Cloudinary → if fails or not configured, save to `/uploads/uuid.webm`
+- ElevenLabs voice clone only runs for `type = 'voice'` when `ELEVENLABS_API_KEY` is set; URL must be publicly accessible for it to work (local URLs won't work with ElevenLabs)
+- Old `VideoRecorder` and `AudioRecorder` components at top of Templates.tsx still exist (used in template editing) — untouched
+
+**Notes for next session:**
+- Fix Cloudinary: update `CLOUDINARY_CLOUD_NAME` in Replit Secrets to the real cloud name from cloudinary.com → Dashboard (currently set to "ReviewOptic" which is wrong)
+- `POST /api/reviews` endpoint in routes.ts is still orphaned — safe to remove in a cleanup pass
+- Instagram auto-posting and review widget still not built — decide whether to build or remove from features list
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
