@@ -209,3 +209,92 @@ Older session logs moved here to keep CLAUDE.md under 30k chars.
 - Always wrap entire async route handler in try/catch for billing routes
 - Call `refreshUser()` on page load when impersonating to get fresh server-computed flags
 - Use `<a href>` not `navigate()` for back buttons on public pages
+
+---
+
+### Session — 2026-03-18 (eleventh session)
+
+**Tasks completed:**
+- Multiple templates — users can now create, delete, and rename templates
+- "New Template" button top-right of Templates page; opens dialog with name, type, and two options: "Create blank" or "Generate with AI"
+- Delete button (trash icon) on each template card with confirmation dialog
+- Template name is editable inside the Edit view
+- "Generate with AI" button inside each template editor to regenerate body (and subject for email) using OpenAI
+- Added `DELETE /api/templates/:id` route and `deleteTemplate` method in storage
+- Added `POST /api/ai/generate-template` endpoint — generates channel-appropriate body + subject using gpt-4o-mini
+- Template selector in Send Request dialog — appears when multiple templates exist for the selected channel
+- `templateId` sent to `POST /api/review-requests`; server uses specified template if provided
+
+### Session — 2026-03-18 (twelfth session)
+
+**Tasks completed:**
+- Analytics PDF export — `html2canvas` + `jsPDF`; captures only the data section, adds programmatic text header
+- Business name on Analytics page — fetches `/api/settings` and shows `businessName` as subtitle
+- "Requests by Channel Over Time" chart — new `LineChart` with separate Email/SMS/WhatsApp lines
+- Send Request dialog redesign — segmented toggle: "Use a template" / "Generate with AI"
+- Trustpilot review ticker on login page — scrolling strip of green-starred review cards
+- Added `GET /api/public/trustpilot-reviews` endpoint — falls back to hardcoded placeholders until API keys added
+
+**Notes:**
+- Trustpilot ticker auto-switches to live reviews once `TRUSTPILOT_API_KEY` + `TRUSTPILOT_BUSINESS_UNIT_ID` added to Replit Secrets
+
+### Session — 2026-03-18 (thirteenth session)
+
+**Tasks completed:**
+- Fixed Replit Helium database migration — DATABASE_URL host patched `helium` → `localhost`; pg_ctl start added to workflow
+- Fixed email verification links pointing to localhost — now uses `REPLIT_DEV_DOMAIN`
+- Signup flow: Register → /pricing → pay → verify → dashboard; auto-login after registration
+- Server-side paywall in `requireAuth` — free plan users get 402; billing routes exempt
+- `complimentary` plan type added — bypasses paywall, excluded from admin metrics
+- Admin user list now only shows verified + paid/complimentary users
+
+**Infrastructure notes:**
+- DATABASE_URL uses `@helium/` host — always patch to `@localhost/` at startup (done in `server/index.ts` and `server/storage.ts`)
+- Admin account: `hello@reviewoptic.com`
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+
+### Session — 2026-03-19 (fourteenth session)
+
+**Tasks completed:**
+- 5 new analytics charts: Best Day to Send, Time to Review, Follow-up Effectiveness, Template Performance, Review Platform Breakdown
+- Settings → Team: status pills, Resend invite button, `POST /api/team/:id/resend-invite`
+- Subscription cancellation — `cancel_at_period_end: true` on Stripe; reactivate undoes it
+- Cancelled plan state: `plan_type = 'cancelled'`; paywall allows GET /api/analytics + /api/settings only
+- Cancelled plan gate: full-page lock screen + red banner
+- Cancellation email sent automatically; logo added to all system emails
+- Feedback & Feature Requests dialog — sends to hello@reviewoptic.com + auto-reply
+
+**Architecture notes:**
+- `plan_type` values: `'free'` (unused), `'standard'`, `'complimentary'` (bypasses paywall), `'cancelled'` (analytics read-only)
+- Feedback endpoint: `POST /api/feedback` (requireAuth) — two emails via Resend; no DB storage
+
+### Session — 2026-03-19 (fifteenth session)
+
+**Tasks completed:**
+- Logos updated to `h-28` across all popup/dialog screens; email logo max-height → 112px
+- First-login intro popup: only "Let's get started" closes it (no X/outside-click); localStorage key `hasSeenIntro_v2_`
+- Tutorial & Guides: accordion toggles, inline step links, floating draggable guide panel on destination pages
+- Videos and how-to's reordered to match user journey; numbered; watched detection via YouTube IFrame API
+
+**Architecture notes:**
+- How-to data: `client/src/data/howtos.ts`; step type `{ text, link?, linkText? }`
+- Floating panel shown when `?back=tutorial&tab=howtos&howto=INDEX` in URL
+- Watched videos in localStorage: `reviewoptic_watched_videos`
+
+### Session — 2026-03-20 (sixteenth session)
+
+**Tasks completed:**
+- Intro popup video gate — "Let's get started" disabled until video watched to end (YouTube IFrame API state `0`)
+
+**Notes:**
+- Set `INTRO_VIDEO_URL` constant at top of `client/src/pages/Dashboard.tsx` when video is ready
+- Videos array in `client/src/pages/Tutorial.tsx` still has "Coming soon" placeholders
+
+### Session — 2026-03-22 (seventeenth session)
+
+**Tasks completed:**
+- WhatsApp default templates added to registration seed; seeded into all existing accounts via psql
+- Brand colours applied — Deep Blue `#0E679D` primary, Light Blue `#64A1C2` secondary, Gold `#DDA636` highlight
+
+**Lessons learned:**
+- If exploring themes/layouts, do it on a branch — not main — so reverting is a simple branch switch
