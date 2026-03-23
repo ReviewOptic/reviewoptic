@@ -111,6 +111,34 @@ const TIPS = [
     tip: "Check in with your analytics weekly",
     detail: "Spending 5 minutes a week reviewing your stats tells you what's working and what isn't. Small adjustments — a different template, a different send time — can make a big difference to your results.",
   },
+  {
+    tip: "Private feedback is a gift — use it",
+    detail: "When a customer rates 1–3 stars, they're giving you something most businesses never get: an honest reason to improve before it becomes a public complaint. Read every piece of private feedback and act on it. Customers who feel heard often become your biggest advocates.",
+  },
+  {
+    tip: "Google is usually the priority",
+    detail: "If you only focus on one platform, make it Google. It's the first thing people see when they search for your business and has the biggest impact on trust and discoverability. Once your Google score is strong, broaden out to Trustpilot or others.",
+  },
+  {
+    tip: "Don't wait until the end of the week",
+    detail: "It's tempting to batch your customer adds up on a Friday — but requests sent mid-week typically get higher response rates than those sent on weekends. Add customers as you complete jobs and let the timing work in your favour.",
+  },
+  {
+    tip: "A good subject line opens the door",
+    detail: "For email requests, the subject line determines whether the email gets opened at all. Personalise it with the customer's first name or your business name. Test different versions and check your click rate to see what lands best.",
+  },
+  {
+    tip: "WhatsApp gets the highest response rates",
+    detail: "Of all three channels, WhatsApp messages feel the most personal and are read almost immediately. If a customer has given a phone number, WhatsApp is often worth trying first — especially for businesses with a personal touch.",
+  },
+  {
+    tip: "Keep your review platforms up to date",
+    detail: "If you move your Google Business page, change your Trustpilot URL, or join a new platform, update your links in Settings straight away. A broken review link means lost reviews — check your links are working every few months.",
+  },
+  {
+    tip: "Your star rating is a sales tool",
+    detail: "The average star rating shown on your dashboard reflects how customers are experiencing your service right now. Share milestones with your team — a rising average is a sign your standards are improving and worth celebrating.",
+  },
 ];
 
 function VideoCard({ video, index, watched, onMarkWatched }: { video: typeof VIDEOS[0]; index: number; watched: boolean; onMarkWatched: () => void }) {

@@ -34,7 +34,8 @@ export const HOWTOS: HowTo[] = [
     steps: [
       { text: "Go to Settings and open the Follow-up tab.", link: "/settings", linkText: "Settings" },
       { text: "Enable automatic follow-ups and choose your delay (e.g. 3 days after the first request)." },
-      { text: "ReviewOptic will automatically send a second nudge to customers who haven't responded." },
+      { text: "ReviewOptic will automatically send a second nudge to customers who rated 4–5 stars but haven't yet left a public review." },
+      { text: "Customers who rated 1–3 stars are never sent a follow-up — they go into the private feedback track instead." },
       { text: "Most reviews come from the follow-up — don't skip this step." },
     ],
   },
@@ -54,7 +55,9 @@ export const HOWTOS: HowTo[] = [
       { text: "Go to the Customers page.", link: "/customers", linkText: "Customers page" },
       { text: "Find the customer you want to contact and click 'Send Request' next to their name." },
       { text: "Choose your channel — Email is available if the customer has an email address saved; SMS and WhatsApp are available if they have a phone number saved." },
-      { text: "Select which review platform(s) to include — you can choose one, several, or all of the platforms you've connected." },
+      { text: "The customer will receive a message asking them to rate their experience (1–5 stars). This is the sentiment pre-screen." },
+      { text: "If they rate 4–5 stars, they're shown your review platform links and invited to leave a public review." },
+      { text: "If they rate 1–3 stars, they're shown a private feedback form instead — you'll see their feedback in your dashboard for you to respond and follow up with." },
       { text: "Hit Send — the request is delivered instantly and tracked automatically." },
     ],
   },
@@ -64,8 +67,18 @@ export const HOWTOS: HowTo[] = [
       { text: "Go to the Customers page.", link: "/customers", linkText: "Customers page" },
       { text: "Pending Request — the customer has been added but no review request has been sent yet." },
       { text: "Request Sent — a review request has been sent and we are waiting for a response." },
-      { text: "Link Clicked — the customer clicked the review link in your message and was directed to leave a review." },
-      { text: "No Response — the customer did not click the link within the expected timeframe." },
+      { text: "Clicked — the customer clicked the link and submitted their star rating." },
+      { text: "No Response — the customer did not respond within the expected timeframe." },
+    ],
+  },
+  {
+    title: "How to handle private feedback",
+    steps: [
+      { text: "Go to your Dashboard.", link: "/", linkText: "Dashboard" },
+      { text: "If a customer rated 1–3 stars, their private feedback appears in the 'Private Feedback' card — it is never shown publicly." },
+      { text: "Click on the feedback to open it and add a note about how you resolved it." },
+      { text: "Once responded, it moves out of the 'Needs Response' list. Use this to track and close the loop with unhappy customers." },
+      { text: "You'll also receive an email notification whenever private feedback is submitted." },
     ],
   },
   {
@@ -73,6 +86,7 @@ export const HOWTOS: HowTo[] = [
     steps: [
       { text: "Go to Analytics.", link: "/analytics", linkText: "Analytics" },
       { text: "Use the date range filter to choose the period you want to review." },
+      { text: "Your average star rating is shown on the Dashboard — this is based on the ratings customers give through the sentiment pre-screen." },
       { text: "Check your click rate — if it's below 20%, focus on improving your templates or timing." },
       { text: "The 'Best Day to Send' chart shows when your customers are most likely to respond." },
     ],
@@ -89,7 +103,7 @@ export const HOWTOS: HowTo[] = [
   {
     title: "How to record a voice note or video message (optional)",
     steps: [
-      { text: "Go to Settings and open the Recordings tab.", link: "/settings", linkText: "Settings" },
+      { text: "Go to Templates and open the Recordings tab.", link: "/templates", linkText: "Templates" },
       { text: "Under Voice Note, click 'Upload audio file' and select a recording from your device. Speak naturally — say something like: 'Hi, it's [your business name] — could you spare a minute to leave us a review?'" },
       { text: "Under Video Message, click 'Upload video file' and select a short video (15–30 seconds). Keep it warm and personal." },
       { text: "Once uploaded, play it back to check how it sounds before sending to any customers." },

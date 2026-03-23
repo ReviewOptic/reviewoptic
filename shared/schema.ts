@@ -33,6 +33,7 @@ export const reviewRequests = pgTable("review_requests", {
   sentAt: timestamp("sent_at"),
   clickedAt: timestamp("clicked_at"),
   followUpCount: integer("follow_up_count").notNull().default(0),
+  rating: integer("rating"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -50,9 +51,12 @@ export const privateFeedback = pgTable("private_feedback", {
   id: varchar("id").primaryKey(),
   accountId: varchar("account_id").notNull().default(""),
   customerId: varchar("customer_id").notNull(),
+  reviewRequestId: varchar("review_request_id").notNull().default(""),
   stars: integer("stars").notNull().default(1),
   message: text("message").notNull().default(""),
   responded: boolean("responded").notNull().default(false),
+  response: text("response").notNull().default(""),
+  respondedAt: timestamp("responded_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -78,6 +82,7 @@ export const templates = pgTable("templates", {
   isDefault: boolean("is_default").notNull().default(false),
   videoUrl: text("video_url").notNull().default(""),
   audioUrl: text("audio_url").notNull().default(""),
+  preferredPlatform: text("preferred_platform").notNull().default(""),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 

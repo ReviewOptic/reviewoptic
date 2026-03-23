@@ -28,154 +28,6 @@ function SettingSection({ title, description, children }: { title: string; descr
   );
 }
 
-function RecordingsTab() {
-  const { data: settings, refetch } = useQuery<any>({ queryKey: ["/api/settings"] });
-  const { toast } = useToast();
-  const voiceInputRef = useRef<HTMLInputElement>(null);
-  const videoInputRef = useRef<HTMLInputElement>(null);
-  const [uploadingVoice, setUploadingVoice] = useState(false);
-  const [uploadingVideo, setUploadingVideo] = useState(false);
-
-  async function handleUpload(type: "voice" | "video", file: File) {
-    const endpoint = type === "voice" ? "/api/recordings/upload-voice" : "/api/recordings/upload-video";
-    const fieldName = type === "voice" ? "audio" : "video";
-    const setter = type === "voice" ? setUploadingVoice : setUploadingVideo;
-    setter(true);
-    try {
-      const fd = new FormData();
-      fd.append(fieldName, file);
-      const res = await fetch(endpoint, { method: "POST", credentials: "include", body: fd });
-      if (!res.ok) throw new Error((await res.json()).message);
-      toast({ title: `${type === "voice" ? "Voice note" : "Video"} uploaded successfully` });
-      refetch();
-    } catch (err: any) {
-      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
-    } finally {
-      setter(false);
-    }
-  }
-
-  async function handleDelete(type: "voice" | "video") {
-    const endpoint = type === "voice" ? "/api/recordings/voice" : "/api/recordings/video";
-    try {
-      await fetch(endpoint, { method: "DELETE", credentials: "include" });
-      toast({ title: `${type === "voice" ? "Voice note" : "Video"} removed` });
-      refetch();
-    } catch {
-      toast({ title: "Failed to remove", variant: "destructive" });
-    }
-  }
-
-  const voiceUrl: string = settings?.voiceNoteUrl || "";
-  const videoUrl: string = settings?.videoMessageUrl || "";
-
-  return (
-    <div className="space-y-4">
-      {/* Voice note */}
-      <Card className="border-card-border">
-        <CardHeader>
-          <CardTitle className="text-[15px] flex items-center gap-2">
-            <Mic className="w-4 h-4 text-primary" />
-            Voice Note
-          </CardTitle>
-          <CardDescription className="text-[12.5px]">
-            Record a short voice message requesting a review. We'll personalise it with each customer's name using AI voice synthesis before sending via WhatsApp.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="pb-5">
-          {voiceUrl ? (
-            <div className="space-y-3">
-              <audio controls src={voiceUrl} className="w-full h-10" />
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="text-[12.5px]" onClick={() => voiceInputRef.current?.click()} disabled={uploadingVoice}>
-                  <Upload className="w-3.5 h-3.5 mr-1.5" />
-                  Replace
-                </Button>
-                <Button variant="outline" size="sm" className="text-[12.5px] text-destructive hover:text-destructive" onClick={() => handleDelete("voice")}>
-                  <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-                  Remove
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-lg border-2 border-dashed border-border bg-muted/30 p-6 text-center space-y-3">
-              <div className="flex justify-center">
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Mic className="w-5 h-5 text-primary" />
-                </div>
-              </div>
-              <div>
-                <p className="text-[13px] font-medium text-foreground">No voice note uploaded yet</p>
-                <p className="text-[12px] text-muted-foreground mt-1">
-                  Record something like: <span className="italic">"It's [your business name] — we'd love to hear what you thought. Could you spare a moment to leave us a review? It really does make a difference."</span>
-                </p>
-                <p className="text-[11.5px] text-muted-foreground mt-1">The customer's first name is added automatically to the very start — e.g. <span className="italic font-medium">"Sarah! It's [your business name]..."</span></p>
-              </div>
-              <Button variant="outline" size="sm" className="text-[12.5px]" onClick={() => voiceInputRef.current?.click()} disabled={uploadingVoice}>
-                <Upload className="w-3.5 h-3.5 mr-1.5" />
-                {uploadingVoice ? "Uploading..." : "Upload audio file"}
-              </Button>
-            </div>
-          )}
-          <input ref={voiceInputRef} type="file" accept="audio/*,video/webm" className="hidden"
-            onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload("voice", f); e.target.value = ""; }} />
-        </CardContent>
-      </Card>
-
-      {/* Video message */}
-      <Card className="border-card-border">
-        <CardHeader>
-          <CardTitle className="text-[15px] flex items-center gap-2">
-            <Video className="w-4 h-4 text-primary" />
-            Video Message
-          </CardTitle>
-          <CardDescription className="text-[12.5px]">
-            Upload a short video requesting a review. Sent directly to customers via WhatsApp as a personalised video message.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="pb-5">
-          {videoUrl ? (
-            <div className="space-y-3">
-              <video controls src={videoUrl} className="w-full rounded-lg max-h-48 bg-black" />
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="text-[12.5px]" onClick={() => videoInputRef.current?.click()} disabled={uploadingVideo}>
-                  <Upload className="w-3.5 h-3.5 mr-1.5" />
-                  Replace
-                </Button>
-                <Button variant="outline" size="sm" className="text-[12.5px] text-destructive hover:text-destructive" onClick={() => handleDelete("video")}>
-                  <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-                  Remove
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-lg border-2 border-dashed border-border bg-muted/30 p-6 text-center space-y-3">
-              <div className="flex justify-center">
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Video className="w-5 h-5 text-primary" />
-                </div>
-              </div>
-              <div>
-                <p className="text-[13px] font-medium text-foreground">No video uploaded yet</p>
-                <p className="text-[12px] text-muted-foreground mt-1">
-                  Film a short video (15–30 seconds) saying something like: <span className="italic">"It's [your business name] — thank you so much for choosing us. We'd really appreciate it if you could take a moment to leave us a review."</span>
-                </p>
-                <p className="text-[11.5px] text-muted-foreground mt-1">The customer's first name is added as a text caption at the start of the video — e.g. <span className="italic font-medium">"Hi Sarah!"</span> — before your video plays.</p>
-              </div>
-              <Button variant="outline" size="sm" className="text-[12.5px]" onClick={() => videoInputRef.current?.click()} disabled={uploadingVideo}>
-                <Upload className="w-3.5 h-3.5 mr-1.5" />
-                {uploadingVideo ? "Uploading..." : "Upload video file"}
-              </Button>
-            </div>
-          )}
-          <input ref={videoInputRef} type="file" accept="video/*" className="hidden"
-            onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload("video", f); e.target.value = ""; }} />
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
 export default function Settings() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -335,16 +187,17 @@ export default function Settings() {
       </div>
 
       <Tabs defaultValue={new URLSearchParams(window.location.search).get("tab") || "business"}>
-        <TabsList className="mb-6 flex-wrap h-auto gap-1">
-          <TabsTrigger value="business" className="text-[12.5px]" data-testid="tab-business">Business</TabsTrigger>
-          <TabsTrigger value="platforms" className="text-[12.5px]" data-testid="tab-platforms">Review Platforms</TabsTrigger>
-          <TabsTrigger value="followup" className="text-[12.5px]" data-testid="tab-followup">Follow-Ups</TabsTrigger>
-          <TabsTrigger value="widget" className="text-[12.5px]" data-testid="tab-widget">Widget</TabsTrigger>
-          <TabsTrigger value="social" className="text-[12.5px]" data-testid="tab-social">Social</TabsTrigger>
-          <TabsTrigger value="notifications" className="text-[12.5px]" data-testid="tab-notifications">Insight Emails</TabsTrigger>
-          <TabsTrigger value="team" className="text-[12.5px]" data-testid="tab-team">Team</TabsTrigger>
-          <TabsTrigger value="recordings" className="text-[12.5px]" data-testid="tab-recordings">Recordings</TabsTrigger>
-        </TabsList>
+        <div className="mb-6 overflow-x-auto">
+          <TabsList className="inline-flex w-max h-auto">
+            <TabsTrigger value="business" className="text-[12.5px] whitespace-nowrap" data-testid="tab-business">Business</TabsTrigger>
+            <TabsTrigger value="platforms" className="text-[12.5px] whitespace-nowrap" data-testid="tab-platforms">Review Platforms</TabsTrigger>
+            <TabsTrigger value="followup" className="text-[12.5px] whitespace-nowrap" data-testid="tab-followup">Follow-Ups</TabsTrigger>
+            <TabsTrigger value="widget" className="text-[12.5px] whitespace-nowrap" data-testid="tab-widget">Widget</TabsTrigger>
+            <TabsTrigger value="social" className="text-[12.5px] whitespace-nowrap" data-testid="tab-social">Social</TabsTrigger>
+            <TabsTrigger value="notifications" className="text-[12.5px] whitespace-nowrap" data-testid="tab-notifications">Insight Emails</TabsTrigger>
+            <TabsTrigger value="team" className="text-[12.5px] whitespace-nowrap" data-testid="tab-team">Team</TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Business Info */}
         <TabsContent value="business">
@@ -871,10 +724,6 @@ export default function Settings() {
           <TeamTab />
         </TabsContent>
 
-        {/* Recordings */}
-        <TabsContent value="recordings">
-          <RecordingsTab />
-        </TabsContent>
       </Tabs>
 
     </div>

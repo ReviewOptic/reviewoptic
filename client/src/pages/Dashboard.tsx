@@ -1,19 +1,22 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import {
   Send, Clock, CheckCircle2, ArrowRight, Plus, BarChart2,
-  Eye, Users, Star, MessageSquare, Play
+  Eye, Users, Star, MessageSquare, Play, AlertCircle, Mail
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import type { ActivityLog, Customer, Settings } from "@shared/schema";
 import { useAuth } from "@/hooks/use-auth";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 const activityIcons: Record<string, React.ReactNode> = {
   customer_added: <Users className="w-3.5 h-3.5" />,
@@ -60,11 +63,149 @@ function getDailyQuote() {
 // Format: "https://www.youtube.com/embed/YOUR_VIDEO_ID"
 const INTRO_VIDEO_URL = "";
 
+function RespondDialog({ feedback, onClose }: { feedback: any; onClose: () => void }) {
+  const { toast } = useToast();
+  const firstName = (feedback.customer_name || "").split(" ")[0] || "there";
+
+  // Default channel matches how the original request was sent
+  const originalChannel: string = feedback.request_channel || "email";
+  const hasEmail = !!feedback.customer_email;
+  const hasPhone = !!feedback.customer_phone;
+
+  const [replyChannel, setReplyChannel] = useState(originalChannel);
+  const [replyMessage, setReplyMessage] = useState(`Hi ${firstName}, thank you for taking the time to share your feedback — we're sorry to hear your experience wasn't what it should have been. We'd love to make this right.`);
+  const [internalNote, setInternalNote] = useState("");
+
+  const receivedAt = new Date(feedback.created_at);
+  const timeAgo = formatDistanceToNow(receivedAt, { addSuffix: true });
+
+  const canSendEmail = hasEmail;
+  const canSendSms = hasPhone;
+  const canSendWhatsApp = hasPhone;
+
+  const channelAvailable = (ch: string) => {
+    if (ch === "email") return canSendEmail;
+    if (ch === "sms") return canSendSms;
+    if (ch === "whatsapp") return canSendWhatsApp;
+    return false;
+  };
+
+  const channelLabel: Record<string, string> = { email: "Email", sms: "SMS", whatsapp: "WhatsApp" };
+  const channelIcon: Record<string, React.ReactNode> = {
+    email: <Mail className="w-3.5 h-3.5" />,
+    sms: <MessageSquare className="w-3.5 h-3.5" />,
+    whatsapp: <MessageSquare className="w-3.5 h-3.5 text-green-500" />,
+  };
+
+  const mutation = useMutation({
+    mutationFn: async () => apiRequest("PATCH", `/api/private-feedback/${feedback.id}/respond`, {
+      response: internalNote || replyMessage,
+      replyChannel,
+      replyMessage,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/private-feedback"] });
+      toast({ title: `Reply sent via ${channelLabel[replyChannel]} and feedback marked as responded.` });
+      onClose();
+    },
+    onError: (err: any) => toast({ title: "Failed to send reply", description: err.message, variant: "destructive" }),
+  });
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Reply to Feedback</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-1">
+          {/* Feedback summary */}
+          <div className="bg-muted/50 rounded-lg p-3 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[13px] font-medium">{feedback.customer_name}</span>
+                <span className="text-[11px] text-muted-foreground">·</span>
+                {[1,2,3,4,5].map(s => (
+                  <Star key={s} className={cn("w-3 h-3", s <= feedback.stars ? "fill-amber-400 text-amber-400" : "fill-none text-muted-foreground/30")} />
+                ))}
+              </div>
+              <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                <Clock className="w-3 h-3" /> Received {timeAgo}
+              </span>
+            </div>
+            <p className="text-[13px] text-muted-foreground italic">"{feedback.message}"</p>
+          </div>
+
+          {/* Channel selector */}
+          <div className="space-y-1.5">
+            <p className="text-[12.5px] font-medium">Send reply via</p>
+            <div className="flex gap-2">
+              {(["email", "sms", "whatsapp"] as const).map(ch => (
+                <button
+                  key={ch}
+                  type="button"
+                  disabled={!channelAvailable(ch)}
+                  onClick={() => setReplyChannel(ch)}
+                  className={cn(
+                    "flex-1 py-1.5 rounded-lg text-[12px] font-medium border transition-colors flex items-center justify-center gap-1.5",
+                    replyChannel === ch ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted",
+                    !channelAvailable(ch) && "opacity-40 cursor-not-allowed"
+                  )}
+                >
+                  {channelIcon[ch]} {channelLabel[ch]}
+                </button>
+              ))}
+            </div>
+            {replyChannel === "email" && !hasEmail && (
+              <p className="text-[11.5px] text-destructive">No email address saved for this customer.</p>
+            )}
+            {(replyChannel === "sms" || replyChannel === "whatsapp") && !hasPhone && (
+              <p className="text-[11.5px] text-destructive">No phone number saved for this customer.</p>
+            )}
+          </div>
+
+          {/* Reply message */}
+          <div className="space-y-1.5">
+            <p className="text-[12.5px] font-medium">Message to customer</p>
+            <Textarea
+              className="resize-none h-28 text-[13px]"
+              value={replyMessage}
+              onChange={e => setReplyMessage(e.target.value)}
+            />
+          </div>
+
+          {/* Internal note */}
+          <div className="space-y-1.5">
+            <p className="text-[12.5px] font-medium text-muted-foreground">Internal note <span className="font-normal">(optional — not sent to customer)</span></p>
+            <Textarea
+              placeholder="How did you resolve this? Any follow-up actions?"
+              className="resize-none h-16 text-[13px]"
+              value={internalNote}
+              onChange={e => setInternalNote(e.target.value)}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+          <Button
+            size="sm"
+            onClick={() => mutation.mutate(undefined)}
+            disabled={!replyMessage.trim() || mutation.isPending || !channelAvailable(replyChannel)}
+          >
+            {mutation.isPending ? "Sending..." : `Send via ${channelLabel[replyChannel]}`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function Dashboard() {
   const [, navigate] = useLocation();
   const [showIntro, setShowIntro] = useState(false);
   const [videoWatched, setVideoWatched] = useState(!INTRO_VIDEO_URL);
+  const [respondingTo, setRespondingTo] = useState<any>(null);
   const { user } = useAuth();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!user?.id) return;
@@ -95,7 +236,7 @@ export default function Dashboard() {
   const isReadOnly = !!user?.isImpersonating;
 
   const { data: stats, isLoading: statsLoading } = useQuery<{
-    requestsThisMonth: number; pendingRequests: number; clicksThisMonth: number; clickRate: number;
+    requestsThisMonth: number; pendingRequests: number; clicksThisMonth: number; clickRate: number; averageRating: number | null;
   }>({ queryKey: ["/api/stats"] });
 
   const { data: activity, isLoading: activityLoading } = useQuery<ActivityLog[]>({
@@ -104,8 +245,10 @@ export default function Dashboard() {
 
   const { data: customers } = useQuery<Customer[]>({ queryKey: ["/api/customers"] });
   const { data: settings } = useQuery<Settings>({ queryKey: ["/api/settings"] });
+  const { data: privateFeedback = [] } = useQuery<any[]>({ queryKey: ["/api/private-feedback"] });
 
   const pendingFollowUp = customers?.filter(c => c.status === "request_sent" && !c.doNotContact) || [];
+  const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
 
   return (
     <div className="px-6 py-7 max-w-6xl mx-auto space-y-7">
@@ -164,7 +307,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <div className="flex items-center gap-3 bg-muted/40 rounded-xl px-4 py-4">
           {statsLoading ? <Skeleton className="h-12 w-full" /> : (
             <>
@@ -187,6 +330,21 @@ export default function Dashboard() {
               <div>
                 <div className="text-xl font-bold text-foreground leading-none">{stats?.pendingRequests ?? 0}</div>
                 <div className="text-[11.5px] text-muted-foreground mt-1 leading-tight">Awaiting Response</div>
+              </div>
+            </>
+          )}
+        </div>
+        <div className="flex items-center gap-3 bg-muted/40 rounded-xl px-4 py-4">
+          {statsLoading ? <Skeleton className="h-12 w-full" /> : (
+            <>
+              <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/20">
+                <Star className="w-5 h-5 text-amber-500" />
+              </div>
+              <div>
+                <div className="text-xl font-bold text-foreground leading-none">
+                  {stats?.averageRating != null ? stats.averageRating.toFixed(1) : "—"}
+                </div>
+                <div className="text-[11.5px] text-muted-foreground mt-1 leading-tight">Avg. Star Rating</div>
               </div>
             </>
           )}
@@ -275,6 +433,45 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
+          {/* Private Feedback */}
+          {unrespondedFeedback.length > 0 && (
+            <Card className="border-card-border border-amber-300 dark:border-amber-700">
+              <CardHeader className="pb-3 pt-4">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-[14px] font-semibold flex items-center gap-1.5">
+                    <AlertCircle className="w-4 h-4 text-amber-500" />
+                    Private Feedback
+                  </CardTitle>
+                  <Badge className="text-[11px] bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-0">
+                    {unrespondedFeedback.length} Needs Response
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 space-y-1">
+                {unrespondedFeedback.slice(0, 4).map((f: any) => (
+                  <div
+                    key={f.id}
+                    onClick={() => setRespondingTo(f)}
+                    className="flex items-start gap-2 p-2.5 rounded-lg hover:bg-accent transition-colors cursor-pointer"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <p className="text-[13px] font-medium truncate">{f.customer_name}</p>
+                        <div className="flex">
+                          {[1,2,3].map(s => (
+                            <Star key={s} className={cn("w-2.5 h-2.5", s <= f.stars ? "fill-amber-400 text-amber-400" : "fill-none text-muted-foreground/30")} />
+                          ))}
+                        </div>
+                      </div>
+                      <p className="text-[11.5px] text-muted-foreground truncate italic">"{f.message}"</p>
+                    </div>
+                    <ArrowRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Quick Actions */}
           <Card className="border-card-border">
             <CardHeader className="pb-3 pt-4">
@@ -300,6 +497,8 @@ export default function Dashboard() {
 
         </div>
       </div>
+
+      {respondingTo && <RespondDialog feedback={respondingTo} onClose={() => setRespondingTo(null)} />}
 
     </div>
   );

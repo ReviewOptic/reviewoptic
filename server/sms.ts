@@ -6,14 +6,14 @@ function isUKNumber(phone: string): boolean {
   return clean.startsWith("+44") || clean.startsWith("07");
 }
 
-function normaliseUKNumber(phone: string): string {
+export function normaliseUKNumber(phone: string): string {
   const clean = phone.replace(/\s+/g, "");
   if (clean.startsWith("07")) return "+44" + clean.slice(1);
   return clean;
 }
 
 // Alphanumeric sender IDs: max 11 chars, letters/numbers only
-function buildSenderId(businessName: string): string {
+export function buildSenderId(businessName: string): string {
   return businessName.replace(/[^a-zA-Z0-9]/g, "").slice(0, 11) || "ReviewOptic";
 }
 
@@ -97,5 +97,18 @@ export async function sendWhatsAppMessage(
     to: `whatsapp:${to}`,
     body,
     ...(mediaUrl ? { mediaUrl: [mediaUrl] } : {}),
+  });
+}
+
+export async function sendPlainSMS(phone: string, body: string, businessName = "ReviewOptic"): Promise<void> {
+  if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
+    console.log(`[sms] No Twilio credentials. Would SMS ${phone}`);
+    return;
+  }
+  const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+  await client.messages.create({
+    from: buildSenderId(businessName),
+    to: normaliseUKNumber(phone),
+    body,
   });
 }

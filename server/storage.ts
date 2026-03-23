@@ -79,6 +79,7 @@ export interface IStorage {
     pendingRequests: number;
     clicksThisMonth: number;
     clickRate: number;
+    averageRating: number | null;
   }>;
   markNoResponse(): Promise<number>;
   sendFollowUps(): Promise<number>;
@@ -289,17 +290,16 @@ export class DatabaseStorage implements IStorage {
     pendingRequests: number;
     clicksThisMonth: number;
     clickRate: number;
+    averageRating: number | null;
   }> {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const allCustomers = await db.select().from(customers).where(eq(customers.accountId, accountId));
-    // Count total review requests sent this month (multiple per customer counted)
     const [{ count: rrCount }] = await db
       .select({ count: sql<number>`count(*)` })
       .from(reviewRequests)
       .where(and(eq(reviewRequests.accountId, accountId), sql`${reviewRequests.createdAt} >= ${monthStart}`));
     const requestsThisMonth = Number(rrCount);
-    // Count pending (unclicked) review requests — consistent with total requests count
     const [{ count: pendingCount }] = await db
       .select({ count: sql<number>`count(*)` })
       .from(reviewRequests)
@@ -309,7 +309,12 @@ export class DatabaseStorage implements IStorage {
     const sent = allCustomers.filter(c => c.status !== "pending_request").length;
     const clicked = allCustomers.filter(c => c.status === "clicked").length;
     const clickRate = sent > 0 ? Math.round((clicked / sent) * 100) : 0;
-    return { requestsThisMonth, pendingRequests, clicksThisMonth, clickRate };
+    const [{ avg }] = await db
+      .select({ avg: sql<number>`avg(rating)` })
+      .from(reviewRequests)
+      .where(and(eq(reviewRequests.accountId, accountId), sql`rating IS NOT NULL`));
+    const averageRating = avg != null ? Math.round(Number(avg) * 10) / 10 : null;
+    return { requestsThisMonth, pendingRequests, clicksThisMonth, clickRate, averageRating };
   }
 
   async markNoResponse(): Promise<number> {
@@ -364,6 +369,10 @@ export class DatabaseStorage implements IStorage {
         const sentCount = requests.length;
         const firstSentAt = requests[0]?.sentAt;
         if (!firstSentAt || sentCount > maxFollowUps) continue;
+
+        // Skip customers who rated 1-3 stars — they're in the private feedback track
+        const hasLowRating = requests.some(r => r.rating !== null && r.rating <= 3);
+        if (hasLowRating) continue;
 
         const shouldSendNext =
           (sentCount === 1 && firstSentAt <= cutoff1) ||

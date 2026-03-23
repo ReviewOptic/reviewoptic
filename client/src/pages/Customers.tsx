@@ -632,10 +632,156 @@ function EditCustomerDialog({ customer, open, onClose }: { customer: Customer | 
   );
 }
 
+function ImportCsvDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { toast } = useToast();
+  const [file, setFile] = useState<File | null>(null);
+  const [rows, setRows] = useState<any[]>([]);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [result, setResult] = useState<{ imported: number; skipped: { row: number; reason: string }[] } | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+
+  function parseCSV(text: string) {
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    if (lines.length < 2) return { rows: [], errors: ["CSV has no data rows."] };
+    const headers = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/\s+/g, "_"));
+    const parsed: any[] = [];
+    const errs: string[] = [];
+    lines.slice(1).forEach((line, i) => {
+      // Handle quoted fields
+      const cols: string[] = [];
+      let cur = "", inQuote = false;
+      for (const ch of line) {
+        if (ch === '"') { inQuote = !inQuote; }
+        else if (ch === "," && !inQuote) { cols.push(cur.trim()); cur = ""; }
+        else { cur += ch; }
+      }
+      cols.push(cur.trim());
+      const row: any = {};
+      headers.forEach((h, j) => { row[h] = cols[j] || ""; });
+      if (!row.name) { errs.push(`Row ${i + 2}: skipped — name is required`); return; }
+      if (!row.email && !row.phone) { errs.push(`Row ${i + 2}: skipped — email or phone required`); return; }
+      parsed.push(row);
+    });
+    return { rows: parsed, errors: errs };
+  }
+
+  function handleFile(f: File) {
+    setFile(f);
+    setResult(null);
+    const reader = new FileReader();
+    reader.onload = e => {
+      const { rows: parsed, errors: errs } = parseCSV(e.target?.result as string);
+      setRows(parsed);
+      setErrors(errs);
+    };
+    reader.readAsText(f);
+  }
+
+  async function handleImport() {
+    setIsImporting(true);
+    try {
+      const res = await apiRequest("POST", "/api/customers/import", { customers: rows });
+      const data = await res.json();
+      setResult(data);
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+    } catch {
+      toast({ title: "Import failed", variant: "destructive" });
+    } finally {
+      setIsImporting(false);
+    }
+  }
+
+  function handleClose() {
+    setFile(null);
+    setRows([]);
+    setErrors([]);
+    setResult(null);
+    onClose();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Import Customers from CSV</DialogTitle>
+          <DialogDescription asChild>
+            <div className="space-y-1 text-[13px] text-muted-foreground">
+              <p>Upload a CSV file to add multiple customers at once.</p>
+              <ul className="list-disc list-inside space-y-0.5">
+                <li><span className="font-medium text-foreground">Name</span> is required</li>
+                <li><span className="font-medium text-foreground">Email or phone number</span> is required (one or both)</li>
+                <li>Service type, service date, and notes are optional</li>
+              </ul>
+            </div>
+          </DialogDescription>
+        </DialogHeader>
+
+        {!result ? (
+          <div className="space-y-4 py-1">
+            <div
+              className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+              onClick={() => document.getElementById("csv-file-input")?.click()}
+              onDragOver={e => e.preventDefault()}
+              onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
+            >
+              <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+              {file ? (
+                <p className="text-sm font-medium">{file.name}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground">Click to select or drag & drop a CSV file</p>
+              )}
+              <input id="csv-file-input" type="file" accept=".csv" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+            </div>
+
+            {file && (
+              <div className="text-sm space-y-1">
+                <p className="font-medium">{rows.length} customer{rows.length !== 1 ? "s" : ""} ready to import</p>
+                {errors.length > 0 && (
+                  <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded p-2 space-y-0.5">
+                    {errors.map((e, i) => <p key={i} className="text-[12px] text-orange-700 dark:text-orange-300">{e}</p>)}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="py-2 space-y-3">
+            <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+              <CheckCircle2 className="w-5 h-5" />
+              <span className="font-medium">{result.imported} customer{result.imported !== 1 ? "s" : ""} imported successfully</span>
+            </div>
+            {result.skipped.length > 0 && (
+              <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded p-2 space-y-0.5">
+                <p className="text-[12px] font-medium text-orange-700 dark:text-orange-300">{result.skipped.length} row{result.skipped.length !== 1 ? "s" : ""} skipped:</p>
+                {result.skipped.map((s, i) => <p key={i} className="text-[12px] text-orange-700 dark:text-orange-300">Row {s.row}: {s.reason}</p>)}
+              </div>
+            )}
+          </div>
+        )}
+
+        <DialogFooter>
+          {!result ? (
+            <>
+              <Button variant="outline" size="sm" onClick={handleClose}>Cancel</Button>
+              <Button size="sm" onClick={handleImport} disabled={rows.length === 0 || isImporting}>
+                {isImporting ? "Importing..." : `Import ${rows.length > 0 ? rows.length : ""} Customer${rows.length !== 1 ? "s" : ""}`}
+              </Button>
+            </>
+          ) : (
+            <Button size="sm" onClick={handleClose}>Done</Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function Customers() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [showAdd, setShowAdd] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [sendTo, setSendTo] = useState<Customer | null>(null);
   const [editCustomer, setEditCustomer] = useState<Customer | null>(null);
   const { toast } = useToast();
@@ -690,11 +836,16 @@ export default function Customers() {
           </p>
         </div>
         {!isReadOnly && (
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="gap-1.5" data-testid="button-import-csv">
-              <Upload className="w-3.5 h-3.5" />
-              Import CSV
-            </Button>
+          <div className="flex items-start gap-2">
+            <div className="flex flex-col items-center gap-1">
+              <Button variant="outline" size="sm" className="gap-1.5 w-full" onClick={() => setShowImport(true)} data-testid="button-import-csv">
+                <Upload className="w-3.5 h-3.5" />
+                Import CSV
+              </Button>
+              <a href="/customer-import-template.csv" download className="text-[13px] text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors">
+                Download CSV template
+              </a>
+            </div>
             <Button size="sm" className="gap-1.5" onClick={() => setShowAdd(true)} data-testid="button-add-customer">
               <Plus className="w-3.5 h-3.5" />
               Add Customer
@@ -873,6 +1024,7 @@ export default function Customers() {
       </Card>
 
       <AddCustomerDialog open={showAdd} onClose={() => setShowAdd(false)} />
+      <ImportCsvDialog open={showImport} onClose={() => setShowImport(false)} />
       <SendRequestDialog customer={sendTo} open={!!sendTo} onClose={() => setSendTo(null)} />
       <EditCustomerDialog customer={editCustomer} open={!!editCustomer} onClose={() => setEditCustomer(null)} />
     </div>

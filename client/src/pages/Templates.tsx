@@ -1,7 +1,7 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useState, useRef, useEffect } from "react";
-import { Edit2, Save, X, FileText, Mail, MessageSquare, Video, Mic, StopCircle, RotateCcw, CheckCircle2, Plus, Trash2, Sparkles } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Edit2, Save, X, FileText, Mail, MessageSquare, Video, Mic, StopCircle, RotateCcw, CheckCircle2, Plus, Trash2, Sparkles, Upload } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -513,7 +513,9 @@ function TemplateCard({ template, isReadOnly }: { template: Template; isReadOnly
                 <CardTitle className="text-[14px] font-semibold truncate">{template.name}</CardTitle>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <Badge variant="secondary" className="text-[10px] h-4 px-1.5 capitalize">{template.channel}</Badge>
-                  <Badge variant="outline" className="text-[10px] h-4 px-1.5">{template.templateType.replace(/_/g, " ")}</Badge>
+                  <Badge variant="outline" className="text-[10px] h-4 px-1.5">
+                    {template.templateType === "response_positive" ? "Request a Review" : template.templateType === "response_negative" ? "Get in Touch" : template.templateType.replace(/_/g, " ")}
+                  </Badge>
                 </div>
               </div>
             </div>
@@ -583,7 +585,7 @@ function TemplateCard({ template, isReadOnly }: { template: Template; isReadOnly
 function NewTemplateDialog({ channel, open, onClose }: { channel: string; open: boolean; onClose: () => void }) {
   const { toast } = useToast();
   const [name, setName] = useState("");
-  const [templateType, setTemplateType] = useState("review_request");
+  const [templateType, setTemplateType] = useState("response_positive");
   const [isGenerating, setIsGenerating] = useState(false);
 
   const createMutation = useMutation({
@@ -643,7 +645,8 @@ function NewTemplateDialog({ channel, open, onClose }: { channel: string; open: 
             <Select value={templateType} onValueChange={setTemplateType}>
               <SelectTrigger className="text-[13px]"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="review_request">Review Request</SelectItem>
+                <SelectItem value="response_positive">Request a Review (4–5 stars)</SelectItem>
+                <SelectItem value="response_negative">Get in Touch (1–3 stars)</SelectItem>
                 <SelectItem value="follow_up">Follow Up</SelectItem>
               </SelectContent>
             </Select>
@@ -673,6 +676,148 @@ function NewTemplateDialog({ channel, open, onClose }: { channel: string; open: 
   );
 }
 
+function RecordingsTab() {
+  const { data: settings, refetch } = useQuery<any>({ queryKey: ["/api/settings"] });
+  const { toast } = useToast();
+  const voiceInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingVoice, setUploadingVoice] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+
+  async function handleUpload(type: "voice" | "video", file: File) {
+    const endpoint = type === "voice" ? "/api/recordings/upload-voice" : "/api/recordings/upload-video";
+    const fieldName = type === "voice" ? "audio" : "video";
+    const setter = type === "voice" ? setUploadingVoice : setUploadingVideo;
+    setter(true);
+    try {
+      const fd = new FormData();
+      fd.append(fieldName, file);
+      const res = await fetch(endpoint, { method: "POST", credentials: "include", body: fd });
+      if (!res.ok) throw new Error((await res.json()).message);
+      toast({ title: `${type === "voice" ? "Voice note" : "Video"} uploaded successfully` });
+      refetch();
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    } finally {
+      setter(false);
+    }
+  }
+
+  async function handleDelete(type: "voice" | "video") {
+    const endpoint = type === "voice" ? "/api/recordings/voice" : "/api/recordings/video";
+    try {
+      await fetch(endpoint, { method: "DELETE", credentials: "include" });
+      toast({ title: `${type === "voice" ? "Voice note" : "Video"} removed` });
+      refetch();
+    } catch {
+      toast({ title: "Failed to remove", variant: "destructive" });
+    }
+  }
+
+  const voiceUrl: string = settings?.voiceNoteUrl || "";
+  const videoUrl: string = settings?.videoMessageUrl || "";
+
+  return (
+    <div className="space-y-4">
+      <Card className="border-card-border">
+        <CardHeader>
+          <CardTitle className="text-[15px] flex items-center gap-2">
+            <Mic className="w-4 h-4 text-primary" />
+            Voice Note
+          </CardTitle>
+          <CardDescription className="text-[12.5px]">
+            Record a short voice message requesting a review. We'll personalise it with each customer's name using AI voice synthesis before sending via WhatsApp.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pb-5">
+          {voiceUrl ? (
+            <div className="space-y-3">
+              <audio controls src={voiceUrl} className="w-full h-10" />
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="text-[12.5px]" onClick={() => voiceInputRef.current?.click()} disabled={uploadingVoice}>
+                  <Upload className="w-3.5 h-3.5 mr-1.5" /> Replace
+                </Button>
+                <Button variant="outline" size="sm" className="text-[12.5px] text-destructive hover:text-destructive" onClick={() => handleDelete("voice")}>
+                  <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Remove
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-lg border-2 border-dashed border-border bg-muted/30 p-6 text-center space-y-3">
+              <div className="flex justify-center">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Mic className="w-5 h-5 text-primary" />
+                </div>
+              </div>
+              <div>
+                <p className="text-[13px] font-medium text-foreground">No voice note uploaded yet</p>
+                <p className="text-[12px] text-muted-foreground mt-1">
+                  Record something like: <span className="italic">"It's [your business name] — we'd love to hear what you thought. Could you spare a moment to leave us a review? It really does make a difference."</span>
+                </p>
+                <p className="text-[11.5px] text-muted-foreground mt-1">The customer's first name is added automatically to the very start — e.g. <span className="italic font-medium">"Sarah! It's [your business name]..."</span></p>
+              </div>
+              <Button variant="outline" size="sm" className="text-[12.5px]" onClick={() => voiceInputRef.current?.click()} disabled={uploadingVoice}>
+                <Upload className="w-3.5 h-3.5 mr-1.5" />
+                {uploadingVoice ? "Uploading..." : "Upload audio file"}
+              </Button>
+            </div>
+          )}
+          <input ref={voiceInputRef} type="file" accept="audio/*,video/webm" className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload("voice", f); e.target.value = ""; }} />
+        </CardContent>
+      </Card>
+
+      <Card className="border-card-border">
+        <CardHeader>
+          <CardTitle className="text-[15px] flex items-center gap-2">
+            <Video className="w-4 h-4 text-primary" />
+            Video Message
+          </CardTitle>
+          <CardDescription className="text-[12.5px]">
+            Upload a short video requesting a review. Sent directly to customers via WhatsApp as a personalised video message.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pb-5">
+          {videoUrl ? (
+            <div className="space-y-3">
+              <video controls src={videoUrl} className="w-full rounded-lg max-h-48 bg-black" />
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="text-[12.5px]" onClick={() => videoInputRef.current?.click()} disabled={uploadingVideo}>
+                  <Upload className="w-3.5 h-3.5 mr-1.5" /> Replace
+                </Button>
+                <Button variant="outline" size="sm" className="text-[12.5px] text-destructive hover:text-destructive" onClick={() => handleDelete("video")}>
+                  <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Remove
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-lg border-2 border-dashed border-border bg-muted/30 p-6 text-center space-y-3">
+              <div className="flex justify-center">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Video className="w-5 h-5 text-primary" />
+                </div>
+              </div>
+              <div>
+                <p className="text-[13px] font-medium text-foreground">No video uploaded yet</p>
+                <p className="text-[12px] text-muted-foreground mt-1">
+                  Film a short video (15–30 seconds) saying something like: <span className="italic">"It's [your business name] — thank you so much for choosing us. We'd really appreciate it if you could take a moment to leave us a review."</span>
+                </p>
+                <p className="text-[11.5px] text-muted-foreground mt-1">The customer's first name is added as a text caption at the start of the video — e.g. <span className="italic font-medium">"Hi Sarah!"</span> — before your video plays.</p>
+              </div>
+              <Button variant="outline" size="sm" className="text-[12.5px]" onClick={() => videoInputRef.current?.click()} disabled={uploadingVideo}>
+                <Upload className="w-3.5 h-3.5 mr-1.5" />
+                {uploadingVideo ? "Uploading..." : "Upload video file"}
+              </Button>
+            </div>
+          )}
+          <input ref={videoInputRef} type="file" accept="video/*" className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload("video", f); e.target.value = ""; }} />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function Templates() {
   const { user } = useAuth();
   const isReadOnly = !!user?.isImpersonating;
@@ -695,24 +840,11 @@ export default function Templates() {
             Customize the messages sent to your customers. Use merge tags to personalize.
           </p>
         </div>
-        {!isReadOnly && (
+        {!isReadOnly && activeTab !== "recordings" && (
           <Button size="sm" className="gap-1.5 text-[12px] flex-shrink-0" onClick={() => setShowNew(true)}>
             <Plus className="w-3.5 h-3.5" /> New Template
           </Button>
         )}
-      </div>
-
-      {/* Merge tag reference */}
-      <div className="mb-6 p-4 rounded-xl bg-primary/5 border border-primary/20">
-        <p className="text-[12.5px] font-semibold text-primary mb-2">Available Merge Tags</p>
-        <div className="flex flex-wrap gap-2">
-          {MERGE_TAGS.map(tag => (
-            <code key={tag} className="text-[11.5px] px-2 py-0.5 rounded bg-primary/10 text-primary font-mono">{tag}</code>
-          ))}
-        </div>
-        <p className="text-[11.5px] text-muted-foreground mt-2">
-          These tags are automatically replaced with real data when messages are sent.
-        </p>
       </div>
 
       {isLoading ? (
@@ -731,7 +863,25 @@ export default function Templates() {
             <TabsTrigger value="whatsapp" className="gap-1.5 text-[13px]" data-testid="tab-whatsapp">
               <MessageSquare className="w-3.5 h-3.5 text-green-500" /> WhatsApp ({byChannel.whatsapp.length})
             </TabsTrigger>
+            <TabsTrigger value="recordings" className="gap-1.5 text-[13px]" data-testid="tab-recordings">
+              <Mic className="w-3.5 h-3.5" /> Recordings
+            </TabsTrigger>
           </TabsList>
+
+          {activeTab !== "recordings" && (
+            <div className="mb-6 p-4 rounded-xl bg-primary/5 border border-primary/20">
+              <p className="text-[12.5px] font-semibold text-primary mb-2">Available Merge Tags</p>
+              <div className="flex flex-wrap gap-2">
+                {MERGE_TAGS.map(tag => (
+                  <code key={tag} className="text-[11.5px] px-2 py-0.5 rounded bg-primary/10 text-primary font-mono">{tag}</code>
+                ))}
+              </div>
+              <p className="text-[11.5px] text-muted-foreground mt-2">
+                These tags are automatically replaced with real data when messages are sent.
+              </p>
+            </div>
+          )}
+
           {(["email", "sms", "whatsapp"] as const).map(ch => (
             <TabsContent key={ch} value={ch} className="space-y-4">
               {byChannel[ch].length === 0 ? (
@@ -749,6 +899,10 @@ export default function Templates() {
               )}
             </TabsContent>
           ))}
+
+          <TabsContent value="recordings">
+            <RecordingsTab />
+          </TabsContent>
         </Tabs>
       )}
 

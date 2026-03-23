@@ -193,6 +193,49 @@ export async function runMigrations() {
     // Template tracking on review requests
     await pool.query(`ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS template_id TEXT`);
 
+    // Response templates: preferred platform for positive response templates
+    await pool.query(`ALTER TABLE templates ADD COLUMN IF NOT EXISTS preferred_platform TEXT NOT NULL DEFAULT ''`);
+
+    // Sentiment pre-screen: star rating on review requests, extended private_feedback fields
+    await pool.query(`ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS rating INTEGER`);
+    await pool.query(`ALTER TABLE private_feedback ADD COLUMN IF NOT EXISTS review_request_id TEXT NOT NULL DEFAULT ''`);
+    await pool.query(`ALTER TABLE private_feedback ADD COLUMN IF NOT EXISTS response TEXT NOT NULL DEFAULT ''`);
+    await pool.query(`ALTER TABLE private_feedback ADD COLUMN IF NOT EXISTS responded_at TIMESTAMP`);
+
+    // Update all default templates to reflect sentiment pre-screen wording
+    await pool.query(`
+      UPDATE templates SET
+        subject = 'How would you rate your experience with {{business_name}}?',
+        body = E'Hi {{first_name}},\n\nThank you for choosing {{business_name}}! We''d love to hear how we did — it only takes a second.\n\nClick below to rate your experience:\n\n{{review_link}}\n\nIf you loved it, we''ll ask if you''d like to share it publicly. If something wasn''t right, we''d like to know so we can make it right.\n\nThanks so much,\nThe {{business_name}} team'
+      WHERE template_type = 'review_request' AND channel = 'email' AND is_default = true
+    `);
+    await pool.query(`
+      UPDATE templates SET
+        subject = 'Would you mind sharing your experience?',
+        body = E'Hi {{first_name}},\n\nWe''re so glad you had a positive experience with {{business_name}}! If you have a spare moment, it would mean the world to us if you''d share your thoughts in a quick public review.\n\n{{review_link}}\n\nIt really does make a difference. Thank you!\n\nThe {{business_name}} team'
+      WHERE template_type = 'follow_up' AND channel = 'email' AND is_default = true
+    `);
+    await pool.query(`
+      UPDATE templates SET
+        body = 'Hi {{first_name}}, how would you rate your experience with {{business_name}}? Tap here to let us know — takes just a second: {{review_link}}'
+      WHERE template_type = 'review_request' AND channel = 'sms' AND is_default = true
+    `);
+    await pool.query(`
+      UPDATE templates SET
+        body = E'Hi {{first_name}}, glad you had a great experience with {{business_name}}! Would you mind sharing it in a quick review? {{review_link}} — thanks so much!'
+      WHERE template_type = 'follow_up' AND channel = 'sms' AND is_default = true
+    `);
+    await pool.query(`
+      UPDATE templates SET
+        body = E'Hi {{first_name}} 👋 Thanks for choosing {{business_name}}! How would you rate your experience? Tap the link to let us know — it only takes a second and really helps us improve:\n\n{{review_link}}'
+      WHERE template_type = 'review_request' AND channel = 'whatsapp' AND is_default = true
+    `);
+    await pool.query(`
+      UPDATE templates SET
+        body = E'Hi {{first_name}}, we''re thrilled you had a great experience with {{business_name}}! 🌟 If you have a moment, would you mind sharing it in a quick review? It means a lot to us:\n\n{{review_link}}'
+      WHERE template_type = 'follow_up' AND channel = 'whatsapp' AND is_default = true
+    `);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();

@@ -10,7 +10,7 @@ import bcrypt from "bcryptjs";
 import { Resend } from "resend";
 import OpenAI from "openai";
 import { sendReviewEmail, sendVerificationEmail } from "./email";
-import { sendReviewSMS, sendWhatsAppMessage } from "./sms";
+import { sendReviewSMS, sendWhatsAppMessage, sendPlainSMS } from "./sms";
 import { isCloudinaryConfigured, uploadToCloudinary, deleteFromCloudinary } from "./cloudinary";
 import { cloneVoice, deleteVoice, generateNameAudio, stitchNameToFront } from "./elevenlabs";
 import type { Review, Customer, Settings } from "@shared/schema";
@@ -259,41 +259,62 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     // Create default templates
     const defaultTemplates = [
+      // After 4-5 stars: ask for a public review
       {
-        id: randomUUID(), accountId: account.id, name: "Review Request", templateType: "review_request",
-        channel: "email", isDefault: true,
-        subject: "How was your experience with {{business_name}}?",
-        body: `Hi {{first_name}},\n\nThank you for choosing {{business_name}}. We'd love to hear about your experience — it only takes a minute and means a lot to us.\n\n{{review_link}}\n\nThanks again,\nThe {{business_name}} team`,
+        id: randomUUID(), accountId: account.id, name: "Request a Review", templateType: "response_positive",
+        channel: "email", isDefault: true, preferredPlatform: "google",
+        subject: "Would you mind sharing your experience?",
+        body: `Hi {{first_name}},\n\nThank you so much for the kind rating! It genuinely means a lot to us.\n\nIf you have just a minute, we'd love it if you could share your experience in a quick review:\n\n{{review_link}}\n\nThank you,\nThe {{business_name}} team`,
+      },
+      {
+        id: randomUUID(), accountId: account.id, name: "Request a Review", templateType: "response_positive",
+        channel: "sms", isDefault: true, preferredPlatform: "google",
+        subject: "",
+        body: "Hi {{first_name}}, thanks so much for the rating! Would you mind leaving a quick review? It really helps us: {{review_link}}",
+      },
+      {
+        id: randomUUID(), accountId: account.id, name: "Request a Review", templateType: "response_positive",
+        channel: "whatsapp", isDefault: true, preferredPlatform: "google",
+        subject: "",
+        body: "Hi {{first_name}} 🌟 Thanks so much for the great rating! If you have a moment, we'd love it if you could leave a quick review — it means the world to us:\n\n{{review_link}}",
+      },
+      // After 1-3 stars: ask them to get in touch
+      {
+        id: randomUUID(), accountId: account.id, name: "Get in Touch", templateType: "response_negative",
+        channel: "email", isDefault: true, preferredPlatform: "",
+        subject: "We're sorry to hear that — can we make it right?",
+        body: `Hi {{first_name}},\n\nThank you for your honest feedback. We're sorry your experience with {{business_name}} didn't meet your expectations.\n\nWe'd really like to make it right. Please don't hesitate to get in touch with us directly so we can look into this for you.\n\nKind regards,\nThe {{business_name}} team`,
+      },
+      {
+        id: randomUUID(), accountId: account.id, name: "Get in Touch", templateType: "response_negative",
+        channel: "sms", isDefault: true, preferredPlatform: "",
+        subject: "",
+        body: "Hi {{first_name}}, we're really sorry your experience wasn't what you'd hoped for. Please get in touch with us directly and we'll do our best to make it right.",
+      },
+      {
+        id: randomUUID(), accountId: account.id, name: "Get in Touch", templateType: "response_negative",
+        channel: "whatsapp", isDefault: true, preferredPlatform: "",
+        subject: "",
+        body: "Hi {{first_name}}, we're so sorry to hear that. We'd love the chance to make it right — please feel free to reach out to us directly and we'll do everything we can to help.",
+      },
+      // Follow-ups: for 4-5 star customers who haven't yet left a review
+      {
+        id: randomUUID(), accountId: account.id, name: "Follow-up", templateType: "follow_up",
+        channel: "email", isDefault: true, preferredPlatform: "",
+        subject: "A gentle reminder — would you share your experience?",
+        body: `Hi {{first_name}},\n\nWe're so glad you had a positive experience with {{business_name}}! If you have a spare moment, it would mean the world to us if you'd share your thoughts in a quick public review.\n\n{{review_link}}\n\nIt really does make a difference. Thank you!\n\nThe {{business_name}} team`,
       },
       {
         id: randomUUID(), accountId: account.id, name: "Follow-up", templateType: "follow_up",
-        channel: "email", isDefault: true,
-        subject: "Still have a moment to leave us a review?",
-        body: `Hi {{first_name}},\n\nWe just wanted to follow up — if you have a spare moment, we'd really appreciate a quick review. It helps us more than you know!\n\n{{review_link}}\n\nThank you,\nThe {{business_name}} team`,
-      },
-      {
-        id: randomUUID(), accountId: account.id, name: "Review Request", templateType: "review_request",
-        channel: "sms", isDefault: true,
+        channel: "sms", isDefault: true, preferredPlatform: "",
         subject: "",
-        body: "Hi {{first_name}}, thanks for choosing {{business_name}}! Could you spare a moment to leave us a review? {{review_link}}",
+        body: "Hi {{first_name}}, just a gentle nudge from {{business_name}} — would you mind leaving a quick review? It really helps: {{review_link}}",
       },
       {
         id: randomUUID(), accountId: account.id, name: "Follow-up", templateType: "follow_up",
-        channel: "sms", isDefault: true,
+        channel: "whatsapp", isDefault: true, preferredPlatform: "",
         subject: "",
-        body: "Hi {{first_name}}, just a quick follow-up from {{business_name}}. We'd really appreciate your review: {{review_link}}",
-      },
-      {
-        id: randomUUID(), accountId: account.id, name: "Review Request", templateType: "review_request",
-        channel: "whatsapp", isDefault: true,
-        subject: "",
-        body: "Hi {{first_name}} 👋 Thanks for choosing {{business_name}}! We hope you had a great experience. Could you spare 30 seconds to leave us a review? It really helps us out 🙏\n\n{{review_link}}",
-      },
-      {
-        id: randomUUID(), accountId: account.id, name: "Follow-up", templateType: "follow_up",
-        channel: "whatsapp", isDefault: true,
-        subject: "",
-        body: "Hi {{first_name}}, just a friendly follow-up from {{business_name}} 😊 If you have a moment, we'd love to hear what you thought. Your review means a lot to us:\n\n{{review_link}}",
+        body: "Hi {{first_name}}, we hope you're well! Just a friendly reminder — if you have a moment, a quick review for {{business_name}} would mean a lot to us:\n\n{{review_link}}",
       },
     ];
     for (const t of defaultTemplates) {
@@ -860,6 +881,174 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ── Sentiment pre-screen public routes ───────────────────────────────────
+  // Returns the minimal info needed to render the rating page (no auth required)
+  app.get("/api/public/review-request/:id", async (req, res) => {
+    try {
+      const request = await storage.getReviewRequest(String(req.params.id));
+      if (!request) return res.status(404).json({ message: "Not found" });
+      const customer = await storage.getCustomer(request.customerId, request.accountId);
+      const settings = await storage.getSettings(request.accountId);
+      const baseUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "");
+      const logoUrl = settings?.logoUrl?.startsWith("http") ? settings.logoUrl : settings?.logoUrl ? `${baseUrl}${settings.logoUrl}` : "";
+      res.json({
+        businessName: settings?.businessName || "Our Business",
+        logoUrl,
+        customerFirstName: customer?.name?.split(" ")[0] || "",
+        alreadyRated: !!request.rating,
+      });
+    } catch {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // Customer submits their star rating — saves it, returns whether to show platforms or feedback form
+  app.post("/api/public/review/:id/rate", async (req, res) => {
+    try {
+      const request = await storage.getReviewRequest(String(req.params.id));
+      if (!request) return res.status(404).json({ message: "Not found" });
+      const rating = parseInt(req.body.rating);
+      if (!rating || rating < 1 || rating > 5) return res.status(400).json({ message: "Invalid rating" });
+
+      await storage.updateReviewRequest(request.id, {
+        rating,
+        status: "clicked",
+        clickedAt: new Date(),
+      });
+
+      const settings = await storage.getSettings(request.accountId);
+      const platformMap: Record<string, string> = {
+        google: settings?.googleReviewLink || "",
+        facebook: settings?.facebookReviewLink || "",
+        trustpilot: settings?.trustpilotLink || "",
+        tripadvisor: settings?.tripadvisorLink || "",
+        checkatrade: settings?.checkatradeLink || "",
+        mybuilder: settings?.mybuilderLink || "",
+      };
+      const platformNames: Record<string, string> = { google: "Google", facebook: "Facebook", trustpilot: "Trustpilot", tripadvisor: "TripAdvisor", checkatrade: "Checkatrade", mybuilder: "MyBuilder" };
+
+      // Fetch platform links for high rating display on landing page
+      const platforms = rating >= 4
+        ? Object.entries(platformMap).filter(([, url]) => url).map(([key, url]) => ({ key, name: platformNames[key], url }))
+        : [];
+
+      // Auto-send the appropriate response template via the same channel
+      const allTemplates = await storage.getTemplates(request.accountId);
+      const customer = await storage.getCustomer(request.customerId, request.accountId);
+      const templateType = rating >= 4 ? "response_positive" : "response_negative";
+      const responseTemplate = allTemplates.find(t => t.templateType === templateType && t.channel === request.channel && t.isDefault)
+        || allTemplates.find(t => t.templateType === templateType && t.channel === request.channel)
+        || null;
+
+      if (responseTemplate && customer && settings) {
+        const firstName = customer.name.split(" ")[0];
+        // For positive templates, resolve {{review_link}} to the preferred platform or first available
+        const preferredPlatformUrl = responseTemplate.preferredPlatform
+          ? platformMap[responseTemplate.preferredPlatform] || ""
+          : "";
+        const reviewLink = preferredPlatformUrl || Object.values(platformMap).find(u => u) || "";
+
+        const resolveBody = (body: string) => body
+          .replace(/\{\{first_name\}\}/g, firstName)
+          .replace(/\{\{customer_name\}\}/g, customer.name)
+          .replace(/\{\{business_name\}\}/g, settings.businessName)
+          .replace(/\{\{review_link\}\}/g, reviewLink);
+
+        try {
+          if (request.channel === "email" && customer.email) {
+            await sendReviewEmail(customer, settings, {
+              ...responseTemplate,
+              subject: resolveBody(responseTemplate.subject),
+              body: resolveBody(responseTemplate.body),
+            } as any, []);
+          } else if (request.channel === "sms" && customer.phone) {
+            await sendReviewSMS(customer, settings, {
+              ...responseTemplate,
+              body: resolveBody(responseTemplate.body),
+            } as any, []);
+          } else if (request.channel === "whatsapp" && customer.phone) {
+            await sendWhatsAppMessage(customer.phone, resolveBody(responseTemplate.body));
+          }
+        } catch (err: any) {
+          console.error(`[response template] Failed to send:`, err.message);
+        }
+      }
+
+      res.json({ highRating: rating >= 4, platforms });
+    } catch {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // Customer submits private feedback (1-3 stars) — saves it + notifies business owner
+  app.post("/api/public/review/:id/feedback", async (req, res) => {
+    try {
+      const request = await storage.getReviewRequest(String(req.params.id));
+      if (!request) return res.status(404).json({ message: "Not found" });
+
+      const message = String(req.body.message || "").trim();
+      if (!message) return res.status(400).json({ message: "Feedback message is required" });
+
+      const feedback = await storage.createPrivateFeedback({
+        id: randomUUID(),
+        accountId: request.accountId,
+        customerId: request.customerId,
+        reviewRequestId: request.id,
+        stars: request.rating || 1,
+        message,
+        responded: false,
+        response: "",
+        respondedAt: null,
+      });
+
+      // Log activity
+      const customer = await storage.getCustomer(request.customerId, request.accountId);
+      await storage.createActivity({
+        id: randomUUID(),
+        accountId: request.accountId,
+        type: "private_feedback",
+        customerId: request.customerId,
+        customerName: customer?.name || "Unknown",
+        message: `${customer?.name || "A customer"} left private feedback (${request.rating}★)`,
+        metadata: "{}",
+      });
+
+      // Email notification to business owner
+      if (process.env.RESEND_API_KEY) {
+        const settings = await storage.getSettings(request.accountId);
+        const ownerUser = await pool.query(`SELECT email FROM users WHERE account_id = $1 AND role = 'owner' LIMIT 1`, [request.accountId]);
+        const toEmail = ownerUser.rows[0]?.email;
+        if (toEmail) {
+          const resend = new Resend(process.env.RESEND_API_KEY);
+          const baseUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://reviewoptic.com");
+          await resend.emails.send({
+            from: "ReviewOptic <noreply@reviewoptic.com>",
+            to: toEmail,
+            subject: `Private feedback received from ${customer?.name || "a customer"} (${request.rating}★)`,
+            html: `
+              <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
+                <div style="margin-bottom:28px;"><img src="${baseUrl}/logo.png" alt="ReviewOptic" style="height:36px;max-width:180px;object-fit:contain;display:block;" /></div>
+                <h2 style="font-size:18px;font-weight:700;margin:0 0 8px;">Private feedback received</h2>
+                <p style="color:#555;margin:0 0 16px;line-height:1.6;">
+                  <strong>${customer?.name || "A customer"}</strong> rated their experience <strong>${request.rating} star${request.rating === 1 ? "" : "s"}</strong> and left the following message:
+                </p>
+                <div style="background:#f5f5f5;border-left:4px solid #e5e7eb;padding:12px 16px;border-radius:4px;margin:0 0 24px;">
+                  <p style="margin:0;font-style:italic;color:#333;">"${message}"</p>
+                </div>
+                <p style="color:#555;margin:0 0 24px;line-height:1.6;">This feedback is private — only you can see it. Log in to respond.</p>
+                <a href="${baseUrl}" style="display:inline-block;background:#0E679D;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">View &amp; Respond in Dashboard</a>
+              </div>
+            `,
+          }).catch(() => {});
+        }
+      }
+
+      res.json({ ok: true });
+    } catch {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
   // ── Protected routes (requireAuth) ───────────────────────────────────────
 
   // Customers
@@ -887,6 +1076,34 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     });
     res.json(c);
   });
+  app.post("/api/customers/import", requireAuth, async (req, res) => {
+    const customers: any[] = req.body.customers || [];
+    let imported = 0;
+    const skipped: { row: number; reason: string }[] = [];
+    for (let i = 0; i < customers.length; i++) {
+      const row = customers[i];
+      const rowNum = i + 2; // +2 because row 1 is header
+      if (!row.name) { skipped.push({ row: rowNum, reason: "name is required" }); continue; }
+      if (!row.email && !row.phone) { skipped.push({ row: rowNum, reason: "email or phone required" }); continue; }
+      try {
+        await storage.createCustomer({
+          name: row.name,
+          email: row.email || "",
+          phone: row.phone || "",
+          serviceType: row.service_type || "",
+          serviceDate: row.service_date || null,
+          notes: row.notes || "",
+          namePronunciation: "",
+          accountId: req.session.accountId,
+        });
+        imported++;
+      } catch {
+        skipped.push({ row: rowNum, reason: "failed to save" });
+      }
+    }
+    res.json({ imported, skipped });
+  });
+
   app.patch("/api/customers/:id", requireAuth, async (req, res) => {
     const c = await storage.updateCustomer(String(req.params.id), req.body, req.session.accountId!);
     if (!c) return res.status(404).json({ message: "Customer not found" });
@@ -1019,73 +1236,45 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     });
 
     const channel = req.body.channel || customer.channel;
-    const selectedPlatforms: { name: string; url: string }[] = req.body.selectedPlatforms || [];
     const settings = await storage.getSettings(req.session.accountId!);
-    const allTemplates = await storage.getTemplates(req.session.accountId!);
-    const customMessage: string | undefined = req.body.customMessage || undefined;
-    const customSubject: string | undefined = req.body.customSubject || undefined;
+    const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "");
+    const ratingLink = `${appUrl}/review?rid=${rr.id}`;
+    const firstName = customer.name.split(" ")[0];
 
     // Schedule the actual send — fires immediately if sendDelay is 0
+    // Initial outreach is a fixed system message — not a template
     setTimeout(async () => {
       if (!settings) return;
       try {
         if (channel === "email" && customer.email) {
-          const template =
-            (templateId && allTemplates.find(t => t.id === templateId)) ||
-            allTemplates.find(t => t.channel === "email" && t.isDefault) ||
-            allTemplates.find(t => t.channel === "email") ||
-            null;
-          const effectiveTemplate = (customMessage || customSubject)
-            ? { ...(template || { subject: "", body: "" }), ...(customSubject ? { subject: customSubject } : {}), ...(customMessage ? { body: customMessage } : {}) }
-            : template;
-          await sendReviewEmail(customer, settings, effectiveTemplate, selectedPlatforms);
+          // Fixed pre-screen email
+          const fixedTemplate = {
+            subject: `How would you rate your experience with ${settings.businessName}?`,
+            body: `Hi ${firstName},\n\nThank you for choosing ${settings.businessName}! We'd love to hear how we did — it only takes a second.\n\nClick below to rate your experience:\n\n${ratingLink}\n\nThanks,\nThe ${settings.businessName} team`,
+          };
+          await sendReviewEmail(customer, settings, fixedTemplate as any, []);
         } else if (channel === "sms" && customer.phone) {
-          const template =
-            (templateId && allTemplates.find(t => t.id === templateId)) ||
-            allTemplates.find(t => t.channel === "sms" && t.isDefault) ||
-            allTemplates.find(t => t.channel === "sms") ||
-            null;
-          const effectiveTemplate = customMessage
-            ? { ...(template || { subject: "", body: "" }), body: customMessage }
-            : template;
-          await sendReviewSMS(customer, settings, effectiveTemplate, selectedPlatforms);
+          const fixedTemplate = {
+            subject: "",
+            body: `Hi ${firstName}, how would you rate your experience with ${settings.businessName}? Tap here to let us know: ${ratingLink}`,
+          };
+          await sendReviewSMS(customer, settings, fixedTemplate as any, []);
         } else if (channel === "whatsapp" && customer.phone) {
           const messageType: string = req.body.messageType || "text";
-          const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "");
           if (messageType === "voice" && settings.voiceNoteUrl && settings.elevenLabsVoiceId) {
-            const firstName = customer.name.split(" ")[0];
             const nameAudioPath = await generateNameAudio(settings.elevenLabsVoiceId, `${firstName}!`);
             const mergedPath = await stitchNameToFront(nameAudioPath, settings.voiceNoteUrl, "audio");
-            const filename = path.basename(mergedPath);
-            const mediaUrl = `${appUrl}/uploads/tmp/${filename}`;
+            const mediaUrl = `${appUrl}/uploads/tmp/${path.basename(mergedPath)}`;
             await sendWhatsAppMessage(customer.phone, "", mediaUrl);
             setTimeout(() => fs.unlink(mergedPath, () => {}), 60_000);
           } else if (messageType === "video" && settings.videoMessageUrl && settings.elevenLabsVoiceId) {
-            const firstName = customer.name.split(" ")[0];
             const nameAudioPath = await generateNameAudio(settings.elevenLabsVoiceId, `${firstName}!`);
             const mergedPath = await stitchNameToFront(nameAudioPath, settings.videoMessageUrl, "video");
-            const filename = path.basename(mergedPath);
-            const mediaUrl = `${appUrl}/uploads/tmp/${filename}`;
+            const mediaUrl = `${appUrl}/uploads/tmp/${path.basename(mergedPath)}`;
             await sendWhatsAppMessage(customer.phone, "", mediaUrl);
             setTimeout(() => fs.unlink(mergedPath, () => {}), 60_000);
           } else {
-            const template =
-              (templateId && allTemplates.find(t => t.id === templateId)) ||
-              allTemplates.find(t => t.channel === "whatsapp" && t.isDefault) ||
-              allTemplates.find(t => t.channel === "whatsapp") ||
-              null;
-            const effectiveTemplate = customMessage
-              ? { ...(template || { subject: "", body: "" }), body: customMessage }
-              : template;
-            const reviewLink = selectedPlatforms?.[0]?.url || settings.googleReviewLink || settings.facebookReviewLink || settings.trustpilotLink || "";
-            const body = effectiveTemplate?.body
-              ? effectiveTemplate.body
-                  .replace(/\{\{first_name\}\}/g, customer.name.split(" ")[0])
-                  .replace(/\{\{customer_name\}\}/g, customer.name)
-                  .replace(/\{\{business_name\}\}/g, settings.businessName)
-                  .replace(/\{\{service_type\}\}/g, customer.serviceType || "")
-                  .replace(/\{\{review_link\}\}/g, reviewLink)
-              : `Hi ${customer.name.split(" ")[0]}, thanks for choosing ${settings.businessName}! We'd love a quick review: ${reviewLink}`;
+            const body = `Hi ${firstName} 👋 Thanks for choosing ${settings.businessName}! How would you rate your experience? Tap here to let us know: ${ratingLink}`;
             await sendWhatsAppMessage(customer.phone, body);
           }
         }
@@ -1113,10 +1302,56 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // Private Feedback (GET/PATCH — protected; POST is public above)
   app.get("/api/private-feedback", requireAuth, async (req, res) => {
-    res.json(await storage.getPrivateFeedback(req.session.accountId!));
+    const rows = await pool.query(`
+      SELECT pf.*, c.name as customer_name, c.email as customer_email, c.phone as customer_phone,
+             rr.channel as request_channel
+      FROM private_feedback pf
+      LEFT JOIN customers c ON c.id = pf.customer_id
+      LEFT JOIN review_requests rr ON rr.id = pf.review_request_id
+      WHERE pf.account_id = $1
+      ORDER BY pf.created_at DESC
+    `, [req.session.accountId]);
+    res.json(rows.rows);
   });
-  app.patch("/api/private-feedback/:id", requireAuth, async (req, res) => {
-    const f = await storage.updatePrivateFeedback(String(req.params.id), req.body);
+  app.patch("/api/private-feedback/:id/respond", requireAuth, async (req, res) => {
+    const { response, replyChannel, replyMessage } = req.body;
+    // At least one of response note or a reply must be provided
+    if (!response?.trim() && !replyMessage?.trim()) return res.status(400).json({ message: "Response or reply message is required" });
+
+    // If sending a reply to the customer, look up customer + settings
+    if (replyChannel && replyMessage?.trim()) {
+      const feedbackRow = await pool.query(`SELECT pf.*, c.email, c.phone, c.name FROM private_feedback pf LEFT JOIN customers c ON c.id = pf.customer_id WHERE pf.id = $1`, [req.params.id]);
+      if (feedbackRow.rows.length === 0) return res.status(404).json({ message: "Not found" });
+      const fb = feedbackRow.rows[0];
+      const settings = await storage.getSettings(req.session.accountId!);
+      const firstName = (fb.name || "").split(" ")[0] || "there";
+
+      try {
+        if (replyChannel === "email" && fb.email) {
+          const resend = new Resend(process.env.RESEND_API_KEY);
+          const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@reviewoptic.com";
+          await resend.emails.send({
+            from: `${settings?.businessName || "ReviewOptic"} <${fromEmail}>`,
+            to: fb.email,
+            subject: `A message from ${settings?.businessName || "us"}`,
+            html: `<p>Hi ${firstName},</p><p>${replyMessage.trim().replace(/\n/g, "<br/>")}</p><p>— The ${settings?.businessName || "team"}</p>`,
+          });
+        } else if (replyChannel === "sms" && fb.phone) {
+          await sendPlainSMS(fb.phone, replyMessage.trim(), settings?.businessName);
+        } else if (replyChannel === "whatsapp" && fb.phone) {
+          await sendWhatsAppMessage(fb.phone, replyMessage.trim());
+        }
+      } catch (err: any) {
+        console.error("[feedback-reply] Send failed:", err.message);
+        return res.status(500).json({ message: `Failed to send ${replyChannel} reply: ${err.message}` });
+      }
+    }
+
+    const f = await storage.updatePrivateFeedback(String(req.params.id), {
+      responded: true,
+      response: (response || replyMessage || "").trim(),
+      respondedAt: new Date(),
+    });
     if (!f) return res.status(404).json({ message: "Not found" });
     res.json(f);
   });
@@ -1483,6 +1718,69 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }));
     } catch { /* ignore */ }
 
+    // Sentiment: average rating + distribution + over time (all rated requests, regardless of outcome)
+    let averageRating: number | null = null;
+    let ratingDistribution: Array<{ stars: number; count: number }> = [1,2,3,4,5].map(s => ({ stars: s, count: 0 }));
+    let sentimentSplit = { positive: 0, negative: 0, positiveRate: 0 };
+    let ratingOverTime: Array<{ date: string; avg: number; count: number }> = [];
+    let privateFeedbackCount = 0;
+    let avgResponseTimeHours: number | null = null;
+    try {
+      const { rows: ratingRows } = await pool.query(`
+        SELECT AVG(rating)::numeric(4,2) as avg_rating,
+               COUNT(CASE WHEN rating >= 4 THEN 1 END) as positive,
+               COUNT(CASE WHEN rating <= 3 THEN 1 END) as negative,
+               COUNT(*) as total
+        FROM review_requests
+        WHERE account_id = $1 AND created_at >= $2 AND created_at <= $3 AND rating IS NOT NULL
+      `, [accountId, cutoff, cutoffEnd]);
+      if (ratingRows[0]?.total > 0) {
+        averageRating = parseFloat(ratingRows[0].avg_rating) || null;
+        const pos = parseInt(ratingRows[0].positive) || 0;
+        const neg = parseInt(ratingRows[0].negative) || 0;
+        const total = pos + neg;
+        sentimentSplit = { positive: pos, negative: neg, positiveRate: total > 0 ? Math.round((pos / total) * 100) : 0 };
+      }
+
+      const { rows: distRows } = await pool.query(`
+        SELECT rating, COUNT(*) as cnt
+        FROM review_requests
+        WHERE account_id = $1 AND created_at >= $2 AND created_at <= $3 AND rating IS NOT NULL
+        GROUP BY rating ORDER BY rating
+      `, [accountId, cutoff, cutoffEnd]);
+      ratingDistribution = [1,2,3,4,5].map(s => {
+        const row = distRows.find((r: any) => parseInt(r.rating) === s);
+        return { stars: s, count: row ? parseInt(row.cnt) : 0 };
+      });
+
+      const { rows: rotRows } = await pool.query(`
+        SELECT DATE(created_at) as date,
+               AVG(rating)::numeric(4,2) as avg_rating,
+               COUNT(*) as cnt
+        FROM review_requests
+        WHERE account_id = $1 AND created_at >= $2 AND created_at <= $3 AND rating IS NOT NULL
+        GROUP BY DATE(created_at) ORDER BY DATE(created_at)
+      `, [accountId, cutoff, cutoffEnd]);
+      ratingOverTime = rotRows.map((r: any) => ({
+        date: r.date instanceof Date ? r.date.toISOString().split("T")[0] : String(r.date),
+        avg: parseFloat(r.avg_rating) || 0,
+        count: parseInt(r.cnt) || 0,
+      }));
+
+      const { rows: pfRows } = await pool.query(`
+        SELECT COUNT(*) as cnt FROM private_feedback
+        WHERE account_id = $1 AND created_at >= $2 AND created_at <= $3
+      `, [accountId, cutoff, cutoffEnd]);
+      privateFeedbackCount = parseInt(pfRows[0]?.cnt) || 0;
+
+      const { rows: rtRows } = await pool.query(`
+        SELECT AVG(EXTRACT(EPOCH FROM (responded_at - created_at)) / 3600)::numeric(10,2) as avg_hours
+        FROM private_feedback
+        WHERE account_id = $1 AND created_at >= $2 AND created_at <= $3 AND responded_at IS NOT NULL
+      `, [accountId, cutoff, cutoffEnd]);
+      avgResponseTimeHours = rtRows[0]?.avg_hours ? parseFloat(rtRows[0].avg_hours) : null;
+    } catch { /* ignore */ }
+
     res.json({
       daily: Object.values(dailyData),
       dailyByChannel: Object.values(channelDailyData),
@@ -1493,6 +1791,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       bestDayData,
       followUpData,
       templatePerformance,
+      averageRating,
+      ratingDistribution,
+      sentimentSplit,
+      ratingOverTime,
+      privateFeedbackCount,
+      avgResponseTimeHours,
     });
   });
 

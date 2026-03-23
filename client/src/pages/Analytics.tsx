@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Send, Eye, TrendingUp, BarChart2, Download, FileText, Palette } from "lucide-react";
+import { Send, Eye, TrendingUp, BarChart2, Download, FileText, Palette, Star, MessageSquare, Clock } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -54,6 +54,12 @@ interface AnalyticsData {
   bestDayData?: Array<{ day: string; clicked: number }>;
   followUpData?: Array<{ bucket: string; customers: number; clicked: number; clickRate: number }>;
   templatePerformance?: Array<{ name: string; sent: number; clicked: number; clickRate: number }>;
+  averageRating?: number | null;
+  ratingDistribution?: Array<{ stars: number; count: number }>;
+  sentimentSplit?: { positive: number; negative: number; positiveRate: number };
+  ratingOverTime?: Array<{ date: string; avg: number; count: number }>;
+  privateFeedbackCount?: number;
+  avgResponseTimeHours?: number | null;
 }
 
 const CHANNELS = ["email", "sms", "whatsapp"] as const;
@@ -248,10 +254,20 @@ export default function Analytics() {
     URL.revokeObjectURL(url);
   }
 
+  const avgRating = data?.averageRating;
+  const avgResponseHrs = data?.avgResponseTimeHours;
+  const avgResponseLabel = avgResponseHrs == null ? "—"
+    : avgResponseHrs < 1 ? `${Math.round(avgResponseHrs * 60)}m`
+    : avgResponseHrs < 24 ? `${avgResponseHrs.toFixed(1)}h`
+    : `${(avgResponseHrs / 24).toFixed(1)}d`;
+
   const summaryCards = [
     { label: "Requests Sent", value: sent, icon: <Send className="w-4 h-4" />, color: "text-blue-500" },
     { label: "Links Clicked", value: clicks, icon: <Eye className="w-4 h-4" />, color: "text-green-500" },
     { label: "Click Rate", value: `${clickRate}%`, icon: <TrendingUp className="w-4 h-4" />, color: "text-purple-500" },
+    { label: "Avg. Star Rating", value: avgRating != null ? avgRating.toFixed(1) : "—", icon: <Star className="w-4 h-4" />, color: "text-amber-500" },
+    { label: "Private Feedback", value: data?.privateFeedbackCount ?? "—", icon: <MessageSquare className="w-4 h-4" />, color: "text-orange-500" },
+    { label: "Avg. Response Time", value: avgResponseLabel, icon: <Clock className="w-4 h-4" />, color: "text-teal-500" },
   ];
 
   return (
@@ -365,7 +381,7 @@ export default function Analytics() {
       </p>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {summaryCards.map(c => (
           <Card key={c.label} className="border-card-border">
             <CardContent className="p-4">
@@ -606,6 +622,98 @@ export default function Analytics() {
                   <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${v}%`, "Click Rate"]} />
                   <Bar dataKey="clickRate" name="Click Rate" fill={colors.reviews} radius={[0, 4, 4, 0]} />
                 </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Sentiment Split */}
+      {data?.sentimentSplit && (data.sentimentSplit.positive + data.sentimentSplit.negative) > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+
+          {/* Sentiment Split pie */}
+          <Card className="border-card-border">
+            <CardHeader className="pb-2 pt-4 px-5">
+              <CardTitle className="text-[14px] font-semibold">Sentiment Split</CardTitle>
+              <p className="text-[12px] text-muted-foreground">4–5 stars vs 1–3 stars</p>
+            </CardHeader>
+            <CardContent className="px-5 pb-4">
+              {isLoading ? <Skeleton className="h-48 w-full" /> : (
+                <div className="space-y-4">
+                  <ResponsiveContainer width="100%" height={180}>
+                    <PieChart>
+                      <Pie data={[
+                        { name: "Positive (4–5★)", value: data.sentimentSplit!.positive },
+                        { name: "Negative (1–3★)", value: data.sentimentSplit!.negative },
+                      ]} cx="50%" cy="50%" innerRadius={45} outerRadius={70} dataKey="value" paddingAngle={2}>
+                        <Cell fill="#22c55e" />
+                        <Cell fill="#f97316" />
+                      </Pie>
+                      <Tooltip contentStyle={tooltipStyle} />
+                      <Legend wrapperStyle={{ fontSize: "11px" }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="flex justify-around text-center">
+                    <div>
+                      <div className="text-2xl font-bold text-green-500">{data.sentimentSplit!.positiveRate}%</div>
+                      <div className="text-[11.5px] text-muted-foreground">Positive</div>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-orange-500">{100 - data.sentimentSplit!.positiveRate}%</div>
+                      <div className="text-[11.5px] text-muted-foreground">Negative</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Star Rating Distribution */}
+          <Card className="border-card-border">
+            <CardHeader className="pb-2 pt-4 px-5">
+              <CardTitle className="text-[14px] font-semibold">Star Rating Distribution</CardTitle>
+              <p className="text-[12px] text-muted-foreground">How customers rated their experience</p>
+            </CardHeader>
+            <CardContent className="px-5 pb-4">
+              {isLoading ? <Skeleton className="h-48 w-full" /> : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={data?.ratingDistribution || []} margin={{ top: 5, right: 10, bottom: 5, left: -20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                    <XAxis dataKey="stars" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false}
+                      tickFormatter={v => `${v}★`} />
+                    <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                    <Tooltip contentStyle={tooltipStyle} formatter={(v) => [v, "Responses"]} labelFormatter={l => `${l} star${l !== 1 ? "s" : ""}`} />
+                    <Bar dataKey="count" name="Responses" radius={[4, 4, 0, 0]} barSize={28}>
+                      {(data?.ratingDistribution || []).map((entry) => (
+                        <Cell key={entry.stars} fill={entry.stars >= 4 ? "#22c55e" : entry.stars === 3 ? "#f59e0b" : "#f97316"} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Rating Over Time */}
+      {data?.ratingOverTime && data.ratingOverTime.length > 1 && (
+        <Card className="border-card-border">
+          <CardHeader className="pb-2 pt-4 px-5">
+            <CardTitle className="text-[14px] font-semibold">Average Star Rating Over Time</CardTitle>
+            <p className="text-[12px] text-muted-foreground">Daily average across all rated responses</p>
+          </CardHeader>
+          <CardContent className="px-5 pb-4">
+            {isLoading ? <Skeleton className="h-48 w-full" /> : (
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={data.ratingOverTime.map(d => ({ ...d, label: format(parseISO(d.date), "MMM d") }))} margin={{ top: 5, right: 10, bottom: 5, left: -20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+                  <YAxis domain={[1, 5]} ticks={[1,2,3,4,5]} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} tickFormatter={v => `${v}★`} />
+                  <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => [Number(v).toFixed(1), "Avg Rating"]} />
+                  <Line type="monotone" dataKey="avg" name="Avg Rating" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3, fill: "#f59e0b" }} />
+                </LineChart>
               </ResponsiveContainer>
             )}
           </CardContent>
