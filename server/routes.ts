@@ -195,6 +195,8 @@ const audioUpload = multer({
   },
 });
 
+const recordingUpload = multer({ dest: uploadsDir });
+
 // Temporary in-memory store for preview files (keyed by previewId)
 const previewFiles = new Map<string, { path: string; expires: number }>();
 // Clean up expired previews every 5 minutes
@@ -1403,7 +1405,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // Upload a new recording (voice or video) — max 2 per type
-  const recordingUpload = multer({ dest: "uploads/" });
   app.post("/api/recordings/upload", requireAuth, recordingUpload.single("file"), async (req, res) => {
     if (!req.file) return res.status(400).json({ message: "No file uploaded" });
     if (!isCloudinaryConfigured()) return res.status(503).json({ message: "Cloud storage not configured" });
@@ -1441,7 +1442,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.json(rows[0]);
     } catch (err: any) {
       console.error("[recordings] upload failed:", err.message);
-      res.status(500).json({ message: "Upload failed" });
+      res.status(500).json({ message: err.message || "Upload failed" });
     }
   });
 

@@ -961,14 +961,13 @@ function RecordingsTab() {
                 {/* Video recorder */}
                 {type === "video" && (
                   <div className="space-y-2">
-                    {(recState === "previewing" || recState === "recording" || recState === "recorded") && (
-                      <video ref={videoPreviewRef}
-                        className="w-full max-h-48 rounded-lg bg-black"
-                        playsInline
-                        autoPlay={recState === "previewing" || recState === "recording"}
-                        controls={recState === "recorded"}
-                      />
-                    )}
+                    {/* Always rendered so ref is available when stream is assigned */}
+                    <video ref={videoPreviewRef}
+                      className={`w-full max-h-48 rounded-lg bg-black${recState === "idle" ? " hidden" : ""}`}
+                      playsInline
+                      autoPlay={recState === "previewing" || recState === "recording"}
+                      controls={recState === "recorded"}
+                    />
                     {recState === "recording" && (
                       <div className="flex items-center gap-2 text-red-500">
                         <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
