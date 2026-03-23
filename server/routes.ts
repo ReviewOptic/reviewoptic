@@ -195,7 +195,12 @@ const audioUpload = multer({
   },
 });
 
-const recordingUpload = multer({ dest: uploadsDir });
+const recordingUpload = multer({
+  storage: multer.diskStorage({
+    destination: uploadsDir,
+    filename: (_req, _file, cb) => cb(null, `${randomUUID()}.webm`),
+  }),
+});
 
 // Temporary in-memory store for preview files (keyed by previewId)
 const previewFiles = new Map<string, { path: string; expires: number }>();
@@ -1407,7 +1412,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // Upload a new recording (voice or video) — max 2 per type
   app.post("/api/recordings/upload", requireAuth, recordingUpload.single("file"), async (req, res) => {
     if (!req.file) return res.status(400).json({ message: "No file uploaded" });
-    if (!isCloudinaryConfigured()) return res.status(503).json({ message: "Cloud storage not configured" });
     const type = req.body.type as string; // 'voice' or 'video'
     const label = (req.body.label || "").trim() || (type === "voice" ? "Voice Note" : "Video Message");
     if (type !== "voice" && type !== "video") return res.status(400).json({ message: "type must be voice or video" });
@@ -1420,9 +1424,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (existing.length >= 2) return res.status(400).json({ message: `Maximum of 2 ${type} recordings allowed` });
 
     try {
-      const folder = type === "voice" ? "reviewoptic/voice-notes" : "reviewoptic/video-messages";
-      const url = await uploadToCloudinary(req.file.path, { folder, resource_type: "video" });
-      fs.unlink(req.file.path, () => {});
+      // Try Cloudinary first; fall back to local serving if not configured or upload fails
+      let url: string;
+      if (isCloudinaryConfigured()) {
+        try {
+          const folder = type === "voice" ? "reviewoptic/voice-notes" : "reviewoptic/video-messages";
+          url = await uploadToCloudinary(req.file.path, { folder, resource_type: "video" });
+          fs.unlink(req.file.path, () => {});
+        } catch (cloudErr: any) {
+          console.warn("[recordings] Cloudinary upload failed, falling back to local:", cloudErr.message);
+          url = `/uploads/${req.file.filename}`;
+        }
+      } else {
+        url = `/uploads/${req.file.filename}`;
+      }
 
       let elevenLabsVoiceId = "";
       if (type === "voice" && process.env.ELEVENLABS_API_KEY) {
@@ -1441,7 +1456,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const { rows } = await pool.query(`SELECT * FROM recordings WHERE id = $1`, [id]);
       res.json(rows[0]);
     } catch (err: any) {
-      console.error("[recordings] upload failed:", err.message);
+      console.error("[recordings] upload failed:", err);
       res.status(500).json({ message: err.message || "Upload failed" });
     }
   });
