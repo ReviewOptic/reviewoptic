@@ -157,6 +157,29 @@ async function postReviewToSocial(review: Review, customer: Customer, settings: 
       console.error("LinkedIn post error:", err);
     }
   }
+
+  // Instagram — requires Meta App Review approval + instagramUserId stored in settings
+  if ((settings as any).instagramAccessToken && (settings as any).instagramUserId) {
+    try {
+      // Step 1: create media container
+      const containerRes = await fetch(`https://graph.facebook.com/v18.0/${(settings as any).instagramUserId}/media`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ caption: message, media_type: "REELS", access_token: (settings as any).instagramAccessToken }),
+      });
+      const container = await containerRes.json();
+      if (container.id) {
+        // Step 2: publish
+        await fetch(`https://graph.facebook.com/v18.0/${(settings as any).instagramUserId}/media_publish`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ creation_id: container.id, access_token: (settings as any).instagramAccessToken }),
+        });
+      }
+    } catch (err) {
+      console.error("Instagram post error:", err);
+    }
+  }
 }
 
 const logoUpload = multer({
@@ -979,6 +1002,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         } catch (err: any) {
           console.error(`[response template] Failed to send:`, err.message);
         }
+      }
+
+      // Auto-post to social for happy customers
+      if (rating >= 4 && customer && settings) {
+        postReviewToSocial({ stars: rating } as any, customer, settings).catch(err =>
+          console.error("Social post failed:", err)
+        );
       }
 
       res.json({ highRating: rating >= 4, platforms });
