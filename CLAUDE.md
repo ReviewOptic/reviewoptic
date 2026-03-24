@@ -259,7 +259,6 @@ Your job is to be the developer they would hire if they could afford a great one
 - Old `VideoRecorder` and `AudioRecorder` components at top of Templates.tsx still exist (used in template editing) — untouched
 
 **Notes for next session:**
-- Fix Cloudinary: update `CLOUDINARY_CLOUD_NAME` in Replit Secrets to the real cloud name from cloudinary.com → Dashboard (currently set to "ReviewOptic" which is wrong)
 - `POST /api/reviews` endpoint in routes.ts is still orphaned — safe to remove in a cleanup pass
 - Instagram auto-posting and review widget still not built — decide whether to build or remove from features list
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
@@ -275,7 +274,6 @@ Your job is to be the developer they would hire if they could afford a great one
 
 **Notes for next session:**
 - Server restart required for star rating activity logging to take effect (server-side change in routes.ts)
-- Fix Cloudinary: update `CLOUDINARY_CLOUD_NAME` in Replit Secrets to the real cloud name from cloudinary.com → Dashboard (currently set to "ReviewOptic" which is wrong)
 - `POST /api/reviews` endpoint in routes.ts is still orphaned — safe to remove in a cleanup pass
 - Instagram auto-posting and review widget still not built — decide whether to build or remove from features list
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
