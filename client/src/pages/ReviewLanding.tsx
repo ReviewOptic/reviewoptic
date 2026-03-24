@@ -303,6 +303,7 @@ export default function ReviewLanding() {
                     const meta = PLATFORM_META[p.key];
                     return (
                       <button key={p.key} onClick={() => {
+                        window.open(p.url, "_blank", "noopener,noreferrer");
                         if (rid) {
                           fetch(`/api/track/${rid}/platform-click`, {
                             method: "POST",
@@ -310,7 +311,6 @@ export default function ReviewLanding() {
                             body: JSON.stringify({ platform: p.key }),
                           }).catch(() => {});
                         }
-                        window.open(p.url, "_blank", "noopener,noreferrer");
                       }} className="w-full">
                         <div className="flex flex-col items-center gap-2 p-4 rounded-xl border border-border bg-card hover:bg-muted/50 hover:border-primary/40 transition-colors cursor-pointer">
                           {meta?.logo ?? null}
