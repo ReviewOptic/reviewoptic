@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Send, Eye, TrendingUp, BarChart2, Download, FileText, Palette, Star, MessageSquare, Clock } from "lucide-react";
+import { Send, Eye, EyeOff, TrendingUp, BarChart2, Download, FileText, Palette, Star, MessageSquare, Clock, GripVertical, LayoutGrid } from "lucide-react";
+import { Reorder } from "framer-motion";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,51 @@ function useChartColors() {
     localStorage.setItem("chartColors", JSON.stringify(next));
   };
   return { colors, applyTheme, updateColor };
+}
+
+// ── Chart layout system ───────────────────────────────────────────────────
+const CHART_IDS = [
+  "requests_vs_clicks", "requests_by_channel", "team", "funnel_channel",
+  "best_day", "follow_up", "platform_clicks", "template_perf", "sentiment", "rating_over_time",
+] as const;
+type ChartId = typeof CHART_IDS[number];
+
+const CHART_LABELS: Record<ChartId, string> = {
+  requests_vs_clicks: "Requests vs Clicks",
+  requests_by_channel: "Requests vs Clicks by Channel",
+  team: "Team Performance",
+  funnel_channel: "Conversion Funnel & Channel Breakdown",
+  best_day: "Best Day to Send",
+  follow_up: "Follow-up Effectiveness",
+  platform_clicks: "Where Reviews Are Going",
+  template_perf: "Template Performance",
+  sentiment: "Sentiment Split & Star Ratings",
+  rating_over_time: "Average Star Rating Over Time",
+};
+
+function useChartLayout() {
+  const stored = (() => { try { return JSON.parse(localStorage.getItem("analyticsLayout") || "null"); } catch { return null; } })();
+  const mergedOrder = stored?.order
+    ? [...stored.order.filter((id: string) => (CHART_IDS as readonly string[]).includes(id)),
+       ...(CHART_IDS as readonly string[]).filter(id => !stored.order.includes(id))]
+    : [...CHART_IDS];
+  const [order, setOrder] = useState<ChartId[]>(mergedOrder as ChartId[]);
+  const [hidden, setHidden] = useState<Set<ChartId>>(new Set(stored?.hidden || []));
+  const save = (o: ChartId[], h: Set<ChartId>) =>
+    localStorage.setItem("analyticsLayout", JSON.stringify({ order: o, hidden: Array.from(h) }));
+  const updateOrder = (o: ChartId[]) => { setOrder(o); save(o, hidden); };
+  const toggleHidden = (id: ChartId) => {
+    const next = new Set(hidden);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setHidden(next);
+    save(order, next);
+  };
+  const resetLayout = () => {
+    setOrder([...CHART_IDS] as ChartId[]);
+    setHidden(new Set());
+    localStorage.removeItem("analyticsLayout");
+  };
+  return { order, hidden, updateOrder, toggleHidden, resetLayout };
 }
 
 interface AnalyticsData {
@@ -96,6 +142,8 @@ export default function Analytics() {
   const isOwner = user?.role !== "member";
   const { colors, applyTheme, updateColor } = useChartColors();
   const [showColorPanel, setShowColorPanel] = useState(false);
+  const [customising, setCustomising] = useState(false);
+  const { order, hidden, updateOrder, toggleHidden, resetLayout } = useChartLayout();
   const [period, setPeriod] = useState<"7" | "30" | "60" | "custom">("30");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -332,6 +380,9 @@ export default function Analytics() {
             <Button variant="outline" size="sm" className={`h-8 text-[12px] gap-1.5 ${showColorPanel ? "bg-primary text-primary-foreground border-primary" : ""}`} onClick={() => setShowColorPanel(v => !v)}>
               <Palette className="w-3.5 h-3.5" />Colours
             </Button>
+            <Button variant="outline" size="sm" className={`h-8 text-[12px] gap-1.5 ${customising ? "bg-primary text-primary-foreground border-primary" : ""}`} onClick={() => setCustomising(v => !v)}>
+              <LayoutGrid className="w-3.5 h-3.5" />Layout
+            </Button>
           </div>
         </div>
       </div>
@@ -378,6 +429,35 @@ export default function Analytics() {
         </div>
       )}
 
+      {/* Layout customiser panel */}
+      {customising && (
+        <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[13px] font-semibold">Customise Layout</p>
+              <p className="text-[12px] text-muted-foreground mt-0.5">Drag to reorder · click the eye to show or hide</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={resetLayout} className="text-[12px] text-muted-foreground hover:text-foreground underline underline-offset-2">Reset</button>
+              <Button size="sm" className="h-7 text-[12px]" onClick={() => setCustomising(false)}>Done</Button>
+            </div>
+          </div>
+          <Reorder.Group axis="y" values={order} onReorder={updateOrder} className="space-y-1.5">
+            {order.map(id => (
+              <Reorder.Item key={id} value={id} className="list-none">
+                <div className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border bg-background select-none ${hidden.has(id) ? "opacity-40" : ""}`}>
+                  <GripVertical className="w-4 h-4 text-muted-foreground shrink-0 cursor-grab active:cursor-grabbing" />
+                  <span className="flex-1 text-[13px] font-medium">{CHART_LABELS[id]}</span>
+                  <button onClick={() => toggleHidden(id)} className="text-muted-foreground hover:text-foreground transition-colors">
+                    {hidden.has(id) ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </Reorder.Item>
+            ))}
+          </Reorder.Group>
+        </div>
+      )}
+
       {/* PDF export target */}
       <div ref={contentRef} className="space-y-5">
       {/* Period label — hidden normally, shown when capturing for PDF */}
@@ -397,373 +477,346 @@ export default function Analytics() {
         ))}
       </div>
 
-      {/* Line chart */}
-      <Card className="border-card-border">
-        <CardHeader className="pb-2 pt-4 px-5">
-          <CardTitle className="text-[14px] font-semibold">Requests vs Clicks</CardTitle>
-        </CardHeader>
-        <CardContent className="px-5 pb-4">
-          {isLoading ? <Skeleton className="h-52 w-full" /> : (
-            <ResponsiveContainer width="100%" height={200}>
-              <LineChart data={dailyForChart} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} interval={Math.max(0, Math.floor(dailyForChart.length / 6) - 1)} />
-                <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Legend wrapperStyle={{ fontSize: "11px" }} />
-                <Line type="monotone" dataKey="requests" stroke={colors.requests} strokeWidth={2} dot={false} activeDot={{ r: 3 }} name="Requests Sent" />
-                <Line type="monotone" dataKey="clicks" stroke={colors.reviews} strokeWidth={2} dot={false} activeDot={{ r: 3 }} name="Links Clicked" />
-              </LineChart>
-            </ResponsiveContainer>
-          )}
-        </CardContent>
-      </Card>
+      {(() => {
+        const PLATFORM_COLORS: Record<string, string> = {
+          google: "#4285F4", facebook: "#1877F2", trustpilot: "#00B67A",
+          tripadvisor: "#34E0A1", checkatrade: "#1B5EA6", mybuilder: "#F26522",
+        };
 
-      {/* Channel chart — grouped bars: requests vs reviews per channel */}
-      <Card className="border-card-border">
-        <CardHeader className="pb-2 pt-4 px-5">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <CardTitle className="text-[14px] font-semibold">Requests vs Clicks by Channel</CardTitle>
-            <ChannelToggle active={channelChartChannels} onChange={setChannelChartChannels} />
-          </div>
-        </CardHeader>
-        <CardContent className="px-5 pb-4">
-          {isLoading ? <Skeleton className="h-40 w-full" /> : channelBarData.length === 0 ? (
-            <div className="text-center py-6 text-muted-foreground">
-              <p className="text-[12px]">No channel data</p>
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={channelBarData} margin={{ top: 5, right: 10, bottom: 5, left: -20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                <XAxis dataKey="channel" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Legend wrapperStyle={{ fontSize: "11px" }} />
-                <Bar dataKey="requests" name="Requests Sent" fill={colors.requests} radius={[4, 4, 0, 0]} barSize={28} />
-                <Bar dataKey="clicks" name="Links Clicked" fill={colors.reviews} radius={[4, 4, 0, 0]} barSize={28} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* By User bar chart — owner only, only shown when there are team members */}
-      {isOwner && data?.byUser && data.byUser.some(u => u.role === "member") && (
-        <Card className="border-card-border">
-          <CardHeader className="pb-2 pt-4 px-5">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <CardTitle className="text-[14px] font-semibold">Requests vs Clicks by Team Member</CardTitle>
-              {data?.byUser && data.byUser.length > 0 && (
-                <Select value={memberFilter} onValueChange={setMemberFilter}>
-                  <SelectTrigger className="h-7 w-36 text-[11px]">
-                    <SelectValue placeholder="All members" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All members</SelectItem>
-                    {data.byUser.map(m => (
-                      <SelectItem key={m.email} value={m.email}>{m.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="px-5 pb-4">
-            {isLoading ? <Skeleton className="h-40 w-full" /> : !data?.byUser || data.byUser.length === 0 ? (
-              <div className="text-center py-6 text-muted-foreground">
-                <p className="text-[12px]">No team data</p>
-              </div>
-            ) : (() => {
-              const filtered = memberFilter === "all" ? data.byUser! : data.byUser!.filter(m => m.email === memberFilter);
+        function renderChart(id: ChartId) {
+          switch (id) {
+            case "requests_vs_clicks":
               return (
-                <ResponsiveContainer width="100%" height={180}>
-                  <BarChart data={filtered} margin={{ top: 5, right: 10, bottom: 5, left: -20 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
-                    <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
-                    <Tooltip contentStyle={tooltipStyle} />
-                    <Legend wrapperStyle={{ fontSize: "11px" }} />
-                    <Bar dataKey="requestsSent" name="Requests Sent" fill={colors.requests} radius={[4, 4, 0, 0]} barSize={28} />
-                    <Bar dataKey="clicked" name="Links Clicked" fill={colors.reviews} radius={[4, 4, 0, 0]} barSize={28} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <Card className="border-card-border">
+                  <CardHeader className="pb-2 pt-4 px-5"><CardTitle className="text-[14px] font-semibold">Requests vs Clicks</CardTitle></CardHeader>
+                  <CardContent className="px-5 pb-4">
+                    {isLoading ? <Skeleton className="h-52 w-full" /> : (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <LineChart data={dailyForChart} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                          <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} interval={Math.max(0, Math.floor(dailyForChart.length / 6) - 1)} />
+                          <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                          <Tooltip contentStyle={tooltipStyle} />
+                          <Legend wrapperStyle={{ fontSize: "11px" }} />
+                          <Line type="monotone" dataKey="requests" stroke={colors.requests} strokeWidth={2} dot={false} activeDot={{ r: 3 }} name="Requests Sent" />
+                          <Line type="monotone" dataKey="clicks" stroke={colors.reviews} strokeWidth={2} dot={false} activeDot={{ r: 3 }} name="Links Clicked" />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    )}
+                  </CardContent>
+                </Card>
               );
-            })()}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Funnel | Channel — 2 columns */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Funnel */}
-        <Card className="border-card-border">
-          <CardHeader className="pb-2 pt-4 px-5">
-            <CardTitle className="text-[14px] font-semibold">Conversion Funnel</CardTitle>
-          </CardHeader>
-          <CardContent className="px-5 pb-4 space-y-3">
-            {isLoading ? <Skeleton className="h-32 w-full" /> : fSent === 0 ? (
-              <div className="text-center py-6 text-muted-foreground">
-                <BarChart2 className="w-6 h-6 mx-auto mb-1 opacity-40" />
-                <p className="text-[12px]">No data yet</p>
-              </div>
-            ) : (
-              [{label: "Sent", value: fSent, pct: null, color: colors.requests},
-               {label: "Clicked", value: clicked, pct: fClickRate, color: colors.reviews},
-              ].map(row => (
-                <div key={row.label} className="space-y-1">
-                  <div className="flex justify-between text-[12px]">
-                    <span className="text-muted-foreground">{row.label}</span>
-                    <span className="font-semibold">{row.value}{row.pct !== null && <span className="text-muted-foreground font-normal ml-1">({row.pct}%)</span>}</span>
-                  </div>
-                  <div className="h-2 rounded-full bg-muted overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: `${fSent > 0 ? Math.max(4, Math.round((row.value / fSent) * 100)) : 0}%`, backgroundColor: row.color }} />
-                  </div>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Channel donut */}
-        <Card className="border-card-border">
-          <CardHeader className="pb-2 pt-4 px-5">
-            <CardTitle className="text-[14px] font-semibold">By Channel</CardTitle>
-          </CardHeader>
-          <CardContent className="px-5 pb-4">
-            {isLoading ? <Skeleton className="h-32 w-full" /> : channelData.length === 0 ? (
-              <div className="text-center py-6 text-muted-foreground">
-                <p className="text-[12px]">No channel data</p>
-              </div>
-            ) : (
-              <>
-                <ResponsiveContainer width="100%" height={130}>
-                  <PieChart>
-                    <Pie data={channelData} dataKey="value" cx="50%" cy="50%" innerRadius={35} outerRadius={55} paddingAngle={3}>
-                      {channelData.map((d) => {
-                        const c = d.name === "Email" ? colors.email : d.name === "SMS" ? colors.sms : colors.whatsapp;
-                        return <Cell key={d.name} fill={c} />;
-                      })}
-                    </Pie>
-                    <Tooltip contentStyle={tooltipStyle} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="flex flex-wrap gap-3 justify-center mt-1">
-                  {channelData.map(d => {
-                    const c = d.name === "Email" ? colors.email : d.name === "SMS" ? colors.sms : colors.whatsapp;
-                    return (
-                    <div key={d.name} className="flex items-center gap-1.5">
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: c }} />
-                      <span className="text-[11.5px] text-muted-foreground">{d.name}: <strong className="text-foreground">{d.value}</strong></span>
-                    </div>
-                  );})}
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-      </div>
-
-      {/* Best day to send */}
-      <Card className="border-card-border">
-        <CardHeader className="pb-2 pt-4 px-5">
-          <CardTitle className="text-[14px] font-semibold">Best Day to Send</CardTitle>
-        </CardHeader>
-        <CardContent className="px-5 pb-4">
-          {isLoading ? <Skeleton className="h-48 w-full" /> : !data?.bestDayData || data.bestDayData.every(d => d.clicked === 0) ? (
-            <div className="text-center py-6 text-muted-foreground"><p className="text-[12px]">No click data yet — check back once customers start clicking</p></div>
-          ) : (
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={data.bestDayData} margin={{ top: 5, right: 10, bottom: 5, left: -20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                <XAxis dataKey="day" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
-                <Tooltip contentStyle={tooltipStyle} formatter={(v) => [v, "Links Clicked"]} />
-                <Bar dataKey="clicked" name="Links Clicked" fill={colors.reviews} radius={[4, 4, 0, 0]} barSize={24} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Follow-up effectiveness */}
-      {data?.followUpData && data.followUpData.some(d => d.customers > 0) && (
-        <Card className="border-card-border">
-          <CardHeader className="pb-2 pt-4 px-5">
-            <CardTitle className="text-[14px] font-semibold">Follow-up Effectiveness</CardTitle>
-          </CardHeader>
-          <CardContent className="px-5 pb-4">
-            {isLoading ? <Skeleton className="h-40 w-full" /> : (
-              <ResponsiveContainer width="100%" height={160}>
-                <BarChart data={data.followUpData} margin={{ top: 5, right: 5, bottom: 5, left: -25 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                  <XAxis dataKey="bucket" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v, name) => [v, name === "clicked" ? "Clicked link" : "Customers"]} />
-                  <Legend wrapperStyle={{ fontSize: "11px" }} />
-                  <Bar dataKey="customers" name="Customers" fill={colors.requests} radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="clicked" name="Clicked link" fill={colors.reviews} radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Platform Click Breakdown */}
-      {data?.platformClicks && data.platformClicks.length > 0 && (
-        <Card className="border-card-border">
-          <CardHeader className="pb-2 pt-4 px-5">
-            <CardTitle className="text-[14px] font-semibold">Where Reviews Are Going</CardTitle>
-            <p className="text-[12px] text-muted-foreground">Which review platform links customers clicked</p>
-          </CardHeader>
-          <CardContent className="px-5 pb-4">
-            {isLoading ? <Skeleton className="h-40 w-full" /> : (() => {
-              const PLATFORM_COLORS: Record<string, string> = {
-                google: "#4285F4",
-                facebook: "#1877F2",
-                trustpilot: "#00B67A",
-                tripadvisor: "#34E0A1",
-                checkatrade: "#1B5EA6",
-                mybuilder: "#F26522",
-              };
-              const chartData = data.platformClicks!.map(p => ({
-                platform: p.platform.charAt(0).toUpperCase() + p.platform.slice(1),
-                count: p.count,
-                fill: PLATFORM_COLORS[p.platform] || colors.reviews,
-              }));
+            case "requests_by_channel":
               return (
-                <ResponsiveContainer width="100%" height={Math.max(120, chartData.length * 44)}>
-                  <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 40, bottom: 5, left: 10 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
-                    <XAxis type="number" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
-                    <YAxis type="category" dataKey="platform" tick={{ fontSize: 12, fill: "hsl(var(--foreground))" }} tickLine={false} axisLine={false} width={80} />
-                    <Tooltip contentStyle={tooltipStyle} formatter={(v) => [v, "Clicks"]} />
-                    <Bar dataKey="count" name="Clicks" radius={[0, 4, 4, 0]} barSize={22} label={{ position: "right", fontSize: 11, fill: "hsl(var(--muted-foreground))" }}>
-                      {chartData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+                <Card className="border-card-border">
+                  <CardHeader className="pb-2 pt-4 px-5">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <CardTitle className="text-[14px] font-semibold">Requests vs Clicks by Channel</CardTitle>
+                      <ChannelToggle active={channelChartChannels} onChange={setChannelChartChannels} />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="px-5 pb-4">
+                    {isLoading ? <Skeleton className="h-40 w-full" /> : channelBarData.length === 0 ? (
+                      <div className="text-center py-6 text-muted-foreground"><p className="text-[12px]">No channel data</p></div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height={180}>
+                        <BarChart data={channelBarData} margin={{ top: 5, right: 10, bottom: 5, left: -20 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                          <XAxis dataKey="channel" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+                          <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                          <Tooltip contentStyle={tooltipStyle} />
+                          <Legend wrapperStyle={{ fontSize: "11px" }} />
+                          <Bar dataKey="requests" name="Requests Sent" fill={colors.requests} radius={[4, 4, 0, 0]} barSize={28} />
+                          <Bar dataKey="clicks" name="Links Clicked" fill={colors.reviews} radius={[4, 4, 0, 0]} barSize={28} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
+                  </CardContent>
+                </Card>
               );
-            })()}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Template performance */}
-      {data?.templatePerformance && data.templatePerformance.length > 0 && (
-        <Card className="border-card-border">
-          <CardHeader className="pb-2 pt-4 px-5">
-            <CardTitle className="text-[14px] font-semibold">Template Performance</CardTitle>
-          </CardHeader>
-          <CardContent className="px-5 pb-4">
-            {isLoading ? <Skeleton className="h-40 w-full" /> : (
-              <ResponsiveContainer width="100%" height={Math.max(120, data.templatePerformance.length * 40)}>
-                <BarChart data={data.templatePerformance} layout="vertical" margin={{ top: 5, right: 40, bottom: 5, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
-                  <XAxis type="number" unit="%" domain={[0, 100]} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
-                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} width={120} />
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${v}%`, "Click Rate"]} />
-                  <Bar dataKey="clickRate" name="Click Rate" fill={colors.reviews} radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Sentiment Split */}
-      {data?.sentimentSplit && (data.sentimentSplit.positive + data.sentimentSplit.negative) > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-
-          {/* Sentiment Split pie */}
-          <Card className="border-card-border">
-            <CardHeader className="pb-2 pt-4 px-5">
-              <CardTitle className="text-[14px] font-semibold">Sentiment Split</CardTitle>
-              <p className="text-[12px] text-muted-foreground">4–5 stars vs 1–3 stars</p>
-            </CardHeader>
-            <CardContent className="px-5 pb-4">
-              {isLoading ? <Skeleton className="h-48 w-full" /> : (
-                <div className="space-y-4">
-                  <ResponsiveContainer width="100%" height={180}>
-                    <PieChart>
-                      <Pie data={[
-                        { name: "Positive (4–5★)", value: data.sentimentSplit!.positive },
-                        { name: "Negative (1–3★)", value: data.sentimentSplit!.negative },
-                      ]} cx="50%" cy="50%" innerRadius={45} outerRadius={70} dataKey="value" paddingAngle={2}>
-                        <Cell fill={colors.positive} />
-                        <Cell fill={colors.negative} />
-                      </Pie>
-                      <Tooltip contentStyle={tooltipStyle} />
-                      <Legend wrapperStyle={{ fontSize: "11px" }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="flex justify-around text-center">
-                    <div>
-                      <div className="text-2xl font-bold" style={{ color: colors.positive }}>{data.sentimentSplit!.positiveRate}%</div>
-                      <div className="text-[11.5px] text-muted-foreground">Positive</div>
+            case "team":
+              if (!isOwner || !data?.byUser?.some(u => u.role === "member")) return null;
+              return (
+                <Card className="border-card-border">
+                  <CardHeader className="pb-2 pt-4 px-5">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <CardTitle className="text-[14px] font-semibold">Requests vs Clicks by Team Member</CardTitle>
+                      {data?.byUser && data.byUser.length > 0 && (
+                        <Select value={memberFilter} onValueChange={setMemberFilter}>
+                          <SelectTrigger className="h-7 w-36 text-[11px]"><SelectValue placeholder="All members" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All members</SelectItem>
+                            {data.byUser.map(m => <SelectItem key={m.email} value={m.email}>{m.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      )}
                     </div>
-                    <div>
-                      <div className="text-2xl font-bold" style={{ color: colors.negative }}>{100 - data.sentimentSplit!.positiveRate}%</div>
-                      <div className="text-[11.5px] text-muted-foreground">Negative</div>
-                    </div>
-                  </div>
+                  </CardHeader>
+                  <CardContent className="px-5 pb-4">
+                    {isLoading ? <Skeleton className="h-40 w-full" /> : (() => {
+                      const filtered = memberFilter === "all" ? data.byUser! : data.byUser!.filter(m => m.email === memberFilter);
+                      return (
+                        <ResponsiveContainer width="100%" height={180}>
+                          <BarChart data={filtered} margin={{ top: 5, right: 10, bottom: 5, left: -20 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                            <XAxis dataKey="name" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+                            <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                            <Tooltip contentStyle={tooltipStyle} />
+                            <Legend wrapperStyle={{ fontSize: "11px" }} />
+                            <Bar dataKey="requestsSent" name="Requests Sent" fill={colors.requests} radius={[4, 4, 0, 0]} barSize={28} />
+                            <Bar dataKey="clicked" name="Links Clicked" fill={colors.reviews} radius={[4, 4, 0, 0]} barSize={28} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+              );
+            case "funnel_channel":
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Card className="border-card-border">
+                    <CardHeader className="pb-2 pt-4 px-5"><CardTitle className="text-[14px] font-semibold">Conversion Funnel</CardTitle></CardHeader>
+                    <CardContent className="px-5 pb-4 space-y-3">
+                      {isLoading ? <Skeleton className="h-32 w-full" /> : fSent === 0 ? (
+                        <div className="text-center py-6 text-muted-foreground"><BarChart2 className="w-6 h-6 mx-auto mb-1 opacity-40" /><p className="text-[12px]">No data yet</p></div>
+                      ) : (
+                        [{label: "Sent", value: fSent, pct: null, color: colors.requests},
+                         {label: "Clicked", value: clicked, pct: fClickRate, color: colors.reviews}].map(row => (
+                          <div key={row.label} className="space-y-1">
+                            <div className="flex justify-between text-[12px]">
+                              <span className="text-muted-foreground">{row.label}</span>
+                              <span className="font-semibold">{row.value}{row.pct !== null && <span className="text-muted-foreground font-normal ml-1">({row.pct}%)</span>}</span>
+                            </div>
+                            <div className="h-2 rounded-full bg-muted overflow-hidden">
+                              <div className="h-full rounded-full" style={{ width: `${fSent > 0 ? Math.max(4, Math.round((row.value / fSent) * 100)) : 0}%`, backgroundColor: row.color }} />
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </CardContent>
+                  </Card>
+                  <Card className="border-card-border">
+                    <CardHeader className="pb-2 pt-4 px-5"><CardTitle className="text-[14px] font-semibold">By Channel</CardTitle></CardHeader>
+                    <CardContent className="px-5 pb-4">
+                      {isLoading ? <Skeleton className="h-32 w-full" /> : channelData.length === 0 ? (
+                        <div className="text-center py-6 text-muted-foreground"><p className="text-[12px]">No channel data</p></div>
+                      ) : (
+                        <>
+                          <ResponsiveContainer width="100%" height={130}>
+                            <PieChart>
+                              <Pie data={channelData} dataKey="value" cx="50%" cy="50%" innerRadius={35} outerRadius={55} paddingAngle={3}>
+                                {channelData.map(d => <Cell key={d.name} fill={d.name === "Email" ? colors.email : d.name === "SMS" ? colors.sms : colors.whatsapp} />)}
+                              </Pie>
+                              <Tooltip contentStyle={tooltipStyle} />
+                            </PieChart>
+                          </ResponsiveContainer>
+                          <div className="flex flex-wrap gap-3 justify-center mt-1">
+                            {channelData.map(d => (
+                              <div key={d.name} className="flex items-center gap-1.5">
+                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: d.name === "Email" ? colors.email : d.name === "SMS" ? colors.sms : colors.whatsapp }} />
+                                <span className="text-[11.5px] text-muted-foreground">{d.name}: <strong className="text-foreground">{d.value}</strong></span>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              );
+            case "best_day":
+              return (
+                <Card className="border-card-border">
+                  <CardHeader className="pb-2 pt-4 px-5"><CardTitle className="text-[14px] font-semibold">Best Day to Send</CardTitle></CardHeader>
+                  <CardContent className="px-5 pb-4">
+                    {isLoading ? <Skeleton className="h-48 w-full" /> : !data?.bestDayData || data.bestDayData.every(d => d.clicked === 0) ? (
+                      <div className="text-center py-6 text-muted-foreground"><p className="text-[12px]">No click data yet — check back once customers start clicking</p></div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <BarChart data={data.bestDayData} margin={{ top: 5, right: 10, bottom: 5, left: -20 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                          <XAxis dataKey="day" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+                          <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                          <Tooltip contentStyle={tooltipStyle} formatter={(v) => [v, "Links Clicked"]} />
+                          <Bar dataKey="clicked" name="Links Clicked" fill={colors.reviews} radius={[4, 4, 0, 0]} barSize={24} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            case "follow_up":
+              if (!data?.followUpData?.some(d => d.customers > 0)) return null;
+              return (
+                <Card className="border-card-border">
+                  <CardHeader className="pb-2 pt-4 px-5"><CardTitle className="text-[14px] font-semibold">Follow-up Effectiveness</CardTitle></CardHeader>
+                  <CardContent className="px-5 pb-4">
+                    {isLoading ? <Skeleton className="h-40 w-full" /> : (
+                      <ResponsiveContainer width="100%" height={160}>
+                        <BarChart data={data!.followUpData} margin={{ top: 5, right: 5, bottom: 5, left: -25 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                          <XAxis dataKey="bucket" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+                          <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                          <Tooltip contentStyle={tooltipStyle} formatter={(v, name) => [v, name === "clicked" ? "Clicked link" : "Customers"]} />
+                          <Legend wrapperStyle={{ fontSize: "11px" }} />
+                          <Bar dataKey="customers" name="Customers" fill={colors.requests} radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="clicked" name="Clicked link" fill={colors.reviews} radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            case "platform_clicks":
+              if (!data?.platformClicks?.length) return null;
+              return (
+                <Card className="border-card-border">
+                  <CardHeader className="pb-2 pt-4 px-5">
+                    <CardTitle className="text-[14px] font-semibold">Where Reviews Are Going</CardTitle>
+                    <p className="text-[12px] text-muted-foreground">Which review platform links customers clicked</p>
+                  </CardHeader>
+                  <CardContent className="px-5 pb-4">
+                    {isLoading ? <Skeleton className="h-40 w-full" /> : (() => {
+                      const chartData = data.platformClicks!.map(p => ({
+                        platform: p.platform.charAt(0).toUpperCase() + p.platform.slice(1),
+                        count: p.count,
+                        fill: PLATFORM_COLORS[p.platform] || colors.reviews,
+                      }));
+                      return (
+                        <ResponsiveContainer width="100%" height={Math.max(120, chartData.length * 44)}>
+                          <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 40, bottom: 5, left: 10 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+                            <XAxis type="number" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                            <YAxis type="category" dataKey="platform" tick={{ fontSize: 12, fill: "hsl(var(--foreground))" }} tickLine={false} axisLine={false} width={80} />
+                            <Tooltip contentStyle={tooltipStyle} formatter={(v) => [v, "Clicks"]} />
+                            <Bar dataKey="count" name="Clicks" radius={[0, 4, 4, 0]} barSize={22} label={{ position: "right", fontSize: 11, fill: "hsl(var(--muted-foreground))" }}>
+                              {chartData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+              );
+            case "template_perf":
+              if (!data?.templatePerformance?.length) return null;
+              return (
+                <Card className="border-card-border">
+                  <CardHeader className="pb-2 pt-4 px-5"><CardTitle className="text-[14px] font-semibold">Template Performance</CardTitle></CardHeader>
+                  <CardContent className="px-5 pb-4">
+                    {isLoading ? <Skeleton className="h-40 w-full" /> : (
+                      <ResponsiveContainer width="100%" height={Math.max(120, data.templatePerformance.length * 40)}>
+                        <BarChart data={data.templatePerformance} layout="vertical" margin={{ top: 5, right: 40, bottom: 5, left: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+                          <XAxis type="number" unit="%" domain={[0, 100]} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+                          <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} width={120} />
+                          <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${v}%`, "Click Rate"]} />
+                          <Bar dataKey="clickRate" name="Click Rate" fill={colors.reviews} radius={[0, 4, 4, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            case "sentiment":
+              if (!data?.sentimentSplit || (data.sentimentSplit.positive + data.sentimentSplit.negative) === 0) return null;
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <Card className="border-card-border">
+                    <CardHeader className="pb-2 pt-4 px-5">
+                      <CardTitle className="text-[14px] font-semibold">Sentiment Split</CardTitle>
+                      <p className="text-[12px] text-muted-foreground">4–5 stars vs 1–3 stars</p>
+                    </CardHeader>
+                    <CardContent className="px-5 pb-4">
+                      {isLoading ? <Skeleton className="h-48 w-full" /> : (
+                        <div className="space-y-4">
+                          <ResponsiveContainer width="100%" height={180}>
+                            <PieChart>
+                              <Pie data={[
+                                { name: "Positive (4–5★)", value: data.sentimentSplit!.positive },
+                                { name: "Negative (1–3★)", value: data.sentimentSplit!.negative },
+                              ]} cx="50%" cy="50%" innerRadius={45} outerRadius={70} dataKey="value" paddingAngle={2}>
+                                <Cell fill={colors.positive} /><Cell fill={colors.negative} />
+                              </Pie>
+                              <Tooltip contentStyle={tooltipStyle} />
+                              <Legend wrapperStyle={{ fontSize: "11px" }} />
+                            </PieChart>
+                          </ResponsiveContainer>
+                          <div className="flex justify-around text-center">
+                            <div>
+                              <div className="text-2xl font-bold" style={{ color: colors.positive }}>{data.sentimentSplit!.positiveRate}%</div>
+                              <div className="text-[11.5px] text-muted-foreground">Positive</div>
+                            </div>
+                            <div>
+                              <div className="text-2xl font-bold" style={{ color: colors.negative }}>{100 - data.sentimentSplit!.positiveRate}%</div>
+                              <div className="text-[11.5px] text-muted-foreground">Negative</div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                  <Card className="border-card-border">
+                    <CardHeader className="pb-2 pt-4 px-5">
+                      <CardTitle className="text-[14px] font-semibold">Star Rating Distribution</CardTitle>
+                      <p className="text-[12px] text-muted-foreground">How customers rated their experience</p>
+                    </CardHeader>
+                    <CardContent className="px-5 pb-4">
+                      {isLoading ? <Skeleton className="h-48 w-full" /> : (
+                        <ResponsiveContainer width="100%" height={220}>
+                          <BarChart data={data?.ratingDistribution || []} margin={{ top: 5, right: 10, bottom: 5, left: -20 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                            <XAxis dataKey="stars" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} tickFormatter={v => `${v}★`} />
+                            <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                            <Tooltip contentStyle={tooltipStyle} formatter={(v) => [v, "Responses"]} labelFormatter={l => `${l} star${l !== 1 ? "s" : ""}`} />
+                            <Bar dataKey="count" name="Responses" radius={[4, 4, 0, 0]} barSize={28}>
+                              {(data?.ratingDistribution || []).map(entry => (
+                                <Cell key={entry.stars} fill={entry.stars >= 4 ? colors.positive : entry.stars === 3 ? colors.rating : colors.negative} />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              );
+            case "rating_over_time":
+              if (!data?.ratingOverTime || data.ratingOverTime.length <= 1) return null;
+              return (
+                <Card className="border-card-border">
+                  <CardHeader className="pb-2 pt-4 px-5">
+                    <CardTitle className="text-[14px] font-semibold">Average Star Rating Over Time</CardTitle>
+                    <p className="text-[12px] text-muted-foreground">Daily average across all rated responses</p>
+                  </CardHeader>
+                  <CardContent className="px-5 pb-4">
+                    {isLoading ? <Skeleton className="h-48 w-full" /> : (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <LineChart data={data.ratingOverTime.map(d => ({ ...d, label: format(parseISO(d.date), "MMM d") }))} margin={{ top: 5, right: 10, bottom: 5, left: -20 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                          <XAxis dataKey="label" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+                          <YAxis domain={[1, 5]} ticks={[1,2,3,4,5]} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} tickFormatter={v => `${v}★`} />
+                          <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => [Number(v).toFixed(1), "Avg Rating"]} />
+                          <Line type="monotone" dataKey="avg" name="Avg Rating" stroke={colors.rating} strokeWidth={2} dot={{ r: 3, fill: colors.rating }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            default:
+              return null;
+          }
+        }
 
-          {/* Star Rating Distribution */}
-          <Card className="border-card-border">
-            <CardHeader className="pb-2 pt-4 px-5">
-              <CardTitle className="text-[14px] font-semibold">Star Rating Distribution</CardTitle>
-              <p className="text-[12px] text-muted-foreground">How customers rated their experience</p>
-            </CardHeader>
-            <CardContent className="px-5 pb-4">
-              {isLoading ? <Skeleton className="h-48 w-full" /> : (
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={data?.ratingDistribution || []} margin={{ top: 5, right: 10, bottom: 5, left: -20 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                    <XAxis dataKey="stars" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false}
-                      tickFormatter={v => `${v}★`} />
-                    <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
-                    <Tooltip contentStyle={tooltipStyle} formatter={(v) => [v, "Responses"]} labelFormatter={l => `${l} star${l !== 1 ? "s" : ""}`} />
-                    <Bar dataKey="count" name="Responses" radius={[4, 4, 0, 0]} barSize={28}>
-                      {(data?.ratingDistribution || []).map((entry) => (
-                        <Cell key={entry.stars} fill={entry.stars >= 4 ? colors.positive : entry.stars === 3 ? colors.rating : colors.negative} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Rating Over Time */}
-      {data?.ratingOverTime && data.ratingOverTime.length > 1 && (
-        <Card className="border-card-border">
-          <CardHeader className="pb-2 pt-4 px-5">
-            <CardTitle className="text-[14px] font-semibold">Average Star Rating Over Time</CardTitle>
-            <p className="text-[12px] text-muted-foreground">Daily average across all rated responses</p>
-          </CardHeader>
-          <CardContent className="px-5 pb-4">
-            {isLoading ? <Skeleton className="h-48 w-full" /> : (
-              <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={data.ratingOverTime.map(d => ({ ...d, label: format(parseISO(d.date), "MMM d") }))} margin={{ top: 5, right: 10, bottom: 5, left: -20 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
-                  <YAxis domain={[1, 5]} ticks={[1,2,3,4,5]} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} tickFormatter={v => `${v}★`} />
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => [Number(v).toFixed(1), "Avg Rating"]} />
-                  <Line type="monotone" dataKey="avg" name="Avg Rating" stroke={colors.rating} strokeWidth={2} dot={{ r: 3, fill: colors.rating }} />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-      )}
+        return order.filter(id => !hidden.has(id)).map(id => {
+          const chart = renderChart(id);
+          if (!chart) return null;
+          return <div key={id}>{chart}</div>;
+        });
+      })()}
 
       </div>{/* end pdf export target */}
     </div>

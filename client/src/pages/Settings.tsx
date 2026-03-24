@@ -125,7 +125,7 @@ export default function Settings() {
         followUpEnabled: settings.followUpEnabled ?? true,
         followUp1Days: settings.followUp1Days ?? 3,
         followUp2Days: settings.followUp2Days ?? 7,
-        followUp3Days: settings.followUp3Days ?? 14,
+        followUp3Days: Math.max(settings.followUp3Days ?? 0, (settings.followUp2Days ?? 7) + 7),
         maxFollowUps: settings.maxFollowUps ?? 2,
         widgetMinStars: settings.widgetMinStars ?? 4,
         widgetCount: settings.widgetCount ?? 5,
