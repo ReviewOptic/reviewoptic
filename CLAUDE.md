@@ -329,3 +329,18 @@ Your job is to be the developer they would hire if they could afford a great one
 - `POST /api/reviews` endpoint in routes.ts is still orphaned — safe to remove in a cleanup pass
 - Instagram auto-posting and review widget still not built — decide whether to build or remove from features list
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+
+### Session — 2026-03-24 (twenty-fourth session)
+
+**Tasks completed:**
+- Analytics controls bar finally fixed — period pills, date inputs, and team filter were still wrapping onto multiple lines; root cause was `flex-1` spacer inside `overflow-x-auto` container breaking horizontal scroll behaviour; fixed by splitting into two sibling groups: left (`overflow-x-auto flex-nowrap flex-1 min-w-0`) scrolls sideways, right (`shrink-0`) always stays visible
+- Controls and pills made slightly smaller (`h-7`, `text-[11px]`, `px-2`) so everything fits in one row comfortably
+- Summary cards grid updated from `lg:grid-cols-6` to `lg:grid-cols-7` so all 7 cards sit evenly on one row at desktop width
+
+**Fixes applied:**
+- `flex-1` inside `overflow-x-auto` is an anti-pattern — the spacer tries to grow but the scrollable container expands infinitely, causing unexpected layout; always use two sibling groups with `justify-between` instead
+
+**Notes for next session:**
+- `POST /api/reviews` endpoint in routes.ts is still orphaned — safe to remove in a cleanup pass
+- Instagram auto-posting and review widget still not built — decide whether to build or remove from features list
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
