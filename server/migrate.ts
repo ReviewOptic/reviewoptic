@@ -276,6 +276,9 @@ export async function runMigrations() {
     // Archived flag for customers
     await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE`);
 
+    // Third follow-up delay
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS follow_up_3_days INTEGER NOT NULL DEFAULT 14`);
+
     // Platform clicks tracking
     await pool.query(`
       CREATE TABLE IF NOT EXISTS review_platform_clicks (

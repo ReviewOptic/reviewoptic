@@ -92,6 +92,7 @@ export default function Settings() {
     followUpEnabled: true,
     followUp1Days: 3,
     followUp2Days: 7,
+    followUp3Days: 14,
     maxFollowUps: 2,
     widgetMinStars: 4,
     widgetCount: 5,
@@ -124,6 +125,7 @@ export default function Settings() {
         followUpEnabled: settings.followUpEnabled ?? true,
         followUp1Days: settings.followUp1Days ?? 3,
         followUp2Days: settings.followUp2Days ?? 7,
+        followUp3Days: settings.followUp3Days ?? 14,
         maxFollowUps: settings.maxFollowUps ?? 2,
         widgetMinStars: settings.widgetMinStars ?? 4,
         widgetCount: settings.widgetCount ?? 5,
@@ -454,6 +456,23 @@ export default function Settings() {
                     />
                     <p className="text-[11.5px] text-muted-foreground">After first follow-up, wait until day {form.followUp2Days} for second reminder</p>
                   </div>
+                  {form.maxFollowUps >= 3 && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[12.5px]">Third Follow-Up</Label>
+                        <span className="text-[13px] font-medium text-primary">{form.followUp3Days} days</span>
+                      </div>
+                      <Slider
+                        min={form.followUp2Days + 1}
+                        max={60}
+                        step={1}
+                        value={[form.followUp3Days]}
+                        onValueChange={([v]) => setForm(f => ({ ...f, followUp3Days: v }))}
+                        data-testid="slider-followup-3"
+                      />
+                      <p className="text-[11.5px] text-muted-foreground">After second follow-up, wait until day {form.followUp3Days} for third reminder</p>
+                    </div>
+                  )}
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <Label className="text-[12.5px]">Maximum Follow-Ups</Label>
@@ -461,13 +480,13 @@ export default function Settings() {
                     </div>
                     <Slider
                       min={1}
-                      max={5}
+                      max={3}
                       step={1}
                       value={[form.maxFollowUps]}
                       onValueChange={([v]) => setForm(f => ({ ...f, maxFollowUps: v }))}
                       data-testid="slider-max-followups"
                     />
-                    <p className="text-[11.5px] text-muted-foreground">Stop after {form.maxFollowUps} total follow-ups with no response</p>
+                    <p className="text-[11.5px] text-muted-foreground">Stop after {form.maxFollowUps} total follow-up{form.maxFollowUps !== 1 ? "s" : ""} with no response</p>
                   </div>
                 </>
               )}

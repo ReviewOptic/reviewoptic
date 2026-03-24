@@ -110,6 +110,7 @@ export const settings = pgTable("settings", {
   followUpEnabled: boolean("follow_up_enabled").notNull().default(true),
   followUp1Days: integer("follow_up_1_days").notNull().default(3),
   followUp2Days: integer("follow_up_2_days").notNull().default(7),
+  followUp3Days: integer("follow_up_3_days").notNull().default(14),
   maxFollowUps: integer("max_follow_ups").notNull().default(2),
   widgetMinStars: integer("widget_min_stars").notNull().default(4),
   widgetCount: integer("widget_count").notNull().default(5),
