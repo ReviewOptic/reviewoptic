@@ -333,62 +333,58 @@ export default function Analytics() {
         <p className="text-[13px] text-muted-foreground mt-0.5">Track your review request performance</p>
       </div>
 
-      {/* Single controls bar — never wraps, scrolls horizontally on small screens */}
-      <div className="flex items-center gap-2 overflow-x-auto flex-nowrap pb-0.5">
-        {/* Period pills */}
-        {(["7", "30", "60", "custom"] as const).map(d => (
-          <button
-            key={d}
-            onClick={() => setPeriod(d)}
-            className={`px-2.5 py-1 rounded-lg text-[12px] font-medium border transition-colors whitespace-nowrap shrink-0 ${period === d ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground"}`}
-          >
-            {d === "custom" ? "Custom" : `${d}d`}
-          </button>
-        ))}
-        {/* Custom date range */}
-        {period === "custom" && (
-          <>
-            <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="h-8 text-[12px] w-32 shrink-0" />
-            <span className="text-[12px] text-muted-foreground shrink-0">to</span>
-            <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="h-8 text-[12px] w-32 shrink-0" />
-          </>
-        )}
-        {/* Team member filter (owner only) */}
-        {isOwner && (
-          <Select value={userFilter} onValueChange={setUserFilter}>
-            <SelectTrigger className="h-8 w-36 text-[12px] shrink-0">
-              <SelectValue placeholder="All members" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All members</SelectItem>
-              {user && (
-                <SelectItem value={user.id}>
-                  {ownerDisplayName} (you)
-                </SelectItem>
-              )}
-              {teamData?.map(m => (
-                <SelectItem key={m.id} value={m.id}>
-                  {[m.first_name, m.last_name].filter(Boolean).join(" ") || m.email.split("@")[0]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-        {/* Spacer */}
-        <div className="flex-1 min-w-2" />
-        {/* Action buttons */}
-        <Button variant="outline" size="sm" className="h-8 text-[12px] gap-1.5 shrink-0" onClick={exportCSV} disabled={isLoading || !data}>
-          <Download className="w-3.5 h-3.5" />CSV
-        </Button>
-        <Button variant="outline" size="sm" className="h-8 text-[12px] gap-1.5 shrink-0" onClick={exportPDF} disabled={isLoading || !data || isExportingPDF}>
-          <FileText className="w-3.5 h-3.5" />{isExportingPDF ? "Exporting..." : "PDF"}
-        </Button>
-        <Button variant="outline" size="sm" className={`h-8 text-[12px] gap-1.5 shrink-0 ${showColorPanel ? "bg-primary text-primary-foreground border-primary" : ""}`} onClick={() => setShowColorPanel(v => !v)}>
-          <Palette className="w-3.5 h-3.5" />Colours
-        </Button>
-        <Button variant="outline" size="sm" className={`h-8 text-[12px] gap-1.5 shrink-0 ${customising ? "bg-primary text-primary-foreground border-primary" : ""}`} onClick={() => setCustomising(v => !v)}>
-          <LayoutGrid className="w-3.5 h-3.5" />Layout
-        </Button>
+      {/* Controls bar: filters scroll left, buttons stay fixed right */}
+      <div className="flex items-center gap-2">
+        {/* Left: period pills + optional date inputs + team filter — scrolls if needed */}
+        <div className="flex items-center gap-1.5 overflow-x-auto flex-nowrap min-w-0 flex-1">
+          {(["7", "30", "60", "custom"] as const).map(d => (
+            <button
+              key={d}
+              onClick={() => setPeriod(d)}
+              className={`px-2 py-1 rounded-md text-[11px] font-medium border transition-colors whitespace-nowrap shrink-0 ${period === d ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground"}`}
+            >
+              {d === "custom" ? "Custom" : `${d}d`}
+            </button>
+          ))}
+          {period === "custom" && (
+            <>
+              <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="h-7 text-[11px] w-30 shrink-0" />
+              <span className="text-[11px] text-muted-foreground shrink-0">–</span>
+              <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="h-7 text-[11px] w-30 shrink-0" />
+            </>
+          )}
+          {isOwner && (
+            <Select value={userFilter} onValueChange={setUserFilter}>
+              <SelectTrigger className="h-7 w-32 text-[11px] shrink-0">
+                <SelectValue placeholder="All members" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All members</SelectItem>
+                {user && <SelectItem value={user.id}>{ownerDisplayName} (you)</SelectItem>}
+                {teamData?.map(m => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {[m.first_name, m.last_name].filter(Boolean).join(" ") || m.email.split("@")[0]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+        {/* Right: action buttons — always visible */}
+        <div className="flex items-center gap-1 shrink-0">
+          <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 px-2" onClick={exportCSV} disabled={isLoading || !data}>
+            <Download className="w-3 h-3" />CSV
+          </Button>
+          <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 px-2" onClick={exportPDF} disabled={isLoading || !data || isExportingPDF}>
+            <FileText className="w-3 h-3" />{isExportingPDF ? "…" : "PDF"}
+          </Button>
+          <Button variant="outline" size="sm" className={`h-7 text-[11px] gap-1 px-2 ${showColorPanel ? "bg-primary text-primary-foreground border-primary" : ""}`} onClick={() => setShowColorPanel(v => !v)}>
+            <Palette className="w-3 h-3" />Colours
+          </Button>
+          <Button variant="outline" size="sm" className={`h-7 text-[11px] gap-1 px-2 ${customising ? "bg-primary text-primary-foreground border-primary" : ""}`} onClick={() => setCustomising(v => !v)}>
+            <LayoutGrid className="w-3 h-3" />Layout
+          </Button>
+        </div>
       </div>
 
       {/* Colour customiser panel */}
@@ -470,7 +466,7 @@ export default function Analytics() {
       </p>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
         {summaryCards.map(c => (
           <Card key={c.label} className="border-card-border">
             <CardContent className="p-4">
