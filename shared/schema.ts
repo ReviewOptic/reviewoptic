@@ -18,6 +18,7 @@ export const customers = pgTable("customers", {
   notes: text("notes").notNull().default(""),
   status: text("status").notNull().default("pending_request"),
   doNotContact: boolean("do_not_contact").notNull().default(false),
+  archived: boolean("archived").notNull().default(false),
   namePronunciation: text("name_pronunciation").notNull().default(""),
   channel: text("channel").notNull().default("email"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

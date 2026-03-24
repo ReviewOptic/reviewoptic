@@ -151,6 +151,7 @@ export default function Settings() {
   useEffect(() => {
     if (isFirstRender.current) { isFirstRender.current = false; return; }
     if (!form.businessEmail) return;
+    if (!form.ownerName.trim() && !form.businessName.trim()) { toast({ title: "Please enter at least your name or company name", variant: "destructive" }); return; }
     if (!form.country && !user?.isAdmin) { toast({ title: "Please select your country before saving", variant: "destructive" }); return; }
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     setSaveStatus("saving");
@@ -208,12 +209,15 @@ export default function Settings() {
             </CardHeader>
             <CardContent className="space-y-5 pb-5">
               <div className="space-y-1.5">
-                <Label className="text-[12.5px]">Your Name</Label>
+                <Label className="text-[12.5px]">
+                  Your Name <span className="text-muted-foreground font-normal">(at least one of name or company name required)</span>
+                </Label>
                 <Input
                   value={form.ownerName}
                   onChange={e => setForm(f => ({ ...f, ownerName: e.target.value }))}
                   placeholder="e.g. Sarah"
                   data-testid="input-owner-name"
+                  className={!form.ownerName.trim() && !form.businessName.trim() ? "border-destructive focus-visible:ring-destructive" : ""}
                 />
               </div>
               <div className="space-y-1.5">
@@ -298,7 +302,11 @@ export default function Settings() {
                     onChange={e => setForm(f => ({ ...f, businessName: e.target.value }))}
                     placeholder="Clean Pro Services"
                     data-testid="input-business-name"
+                    className={!form.ownerName.trim() && !form.businessName.trim() ? "border-destructive focus-visible:ring-destructive" : ""}
                   />
+                  {!form.ownerName.trim() && !form.businessName.trim() && (
+                    <p className="text-[11.5px] text-destructive">At least your name or company name is required</p>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[12.5px]">Business Email</Label>

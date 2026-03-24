@@ -273,6 +273,9 @@ export async function runMigrations() {
       }
     }
 
+    // Archived flag for customers
+    await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE`);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();

@@ -9,7 +9,7 @@ import fs from "fs";
 import bcrypt from "bcryptjs";
 import { Resend } from "resend";
 import OpenAI from "openai";
-import { sendReviewEmail, sendVerificationEmail, sendPreScreenEmail } from "./email";
+import { sendReviewEmail, sendVerificationEmail, sendPreScreenEmail, REVIEWOPTIC_FROM } from "./email";
 import { sendReviewSMS, sendWhatsAppMessage, sendPlainSMS } from "./sms";
 import { isCloudinaryConfigured, uploadToCloudinary, deleteFromCloudinary } from "./cloudinary";
 import { cloneVoice, deleteVoice, generateNameAudio, stitchNameToFront } from "./elevenlabs";
@@ -36,7 +36,7 @@ async function sendResetEmail(to: string, resetUrl: string) {
   }
   const resend = new Resend(process.env.RESEND_API_KEY);
   await resend.emails.send({
-    from: "ReviewOptic <noreply@reviewoptic.com>",
+    from: REVIEWOPTIC_FROM,
     to,
     subject: "Reset your ReviewOptic password",
     html: `
@@ -939,11 +939,46 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const settings = await storage.getSettings(request.accountId);
       const baseUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "");
       const logoUrl = settings?.logoUrl?.startsWith("http") ? settings.logoUrl : settings?.logoUrl ? `${baseUrl}${settings.logoUrl}` : "";
+      const feedbackRow = await pool.query(
+        `SELECT id FROM private_feedback WHERE review_request_id = $1 LIMIT 1`,
+        [request.id]
+      );
+
+      // For high-rating return visits, include platform links and recording so the dialog can reopen
+      let platforms: { key: string; name: string; url: string }[] = [];
+      let recordingUrl = "";
+      let recordingType = "";
+      if (request.rating && request.rating >= 4) {
+        const platformMap: Record<string, string> = {
+          google: settings?.googleReviewLink || "",
+          facebook: settings?.facebookReviewLink || "",
+          trustpilot: settings?.trustpilotLink || "",
+          tripadvisor: settings?.tripadvisorLink || "",
+          checkatrade: settings?.checkatradeLink || "",
+          mybuilder: settings?.mybuilderLink || "",
+        };
+        const platformNames: Record<string, string> = { google: "Google", facebook: "Facebook", trustpilot: "Trustpilot", tripadvisor: "TripAdvisor", checkatrade: "Checkatrade", mybuilder: "MyBuilder" };
+        platforms = Object.entries(platformMap).filter(([, url]) => url).map(([key, url]) => ({ key, name: platformNames[key], url }));
+        const { rows: rrRows } = await pool.query(
+          `SELECT recording_url, recording_type FROM review_requests WHERE id = $1`,
+          [request.id]
+        ).catch(() => ({ rows: [] as any[] }));
+        if (rrRows.length > 0) {
+          recordingUrl = rrRows[0].recording_url || "";
+          recordingType = rrRows[0].recording_type || "";
+        }
+      }
+
       res.json({
         businessName: settings?.businessName || "Our Business",
         logoUrl,
         customerFirstName: customer?.name?.split(" ")[0] || "",
         alreadyRated: !!request.rating,
+        existingRating: request.rating || null,
+        feedbackSubmitted: feedbackRow.rows.length > 0,
+        platforms,
+        recordingUrl,
+        recordingType,
       });
     } catch {
       res.status(500).json({ message: "Server error" });
@@ -1107,7 +1142,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           const resend = new Resend(process.env.RESEND_API_KEY);
           const baseUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://reviewoptic.com");
           await resend.emails.send({
-            from: "ReviewOptic <noreply@reviewoptic.com>",
+            from: REVIEWOPTIC_FROM,
             to: toEmail,
             subject: `Private feedback received from ${customer?.name || "a customer"} (${request.rating}★)`,
             html: `
@@ -1139,6 +1174,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // Customers
   app.get("/api/customers", requireAuth, async (req, res) => {
     const cs = await storage.getCustomers(req.session.accountId!);
+    res.json(cs);
+  });
+  app.get("/api/customers/archived", requireAuth, async (req, res) => {
+    const cs = await storage.getArchivedCustomers(req.session.accountId!);
     res.json(cs);
   });
   app.get("/api/customers/:id", requireAuth, async (req, res) => {
@@ -1425,7 +1464,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           const resend = new Resend(process.env.RESEND_API_KEY);
           const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@reviewoptic.com";
           await resend.emails.send({
-            from: `${settings?.businessName || "ReviewOptic"} <${fromEmail}>`,
+            from: settings?.ownerName
+              ? `${settings.ownerName} - ${settings.businessName} <${fromEmail}>`
+              : `${settings?.businessName || "ReviewOptic"} <${fromEmail}>`,
             to: fb.email,
             subject: `A message from ${settings?.businessName || "us"}`,
             html: `<p>Hi ${firstName},</p><p>${replyMessage.trim().replace(/\n/g, "<br/>")}</p><p>— The ${settings?.businessName || "team"}</p>`,
@@ -2334,7 +2375,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     // Auto-reply to the user
     await resend.emails.send({
-      from: "ReviewOptic <hello@reviewoptic.com>",
+      from: "Alicia & Rob - ReviewOptic <hello@reviewoptic.com>",
       to: email,
       subject: "Thanks for your feedback — we've got it!",
       html: `

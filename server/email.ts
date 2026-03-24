@@ -2,6 +2,15 @@ import { Resend } from "resend";
 import type { Customer, Settings } from "@shared/schema";
 
 const APP_URL = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://reviewoptic.com");
+
+export const REVIEWOPTIC_FROM = "Alicia & Rob - ReviewOptic <noreply@reviewoptic.com>";
+
+function customerFrom(settings: Settings): string {
+  const displayName = settings.ownerName
+    ? `${settings.ownerName} - ${settings.businessName}`
+    : settings.businessName;
+  return `${displayName} <noreply@reviewoptic.com>`;
+}
 const LOGO_URL = `${APP_URL}/logo.png`;
 const LOGO_HTML = `<div style="margin-bottom:28px;">
   <a href="https://reviewoptic.com" style="text-decoration:none;">
@@ -23,7 +32,7 @@ export async function sendVerificationEmail(to: string, verifyUrl: string) {
   }
   const resend = new Resend(process.env.RESEND_API_KEY);
   const result = await resend.emails.send({
-    from: "ReviewOptic <noreply@reviewoptic.com>",
+    from: REVIEWOPTIC_FROM,
     to,
     subject: "Verify your email and choose your plan",
     html: `
@@ -56,7 +65,7 @@ export async function sendTeamInviteEmail(to: string, inviterName: string, compa
   }
   const resend = new Resend(process.env.RESEND_API_KEY);
   await resend.emails.send({
-    from: "ReviewOptic <noreply@reviewoptic.com>",
+    from: REVIEWOPTIC_FROM,
     to,
     subject: `You've been invited to join ${companyName} on ReviewOptic`,
     html: `
@@ -175,7 +184,7 @@ export async function sendReviewEmail(
   console.log(`[sendReviewEmail] sending to=${customer.email} subject="${subject}"`);
   const resend = new Resend(process.env.RESEND_API_KEY);
   const result = await resend.emails.send({
-    from: `${settings.businessName} <noreply@reviewoptic.com>`,
+    from: customerFrom(settings),
     replyTo: settings.businessEmail || undefined,
     to: customer.email,
     subject,
@@ -215,7 +224,7 @@ export async function sendPreScreenEmail(
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   const result = await resend.emails.send({
-    from: `${settings.businessName} <noreply@reviewoptic.com>`,
+    from: customerFrom(settings),
     replyTo: settings.businessEmail || undefined,
     to: customer.email,
     subject: `How would you rate your experience with ${settings.businessName}?`,
@@ -247,7 +256,7 @@ export async function sendCancellationEmail(to: string, firstName: string, acces
   }
   const resend = new Resend(process.env.RESEND_API_KEY);
   await resend.emails.send({
-    from: "ReviewOptic <noreply@reviewoptic.com>",
+    from: REVIEWOPTIC_FROM,
     to,
     subject: "Your ReviewOptic subscription has been cancelled",
     html: `

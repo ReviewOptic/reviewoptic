@@ -4,10 +4,9 @@ import { Star, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
-
-type Step = "rating" | "platforms" | "feedback" | "done";
 
 const PLATFORM_META: Record<string, { name: string; signIn: boolean; logo: React.ReactNode }> = {
   google: {
@@ -75,21 +74,30 @@ export default function ReviewLanding() {
   const rid = params.get("rid");
   const preRating = parseInt(params.get("rating") || "0");
 
-  const [step, setStep] = useState<Step>("rating");
   const [hoveredStar, setHoveredStar] = useState(0);
-  const [selectedStar, setSelectedStar] = useState(0);
+  const [selectedStar, setSelectedStar] = useState(preRating || 0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [highRating, setHighRating] = useState(false);
+  const [ratedStar, setRatedStar] = useState(0);
   const [platforms, setPlatforms] = useState<{ key: string; name: string; url: string }[]>([]);
   const [recordingUrl, setRecordingUrl] = useState("");
   const [recordingType, setRecordingType] = useState("");
   const [feedbackText, setFeedbackText] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [rating, setRating] = useState(0);
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const [ratingLocked, setRatingLocked] = useState(false);
 
   const { data: info, isLoading } = useQuery<{
     businessName: string;
     logoUrl: string;
     customerFirstName: string;
     alreadyRated: boolean;
+    existingRating: number | null;
+    feedbackSubmitted: boolean;
+    platforms: { key: string; name: string; url: string }[];
+    recordingUrl: string;
+    recordingType: string;
   }>({
     queryKey: [`/api/public/review-request/${rid}`],
     queryFn: async () => {
@@ -100,61 +108,75 @@ export default function ReviewLanding() {
     enabled: !!rid,
   });
 
-  // If the customer clicked a star directly in the email, auto-submit once info has loaded
-  // Skip if already rated to prevent double-submission
+  // On return visit: auto-open the appropriate dialog based on existing rating
   useEffect(() => {
-    if (!preRating || !rid || isSubmitting || !info) return;
-    if (info.alreadyRated) { setStep("done"); return; }
-    handleStarClick(preRating);
-  }, [rid, info]);
+    if (!info || ratingLocked) return;
+    if (!info.existingRating) return;
+    setRatedStar(info.existingRating);
+    setRatingLocked(true);
+    if (info.existingRating >= 4) {
+      setHighRating(true);
+      setPlatforms(info.platforms || []);
+      setRecordingUrl(info.recordingUrl || "");
+      setRecordingType(info.recordingType || "");
+      setDialogOpen(true);
+    } else if (!info.feedbackSubmitted) {
+      setHighRating(false);
+      setDialogOpen(true);
+    }
+    // Low rating + feedback already submitted: just lock the card, no dialog
+  }, [info]);
 
-  async function handleStarClick(star: number) {
-    if (isSubmitting || !rid) return;
-    setSelectedStar(star);
-    setRating(star);
+  async function handleRateNow() {
+    if (!selectedStar || isSubmitting || !rid) return;
     setIsSubmitting(true);
     try {
       const res = await fetch(`/api/public/review/${rid}/rate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rating: star }),
+        body: JSON.stringify({ rating: selectedStar }),
       });
       const data = await res.json();
-      if (data.highRating) {
-        setPlatforms(data.platforms || []);
-        setRecordingUrl(data.recordingUrl || "");
-        setRecordingType(data.recordingType || "");
-        setStep("platforms");
-      } else {
-        setStep("feedback");
-      }
+      setRatedStar(selectedStar);
+      setHighRating(!!data.highRating);
+      setPlatforms(data.platforms || []);
+      setRecordingUrl(data.recordingUrl || "");
+      setRecordingType(data.recordingType || "");
+      setRatingLocked(true);
+      setDialogOpen(true);
     } catch {
-      // still move to feedback on error
-      setStep("feedback");
+      setRatedStar(selectedStar);
+      setRatingLocked(true);
+      setDialogOpen(true);
     } finally {
       setIsSubmitting(false);
     }
   }
 
   async function handleFeedbackSubmit() {
-    if (!feedbackText.trim() || !rid || isSubmitting) return;
-    setIsSubmitting(true);
+    if (!feedbackText.trim() || feedbackSubmitting || !rid) return;
+    setFeedbackSubmitting(true);
     try {
       await fetch(`/api/public/review/${rid}/feedback`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: feedbackText }),
       });
-      setStep("done");
-    } catch {
-      setStep("done");
-    } finally {
-      setIsSubmitting(false);
-    }
+    } catch {}
+    setFeedbackSubmitting(false);
+    setFeedbackSubmitted(true);
   }
 
   const businessName = info?.businessName || "Our Business";
   const firstName = info?.customerFirstName;
+  // Lock the main card (show "already submitted") when:
+  // - High rating submitted (this session or return visit)
+  // - Low rating where feedback was already submitted
+  // Low rating with no feedback = keep card open so they can reopen the dialog
+  const alreadyRated =
+    (ratingLocked && highRating) ||
+    (!!(info?.existingRating && info.existingRating >= 4)) ||
+    !!info?.feedbackSubmitted;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-background flex items-center justify-center p-4">
@@ -174,36 +196,33 @@ export default function ReviewLanding() {
 
         <Card className="border-card-border shadow-lg">
           <CardContent className="p-6">
+            <div className="text-center space-y-6">
+              <div>
+                <h2 className="text-[18px] font-bold">How would you rate your experience?</h2>
+                {firstName && (
+                  <p className="text-[13px] text-muted-foreground mt-1">Hi {firstName}, we'd love to hear from you.</p>
+                )}
+              </div>
 
-            {/* Step 1: Star rating */}
-            {step === "rating" && (
-              <div className="text-center space-y-6">
-                <div>
-                  <h2 className="text-[18px] font-bold">How would you rate your experience?</h2>
-                  {firstName && (
-                    <p className="text-[13px] text-muted-foreground mt-1">Hi {firstName}, we'd love to hear from you.</p>
-                  )}
+              {isLoading ? (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                 </div>
-
-                {isLoading ? (
-                  <div className="flex justify-center py-4">
-                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                  </div>
-                ) : info?.alreadyRated ? (
-                  <div className="text-center py-4">
-                    <CheckCircle2 className="w-8 h-8 text-green-500 mx-auto mb-2" />
-                    <p className="text-[14px] text-muted-foreground">You've already submitted your rating — thank you!</p>
-                  </div>
-                ) : (
+              ) : alreadyRated ? (
+                <div className="text-center py-4">
+                  <CheckCircle2 className="w-8 h-8 text-green-500 mx-auto mb-2" />
+                  <p className="text-[14px] text-muted-foreground">You've already submitted your rating — thank you!</p>
+                </div>
+              ) : (
+                <>
                   <div className="flex justify-center gap-2">
                     {[1, 2, 3, 4, 5].map(star => (
                       <button
                         key={star}
-                        onClick={() => handleStarClick(star)}
+                        onClick={() => setSelectedStar(star)}
                         onMouseEnter={() => setHoveredStar(star)}
                         onMouseLeave={() => setHoveredStar(0)}
-                        disabled={isSubmitting || !!selectedStar}
-                        className="p-1 transition-transform hover:scale-110 disabled:cursor-not-allowed"
+                        className="p-1 transition-transform hover:scale-110"
                         aria-label={`${star} star${star !== 1 ? "s" : ""}`}
                       >
                         <Star
@@ -217,117 +236,25 @@ export default function ReviewLanding() {
                       </button>
                     ))}
                   </div>
-                )}
 
-                {isSubmitting && selectedStar > 0 && (
-                  <div className="flex justify-center">
-                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Step 2a: High rating — show platform links */}
-            {step === "platforms" && (
-              <div className="space-y-5">
-                <div className="text-center">
-                  <div className="flex justify-center mb-3">
-                    {[1,2,3,4,5].map(s => (
-                      <Star key={s} className={cn("w-6 h-6", s <= rating ? "fill-amber-400 text-amber-400" : "fill-none text-muted-foreground/30")} />
-                    ))}
-                  </div>
-                  <h2 className="text-[18px] font-bold">Thank you{firstName ? `, ${firstName}` : ""}!</h2>
-                  <p className="text-[13px] text-muted-foreground mt-1">
-                    Choose a platform to leave your review
-                  </p>
-                </div>
-
-                {recordingUrl && (
-                  <div className="rounded-xl overflow-hidden border border-border bg-black">
-                    {recordingType === "video" ? (
-                      <video src={recordingUrl} controls className="w-full max-h-64 object-contain" />
-                    ) : (
-                      <div className="flex items-center gap-3 p-4 bg-muted/40">
-                        <span className="text-2xl">🎙️</span>
-                        <audio src={recordingUrl} controls className="flex-1" />
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {platforms.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-3">
-                    {platforms.map(p => {
-                      const meta = PLATFORM_META[p.key];
-                      return (
-                        <a key={p.key} href={p.url} target="_blank" rel="noopener noreferrer">
-                          <div className="flex flex-col items-center gap-2 p-4 rounded-xl border border-border bg-card hover:bg-muted/50 hover:border-primary/40 transition-colors cursor-pointer">
-                            {meta?.logo ?? null}
-                            <span className="text-[13px] font-semibold">{p.name}</span>
-                            <span className={cn(
-                              "text-[10.5px] px-2 py-0.5 rounded-full font-medium",
-                              meta?.signIn
-                                ? "bg-amber-50 text-amber-700 border border-amber-200"
-                                : "bg-green-50 text-green-700 border border-green-200"
-                            )}>
-                              {meta?.signIn ? "Sign in required" : "No sign in required"}
-                            </span>
-                          </div>
-                        </a>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-center text-[13px] text-muted-foreground py-4">
-                    Thank you for your support — your kind words mean a lot to us.
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Step 2b: Low rating — private feedback form */}
-            {step === "feedback" && (
-              <div className="space-y-5">
-                <div className="text-center">
-                  <div className="flex justify-center mb-3">
-                    {[1,2,3,4,5].map(s => (
-                      <Star key={s} className={cn("w-6 h-6", s <= rating ? "fill-amber-400 text-amber-400" : "fill-none text-muted-foreground/30")} />
-                    ))}
-                  </div>
-                  <h2 className="text-[18px] font-bold">We're sorry to hear that</h2>
-                  <p className="text-[13px] text-muted-foreground mt-1">
-                    Tell us what went wrong so we can make it right.
-                  </p>
-                </div>
-
-                <Textarea
-                  placeholder="Please share what we could have done better..."
-                  className="resize-none h-28 text-[13px]"
-                  value={feedbackText}
-                  onChange={e => setFeedbackText(e.target.value)}
-                />
-
-                <Button
-                  className="w-full"
-                  onClick={handleFeedbackSubmit}
-                  disabled={!feedbackText.trim() || isSubmitting}
-                >
-                  {isSubmitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Sending...</> : "Send Feedback"}
-                </Button>
-              </div>
-            )}
-
-            {/* Step 3: Done (after feedback submitted) */}
-            {step === "done" && (
-              <div className="text-center py-4 space-y-3">
-                <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto" />
-                <h2 className="text-[18px] font-bold">Thank you for your feedback</h2>
-                <p className="text-[13px] text-muted-foreground">
-                  We really appreciate you taking the time to let us know. We'll look into this and be in touch.
-                </p>
-              </div>
-            )}
-
+                  {ratingLocked && !highRating && !feedbackSubmitted ? (
+                    <Button className="w-full" onClick={() => setDialogOpen(true)}>
+                      Share your feedback
+                    </Button>
+                  ) : (
+                    <Button
+                      className="w-full"
+                      onClick={handleRateNow}
+                      disabled={!selectedStar || isSubmitting}
+                    >
+                      {isSubmitting
+                        ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Submitting...</>
+                        : "Rate Now"}
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
           </CardContent>
         </Card>
 
@@ -335,6 +262,118 @@ export default function ReviewLanding() {
           Powered by ReviewOptic
         </p>
       </div>
+
+      {/* Post-rating dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-sm">
+
+          {/* 4-5 stars: invite to leave a public review */}
+          {highRating && (
+            <div className="space-y-5">
+              <DialogHeader>
+                <div className="flex justify-center mb-2">
+                  {[1, 2, 3, 4, 5].map(s => (
+                    <Star key={s} className={cn("w-6 h-6", s <= ratedStar ? "fill-amber-400 text-amber-400" : "fill-none text-muted-foreground/30")} />
+                  ))}
+                </div>
+                <DialogTitle className="text-center">
+                  Thanks for the rating{firstName ? `, ${firstName}` : ""}!
+                </DialogTitle>
+                <DialogDescription className="text-center">
+                  Would you please take a couple of moments to leave us a review?
+                </DialogDescription>
+              </DialogHeader>
+
+              {recordingUrl && (
+                <div className="rounded-xl overflow-hidden border border-border bg-black">
+                  {recordingType === "video" ? (
+                    <video src={recordingUrl} controls className="w-full max-h-64 object-contain" />
+                  ) : (
+                    <div className="flex items-center gap-3 p-4 bg-muted/40">
+                      <span className="text-2xl">🎙️</span>
+                      <audio src={recordingUrl} controls className="flex-1" />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {platforms.length > 0 ? (
+                <div className="grid grid-cols-2 gap-3">
+                  {platforms.map(p => {
+                    const meta = PLATFORM_META[p.key];
+                    return (
+                      <a key={p.key} href={p.url} target="_blank" rel="noopener noreferrer">
+                        <div className="flex flex-col items-center gap-2 p-4 rounded-xl border border-border bg-card hover:bg-muted/50 hover:border-primary/40 transition-colors cursor-pointer">
+                          {meta?.logo ?? null}
+                          <span className="text-[13px] font-semibold">{p.name}</span>
+                          <span className={cn(
+                            "text-[10.5px] px-2 py-0.5 rounded-full font-medium",
+                            meta?.signIn
+                              ? "bg-amber-50 text-amber-700 border border-amber-200"
+                              : "bg-green-50 text-green-700 border border-green-200"
+                          )}>
+                            {meta?.signIn ? "Sign in required" : "No sign in required"}
+                          </span>
+                        </div>
+                      </a>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-center text-[13px] text-muted-foreground py-4">
+                  Thank you for your support — your kind words mean a lot to us.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* 1-3 stars: private feedback — done state */}
+          {!highRating && feedbackSubmitted && (
+            <div className="text-center py-4 space-y-3">
+              <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto" />
+              <DialogTitle>Thank you for your feedback</DialogTitle>
+              <DialogDescription>
+                We really appreciate you taking the time to let us know. We'll look into this and be in touch.
+              </DialogDescription>
+            </div>
+          )}
+
+          {/* 1-3 stars: private feedback — form */}
+          {!highRating && !feedbackSubmitted && (
+            <div className="space-y-5">
+              <DialogHeader>
+                <div className="flex justify-center mb-2">
+                  {[1, 2, 3, 4, 5].map(s => (
+                    <Star key={s} className={cn("w-6 h-6", s <= ratedStar ? "fill-amber-400 text-amber-400" : "fill-none text-muted-foreground/30")} />
+                  ))}
+                </div>
+                <DialogTitle className="text-center">We're sorry to hear that</DialogTitle>
+                <DialogDescription className="text-center">
+                  Would you take a couple of moments to share your experience and let us know how we can improve?
+                </DialogDescription>
+              </DialogHeader>
+
+              <Textarea
+                placeholder="Please share what we could have done better..."
+                className="resize-none h-28 text-[13px]"
+                value={feedbackText}
+                onChange={e => setFeedbackText(e.target.value)}
+              />
+
+              <Button
+                className="w-full"
+                onClick={handleFeedbackSubmit}
+                disabled={!feedbackText.trim() || feedbackSubmitting}
+              >
+                {feedbackSubmitting
+                  ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Sending...</>
+                  : "Send Feedback"}
+              </Button>
+            </div>
+          )}
+
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

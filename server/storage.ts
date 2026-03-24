@@ -26,6 +26,7 @@ export interface IStorage {
   createAccount(): Promise<Account>;
   // Customers
   getCustomers(accountId: string): Promise<Customer[]>;
+  getArchivedCustomers(accountId: string): Promise<Customer[]>;
   getCustomer(id: string, accountId: string): Promise<Customer | undefined>;
   createCustomer(data: InsertCustomer): Promise<Customer>;
   updateCustomer(id: string, data: Partial<InsertCustomer>, accountId: string): Promise<Customer | undefined>;
@@ -93,7 +94,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCustomers(accountId: string): Promise<Customer[]> {
-    return db.select().from(customers).where(eq(customers.accountId, accountId)).orderBy(desc(customers.createdAt));
+    return db.select().from(customers).where(and(eq(customers.accountId, accountId), eq(customers.archived, false))).orderBy(desc(customers.createdAt));
+  }
+  async getArchivedCustomers(accountId: string): Promise<Customer[]> {
+    return db.select().from(customers).where(and(eq(customers.accountId, accountId), eq(customers.archived, true))).orderBy(desc(customers.createdAt));
   }
   async getCustomer(id: string, accountId: string): Promise<Customer | undefined> {
     const [c] = await db.select().from(customers).where(and(eq(customers.id, id), eq(customers.accountId, accountId)));

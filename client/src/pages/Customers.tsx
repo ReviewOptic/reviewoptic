@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import {
   Plus, Search, Send, MoreHorizontal, Ban, Trash2, Users,
-  Upload, X, CheckCircle2, Clock, Star, Eye, AlertCircle, Edit2, Sparkles, RefreshCw, Mic, Video
+  Upload, X, CheckCircle2, Clock, Star, Eye, AlertCircle, Edit2, Sparkles, RefreshCw, Mic, Video, Archive, ArchiveRestore
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -796,6 +796,7 @@ function ImportCsvDialog({ open, onClose }: { open: boolean; onClose: () => void
 export default function Customers() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [showArchived, setShowArchived] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [sendTo, setSendTo] = useState<Customer | null>(null);
@@ -806,6 +807,7 @@ export default function Customers() {
   const isReadOnly = !!user?.isImpersonating;
 
   const { data: customers, isLoading } = useQuery<Customer[]>({ queryKey: ["/api/customers"] });
+  const { data: archivedCustomers, isLoading: isLoadingArchived } = useQuery<Customer[]>({ queryKey: ["/api/customers/archived"], enabled: showArchived });
   const { data: allRequests = [] } = useQuery<ReviewRequest[]>({ queryKey: ["/api/review-requests"] });
 
   const toggleDncMutation = useMutation({
@@ -814,6 +816,24 @@ export default function Customers() {
     onSuccess: (_, customer) => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
       toast({ title: customer.doNotContact ? "Customer removed from DNC list" : "Customer marked as Do Not Contact" });
+    },
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: async (id: string) => apiRequest("PATCH", `/api/customers/${id}`, { archived: true }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/customers/archived"] });
+      toast({ title: "Customer archived" });
+    },
+  });
+
+  const unarchiveMutation = useMutation({
+    mutationFn: async (id: string) => apiRequest("PATCH", `/api/customers/${id}`, { archived: false }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/customers/archived"] });
+      toast({ title: "Customer restored" });
     },
   });
 
@@ -831,6 +851,13 @@ export default function Customers() {
     const matchesStatus = statusFilter === "all" || (statusFilter === "dnc" ? c.doNotContact : c.status === statusFilter);
     return matchesSearch && matchesStatus;
   }) || [];
+
+  const filteredArchived = archivedCustomers?.filter(c =>
+    !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.email.toLowerCase().includes(search.toLowerCase())
+  ) || [];
+
+  const displayList = showArchived ? filteredArchived : filtered;
+  const displayLoading = showArchived ? isLoadingArchived : isLoading;
 
   const statusFilters = [
     { value: "all", label: "All" },
@@ -851,23 +878,34 @@ export default function Customers() {
             {customers?.length || 0} total customers
           </p>
         </div>
-        {!isReadOnly && (
-          <div className="flex items-start gap-2">
-            <div className="flex flex-col items-center gap-1">
-              <Button variant="outline" size="sm" className="gap-1.5 w-full" onClick={() => setShowImport(true)} data-testid="button-import-csv">
-                <Upload className="w-3.5 h-3.5" />
-                Import CSV
+        <div className="flex items-start gap-2">
+          <Button
+            variant={showArchived ? "default" : "outline"}
+            size="sm"
+            className="gap-1.5"
+            onClick={() => setShowArchived(v => !v)}
+          >
+            <Archive className="w-3.5 h-3.5" />
+            Archived
+          </Button>
+          {!isReadOnly && !showArchived && (
+            <>
+              <div className="flex flex-col items-center gap-1">
+                <Button variant="outline" size="sm" className="gap-1.5 w-full" onClick={() => setShowImport(true)} data-testid="button-import-csv">
+                  <Upload className="w-3.5 h-3.5" />
+                  Import CSV
+                </Button>
+                <a href="/customer-import-template.csv" download className="text-[13px] text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors">
+                  Download CSV template
+                </a>
+              </div>
+              <Button size="sm" className="gap-1.5" onClick={() => setShowAdd(true)} data-testid="button-add-customer">
+                <Plus className="w-3.5 h-3.5" />
+                Add Customer
               </Button>
-              <a href="/customer-import-template.csv" download className="text-[13px] text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors">
-                Download CSV template
-              </a>
-            </div>
-            <Button size="sm" className="gap-1.5" onClick={() => setShowAdd(true)} data-testid="button-add-customer">
-              <Plus className="w-3.5 h-3.5" />
-              Add Customer
-            </Button>
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* Filters */}
@@ -887,20 +925,22 @@ export default function Customers() {
             </button>
           )}
         </div>
-        <div className="flex gap-1.5 flex-wrap">
-          {statusFilters.map(f => (
-            <Button
-              key={f.value}
-              variant={statusFilter === f.value ? "default" : "outline"}
-              size="sm"
-              className="h-9 text-[12.5px] px-3"
-              onClick={() => setStatusFilter(f.value)}
-              data-testid={`filter-${f.value}`}
-            >
-              {f.label}
-            </Button>
-          ))}
-        </div>
+        {!showArchived && (
+          <div className="flex gap-1.5 flex-wrap">
+            {statusFilters.map(f => (
+              <Button
+                key={f.value}
+                variant={statusFilter === f.value ? "default" : "outline"}
+                size="sm"
+                className="h-9 text-[12.5px] px-3"
+                onClick={() => setStatusFilter(f.value)}
+                data-testid={`filter-${f.value}`}
+              >
+                {f.label}
+              </Button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Table */}
@@ -919,7 +959,7 @@ export default function Customers() {
               </tr>
             </thead>
             <tbody>
-              {isLoading ? (
+              {displayLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="border-b border-border/50">
                     <td className="px-4 py-3"><Skeleton className="h-9 w-32" /></td>
@@ -931,12 +971,16 @@ export default function Customers() {
                     <td className="px-4 py-3"><Skeleton className="h-7 w-7" /></td>
                   </tr>
                 ))
-              ) : filtered.length === 0 ? (
+              ) : displayList.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-16 text-center text-muted-foreground">
                     <Users className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                    <p className="text-[13px]">{search || statusFilter !== "all" ? "No customers match your filters" : "No customers yet. Add your first customer!"}</p>
-                    {!search && statusFilter === "all" && !isReadOnly && (
+                    <p className="text-[13px]">
+                      {showArchived
+                        ? (search ? "No archived customers match your search" : "No archived customers")
+                        : (search || statusFilter !== "all" ? "No customers match your filters" : "No customers yet. Add your first customer!")}
+                    </p>
+                    {!showArchived && !search && statusFilter === "all" && !isReadOnly && (
                       <Button size="sm" className="mt-3 gap-1.5" onClick={() => setShowAdd(true)}>
                         <Plus className="w-3.5 h-3.5" /> Add Customer
                       </Button>
@@ -944,7 +988,7 @@ export default function Customers() {
                   </td>
                 </tr>
               ) : (
-                filtered.map(customer => (
+                displayList.map(customer => (
                   <tr
                     key={customer.id}
                     className="border-b border-border/50 hover:bg-muted/30 transition-colors"
@@ -989,43 +1033,76 @@ export default function Customers() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-44">
-                          {!isReadOnly && (
-                            <DropdownMenuItem
-                              onClick={() => setSendTo(customer)}
-                              disabled={customer.doNotContact}
-                              data-testid={`action-send-${customer.id}`}
-                            >
-                              <Send className="w-3.5 h-3.5 mr-2 text-primary" />
-                              Send Request
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem onClick={() => navigate(`/customers/${customer.id}`)}>
-                            <Eye className="w-3.5 h-3.5 mr-2" />
-                            View Details
-                          </DropdownMenuItem>
-                          {!isReadOnly && (
+                          {showArchived ? (
+                            // Archived view: only show unarchive + delete
                             <>
-                              <DropdownMenuItem onClick={() => setEditCustomer(customer)}>
-                                <Edit2 className="w-3.5 h-3.5 mr-2" />
-                                Edit Contact
+                              <DropdownMenuItem onClick={() => navigate(`/customers/${customer.id}`)}>
+                                <Eye className="w-3.5 h-3.5 mr-2" />
+                                View Details
                               </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => toggleDncMutation.mutate(customer)}
-                                className={customer.doNotContact ? "text-foreground" : "text-destructive"}
-                                data-testid={`action-dnc-${customer.id}`}
-                              >
-                                <Ban className="w-3.5 h-3.5 mr-2" />
-                                {customer.doNotContact ? "Remove DNC" : "Do Not Contact"}
+                              {!isReadOnly && (
+                                <>
+                                  <DropdownMenuItem onClick={() => unarchiveMutation.mutate(customer.id)}>
+                                    <ArchiveRestore className="w-3.5 h-3.5 mr-2" />
+                                    Unarchive
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => deleteMutation.mutate(customer.id)}
+                                    className="text-destructive"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5 mr-2" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </>
+                          ) : (
+                            // Normal view
+                            <>
+                              {!isReadOnly && (
+                                <DropdownMenuItem
+                                  onClick={() => setSendTo(customer)}
+                                  disabled={customer.doNotContact}
+                                  data-testid={`action-send-${customer.id}`}
+                                >
+                                  <Send className="w-3.5 h-3.5 mr-2 text-primary" />
+                                  Send Request
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem onClick={() => navigate(`/customers/${customer.id}`)}>
+                                <Eye className="w-3.5 h-3.5 mr-2" />
+                                View Details
                               </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => deleteMutation.mutate(customer.id)}
-                                className="text-destructive"
-                                data-testid={`action-delete-${customer.id}`}
-                              >
-                                <Trash2 className="w-3.5 h-3.5 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
+                              {!isReadOnly && (
+                                <>
+                                  <DropdownMenuItem onClick={() => setEditCustomer(customer)}>
+                                    <Edit2 className="w-3.5 h-3.5 mr-2" />
+                                    Edit Contact
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => toggleDncMutation.mutate(customer)}
+                                    className={customer.doNotContact ? "text-foreground" : "text-destructive"}
+                                    data-testid={`action-dnc-${customer.id}`}
+                                  >
+                                    <Ban className="w-3.5 h-3.5 mr-2" />
+                                    {customer.doNotContact ? "Remove DNC" : "Do Not Contact"}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => archiveMutation.mutate(customer.id)}>
+                                    <Archive className="w-3.5 h-3.5 mr-2" />
+                                    Archive
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => deleteMutation.mutate(customer.id)}
+                                    className="text-destructive"
+                                    data-testid={`action-delete-${customer.id}`}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5 mr-2" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </>
+                              )}
                             </>
                           )}
                         </DropdownMenuContent>
