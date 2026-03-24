@@ -104,10 +104,21 @@ export const HOWTOS: HowTo[] = [
     title: "How to record a voice note or video message (optional)",
     steps: [
       { text: "Go to Templates and open the Recordings tab.", link: "/templates", linkText: "Templates" },
-      { text: "Under Voice Note, click 'Upload audio file' and select a recording from your device. Speak naturally — say something like: 'Hi, it's [your business name] — could you spare a minute to leave us a review?'" },
-      { text: "Under Video Message, click 'Upload video file' and select a short video (15–30 seconds). Keep it warm and personal." },
-      { text: "Once uploaded, play it back to check how it sounds before sending to any customers." },
-      { text: "When sending a WhatsApp review request, select 'Voice note' or 'Video' as the message type — you'll see a preview before you send." },
+      { text: "Under Voice Note or Video Message, click 'Start recording'. Your browser will ask for microphone or camera permission — click Allow." },
+      { text: "Record your message (15–30 seconds is ideal). Speak naturally — something like: 'Hi, it's [your name] from [business] — could you spare a minute to leave us a review?'" },
+      { text: "When you're done, click Stop. You can play it back before saving. If you're not happy, record again." },
+      { text: "Give it a label (e.g. 'Standard voice note') and click Save. You can save up to 2 recordings per type." },
+      { text: "When sending a WhatsApp review request, select your recording from the dropdown — you'll see a preview before you send." },
+    ],
+  },
+  {
+    title: "How to archive and restore a customer",
+    steps: [
+      { text: "Go to the Customers page.", link: "/customers", linkText: "Customers page" },
+      { text: "Find the customer you want to archive and open their profile by clicking their name." },
+      { text: "Click the Archive button. The customer will be hidden from your main customer list but their data is kept." },
+      { text: "To view archived customers, use the filter or archive toggle on the Customers page." },
+      { text: "To restore a customer, open their archived profile and click Restore — they'll return to your active customer list." },
     ],
   },
   {

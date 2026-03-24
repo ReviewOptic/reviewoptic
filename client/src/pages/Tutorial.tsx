@@ -74,8 +74,14 @@ const VIDEOS = [
   },
   {
     title: "How to record a voice note or video message (optional)",
-    description: "How to upload a voice note or video so customers receive a personal message from you via WhatsApp.",
+    description: "How to record a voice note or video message directly in the app so customers receive a personal message from you via WhatsApp.",
     duration: "2 min",
+    url: "", // paste YouTube embed URL here
+  },
+  {
+    title: "How to archive and restore a customer",
+    description: "How to hide a customer from your active list without deleting their data, and how to restore them if needed.",
+    duration: "1 min",
     url: "", // paste YouTube embed URL here
   },
 ];

@@ -277,3 +277,20 @@ Your job is to be the developer they would hire if they could afford a great one
 - `POST /api/reviews` endpoint in routes.ts is still orphaned — safe to remove in a cleanup pass
 - Instagram auto-posting and review widget still not built — decide whether to build or remove from features list
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+
+### Session — 2026-03-24 (twenty-second session)
+
+**Tasks completed:**
+- Analytics color theme system — fixed black elements caused by `positive`, `negative`, `rating` color keys being missing from localStorage (stored before those keys were added); fixed by merging stored colors with Classic theme defaults on load
+- Analytics sentiment/rating colors — changed "Negative" color from orange to red (`#ef4444`) across Classic, Ocean, and Fire themes; red is clearer and more intuitive for negative ratings
+- Tutorials & Guides updated to reflect recent changes:
+  - "How to record a voice note or video message" how-to rewritten — now reflects in-browser recording (record via mic/camera, stop, preview, label, save) instead of old file upload flow; includes 2-recording-per-type limit
+  - New how-to added: "How to archive and restore a customer"
+  - Videos list updated: recordings video description changed from "upload" to "record directly in the app"
+  - New video entry added: "How to archive and restore a customer"
+
+**Notes for next session:**
+- Server restart required for star rating activity logging to take effect (server-side change in routes.ts)
+- `POST /api/reviews` endpoint in routes.ts is still orphaned — safe to remove in a cleanup pass
+- Instagram auto-posting and review widget still not built — decide whether to build or remove from features list
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`

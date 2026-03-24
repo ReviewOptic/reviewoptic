@@ -17,19 +17,19 @@ import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
 // ── Chart colour system ───────────────────────────────────────────────────
-const COLOR_THEMES: Record<string, { label: string; requests: string; reviews: string; email: string; sms: string; whatsapp: string }> = {
-  classic:  { label: "Classic",  requests: "#4f86f7", reviews: "#4caf82", email: "#4f86f7", sms: "#4caf82",  whatsapp: "#2d7a56" },
-  sunset:   { label: "Sunset",   requests: "#f7794f", reviews: "#f74f8a", email: "#f7794f", sms: "#f74f8a",  whatsapp: "#c73d6e" },
-  ocean:    { label: "Ocean",    requests: "#0bc5ea", reviews: "#0ed9b3", email: "#0bc5ea", sms: "#0ed9b3",  whatsapp: "#0891b2" },
-  candy:    { label: "Candy",    requests: "#c084fc", reviews: "#f472b6", email: "#c084fc", sms: "#f472b6",  whatsapp: "#a855f7" },
-  fire:     { label: "Fire",     requests: "#ef4444", reviews: "#f97316", email: "#ef4444", sms: "#f97316",  whatsapp: "#dc2626" },
-  midnight: { label: "Midnight", requests: "#818cf8", reviews: "#34d399", email: "#818cf8", sms: "#34d399",  whatsapp: "#6366f1" },
+const COLOR_THEMES: Record<string, { label: string; requests: string; reviews: string; email: string; sms: string; whatsapp: string; positive: string; negative: string; rating: string }> = {
+  classic:  { label: "Classic",  requests: "#4f86f7", reviews: "#4caf82", email: "#4f86f7", sms: "#4caf82",  whatsapp: "#2d7a56", positive: "#22c55e", negative: "#ef4444", rating: "#f59e0b" },
+  sunset:   { label: "Sunset",   requests: "#f7794f", reviews: "#f74f8a", email: "#f7794f", sms: "#f74f8a",  whatsapp: "#c73d6e", positive: "#fb923c", negative: "#e11d48", rating: "#fbbf24" },
+  ocean:    { label: "Ocean",    requests: "#0bc5ea", reviews: "#0ed9b3", email: "#0bc5ea", sms: "#0ed9b3",  whatsapp: "#0891b2", positive: "#0ed9b3", negative: "#ef4444", rating: "#fbbf24" },
+  candy:    { label: "Candy",    requests: "#c084fc", reviews: "#f472b6", email: "#c084fc", sms: "#f472b6",  whatsapp: "#a855f7", positive: "#4ade80", negative: "#fb7185", rating: "#fcd34d" },
+  fire:     { label: "Fire",     requests: "#ef4444", reviews: "#f97316", email: "#ef4444", sms: "#f97316",  whatsapp: "#dc2626", positive: "#f97316", negative: "#dc2626", rating: "#fbbf24" },
+  midnight: { label: "Midnight", requests: "#818cf8", reviews: "#34d399", email: "#818cf8", sms: "#34d399",  whatsapp: "#6366f1", positive: "#34d399", negative: "#f87171", rating: "#fbbf24" },
 };
 type ChartColors = typeof COLOR_THEMES["classic"];
 
 function useChartColors() {
   const stored = (() => { try { return JSON.parse(localStorage.getItem("chartColors") || "null"); } catch { return null; } })();
-  const [colors, setColors] = useState<ChartColors>(stored || COLOR_THEMES.classic);
+  const [colors, setColors] = useState<ChartColors>(stored ? { ...COLOR_THEMES.classic, ...stored } : COLOR_THEMES.classic);
   const applyTheme = (themeKey: string) => {
     const t = COLOR_THEMES[themeKey];
     setColors(t);
@@ -344,9 +344,10 @@ export default function Analytics() {
               {Object.entries(COLOR_THEMES).map(([key, theme]) => (
                 <button key={key} onClick={() => applyTheme(key)}
                   className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border text-[12px] font-medium hover:border-primary transition-colors"
-                  style={{ borderColor: colors.requests === theme.requests && colors.reviews === theme.reviews ? theme.requests : undefined }}>
+                  style={{ borderColor: colors.requests === theme.requests && colors.reviews === theme.reviews && colors.positive === theme.positive ? theme.requests : undefined }}>
                   <span className="w-3 h-3 rounded-full inline-block" style={{ background: theme.requests }} />
                   <span className="w-3 h-3 rounded-full inline-block" style={{ background: theme.reviews }} />
+                  <span className="w-3 h-3 rounded-full inline-block" style={{ background: theme.positive }} />
                   {theme.label}
                 </button>
               ))}
@@ -361,6 +362,9 @@ export default function Analytics() {
                 { key: "email" as const, label: "Email" },
                 { key: "sms" as const, label: "SMS" },
                 { key: "whatsapp" as const, label: "WhatsApp" },
+                { key: "positive" as const, label: "Positive" },
+                { key: "negative" as const, label: "Negative" },
+                { key: "rating" as const, label: "Star Rating" },
               ]).map(({ key, label }) => (
                 <label key={key} className="flex items-center gap-1.5 cursor-pointer text-[12px]">
                   <input type="color" value={colors[key]} onChange={e => updateColor(key, e.target.value)}
@@ -504,7 +508,7 @@ export default function Analytics() {
               </div>
             ) : (
               [{label: "Sent", value: fSent, pct: null, color: colors.requests},
-               {label: "Clicked", value: clicked, pct: fClickRate, color: "#a78bfa"},
+               {label: "Clicked", value: clicked, pct: fClickRate, color: colors.reviews},
               ].map(row => (
                 <div key={row.label} className="space-y-1">
                   <div className="flex justify-between text-[12px]">
@@ -647,8 +651,8 @@ export default function Analytics() {
                         { name: "Positive (4–5★)", value: data.sentimentSplit!.positive },
                         { name: "Negative (1–3★)", value: data.sentimentSplit!.negative },
                       ]} cx="50%" cy="50%" innerRadius={45} outerRadius={70} dataKey="value" paddingAngle={2}>
-                        <Cell fill="#22c55e" />
-                        <Cell fill="#f97316" />
+                        <Cell fill={colors.positive} />
+                        <Cell fill={colors.negative} />
                       </Pie>
                       <Tooltip contentStyle={tooltipStyle} />
                       <Legend wrapperStyle={{ fontSize: "11px" }} />
@@ -656,11 +660,11 @@ export default function Analytics() {
                   </ResponsiveContainer>
                   <div className="flex justify-around text-center">
                     <div>
-                      <div className="text-2xl font-bold text-green-500">{data.sentimentSplit!.positiveRate}%</div>
+                      <div className="text-2xl font-bold" style={{ color: colors.positive }}>{data.sentimentSplit!.positiveRate}%</div>
                       <div className="text-[11.5px] text-muted-foreground">Positive</div>
                     </div>
                     <div>
-                      <div className="text-2xl font-bold text-orange-500">{100 - data.sentimentSplit!.positiveRate}%</div>
+                      <div className="text-2xl font-bold" style={{ color: colors.negative }}>{100 - data.sentimentSplit!.positiveRate}%</div>
                       <div className="text-[11.5px] text-muted-foreground">Negative</div>
                     </div>
                   </div>
@@ -686,7 +690,7 @@ export default function Analytics() {
                     <Tooltip contentStyle={tooltipStyle} formatter={(v) => [v, "Responses"]} labelFormatter={l => `${l} star${l !== 1 ? "s" : ""}`} />
                     <Bar dataKey="count" name="Responses" radius={[4, 4, 0, 0]} barSize={28}>
                       {(data?.ratingDistribution || []).map((entry) => (
-                        <Cell key={entry.stars} fill={entry.stars >= 4 ? "#22c55e" : entry.stars === 3 ? "#f59e0b" : "#f97316"} />
+                        <Cell key={entry.stars} fill={entry.stars >= 4 ? colors.positive : entry.stars === 3 ? colors.rating : colors.negative} />
                       ))}
                     </Bar>
                   </BarChart>
@@ -712,7 +716,7 @@ export default function Analytics() {
                   <XAxis dataKey="label" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
                   <YAxis domain={[1, 5]} ticks={[1,2,3,4,5]} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} tickFormatter={v => `${v}★`} />
                   <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => [Number(v).toFixed(1), "Avg Rating"]} />
-                  <Line type="monotone" dataKey="avg" name="Avg Rating" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3, fill: "#f59e0b" }} />
+                  <Line type="monotone" dataKey="avg" name="Avg Rating" stroke={colors.rating} strokeWidth={2} dot={{ r: 3, fill: colors.rating }} />
                 </LineChart>
               </ResponsiveContainer>
             )}
