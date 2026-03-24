@@ -263,3 +263,19 @@ Your job is to be the developer they would hire if they could afford a great one
 - `POST /api/reviews` endpoint in routes.ts is still orphaned — safe to remove in a cleanup pass
 - Instagram auto-posting and review widget still not built — decide whether to build or remove from features list
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+
+### Session — 2026-03-24 (twenty-first session)
+
+**Tasks completed:**
+- Star ratings now appear in Recent Activity — added `createActivity` call to `/api/public/review/:id/rate` endpoint; shows e.g. "John Smith left a 4-star rating ★★★★☆" with the gold star icon
+- Dashboard Private Feedback — removed the duplicate plain-list card; only the amber "Needs Response" card with the response box remains
+
+**Fixes applied:**
+- `.gitignore` was malformed — `.env` and `uploads/` were merged onto one line (`.envuploads/`) so uploads were not being ignored; fixed by splitting onto separate lines
+
+**Notes for next session:**
+- Server restart required for star rating activity logging to take effect (server-side change in routes.ts)
+- Fix Cloudinary: update `CLOUDINARY_CLOUD_NAME` in Replit Secrets to the real cloud name from cloudinary.com → Dashboard (currently set to "ReviewOptic" which is wrong)
+- `POST /api/reviews` endpoint in routes.ts is still orphaned — safe to remove in a cleanup pass
+- Instagram auto-posting and review widget still not built — decide whether to build or remove from features list
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`

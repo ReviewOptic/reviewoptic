@@ -329,7 +329,7 @@ export default function Dashboard() {
               </div>
               <div>
                 <div className="text-xl font-bold text-foreground leading-none">{stats?.pendingRequests ?? 0}</div>
-                <div className="text-[11.5px] text-muted-foreground mt-1 leading-tight">Awaiting Response</div>
+                <div className="text-[11.5px] text-muted-foreground mt-1 leading-tight">Unread Feedback</div>
               </div>
             </>
           )}
@@ -391,47 +391,6 @@ export default function Dashboard() {
 
         {/* Sidebar */}
         <div className="space-y-4">
-
-          {/* Needs Follow-Up */}
-          <Card className="border-card-border">
-            <CardHeader className="pb-3 pt-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-[14px] font-semibold">Awaiting Response</CardTitle>
-                {pendingFollowUp.length > 0 && (
-                  <Badge variant="secondary" className="text-[11px]">{pendingFollowUp.length}</Badge>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="px-4 pb-4">
-              {pendingFollowUp.length === 0 ? (
-                <div className="text-center py-5 text-muted-foreground">
-                  <CheckCircle2 className="w-6 h-6 mx-auto mb-2 opacity-40" />
-                  <p className="text-[12px]">All caught up!</p>
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  {pendingFollowUp.slice(0, 5).map(c => (
-                    <div
-                      key={c.id}
-                      onClick={() => navigate(`/customers/${c.id}`)}
-                      className="flex items-center justify-between p-2.5 rounded-lg hover:bg-accent transition-colors cursor-pointer"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-medium truncate">{c.name}</p>
-                        <p className="text-[11px] text-muted-foreground truncate">{c.email || c.phone}</p>
-                      </div>
-                      <ArrowRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0 ml-2" />
-                    </div>
-                  ))}
-                  {pendingFollowUp.length > 5 && (
-                    <button onClick={() => navigate("/customers")} className="text-[12px] text-primary font-medium flex items-center gap-1 px-2.5 pt-1">
-                      +{pendingFollowUp.length - 5} more <ArrowRight className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
 
           {/* Private Feedback */}
           {unrespondedFeedback.length > 0 && (

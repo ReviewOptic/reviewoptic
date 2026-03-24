@@ -8,6 +8,13 @@ const LOGO_HTML = `<div style="margin-bottom:28px;">
     <img src="${LOGO_URL}" alt="ReviewOptic" style="height:36px;max-width:180px;object-fit:contain;display:block;" />
   </a>
 </div>`;
+const POWERED_BY_FOOTER = `
+  <div style="border-top:1px solid #e5e7eb;margin-top:32px;padding-top:16px;text-align:center;">
+    <a href="https://reviewoptic.com" style="text-decoration:none;">
+      <img src="${LOGO_URL}" alt="ReviewOptic" style="height:24px;max-width:120px;object-fit:contain;display:inline-block;vertical-align:middle;margin-right:6px;" />
+    </a>
+    <span style="font-size:11px;color:#9ca3af;vertical-align:middle;">Powered by <a href="https://reviewoptic.com" style="color:#9ca3af;">ReviewOptic</a></span>
+  </div>`;
 
 export async function sendVerificationEmail(to: string, verifyUrl: string) {
   if (!process.env.RESEND_API_KEY) {
@@ -35,6 +42,7 @@ export async function sendVerificationEmail(to: string, verifyUrl: string) {
         <p style="color:#999;font-size:12px;margin-top:32px;line-height:1.6;">
           If you didn't create a ReviewOptic account, you can safely ignore this email.
         </p>
+        ${POWERED_BY_FOOTER}
       </div>
     `,
   });
@@ -67,6 +75,7 @@ export async function sendTeamInviteEmail(to: string, inviterName: string, compa
         <p style="color:#999;font-size:12px;margin-top:32px;line-height:1.6;">
           If you weren't expecting this invitation, you can safely ignore this email.
         </p>
+        ${POWERED_BY_FOOTER}
       </div>
     `,
   });
@@ -109,7 +118,8 @@ export async function sendReviewEmail(
     return;
   }
 
-  const platforms = selectedPlatforms?.length ? selectedPlatforms : [{ name: "Leave a Review", url: getReviewLink(settings) }].filter(p => p.url);
+  // Only show platform buttons if explicitly provided — no fallback button
+  const platforms = selectedPlatforms?.length ? selectedPlatforms : [];
   const primaryLink = platforms[0]?.url || "";
 
   const logoAlign = settings.logoPosition === "center" ? "center" : settings.logoPosition === "right" ? "right" : "left";
@@ -143,6 +153,7 @@ export async function sendReviewEmail(
       ${logoHtml}
       ${bodyText.replace(/\n/g, "<br>")}
       ${platforms.length ? `<br><br>${platformButtons}` : ""}
+      ${POWERED_BY_FOOTER}
     </div>`;
   } else {
     const firstName = customer.name.split(" ")[0];
@@ -157,6 +168,7 @@ export async function sendReviewEmail(
       <p style="color:#999;font-size:12px;margin-top:32px;line-height:1.6;">
         If you'd prefer not to receive emails like this, please let us know.
       </p>
+      ${POWERED_BY_FOOTER}
     </div>`;
   }
 
@@ -170,6 +182,62 @@ export async function sendReviewEmail(
     html,
   });
   console.log(`[sendReviewEmail] result:`, JSON.stringify(result));
+}
+
+export async function sendPreScreenEmail(
+  customer: Customer,
+  settings: Settings,
+  requestId: string,
+  appUrl: string
+): Promise<void> {
+  if (!customer.email) return;
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`[pre-screen email] No RESEND_API_KEY. Would email ${customer.email}`);
+    return;
+  }
+
+  const firstName = customer.name.split(" ")[0];
+  const baseUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : appUrl);
+  const logoAlign = settings.logoPosition === "center" ? "center" : settings.logoPosition === "right" ? "right" : "left";
+  const logoSrc = settings.logoUrl?.startsWith("http") ? settings.logoUrl : settings.logoUrl ? `${baseUrl}${settings.logoUrl}` : "";
+  const logoImg = logoSrc ? `<img src="${logoSrc}" alt="${settings.businessName}" style="max-height:112px;max-width:300px;object-fit:contain;display:inline-block;" />` : "";
+  const websiteHref = settings.websiteUrl ? (settings.websiteUrl.startsWith("http") ? settings.websiteUrl : `https://${settings.websiteUrl}`) : "";
+  const logoContent = logoImg && websiteHref ? `<a href="${websiteHref}" target="_blank" style="text-decoration:none;">${logoImg}</a>` : logoImg;
+  const logoHtml = logoContent ? `<div style="text-align:${logoAlign};margin-bottom:24px;">${logoContent}</div>` : "";
+
+  const stars = [1, 2, 3, 4, 5].map(n =>
+    `<td style="padding:0 6px;text-align:center;">
+      <a href="${baseUrl}/review-landing?rid=${requestId}&rating=${n}"
+         style="display:inline-block;width:52px;height:52px;line-height:52px;text-align:center;font-size:42px;color:#f59e0b;text-decoration:none;font-family:Arial,sans-serif;">&#9733;</a>
+      <div style="font-size:11px;color:#9ca3af;text-align:center;margin-top:2px;">${n}</div>
+    </td>`
+  ).join("");
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const result = await resend.emails.send({
+    from: `${settings.businessName} <noreply@reviewoptic.com>`,
+    replyTo: settings.businessEmail || undefined,
+    to: customer.email,
+    subject: `How would you rate your experience with ${settings.businessName}?`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#111;">
+        ${logoHtml}
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 8px;">Hi ${firstName},</h2>
+        <p style="color:#555;margin:0 0 28px;line-height:1.6;">
+          Thank you for choosing ${settings.businessName}! How would you rate your experience? Tap a star below:
+        </p>
+        <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 auto 24px;">
+          <tr>${stars}</tr>
+        </table>
+        <p style="text-align:center;color:#9ca3af;font-size:12px;margin:0 0 32px;">Tap a star to submit your rating</p>
+        <p style="color:#999;font-size:12px;line-height:1.6;">
+          If you'd prefer not to receive emails like this, please let us know.
+        </p>
+        ${POWERED_BY_FOOTER}
+      </div>
+    `,
+  });
+  console.log(`[pre-screen email] result:`, JSON.stringify(result));
 }
 
 export async function sendCancellationEmail(to: string, firstName: string, accessEndsDate: string, reactivateUrl: string) {
@@ -202,6 +270,7 @@ export async function sendCancellationEmail(to: string, firstName: string, acces
           Thank you for being a ReviewOptic customer.
         </p>
         <p style="color:#999;font-size:12px;margin-top:32px;">The ReviewOptic team</p>
+        ${POWERED_BY_FOOTER}
       </div>
     `,
   });

@@ -158,7 +158,7 @@ export default function Settings() {
     return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
   }, [form]);
 
-  const widgetCode = `<script src="https://reviewoptic.app/widget.js" data-business-id="my-business" data-min-stars="${form.widgetMinStars}" data-count="${form.widgetCount}" data-layout="${form.widgetLayout}"></script>`;
+  const widgetCode = `<script src="https://reviewoptic.app/widget.js" data-account-id="${user?.accountId}" data-theme="light"></script>`;
 
   const handleCopyWidget = () => {
     navigator.clipboard.writeText(widgetCode);
@@ -475,37 +475,9 @@ export default function Settings() {
               <CardDescription className="text-[12.5px]">Embed a reviews widget on your website. Paste the code below into your site's HTML.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-5 pb-5">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-[12.5px]">Minimum Stars to Display</Label>
-                  <Select value={String(form.widgetMinStars)} onValueChange={v => setForm(f => ({ ...f, widgetMinStars: parseInt(v) }))}>
-                    <SelectTrigger data-testid="select-min-stars"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="4">4+ stars</SelectItem>
-                      <SelectItem value="5">5 stars only</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[12.5px]">Number of Reviews</Label>
-                  <Select value={String(form.widgetCount)} onValueChange={v => setForm(f => ({ ...f, widgetCount: parseInt(v) }))}>
-                    <SelectTrigger data-testid="select-widget-count"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {[3,5,6,8,10].map(n => <SelectItem key={n} value={String(n)}>{n} reviews</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[12.5px]">Layout</Label>
-                <Select value={form.widgetLayout} onValueChange={v => setForm(f => ({ ...f, widgetLayout: v }))}>
-                  <SelectTrigger className="w-40" data-testid="select-widget-layout"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="grid">Grid</SelectItem>
-                    <SelectItem value="carousel">Carousel</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <p className="text-[12.5px] text-muted-foreground">
+                The widget displays your average star rating and total number of ratings collected through ReviewOptic. Paste the code below anywhere in your website's HTML.
+              </p>
               <div className="space-y-1.5">
                 <Label className="text-[12.5px]">Embed Code</Label>
                 <div className="relative">
@@ -525,11 +497,7 @@ export default function Settings() {
               </div>
               <div className="p-3 rounded-lg bg-muted/40 border border-border">
                 <p className="text-[12px] text-muted-foreground">
-                  <strong>API endpoint:</strong>{" "}
-                  <code className="text-[11.5px] font-mono bg-background px-1 py-0.5 rounded border border-border">
-                    GET /api/widget/my-business/reviews
-                  </code>
-                  {" "}— Returns filtered reviews for your widget.
+                  Change <code className="text-[11.5px] font-mono bg-background px-1 py-0.5 rounded border border-border">data-theme="light"</code> to <code className="text-[11.5px] font-mono bg-background px-1 py-0.5 rounded border border-border">data-theme="dark"</code> if your website has a dark background.
                 </p>
               </div>
             </CardContent>

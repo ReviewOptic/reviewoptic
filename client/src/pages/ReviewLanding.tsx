@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearch } from "wouter";
-import { Star, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
+import { Star, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,36 +9,78 @@ import { cn } from "@/lib/utils";
 
 type Step = "rating" | "platforms" | "feedback" | "done";
 
-const PLATFORM_LOGOS: Record<string, React.ReactNode> = {
-  google: (
-    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-    </svg>
-  ),
-  facebook: (
-    <svg className="w-4 h-4 text-[#1877F2]" fill="currentColor" viewBox="0 0 24 24">
-      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-    </svg>
-  ),
-  trustpilot: (
-    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="#00B67A">
-      <path d="M12 0L14.59 8.41H23L16.18 13.59L18.76 22L12 16.82L5.24 22L7.82 13.59L1 8.41H9.41L12 0Z"/>
-    </svg>
-  ),
+const PLATFORM_META: Record<string, { name: string; signIn: boolean; logo: React.ReactNode }> = {
+  google: {
+    name: "Google",
+    signIn: true,
+    logo: (
+      <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+      </svg>
+    ),
+  },
+  facebook: {
+    name: "Facebook",
+    signIn: true,
+    logo: (
+      <svg className="w-8 h-8" fill="#1877F2" viewBox="0 0 24 24">
+        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+      </svg>
+    ),
+  },
+  trustpilot: {
+    name: "Trustpilot",
+    signIn: true,
+    logo: (
+      <svg className="w-8 h-8" viewBox="0 0 24 24" fill="#00B67A">
+        <path d="M12 0L14.59 8.41H23L16.18 13.59L18.76 22L12 16.82L5.24 22L7.82 13.59L1 8.41H9.41L12 0Z"/>
+      </svg>
+    ),
+  },
+  tripadvisor: {
+    name: "TripAdvisor",
+    signIn: true,
+    logo: (
+      <svg className="w-8 h-8" viewBox="0 0 24 24" fill="#34E0A1">
+        <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 18a8 8 0 110-16 8 8 0 010 16zm-3.5-8a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm7 0a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm-3.5 4c-1.8 0-3.3-1-4-2.5h8c-.7 1.5-2.2 2.5-4 2.5z"/>
+      </svg>
+    ),
+  },
+  checkatrade: {
+    name: "Checkatrade",
+    signIn: false,
+    logo: (
+      <svg className="w-8 h-8" viewBox="0 0 24 24" fill="#1B5EA6">
+        <path d="M12 2L3 7v10l9 5 9-5V7L12 2zm0 2.18L19 8.09v7.82L12 19.82 5 15.91V8.09L12 4.18zm-1 4.32v7l5-3.5-5-3.5z"/>
+      </svg>
+    ),
+  },
+  mybuilder: {
+    name: "MyBuilder",
+    signIn: false,
+    logo: (
+      <svg className="w-8 h-8" viewBox="0 0 24 24" fill="#F26522">
+        <path d="M3 3h18v4H3zm0 7h8v11H3zm10 0h8v11h-8z"/>
+      </svg>
+    ),
+  },
 };
 
 export default function ReviewLanding() {
   const search = useSearch();
   const params = new URLSearchParams(search);
   const rid = params.get("rid");
+  const preRating = parseInt(params.get("rating") || "0");
 
   const [step, setStep] = useState<Step>("rating");
   const [hoveredStar, setHoveredStar] = useState(0);
   const [selectedStar, setSelectedStar] = useState(0);
   const [platforms, setPlatforms] = useState<{ key: string; name: string; url: string }[]>([]);
+  const [recordingUrl, setRecordingUrl] = useState("");
+  const [recordingType, setRecordingType] = useState("");
   const [feedbackText, setFeedbackText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [rating, setRating] = useState(0);
@@ -58,6 +100,14 @@ export default function ReviewLanding() {
     enabled: !!rid,
   });
 
+  // If the customer clicked a star directly in the email, auto-submit once info has loaded
+  // Skip if already rated to prevent double-submission
+  useEffect(() => {
+    if (!preRating || !rid || isSubmitting || !info) return;
+    if (info.alreadyRated) { setStep("done"); return; }
+    handleStarClick(preRating);
+  }, [rid, info]);
+
   async function handleStarClick(star: number) {
     if (isSubmitting || !rid) return;
     setSelectedStar(star);
@@ -72,6 +122,8 @@ export default function ReviewLanding() {
       const data = await res.json();
       if (data.highRating) {
         setPlatforms(data.platforms || []);
+        setRecordingUrl(data.recordingUrl || "");
+        setRecordingType(data.recordingType || "");
         setStep("platforms");
       } else {
         setStep("feedback");
@@ -137,6 +189,11 @@ export default function ReviewLanding() {
                   <div className="flex justify-center py-4">
                     <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                   </div>
+                ) : info?.alreadyRated ? (
+                  <div className="text-center py-4">
+                    <CheckCircle2 className="w-8 h-8 text-green-500 mx-auto mb-2" />
+                    <p className="text-[14px] text-muted-foreground">You've already submitted your rating — thank you!</p>
+                  </div>
                 ) : (
                   <div className="flex justify-center gap-2">
                     {[1, 2, 3, 4, 5].map(star => (
@@ -181,21 +238,44 @@ export default function ReviewLanding() {
                   </div>
                   <h2 className="text-[18px] font-bold">Thank you{firstName ? `, ${firstName}` : ""}!</h2>
                   <p className="text-[13px] text-muted-foreground mt-1">
-                    Would you mind sharing your experience on one of these platforms? It means the world to us.
+                    Choose a platform to leave your review
                   </p>
                 </div>
 
+                {recordingUrl && (
+                  <div className="rounded-xl overflow-hidden border border-border bg-black">
+                    {recordingType === "video" ? (
+                      <video src={recordingUrl} controls className="w-full max-h-64 object-contain" />
+                    ) : (
+                      <div className="flex items-center gap-3 p-4 bg-muted/40">
+                        <span className="text-2xl">🎙️</span>
+                        <audio src={recordingUrl} controls className="flex-1" />
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {platforms.length > 0 ? (
-                  <div className="space-y-2.5">
-                    {platforms.map(p => (
-                      <a key={p.key} href={p.url} target="_blank" rel="noopener noreferrer">
-                        <Button className="w-full gap-2 h-11" variant={p.key === "google" ? "default" : "outline"}>
-                          {PLATFORM_LOGOS[p.key] ?? null}
-                          Leave a review on {p.name}
-                          <ArrowRight className="w-3.5 h-3.5 ml-auto" />
-                        </Button>
-                      </a>
-                    ))}
+                  <div className="grid grid-cols-2 gap-3">
+                    {platforms.map(p => {
+                      const meta = PLATFORM_META[p.key];
+                      return (
+                        <a key={p.key} href={p.url} target="_blank" rel="noopener noreferrer">
+                          <div className="flex flex-col items-center gap-2 p-4 rounded-xl border border-border bg-card hover:bg-muted/50 hover:border-primary/40 transition-colors cursor-pointer">
+                            {meta?.logo ?? null}
+                            <span className="text-[13px] font-semibold">{p.name}</span>
+                            <span className={cn(
+                              "text-[10.5px] px-2 py-0.5 rounded-full font-medium",
+                              meta?.signIn
+                                ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                : "bg-green-50 text-green-700 border border-green-200"
+                            )}>
+                              {meta?.signIn ? "Sign in required" : "No sign in required"}
+                            </span>
+                          </div>
+                        </a>
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="text-center text-[13px] text-muted-foreground py-4">

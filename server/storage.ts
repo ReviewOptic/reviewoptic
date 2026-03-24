@@ -302,8 +302,8 @@ export class DatabaseStorage implements IStorage {
     const requestsThisMonth = Number(rrCount);
     const [{ count: pendingCount }] = await db
       .select({ count: sql<number>`count(*)` })
-      .from(reviewRequests)
-      .where(and(eq(reviewRequests.accountId, accountId), eq(reviewRequests.status, "pending")));
+      .from(privateFeedback)
+      .where(and(eq(privateFeedback.accountId, accountId), eq(privateFeedback.responded, false)));
     const pendingRequests = Number(pendingCount);
     const clicksThisMonth = allCustomers.filter(c => c.status === "clicked" && c.createdAt >= monthStart).length;
     const sent = allCustomers.filter(c => c.status !== "pending_request").length;

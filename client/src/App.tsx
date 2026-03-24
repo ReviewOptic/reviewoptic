@@ -109,6 +109,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/review-landing" component={ReviewLanding} />
+      <Route path="/review" component={ReviewLanding} />
       <Route path="/privacy" component={PrivacyPolicy} />
       <Route path="/terms" component={TermsAndConditions} />
       <Route path="/pricing" component={Pricing} />

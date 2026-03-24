@@ -9,7 +9,7 @@ import fs from "fs";
 import bcrypt from "bcryptjs";
 import { Resend } from "resend";
 import OpenAI from "openai";
-import { sendReviewEmail, sendVerificationEmail } from "./email";
+import { sendReviewEmail, sendVerificationEmail, sendPreScreenEmail } from "./email";
 import { sendReviewSMS, sendWhatsAppMessage, sendPlainSMS } from "./sms";
 import { isCloudinaryConfigured, uploadToCloudinary, deleteFromCloudinary } from "./cloudinary";
 import { cloneVoice, deleteVoice, generateNameAudio, stitchNameToFront } from "./elevenlabs";
@@ -911,6 +911,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.get("/api/public/widget-stats/:accountId", async (req, res) => {
+    try {
+      const { accountId } = req.params;
+      const { rows } = await pool.query(
+        `SELECT COUNT(*)::int AS total, ROUND(AVG(rating)::numeric, 1)::float AS average
+         FROM review_requests
+         WHERE account_id = $1 AND rating IS NOT NULL`,
+        [accountId]
+      );
+      const { total, average } = rows[0];
+      if (!total) return res.json({ totalRatings: 0, averageRating: 0 });
+      res.json({ totalRatings: total, averageRating: parseFloat(average) });
+    } catch (err) {
+      console.error("[widget-stats]", err);
+      res.status(500).json({ message: "Error" });
+    }
+  });
+
   // ── Sentiment pre-screen public routes ───────────────────────────────────
   // Returns the minimal info needed to render the rating page (no auth required)
   app.get("/api/public/review-request/:id", async (req, res) => {
@@ -937,6 +955,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const request = await storage.getReviewRequest(String(req.params.id));
       if (!request) return res.status(404).json({ message: "Not found" });
+      if (request.rating) return res.status(409).json({ message: "Already rated", alreadyRated: true });
       const rating = parseInt(req.body.rating);
       if (!rating || rating < 1 || rating > 5) return res.status(400).json({ message: "Invalid rating" });
 
@@ -965,6 +984,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       // Auto-send the appropriate response template via the same channel
       const allTemplates = await storage.getTemplates(request.accountId);
       const customer = await storage.getCustomer(request.customerId, request.accountId);
+
+      // Log activity for the rating
+      if (customer) {
+        const stars = "★".repeat(rating) + "☆".repeat(5 - rating);
+        await storage.createActivity({
+          id: randomUUID(),
+          accountId: request.accountId,
+          type: "review_received",
+          customerId: customer.id,
+          customerName: customer.name,
+          message: `${customer.name} left a ${rating}-star rating ${stars}`,
+          metadata: "{}",
+        });
+      }
+
       const templateType = rating >= 4 ? "response_positive" : "response_negative";
       const responseTemplate = allTemplates.find(t => t.templateType === templateType && t.channel === request.channel && t.isDefault)
         || allTemplates.find(t => t.templateType === templateType && t.channel === request.channel)
@@ -1011,7 +1045,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         );
       }
 
-      res.json({ highRating: rating >= 4, platforms });
+      // Fetch recording info to embed on the landing page for high ratings
+      let recordingUrl = "";
+      let recordingType = "";
+      if (rating >= 4) {
+        const { rows: rrRows } = await pool.query(
+          `SELECT recording_url, recording_type FROM review_requests WHERE id = $1`,
+          [request.id]
+        ).catch(() => ({ rows: [] as any[] }));
+        if (rrRows.length > 0) {
+          recordingUrl = rrRows[0].recording_url || "";
+          recordingType = rrRows[0].recording_type || "";
+        }
+      }
+
+      res.json({ highRating: rating >= 4, platforms, recordingUrl, recordingType });
     } catch {
       res.status(500).json({ message: "Server error" });
     }
@@ -1254,6 +1302,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (templateId) {
       await pool.query(`UPDATE review_requests SET template_id = $1 WHERE id = $2`, [templateId, rr.id]).catch(() => {});
     }
+    // If a recording was sent, store its URL so the landing page can show it after rating
+    const recordingId: string | undefined = req.body.recordingId || undefined;
+    if (recordingId) {
+      const { rows: recRows } = await pool.query(
+        `SELECT type, url FROM recordings WHERE id = $1 AND account_id = $2`,
+        [recordingId, req.session.accountId]
+      ).catch(() => ({ rows: [] as any[] }));
+      if (recRows.length > 0) {
+        await pool.query(
+          `UPDATE review_requests SET recording_url = $1, recording_type = $2 WHERE id = $3`,
+          [recRows[0].url, recRows[0].type, rr.id]
+        ).catch(() => {});
+      }
+    }
     // Update customer status and log activity immediately regardless of schedule
     await storage.updateCustomer(customer.id, { status: "request_sent" }, req.session.accountId!);
     const scheduledAt = req.body.scheduledAt ? new Date(req.body.scheduledAt) : new Date();
@@ -1284,12 +1346,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!settings) return;
       try {
         if (channel === "email" && customer.email) {
-          // Fixed pre-screen email
-          const fixedTemplate = {
-            subject: `How would you rate your experience with ${settings.businessName}?`,
-            body: `Hi ${firstName},\n\nThank you for choosing ${settings.businessName}! We'd love to hear how we did — it only takes a second.\n\nClick below to rate your experience:\n\n${ratingLink}\n\nThanks,\nThe ${settings.businessName} team`,
-          };
-          await sendReviewEmail(customer, settings, fixedTemplate as any, []);
+          await sendPreScreenEmail(customer, settings, rr.id, appUrl);
         } else if (channel === "sms" && customer.phone) {
           const fixedTemplate = {
             subject: "",

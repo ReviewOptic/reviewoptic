@@ -236,6 +236,10 @@ export async function runMigrations() {
       WHERE template_type = 'follow_up' AND channel = 'whatsapp' AND is_default = true
     `);
 
+    // Store which recording was sent with a review request (for landing page media embed)
+    await pool.query(`ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS recording_url TEXT NOT NULL DEFAULT ''`);
+    await pool.query(`ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS recording_type TEXT NOT NULL DEFAULT ''`);
+
     // Recordings table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS recordings (
