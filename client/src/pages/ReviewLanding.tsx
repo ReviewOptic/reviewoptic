@@ -302,7 +302,16 @@ export default function ReviewLanding() {
                   {platforms.map(p => {
                     const meta = PLATFORM_META[p.key];
                     return (
-                      <a key={p.key} href={p.url} target="_blank" rel="noopener noreferrer">
+                      <button key={p.key} onClick={() => {
+                        if (rid) {
+                          fetch(`/api/track/${rid}/platform-click`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ platform: p.key }),
+                          }).catch(() => {});
+                        }
+                        window.open(p.url, "_blank", "noopener,noreferrer");
+                      }} className="w-full">
                         <div className="flex flex-col items-center gap-2 p-4 rounded-xl border border-border bg-card hover:bg-muted/50 hover:border-primary/40 transition-colors cursor-pointer">
                           {meta?.logo ?? null}
                           <span className="text-[13px] font-semibold">{p.name}</span>
@@ -315,7 +324,7 @@ export default function ReviewLanding() {
                             {meta?.signIn ? "Sign in required" : "No sign in required"}
                           </span>
                         </div>
-                      </a>
+                      </button>
                     );
                   })}
                 </div>

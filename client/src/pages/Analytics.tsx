@@ -60,6 +60,7 @@ interface AnalyticsData {
   ratingOverTime?: Array<{ date: string; avg: number; count: number }>;
   privateFeedbackCount?: number;
   avgResponseTimeHours?: number | null;
+  platformClicks?: Array<{ platform: string; count: number }>;
 }
 
 const CHANNELS = ["email", "sms", "whatsapp"] as const;
@@ -718,6 +719,30 @@ export default function Analytics() {
                   <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => [Number(v).toFixed(1), "Avg Rating"]} />
                   <Line type="monotone" dataKey="avg" name="Avg Rating" stroke={colors.rating} strokeWidth={2} dot={{ r: 3, fill: colors.rating }} />
                 </LineChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Platform Click Breakdown */}
+      {data?.platformClicks && data.platformClicks.length > 0 && (
+        <Card className="border-card-border">
+          <CardHeader className="pb-2 pt-4 px-5">
+            <CardTitle className="text-[14px] font-semibold">Where Reviews Are Going</CardTitle>
+            <p className="text-[12px] text-muted-foreground">Which review platform links customers clicked</p>
+          </CardHeader>
+          <CardContent className="px-5 pb-4">
+            {isLoading ? <Skeleton className="h-40 w-full" /> : (
+              <ResponsiveContainer width="100%" height={Math.max(120, data.platformClicks.length * 44)}>
+                <BarChart data={data.platformClicks.map(p => ({ ...p, platform: p.platform.charAt(0).toUpperCase() + p.platform.slice(1) }))}
+                  layout="vertical" margin={{ top: 5, right: 40, bottom: 5, left: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                  <YAxis type="category" dataKey="platform" tick={{ fontSize: 12, fill: "hsl(var(--foreground))" }} tickLine={false} axisLine={false} width={80} />
+                  <Tooltip contentStyle={tooltipStyle} formatter={(v) => [v, "Clicks"]} />
+                  <Bar dataKey="count" name="Clicks" fill={colors.reviews} radius={[0, 4, 4, 0]} barSize={22} label={{ position: "right", fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
+                </BarChart>
               </ResponsiveContainer>
             )}
           </CardContent>

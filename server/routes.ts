@@ -761,28 +761,43 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // ── Public routes (no requireAuth) ───────────────────────────────────────
 
   // Track link click (must remain public — customers click this)
+  // Email link click — just redirects to the landing page, no status change.
+  // Status is only updated when the customer clicks an actual review platform button.
   app.get("/api/track/:requestId/click", async (req, res) => {
-    const rr = await storage.updateReviewRequest(req.params.requestId, {
-      clickedAt: new Date(),
-      status: "clicked",
-    });
-    if (rr) {
-      const accountId = rr.accountId;
-      const customer = await storage.getCustomer(rr.customerId, accountId);
+    res.redirect("/review-landing?rid=" + req.params.requestId);
+  });
+
+  // Platform button click — records which platform and marks as clicked
+  app.post("/api/track/:requestId/platform-click", async (req, res) => {
+    const { platform } = req.body;
+    if (!platform) return res.status(400).json({ message: "platform required" });
+    const rr = await storage.getReviewRequest(req.params.requestId);
+    if (!rr) return res.status(404).json({ message: "Not found" });
+
+    await pool.query(
+      `INSERT INTO review_platform_clicks (id, request_id, account_id, platform) VALUES ($1, $2, $3, $4)`,
+      [randomUUID(), rr.id, rr.accountId, platform]
+    );
+
+    // Only update status/activity once (first platform click)
+    if (rr.status !== "clicked") {
+      await storage.updateReviewRequest(rr.id, { status: "clicked", clickedAt: new Date() });
+      const customer = await storage.getCustomer(rr.customerId, rr.accountId);
       if (customer) {
-        await storage.updateCustomer(customer.id, { status: "clicked" }, accountId);
+        await storage.updateCustomer(customer.id, { status: "clicked" }, rr.accountId);
+        const platformName = platform.charAt(0).toUpperCase() + platform.slice(1);
         await storage.createActivity({
           id: randomUUID(),
-          accountId,
+          accountId: rr.accountId,
           type: "link_clicked",
           customerId: customer.id,
           customerName: customer.name,
-          message: `${customer.name} clicked the review link`,
-          metadata: "{}",
+          message: `${customer.name} clicked the ${platformName} review link`,
+          metadata: JSON.stringify({ platform }),
         });
       }
     }
-    res.redirect("/review-landing?rid=" + req.params.requestId);
+    res.json({ ok: true });
   });
 
   // Reviews submit (public — customers submit this)
@@ -1914,6 +1929,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       avgResponseTimeHours = rtRows[0]?.avg_hours ? parseFloat(rtRows[0].avg_hours) : null;
     } catch { /* ignore */ }
 
+    // Platform click breakdown
+    let platformClicks: { platform: string; count: number }[] = [];
+    try {
+      const { rows: pcRows } = await pool.query(`
+        SELECT platform, COUNT(*)::int as count
+        FROM review_platform_clicks
+        WHERE account_id = $1 AND clicked_at >= $2 AND clicked_at <= $3
+        GROUP BY platform ORDER BY count DESC
+      `, [accountId, cutoff, cutoffEnd]);
+      platformClicks = pcRows.map(r => ({ platform: r.platform, count: r.count }));
+    } catch { /* ignore */ }
+
     res.json({
       daily: Object.values(dailyData),
       dailyByChannel: Object.values(channelDailyData),
@@ -1930,6 +1957,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       ratingOverTime,
       privateFeedbackCount,
       avgResponseTimeHours,
+      platformClicks,
     });
   });
 

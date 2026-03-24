@@ -276,6 +276,17 @@ export async function runMigrations() {
     // Archived flag for customers
     await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE`);
 
+    // Platform clicks tracking
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS review_platform_clicks (
+        id VARCHAR PRIMARY KEY,
+        request_id VARCHAR NOT NULL,
+        account_id VARCHAR NOT NULL,
+        platform TEXT NOT NULL,
+        clicked_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();
