@@ -786,37 +786,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // Reviews submit (public — customers submit this)
-  app.post("/api/reviews", async (req, res) => {
-    // Get accountId from the review request (customer-facing flow)
-    const rr = req.body.requestId ? await storage.getReviewRequest(req.body.requestId) : null;
-    const accountId = rr?.accountId || req.session.accountId;
-    if (!accountId) return res.status(400).json({ message: "Cannot determine account" });
-
-    const review = await storage.createReview({ ...req.body, accountId });
-    const customer = rr ? await storage.getCustomer(rr.customerId, accountId) : null;
-    if (customer) {
-      await storage.updateCustomer(customer.id, { status: "review_completed" }, accountId);
-      await storage.createActivity({
-        id: randomUUID(),
-        accountId,
-        type: "review_received",
-        customerId: customer.id,
-        customerName: customer.name,
-        message: `${customer.name} left a ${req.body.stars}-star review on ${req.body.platform}`,
-        metadata: JSON.stringify({ stars: req.body.stars, platform: req.body.platform }),
-      });
-      if (review.stars >= 4) {
-        const settings = await storage.getSettings(accountId);
-        if (settings) {
-          postReviewToSocial(review, customer, settings).catch(err =>
-            console.error("Social post failed:", err)
-          );
-        }
-      }
-    }
-    res.json(review);
-  });
-
   // Private feedback submit (public — customers submit this)
   app.post("/api/private-feedback", async (req, res) => {
     const rr = req.body.requestId ? await storage.getReviewRequest(req.body.requestId) : null;
