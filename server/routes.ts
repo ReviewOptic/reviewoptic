@@ -942,7 +942,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           mybuilder: settings?.mybuilderLink || "",
         };
         const platformNames: Record<string, string> = { google: "Google", facebook: "Facebook", trustpilot: "Trustpilot", tripadvisor: "TripAdvisor", checkatrade: "Checkatrade", mybuilder: "MyBuilder" };
-        platforms = Object.entries(platformMap).filter(([, url]) => url).map(([key, url]) => ({ key, name: platformNames[key], url }));
+        platforms = Object.entries(platformMap).filter(([, url]) => url).map(([key, url]) => ({ key, name: platformNames[key], url: url.startsWith("http") ? url : `https://${url}` }));
         const { rows: rrRows } = await pool.query(
           `SELECT recording_url, recording_type FROM review_requests WHERE id = $1`,
           [request.id]
@@ -997,7 +997,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       // Fetch platform links for high rating display on landing page
       const platforms = rating >= 4
-        ? Object.entries(platformMap).filter(([, url]) => url).map(([key, url]) => ({ key, name: platformNames[key], url }))
+        ? Object.entries(platformMap).filter(([, url]) => url).map(([key, url]) => ({ key, name: platformNames[key], url: url.startsWith("http") ? url : `https://${url}` }))
         : [];
 
       // Auto-send the appropriate response template via the same channel
