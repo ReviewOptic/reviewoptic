@@ -32,7 +32,7 @@ const VIDEOS = [
   },
   {
     title: "How to set up follow-ups",
-    description: "How to enable automatic follow-up messages so no customer slips through the net.",
+    description: "How to enable automatic follow-ups, set delays for up to 3 reminders, and understand how rated-but-not-clicked customers get a personalised reminder instead of the generic follow-up.",
     duration: "2 min",
     url: "", // paste YouTube embed URL here
   },
@@ -95,7 +95,7 @@ const TIPS = [
   },
   {
     tip: "The follow-up is where the magic happens",
-    detail: "Research shows that the majority of reviews come from the second contact, not the first. Always have follow-ups enabled — customers often just need a gentle reminder.",
+    detail: "Research shows that the majority of reviews come from the second or third contact, not the first. Always have follow-ups enabled with at least 2 reminders. Customers who rated 4–5★ automatically get a personalised reminder — not a generic nudge — which converts far better.",
   },
   {
     tip: "Sound like yourself, not a template",
@@ -115,7 +115,7 @@ const TIPS = [
   },
   {
     tip: "Check in with your analytics weekly",
-    detail: "Spending 5 minutes a week reviewing your stats tells you what's working and what isn't. Small adjustments — a different template, a different send time — can make a big difference to your results.",
+    detail: "Spending 5 minutes a week on Analytics tells you what's working. Check the Customer Pipeline to see how many people are stuck awaiting follow-ups, the Follow-up Effectiveness chart to see if extra reminders are converting, and the No Response count to gauge how many are slipping through.",
   },
   {
     tip: "Private feedback is a gift — use it",

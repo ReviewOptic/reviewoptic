@@ -4,7 +4,7 @@ import pkg from "pg";
 const { Pool } = pkg;
 import { randomUUID } from "crypto";
 import { sendReviewEmail } from "./email";
-import { sendReviewSMS } from "./sms";
+import { sendReviewSMS, sendWhatsAppMessage } from "./sms";
 import {
   accounts, customers, reviewRequests, reviews, privateFeedback, activityLog, templates, settings, users, passwordResetTokens, adminImpersonationLog,
   type Account,
@@ -342,13 +342,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async sendFollowUps(): Promise<number> {
-    // Get all unique accountIds that have active customers
+    // Include all statuses where a follow-up may still need to be sent
     const activeCustomers = await db.select().from(customers).where(
-      and(eq(customers.status, "request_sent"), eq(customers.doNotContact, false))
+      and(
+        inArray(customers.status, ["request_sent", "follow_up_1_sent", "follow_up_2_sent", "follow_up_3_sent"]),
+        eq(customers.doNotContact, false),
+        eq(customers.archived, false)
+      )
     );
     if (activeCustomers.length === 0) return 0;
 
-    // Get unique accountIds
     const accountIds = Array.from(new Set(activeCustomers.map(c => c.accountId)));
     let totalSent = 0;
     const now = new Date();
@@ -359,9 +362,12 @@ export class DatabaseStorage implements IStorage {
 
       const followUp1Days = s.followUp1Days ?? 3;
       const followUp2Days = s.followUp2Days ?? 7;
+      const followUp3Days = s.followUp3Days ?? 14;
       const maxFollowUps = s.maxFollowUps ?? 2;
+
       const cutoff1 = new Date(now.getTime() - followUp1Days * 24 * 60 * 60 * 1000);
       const cutoff2 = new Date(now.getTime() - followUp2Days * 24 * 60 * 60 * 1000);
+      const cutoff3 = new Date(now.getTime() - followUp3Days * 24 * 60 * 60 * 1000);
 
       const eligible = activeCustomers.filter(c => c.accountId === accountId);
 
@@ -372,58 +378,118 @@ export class DatabaseStorage implements IStorage {
 
         const sentCount = requests.length;
         const firstSentAt = requests[0]?.sentAt;
-        if (!firstSentAt || sentCount > maxFollowUps) continue;
+        if (!firstSentAt) continue;
 
         // Skip customers who rated 1-3 stars — they're in the private feedback track
         const hasLowRating = requests.some(r => r.rating !== null && r.rating <= 3);
         if (hasLowRating) continue;
 
-        const shouldSendNext =
-          (sentCount === 1 && firstSentAt <= cutoff1) ||
-          (sentCount === 2 && maxFollowUps >= 2 && firstSentAt <= cutoff2);
+        // Customer has rated 4-5★ but hasn't clicked a platform link yet
+        const hasHighRating = requests.some(r => r.rating !== null && r.rating >= 4);
 
-        if (shouldSendNext) {
-          await db.insert(reviewRequests).values({
-            id: randomUUID(),
-            accountId: customer.accountId,
-            customerId: customer.id,
-            status: "sent",
-            channel: customer.channel,
-            sentAt: now,
-            followUpCount: sentCount,
-          });
-          await this.createActivity({
-            id: randomUUID(),
-            accountId: customer.accountId,
-            type: "request_sent",
-            customerId: customer.id,
-            customerName: customer.name,
-            message: `Follow-up #${sentCount + 1} sent automatically to ${customer.name} via ${customer.channel}`,
-            metadata: "{}",
-          });
-
-          // Send follow-up
-          const allTemplates = await this.getTemplates(customer.accountId);
-          if (customer.channel === "email" && customer.email) {
-            const template =
-              allTemplates.find(t => t.channel === "email" && t.isDefault) ||
-              allTemplates.find(t => t.channel === "email") ||
-              null;
-            sendReviewEmail(customer, s, template).catch(err =>
-              console.error(`[follow-up] Failed to send email to ${customer.email}:`, err.message)
-            );
-          } else if (customer.channel === "sms" && customer.phone) {
-            const template =
-              allTemplates.find(t => t.channel === "sms" && t.isDefault) ||
-              allTemplates.find(t => t.channel === "sms") ||
-              null;
-            sendReviewSMS(customer, s, template).catch(err =>
-              console.error(`[follow-up] Failed to send SMS to ${customer.phone}:`, err.message)
-            );
-          }
-
-          totalSent++;
+        // If all follow-ups are exhausted, mark no_response and move on
+        if (sentCount > maxFollowUps) {
+          await this.updateCustomer(customer.id, { status: "no_response" }, accountId);
+          continue;
         }
+
+        // Determine whether it's time to send the next follow-up (all cutoffs measured from original send)
+        let nextStatus: string;
+        let shouldSend = false;
+        if (sentCount === 1) {
+          shouldSend = firstSentAt <= cutoff1;
+          nextStatus = "follow_up_1_sent";
+        } else if (sentCount === 2 && maxFollowUps >= 2) {
+          shouldSend = firstSentAt <= cutoff2;
+          nextStatus = "follow_up_2_sent";
+        } else if (sentCount === 3 && maxFollowUps >= 3) {
+          shouldSend = firstSentAt <= cutoff3;
+          nextStatus = "follow_up_3_sent";
+        } else {
+          continue;
+        }
+
+        if (!shouldSend) continue;
+
+        // Rated 4-5★ but not clicked → use response_positive template (thanks for rating, please review)
+        // Unrated → use follow_up template (generic follow-up asking to rate)
+        const templateType = hasHighRating ? "response_positive" : "follow_up";
+        const allTemplates = await this.getTemplates(accountId);
+
+        // Insert a new review_request row for this follow-up
+        await db.insert(reviewRequests).values({
+          id: randomUUID(),
+          accountId: customer.accountId,
+          customerId: customer.id,
+          status: "pending",
+          channel: customer.channel,
+          sentAt: now,
+          followUpCount: sentCount,
+        });
+
+        // Update customer status
+        await this.updateCustomer(customer.id, { status: nextStatus }, accountId);
+
+        // Activity log
+        const label = hasHighRating
+          ? `Rating reminder #${sentCount} sent to ${customer.name} via ${customer.channel}`
+          : `Follow-up #${sentCount} sent automatically to ${customer.name} via ${customer.channel}`;
+        await this.createActivity({
+          id: randomUUID(),
+          accountId: customer.accountId,
+          type: "request_sent",
+          customerId: customer.id,
+          customerName: customer.name,
+          message: label,
+          metadata: "{}",
+        });
+
+        // Send the message using the right template type
+        if (customer.channel === "email" && customer.email) {
+          const template =
+            allTemplates.find(t => t.channel === "email" && t.templateType === templateType && t.isDefault) ||
+            allTemplates.find(t => t.channel === "email" && t.templateType === templateType) ||
+            allTemplates.find(t => t.channel === "email" && t.templateType === "follow_up" && t.isDefault) ||
+            allTemplates.find(t => t.channel === "email" && t.templateType === "follow_up") ||
+            null;
+          sendReviewEmail(customer, s, template).catch(err =>
+            console.error(`[follow-up] Failed to send email to ${customer.email}:`, err.message)
+          );
+        } else if (customer.channel === "sms" && customer.phone) {
+          const template =
+            allTemplates.find(t => t.channel === "sms" && t.templateType === templateType && t.isDefault) ||
+            allTemplates.find(t => t.channel === "sms" && t.templateType === templateType) ||
+            allTemplates.find(t => t.channel === "sms" && t.templateType === "follow_up" && t.isDefault) ||
+            allTemplates.find(t => t.channel === "sms" && t.templateType === "follow_up") ||
+            null;
+          sendReviewSMS(customer, s, template).catch(err =>
+            console.error(`[follow-up] Failed to send SMS to ${customer.phone}:`, err.message)
+          );
+        } else if (customer.channel === "whatsapp" && customer.phone) {
+          const template =
+            allTemplates.find(t => t.channel === "whatsapp" && t.templateType === templateType && t.isDefault) ||
+            allTemplates.find(t => t.channel === "whatsapp" && t.templateType === templateType) ||
+            allTemplates.find(t => t.channel === "whatsapp" && t.templateType === "follow_up" && t.isDefault) ||
+            allTemplates.find(t => t.channel === "whatsapp" && t.templateType === "follow_up") ||
+            null;
+          const firstName = customer.name.split(" ")[0];
+          const reviewLink = s.googleReviewLink || s.facebookReviewLink || s.trustpilotLink || s.tripadvisorLink || s.checkatradeLink || s.mybuilderLink || "";
+          const body = template?.body
+            ? template.body
+                .replace(/\{\{customer_name\}\}/g, customer.name)
+                .replace(/\{\{first_name\}\}/g, firstName)
+                .replace(/\{\{business_name\}\}/g, s.businessName)
+                .replace(/\{\{service_type\}\}/g, customer.serviceType || "")
+                .replace(/\{\{review_link\}\}/g, reviewLink)
+            : hasHighRating
+              ? `Hi ${firstName}, thanks again for rating us! If you have a moment, we'd love it if you shared your experience in a quick review: ${reviewLink}`
+              : `Hi ${firstName}, just following up — we'd love to hear about your experience with ${s.businessName}! It only takes a moment: ${reviewLink}`;
+          sendWhatsAppMessage(customer.phone, body).catch(err =>
+            console.error(`[follow-up] Failed to send WhatsApp to ${customer.phone}:`, err.message)
+          );
+        }
+
+        totalSent++;
       }
     }
     return totalSent;

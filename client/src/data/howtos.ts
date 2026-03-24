@@ -33,10 +33,12 @@ export const HOWTOS: HowTo[] = [
     title: "How to set up follow-ups",
     steps: [
       { text: "Go to Settings and open the Follow-up tab.", link: "/settings", linkText: "Settings" },
-      { text: "Enable automatic follow-ups and choose your delay (e.g. 3 days after the first request)." },
-      { text: "ReviewOptic will automatically send a second nudge to customers who rated 4–5 stars but haven't yet left a public review." },
+      { text: "Enable automatic follow-ups and set your delays. Follow-up 1 fires X days after the initial request; Follow-up 2 fires Y days after that; Follow-up 3 (optional) fires Z days after Follow-up 2." },
+      { text: "Set Maximum Follow-Ups to 1, 2, or 3. Customers who haven't responded after the maximum are automatically marked as No Response." },
+      { text: "For customers who rated 4–5 stars but haven't clicked a review platform link, follow-ups use your 'response_positive' template — thanking them for their rating and asking them to share it publicly." },
+      { text: "For customers who haven't rated at all, follow-ups use your standard follow-up template asking them to rate their experience." },
       { text: "Customers who rated 1–3 stars are never sent a follow-up — they go into the private feedback track instead." },
-      { text: "Most reviews come from the follow-up — don't skip this step." },
+      { text: "You can track follow-up status in real time on the Customers page — look for the Follow-up 1 Sent, Follow-up 2 Sent, or Follow-up 3 Sent badges." },
     ],
   },
   {
@@ -66,9 +68,11 @@ export const HOWTOS: HowTo[] = [
     steps: [
       { text: "Go to the Customers page.", link: "/customers", linkText: "Customers page" },
       { text: "Pending Request — the customer has been added but no review request has been sent yet." },
-      { text: "Request Sent — a review request has been sent and we are waiting for a response." },
-      { text: "Clicked — the customer clicked the link and submitted their star rating." },
-      { text: "No Response — the customer did not respond within the expected timeframe." },
+      { text: "Request Sent — the initial review request has been sent and we're waiting for a response." },
+      { text: "Follow-up 1 Sent / Follow-up 2 Sent / Follow-up 3 Sent — automatic follow-up reminders have been sent. Customers who rated 4–5★ but haven't clicked a platform link get a personalised rating reminder; unrated customers get a standard follow-up." },
+      { text: "Clicked — the customer clicked a review platform link (e.g. Google, Trustpilot). This counts as a conversion." },
+      { text: "No Response — the customer did not respond after all follow-ups were exhausted. This is set automatically." },
+      { text: "Do Not Contact — no further messages will ever be sent to this customer." },
     ],
   },
   {
@@ -86,9 +90,13 @@ export const HOWTOS: HowTo[] = [
     steps: [
       { text: "Go to Analytics.", link: "/analytics", linkText: "Analytics" },
       { text: "Use the date range filter to choose the period you want to review." },
-      { text: "Your average star rating is shown on the Dashboard — this is based on the ratings customers give through the sentiment pre-screen." },
+      { text: "The summary cards show: Requests Sent, Links Clicked, Click Rate, No Response count, Avg. Star Rating, Private Feedback, and Avg. Response Time." },
+      { text: "The Customer Pipeline chart shows where customers currently sit in the follow-up sequence — how many are at each stage (Request Sent, Follow-up 1, 2, 3, Clicked, No Response)." },
+      { text: "Follow-up Effectiveness shows click rates broken down by how many follow-ups a customer received (none, 1, 2, or 3). Use this to see if more follow-ups are actually converting." },
       { text: "Check your click rate — if it's below 20%, focus on improving your templates or timing." },
-      { text: "The 'Best Day to Send' chart shows when your customers are most likely to respond." },
+      { text: "The 'Where Reviews Are Going' chart shows which review platform links (Google, Facebook, etc.) customers actually clicked." },
+      { text: "The 'Best Day to Send' chart shows which days of the week customers are most likely to click. Use it to time your sends better." },
+      { text: "You can drag charts to reorder them, or hide charts you don't need using the Layout button." },
     ],
   },
   {

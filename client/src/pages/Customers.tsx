@@ -32,6 +32,9 @@ import { formatDistanceToNow } from "date-fns";
 const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   pending_request: { label: "Pending", color: "bg-muted text-muted-foreground", icon: <Clock className="w-3 h-3" /> },
   request_sent: { label: "Request Sent", color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400", icon: <Send className="w-3 h-3" /> },
+  follow_up_1_sent: { label: "Follow-up 1 Sent", color: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400", icon: <Send className="w-3 h-3" /> },
+  follow_up_2_sent: { label: "Follow-up 2 Sent", color: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400", icon: <Send className="w-3 h-3" /> },
+  follow_up_3_sent: { label: "Follow-up 3 Sent", color: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400", icon: <Send className="w-3 h-3" /> },
   clicked: { label: "Clicked", color: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400", icon: <Eye className="w-3 h-3" /> },
   review_completed: { label: "Reviewed", color: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400", icon: <Star className="w-3 h-3" /> },
   no_response: { label: "No Response", color: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400", icon: <AlertCircle className="w-3 h-3" /> },

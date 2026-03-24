@@ -1682,12 +1682,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     let cutoffEnd: Date = now;
     let days: number;
     if (req.query.from && req.query.to) {
-      cutoff = new Date(req.query.from as string);
-      cutoffEnd = new Date(req.query.to as string);
-      cutoffEnd.setHours(23, 59, 59, 999);
-      days = Math.ceil((cutoffEnd.getTime() - cutoff.getTime()) / (24 * 60 * 60 * 1000));
+      const parsedFrom = new Date(req.query.from as string);
+      const parsedTo = new Date(req.query.to as string);
+      if (!isNaN(parsedFrom.getTime()) && !isNaN(parsedTo.getTime())) {
+        cutoff = parsedFrom;
+        cutoffEnd = parsedTo;
+        cutoffEnd.setHours(23, 59, 59, 999);
+        days = Math.max(1, Math.ceil((cutoffEnd.getTime() - cutoff.getTime()) / (24 * 60 * 60 * 1000)));
+      } else {
+        days = 30;
+        cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+      }
     } else {
       days = parseInt((req.query.days as string) || "30");
+      if (isNaN(days) || days <= 0) days = 30;
       cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
     }
 
@@ -1817,23 +1825,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           CASE
             WHEN followup_count = 0 THEN 'No follow-up'
             WHEN followup_count = 1 THEN '1 follow-up'
-            ELSE '2+ follow-ups'
+            WHEN followup_count = 2 THEN '2 follow-ups'
+            ELSE '3 follow-ups'
           END as bucket,
           COUNT(*) as customers,
           COUNT(CASE WHEN has_clicked THEN 1 END) as clicked
         FROM (
           SELECT rr.customer_id,
-                 COUNT(CASE WHEN t.template_type = 'follow_up' THEN 1 END) as followup_count,
+                 COUNT(CASE WHEN rr.follow_up_count > 0 THEN 1 END) as followup_count,
                  bool_or(rr.status = 'clicked') as has_clicked
           FROM review_requests rr
-          LEFT JOIN templates t ON t.id = rr.template_id
           WHERE rr.account_id = $1 AND rr.created_at >= $2 AND rr.created_at <= $3
           GROUP BY rr.customer_id
         ) t
         GROUP BY bucket
         ORDER BY bucket
       `, [accountId, cutoff, cutoffEnd]);
-      const FU_BUCKETS = ["No follow-up", "1 follow-up", "2+ follow-ups"];
+      const FU_BUCKETS = ["No follow-up", "1 follow-up", "2 follow-ups", "3 follow-ups"];
       followUpData = FU_BUCKETS.map(bucket => {
         const row = fuRows.find((r: any) => r.bucket === bucket);
         const customers = parseInt(row?.customers || "0");
@@ -1929,6 +1937,33 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       avgResponseTimeHours = rtRows[0]?.avg_hours ? parseFloat(rtRows[0].avg_hours) : null;
     } catch { /* ignore */ }
 
+    // Customer pipeline: current status breakdown for customers active in this period
+    let pipelineData: { status: string; label: string; count: number }[] = [];
+    try {
+      const { rows: plRows } = await pool.query(`
+        SELECT c.status, COUNT(*)::int as count
+        FROM customers c
+        WHERE c.account_id = $1
+          AND c.id IN (
+            SELECT DISTINCT customer_id FROM review_requests
+            WHERE account_id = $1 AND created_at >= $2 AND created_at <= $3
+          )
+        GROUP BY c.status
+      `, [accountId, cutoff, cutoffEnd]);
+      const PIPELINE_ORDER = [
+        { status: "request_sent", label: "Request Sent" },
+        { status: "follow_up_1_sent", label: "Follow-up 1 Sent" },
+        { status: "follow_up_2_sent", label: "Follow-up 2 Sent" },
+        { status: "follow_up_3_sent", label: "Follow-up 3 Sent" },
+        { status: "clicked", label: "Clicked" },
+        { status: "no_response", label: "No Response" },
+      ];
+      pipelineData = PIPELINE_ORDER.map(({ status, label }) => {
+        const row = plRows.find((r: any) => r.status === status);
+        return { status, label, count: row ? parseInt(row.count) : 0 };
+      }).filter(d => d.count > 0);
+    } catch { /* ignore */ }
+
     // Platform click breakdown
     let platformClicks: { platform: string; count: number }[] = [];
     try {
@@ -1958,6 +1993,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       privateFeedbackCount,
       avgResponseTimeHours,
       platformClicks,
+      pipelineData,
     });
   });
 

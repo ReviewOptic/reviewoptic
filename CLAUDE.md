@@ -294,3 +294,38 @@ Your job is to be the developer they would hire if they could afford a great one
 - `POST /api/reviews` endpoint in routes.ts is still orphaned — safe to remove in a cleanup pass
 - Instagram auto-posting and review widget still not built — decide whether to build or remove from features list
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+
+### Session — 2026-03-24 (twenty-third session)
+
+**Tasks completed:**
+- `sendFollowUps()` in `server/storage.ts` fully rewritten — was only processing `request_sent` customers; now handles all follow-up statuses (`request_sent`, `follow_up_1_sent`, `follow_up_2_sent`, `follow_up_3_sent`)
+- 3rd follow-up added using `followUp3Days` setting (previously only 2 follow-ups existed in the system)
+- Customer status now correctly updated after each follow-up send: `follow_up_1_sent` → `follow_up_2_sent` → `follow_up_3_sent`
+- `no_response` status now set automatically when a customer exhausts all follow-ups (`sentCount > maxFollowUps`)
+- Smart template routing for follow-ups: customers who rated 4–5★ but haven't clicked a platform link → `response_positive` template (thanks for rating, please review publicly); unrated customers → `follow_up` template
+- WhatsApp follow-ups now supported (was missing entirely); full merge-tag substitution applied to template body
+- `sendWhatsAppMessage` imported into `server/storage.ts`
+- Follow-up status badges added to `Customers.tsx`: `follow_up_1_sent` (sky blue), `follow_up_2_sent` (indigo), `follow_up_3_sent` (violet)
+- Analytics follow-up effectiveness query fixed: was joining on `template_id` (always NULL for auto follow-ups) — now uses `follow_up_count > 0` which actually works
+- Analytics follow-up effectiveness now shows 4 separate buckets: No follow-up / 1 follow-up / 2 follow-ups / 3 follow-ups (was "2+" before)
+- New **Customer Pipeline** chart added to Analytics: horizontal bar chart showing customer counts per status (Request Sent → Follow-up 1/2/3 Sent → Clicked → No Response), colour-coded per stage
+- New **No Response** summary card added to Analytics (derived from pipeline data)
+- Analytics header restructured: title + action buttons (CSV/PDF/Colours/Layout) on top row; period pills + date pickers + team filter on a clean second row with `overflow-x-auto` (no more wrapping)
+- Tutorials & Guides fully updated:
+  - "How to set up follow-ups" — now covers all 3 follow-up tiers, smart routing (rated vs unrated), no_response auto-marking, and new status badges
+  - "Understanding customer statuses" — now lists all 7 statuses including the 3 follow-up states
+  - "How to read your analytics" — rewritten to cover pipeline chart, follow-up tiers, no response card, platform clicks, layout customisation
+  - Top tip "The follow-up is where the magic happens" — updated to mention 3 tiers and the personalised rating reminder
+  - Top tip "Check in with your analytics weekly" — updated to name the Customer Pipeline and Follow-up Effectiveness charts specifically
+
+**Architecture notes:**
+- `sendFollowUps()` uses `firstSentAt` (original request date) for all cutoffs — `followUp1Days`, `followUp2Days`, `followUp3Days` are all measured from the original send date, not from the previous follow-up
+- `sentCount` = number of review_request rows with `sentAt IS NOT NULL` for a customer; maps to: 1=initial sent, 2=1 follow-up sent, 3=2 follow-ups sent, 4=3 follow-ups sent
+- `no_response` is set when `sentCount > maxFollowUps` (already sent all follow-ups but customer still hasn't clicked)
+- `response_positive` template type is used for rated-but-not-clicked follow-ups — same template type sent immediately after 4–5★ rating; using it again as a reminder is intentional
+- Pipeline chart only shows statuses with `count > 0` for the selected period
+
+**Notes for next session:**
+- `POST /api/reviews` endpoint in routes.ts is still orphaned — safe to remove in a cleanup pass
+- Instagram auto-posting and review widget still not built — decide whether to build or remove from features list
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`

@@ -48,7 +48,7 @@ function useChartColors() {
 // ── Chart layout system ───────────────────────────────────────────────────
 const CHART_IDS = [
   "requests_vs_clicks", "requests_by_channel", "team", "funnel_channel",
-  "best_day", "follow_up", "platform_clicks", "template_perf", "sentiment", "rating_over_time",
+  "best_day", "follow_up", "pipeline", "platform_clicks", "template_perf", "sentiment", "rating_over_time",
 ] as const;
 type ChartId = typeof CHART_IDS[number];
 
@@ -59,6 +59,7 @@ const CHART_LABELS: Record<ChartId, string> = {
   funnel_channel: "Conversion Funnel & Channel Breakdown",
   best_day: "Best Day to Send",
   follow_up: "Follow-up Effectiveness",
+  pipeline: "Customer Pipeline",
   platform_clicks: "Where Reviews Are Going",
   template_perf: "Template Performance",
   sentiment: "Sentiment Split & Star Ratings",
@@ -107,6 +108,7 @@ interface AnalyticsData {
   privateFeedbackCount?: number;
   avgResponseTimeHours?: number | null;
   platformClicks?: Array<{ platform: string; count: number }>;
+  pipelineData?: Array<{ status: string; label: string; count: number }>;
 }
 
 const CHANNELS = ["email", "sms", "whatsapp"] as const;
@@ -310,81 +312,83 @@ export default function Analytics() {
     : avgResponseHrs < 24 ? `${avgResponseHrs.toFixed(1)}h`
     : `${(avgResponseHrs / 24).toFixed(1)}d`;
 
+  const noResponseCount = data?.pipelineData?.find(d => d.status === "no_response")?.count ?? "—";
+
   const summaryCards = [
     { label: "Requests Sent", value: sent, icon: <Send className="w-4 h-4" />, color: "text-blue-500" },
     { label: "Links Clicked", value: clicks, icon: <Eye className="w-4 h-4" />, color: "text-green-500" },
     { label: "Click Rate", value: `${clickRate}%`, icon: <TrendingUp className="w-4 h-4" />, color: "text-purple-500" },
+    { label: "No Response", value: noResponseCount, icon: <Clock className="w-4 h-4" />, color: "text-orange-500" },
     { label: "Avg. Star Rating", value: avgRating != null ? avgRating.toFixed(1) : "—", icon: <Star className="w-4 h-4" />, color: "text-amber-500" },
-    { label: "Private Feedback", value: data?.privateFeedbackCount ?? "—", icon: <MessageSquare className="w-4 h-4" />, color: "text-orange-500" },
+    { label: "Private Feedback", value: data?.privateFeedbackCount ?? "—", icon: <MessageSquare className="w-4 h-4" />, color: "text-orange-400" },
     { label: "Avg. Response Time", value: avgResponseLabel, icon: <Clock className="w-4 h-4" />, color: "text-teal-500" },
   ];
 
   return (
     <div className="px-6 py-7 max-w-6xl mx-auto space-y-5">
-      {/* Header + Filters */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
-          {businessName && <p className="text-[14px] font-medium mt-0.5">{businessName}</p>}
-          <p className="text-[13px] text-muted-foreground mt-0.5">Track your review request performance</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Period pills */}
-          <div className="flex gap-1">
-            {(["7", "30", "60", "custom"] as const).map(d => (
-              <button
-                key={d}
-                onClick={() => setPeriod(d)}
-                className={`px-2.5 py-1 rounded-lg text-[12px] font-medium border transition-colors ${period === d ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground"}`}
-              >
-                {d === "custom" ? "Custom" : `${d}d`}
-              </button>
-            ))}
-          </div>
-          {/* Custom date range */}
-          {period === "custom" && (
-            <div className="flex items-center gap-1.5">
-              <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="h-8 text-[12px] w-36" />
-              <span className="text-[12px] text-muted-foreground">to</span>
-              <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="h-8 text-[12px] w-36" />
-            </div>
-          )}
-          {/* Team member filter (owner only) */}
-          {isOwner && (
-            <Select value={userFilter} onValueChange={setUserFilter}>
-              <SelectTrigger className="h-8 w-36 text-[12px]">
-                <SelectValue placeholder="All members" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All members</SelectItem>
-                {user && (
-                  <SelectItem value={user.id}>
-                    {ownerDisplayName} (you)
-                  </SelectItem>
-                )}
-                {teamData?.map(m => (
-                  <SelectItem key={m.id} value={m.id}>
-                    {[m.first_name, m.last_name].filter(Boolean).join(" ") || m.email.split("@")[0]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          <div className="flex gap-1.5">
-            <Button variant="outline" size="sm" className="h-8 text-[12px] gap-1.5" onClick={exportCSV} disabled={isLoading || !data}>
-              <Download className="w-3.5 h-3.5" />CSV
-            </Button>
-            <Button variant="outline" size="sm" className="h-8 text-[12px] gap-1.5" onClick={exportPDF} disabled={isLoading || !data || isExportingPDF}>
-              <FileText className="w-3.5 h-3.5" />{isExportingPDF ? "Exporting..." : "PDF"}
-            </Button>
-            <Button variant="outline" size="sm" className={`h-8 text-[12px] gap-1.5 ${showColorPanel ? "bg-primary text-primary-foreground border-primary" : ""}`} onClick={() => setShowColorPanel(v => !v)}>
-              <Palette className="w-3.5 h-3.5" />Colours
-            </Button>
-            <Button variant="outline" size="sm" className={`h-8 text-[12px] gap-1.5 ${customising ? "bg-primary text-primary-foreground border-primary" : ""}`} onClick={() => setCustomising(v => !v)}>
-              <LayoutGrid className="w-3.5 h-3.5" />Layout
-            </Button>
-          </div>
-        </div>
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
+        {businessName && <p className="text-[14px] font-medium mt-0.5">{businessName}</p>}
+        <p className="text-[13px] text-muted-foreground mt-0.5">Track your review request performance</p>
+      </div>
+
+      {/* Single controls bar — never wraps, scrolls horizontally on small screens */}
+      <div className="flex items-center gap-2 overflow-x-auto flex-nowrap pb-0.5">
+        {/* Period pills */}
+        {(["7", "30", "60", "custom"] as const).map(d => (
+          <button
+            key={d}
+            onClick={() => setPeriod(d)}
+            className={`px-2.5 py-1 rounded-lg text-[12px] font-medium border transition-colors whitespace-nowrap shrink-0 ${period === d ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground"}`}
+          >
+            {d === "custom" ? "Custom" : `${d}d`}
+          </button>
+        ))}
+        {/* Custom date range */}
+        {period === "custom" && (
+          <>
+            <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="h-8 text-[12px] w-32 shrink-0" />
+            <span className="text-[12px] text-muted-foreground shrink-0">to</span>
+            <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="h-8 text-[12px] w-32 shrink-0" />
+          </>
+        )}
+        {/* Team member filter (owner only) */}
+        {isOwner && (
+          <Select value={userFilter} onValueChange={setUserFilter}>
+            <SelectTrigger className="h-8 w-36 text-[12px] shrink-0">
+              <SelectValue placeholder="All members" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All members</SelectItem>
+              {user && (
+                <SelectItem value={user.id}>
+                  {ownerDisplayName} (you)
+                </SelectItem>
+              )}
+              {teamData?.map(m => (
+                <SelectItem key={m.id} value={m.id}>
+                  {[m.first_name, m.last_name].filter(Boolean).join(" ") || m.email.split("@")[0]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        {/* Spacer */}
+        <div className="flex-1 min-w-2" />
+        {/* Action buttons */}
+        <Button variant="outline" size="sm" className="h-8 text-[12px] gap-1.5 shrink-0" onClick={exportCSV} disabled={isLoading || !data}>
+          <Download className="w-3.5 h-3.5" />CSV
+        </Button>
+        <Button variant="outline" size="sm" className="h-8 text-[12px] gap-1.5 shrink-0" onClick={exportPDF} disabled={isLoading || !data || isExportingPDF}>
+          <FileText className="w-3.5 h-3.5" />{isExportingPDF ? "Exporting..." : "PDF"}
+        </Button>
+        <Button variant="outline" size="sm" className={`h-8 text-[12px] gap-1.5 shrink-0 ${showColorPanel ? "bg-primary text-primary-foreground border-primary" : ""}`} onClick={() => setShowColorPanel(v => !v)}>
+          <Palette className="w-3.5 h-3.5" />Colours
+        </Button>
+        <Button variant="outline" size="sm" className={`h-8 text-[12px] gap-1.5 shrink-0 ${customising ? "bg-primary text-primary-foreground border-primary" : ""}`} onClick={() => setCustomising(v => !v)}>
+          <LayoutGrid className="w-3.5 h-3.5" />Layout
+        </Button>
       </div>
 
       {/* Colour customiser panel */}
@@ -650,7 +654,10 @@ export default function Analytics() {
               if (!data?.followUpData?.some(d => d.customers > 0)) return null;
               return (
                 <Card className="border-card-border">
-                  <CardHeader className="pb-2 pt-4 px-5"><CardTitle className="text-[14px] font-semibold">Follow-up Effectiveness</CardTitle></CardHeader>
+                  <CardHeader className="pb-2 pt-4 px-5">
+                    <CardTitle className="text-[14px] font-semibold">Follow-up Effectiveness</CardTitle>
+                    <p className="text-[12px] text-muted-foreground">Click rate by how many follow-ups a customer received</p>
+                  </CardHeader>
                   <CardContent className="px-5 pb-4">
                     {isLoading ? <Skeleton className="h-40 w-full" /> : (
                       <ResponsiveContainer width="100%" height={160}>
@@ -668,6 +675,40 @@ export default function Analytics() {
                   </CardContent>
                 </Card>
               );
+            case "pipeline": {
+              if (!data?.pipelineData?.length) return null;
+              const PIPELINE_COLORS: Record<string, string> = {
+                request_sent: "#4f86f7",
+                follow_up_1_sent: "#0ea5e9",
+                follow_up_2_sent: "#6366f1",
+                follow_up_3_sent: "#8b5cf6",
+                clicked: "#22c55e",
+                no_response: "#f97316",
+              };
+              return (
+                <Card className="border-card-border">
+                  <CardHeader className="pb-2 pt-4 px-5">
+                    <CardTitle className="text-[14px] font-semibold">Customer Pipeline</CardTitle>
+                    <p className="text-[12px] text-muted-foreground">Where customers currently stand in the follow-up sequence</p>
+                  </CardHeader>
+                  <CardContent className="px-5 pb-4">
+                    {isLoading ? <Skeleton className="h-40 w-full" /> : (
+                      <ResponsiveContainer width="100%" height={Math.max(120, data!.pipelineData!.length * 44)}>
+                        <BarChart data={data!.pipelineData} layout="vertical" margin={{ top: 5, right: 40, bottom: 5, left: 10 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+                          <XAxis type="number" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                          <YAxis type="category" dataKey="label" tick={{ fontSize: 11, fill: "hsl(var(--foreground))" }} tickLine={false} axisLine={false} width={120} />
+                          <Tooltip contentStyle={tooltipStyle} formatter={(v) => [v, "Customers"]} />
+                          <Bar dataKey="count" name="Customers" radius={[0, 4, 4, 0]} barSize={22} label={{ position: "right", fontSize: 11, fill: "hsl(var(--muted-foreground))" }}>
+                            {data!.pipelineData!.map((entry, i) => <Cell key={i} fill={PIPELINE_COLORS[entry.status] || colors.requests} />)}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            }
             case "platform_clicks":
               if (!data?.platformClicks?.length) return null;
               return (
