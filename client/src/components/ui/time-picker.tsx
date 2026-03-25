@@ -26,7 +26,7 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
       <Select value={String(hour12)} onValueChange={v => emit(Number(v), minute, isPM)}>
         <SelectTrigger className="w-20 text-[13px]"><SelectValue /></SelectTrigger>
         <SelectContent>
-          {[12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(h => (
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(h => (
             <SelectItem key={h} value={String(h)} className="text-[13px]">{h}</SelectItem>
           ))}
         </SelectContent>
