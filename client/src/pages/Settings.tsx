@@ -444,12 +444,12 @@ export default function Settings() {
                       onValueChange={([v]) => setForm(f => ({ ...f, followUp1Days: v }))}
                       data-testid="slider-followup-1"
                     />
-                    <p className="text-[11.5px] text-muted-foreground">After initial request, wait {form.followUp1Days} days before first reminder</p>
+                    <p className="text-[11.5px] text-muted-foreground">Send the first follow-up {form.followUp1Days} days after the initial request</p>
                   </div>
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <Label className="text-[12.5px]">Second Follow-Up</Label>
-                      <span className="text-[13px] font-medium text-primary">{form.followUp2Days} days</span>
+                      <span className="text-[13px] font-medium text-primary">{form.followUp2Days - form.followUp1Days} days</span>
                     </div>
                     <Slider
                       min={form.followUp1Days + 1}
@@ -459,13 +459,13 @@ export default function Settings() {
                       onValueChange={([v]) => setForm(f => ({ ...f, followUp2Days: v }))}
                       data-testid="slider-followup-2"
                     />
-                    <p className="text-[11.5px] text-muted-foreground">After first follow-up, wait until day {form.followUp2Days} for second reminder</p>
+                    <p className="text-[11.5px] text-muted-foreground">Send the second follow-up {form.followUp2Days - form.followUp1Days} days after the first follow-up</p>
                   </div>
                   {form.maxFollowUps >= 3 && (
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <Label className="text-[12.5px]">Third Follow-Up</Label>
-                        <span className="text-[13px] font-medium text-primary">{form.followUp3Days} days</span>
+                        <span className="text-[13px] font-medium text-primary">{form.followUp3Days - form.followUp2Days} days</span>
                       </div>
                       <Slider
                         min={form.followUp2Days + 1}
@@ -475,7 +475,7 @@ export default function Settings() {
                         onValueChange={([v]) => setForm(f => ({ ...f, followUp3Days: v }))}
                         data-testid="slider-followup-3"
                       />
-                      <p className="text-[11.5px] text-muted-foreground">After second follow-up, wait until day {form.followUp3Days} for third reminder</p>
+                      <p className="text-[11.5px] text-muted-foreground">Send the third follow-up {form.followUp3Days - form.followUp2Days} days after the second follow-up</p>
                     </div>
                   )}
                   <div className="space-y-3">
