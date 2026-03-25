@@ -3,7 +3,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import {
   Send, Clock, CheckCircle2, ArrowRight, Plus, BarChart2,
-  Eye, Users, Star, MessageSquare, Play, AlertCircle, Mail
+  Eye, Users, Star, MessageSquare, Play, AlertCircle, Mail,
+  FileText, Settings as SettingsIcon
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
-import type { ActivityLog, Customer, Settings } from "@shared/schema";
+import type { ActivityLog, Customer, Settings, ReviewRequest } from "@shared/schema";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -255,6 +256,7 @@ export default function Dashboard() {
   const { data: customers } = useQuery<Customer[]>({ queryKey: ["/api/customers"] });
   const { data: settings } = useQuery<Settings>({ queryKey: ["/api/settings"] });
   const { data: privateFeedback = [] } = useQuery<any[]>({ queryKey: ["/api/private-feedback"] });
+  const { data: allRequests = [] } = useQuery<ReviewRequest[]>({ queryKey: ["/api/review-requests"] });
 
   const pendingFollowUp = customers?.filter(c => c.status === "request_sent" && !c.doNotContact) || [];
   const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
@@ -264,6 +266,15 @@ export default function Dashboard() {
     const daysSince = (Date.now() - new Date(c.createdAt).getTime()) / (1000 * 60 * 60 * 24);
     return daysSince > 14;
   }) || [];
+
+  const pendingCustomers = customers?.filter(c => c.status === "pending_request" && !c.doNotContact && !c.archived) || [];
+
+  const customerMap = Object.fromEntries((customers || []).map(c => [c.id, c.name]));
+  const recentRatings = [...allRequests]
+    .filter(r => r.rating !== null)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 4)
+    .map(r => ({ ...r, customerName: customerMap[r.customerId] || "Customer" }));
 
   return (
     <div className="px-6 py-7 max-w-6xl mx-auto space-y-7">
@@ -319,6 +330,25 @@ export default function Dashboard() {
             <Plus className="w-3.5 h-3.5" />Add Customer
           </Button>
         )}
+      </div>
+
+      {/* Quick links */}
+      <div className="grid grid-cols-4 gap-3">
+        {[
+          { label: "Customers", icon: Users, path: "/customers" },
+          { label: "Templates", icon: FileText, path: "/templates" },
+          { label: "Analytics", icon: BarChart2, path: "/analytics" },
+          { label: "Settings", icon: SettingsIcon, path: "/settings" },
+        ].map(link => (
+          <button
+            key={link.path}
+            onClick={() => navigate(link.path)}
+            className="flex flex-col items-center gap-2 py-4 px-2 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors"
+          >
+            <link.icon className="w-5 h-5 text-primary" />
+            <span className="text-[12px] font-medium">{link.label}</span>
+          </button>
+        ))}
       </div>
 
       {/* Stats */}
@@ -504,28 +534,68 @@ export default function Dashboard() {
             </Card>
           )}
 
-          {/* Quick Actions */}
-          <Card className="border-card-border">
-            <CardHeader className="pb-3 pt-4">
-              <CardTitle className="text-[14px] font-semibold">Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4 space-y-2">
-              {!isReadOnly && (
-                <Button variant="outline" className="w-full justify-start gap-2 h-9 text-[13px]" onClick={() => navigate("/customers")}>
-                  <Plus className="w-3.5 h-3.5 text-primary" />
-                  Add Customer
-                </Button>
-              )}
-              <Button variant="outline" className="w-full justify-start gap-2 h-9 text-[13px]" onClick={() => navigate("/analytics")}>
-                <BarChart2 className="w-3.5 h-3.5 text-primary" />
-                View Analytics
-              </Button>
-              <Button variant="outline" className="w-full justify-start gap-2 h-9 text-[13px]" onClick={() => navigate("/settings?tab=platforms")}>
-                <Star className="w-3.5 h-3.5 text-primary" />
-                Review Platforms
-              </Button>
-            </CardContent>
-          </Card>
+          {/* Pending customers */}
+          {pendingCustomers.length > 0 && (
+            <Card className="border-card-border">
+              <CardHeader className="pb-2 pt-4">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-[14px] font-semibold">Ready to Send</CardTitle>
+                  <Badge variant="secondary" className="text-[11px]">{pendingCustomers.length}</Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="px-4 pb-3">
+                <p className="text-[11.5px] text-muted-foreground mb-2">Added but no request sent yet</p>
+                <div className="space-y-1">
+                  {pendingCustomers.slice(0, 5).map(c => (
+                    <div key={c.id} className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0">
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-medium truncate">{c.name}</p>
+                        {(c.serviceType || c.email) && (
+                          <p className="text-[11px] text-muted-foreground truncate">{c.serviceType || c.email}</p>
+                        )}
+                      </div>
+                      <Button size="sm" variant="outline" className="h-7 text-[11.5px] ml-2 shrink-0" onClick={() => navigate(`/customers/${c.id}`)}>
+                        Send
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                {pendingCustomers.length > 5 && (
+                  <button onClick={() => navigate("/customers")} className="text-[12px] text-primary mt-2 hover:underline">
+                    +{pendingCustomers.length - 5} more
+                  </button>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Latest ratings */}
+          {recentRatings.length > 0 && (
+            <Card className="border-card-border">
+              <CardHeader className="pb-2 pt-4">
+                <CardTitle className="text-[14px] font-semibold">Latest Ratings</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-3">
+                <div className="space-y-0">
+                  {recentRatings.map(r => (
+                    <div key={r.id} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-medium truncate">{r.customerName}</p>
+                        <div className="flex gap-0.5 mt-0.5">
+                          {[1,2,3,4,5].map(i => (
+                            <Star key={i} className={cn("w-3 h-3", i <= (r.rating ?? 0) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30")} />
+                          ))}
+                        </div>
+                      </div>
+                      <span className="text-[11px] text-muted-foreground shrink-0 ml-2">
+                        {formatDistanceToNow(new Date(r.createdAt), { addSuffix: true })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
         </div>
       </div>
