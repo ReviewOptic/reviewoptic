@@ -760,6 +760,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // ── Public routes (no requireAuth) ───────────────────────────────────────
 
+  // Email open tracking pixel — 1×1 transparent GIF, sets opened_at once
+  app.get("/api/track/:requestId/open", async (req, res) => {
+    const { requestId } = req.params;
+    await pool.query(
+      `UPDATE review_requests SET opened_at = NOW() WHERE id = $1 AND opened_at IS NULL`,
+      [requestId]
+    ).catch(() => {});
+    const gif = Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64");
+    res.set({ "Content-Type": "image/gif", "Cache-Control": "no-store, no-cache, must-revalidate", Pragma: "no-cache" });
+    res.end(gif);
+  });
+
   // Track link click (must remain public — customers click this)
   // Email link click — just redirects to the landing page, no status change.
   // Status is only updated when the customer clicks an actual review platform button.

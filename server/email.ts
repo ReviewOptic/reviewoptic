@@ -243,6 +243,7 @@ export async function sendPreScreenEmail(
           If you'd prefer not to receive emails like this, please let us know.
         </p>
         ${POWERED_BY_FOOTER}
+        <img src="${baseUrl}/api/track/${requestId}/open" width="1" height="1" alt="" style="display:block;border:0;width:1px;height:1px;" />
       </div>
     `,
   });

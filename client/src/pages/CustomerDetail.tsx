@@ -558,33 +558,71 @@ export default function CustomerDetail() {
             </CardContent>
           </Card>
 
-          {/* Requests */}
+          {/* Request History */}
           {customerRequests.length > 0 && (
             <Card className="border-card-border">
               <CardHeader className="pb-2">
-                <CardTitle className="text-[14px] font-semibold">Review Requests ({customerRequests.length})</CardTitle>
+                <CardTitle className="text-[14px] font-semibold">Request History ({customerRequests.length})</CardTitle>
               </CardHeader>
-              <CardContent className="pb-4 space-y-2">
-                {customerRequests.map(rr => (
-                  <div key={rr.id} className="flex items-center justify-between p-2.5 rounded-lg border border-border bg-muted/20">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="text-[10px] h-4 px-1.5 capitalize">{rr.channel}</Badge>
-                        <Badge variant={rr.status === "completed" ? "default" : "secondary"} className="text-[10px] h-4 px-1.5 capitalize">{rr.status}</Badge>
+              <CardContent className="pb-4 space-y-3">
+                {[...customerRequests].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(rr => {
+                  const feedback = customerFeedback.find(f => f.reviewRequestId === rr.id);
+                  const channelLabel = rr.channel === "whatsapp" ? "WhatsApp" : rr.channel === "sms" ? "SMS" : "Email";
+                  return (
+                    <div key={rr.id} className="p-3 rounded-lg border border-border bg-muted/20 space-y-2.5">
+                      {/* Header */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="text-[10px] h-5 px-2 capitalize">{channelLabel}</Badge>
+                          {rr.sentAt && (
+                            <span className="text-[11.5px] text-muted-foreground">
+                              {format(new Date(rr.sentAt), "d MMM yyyy")}
+                            </span>
+                          )}
+                        </div>
+                        {rr.rating && <StarRating stars={rr.rating} />}
                       </div>
-                      {rr.sentAt && (
-                        <p className="text-[11.5px] text-muted-foreground mt-1">
-                          Sent {formatDistanceToNow(new Date(rr.sentAt), { addSuffix: true })}
-                        </p>
-                      )}
+                      {/* Journey */}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[11px] font-medium">
+                          <Send className="w-2.5 h-2.5" /> Sent
+                        </span>
+                        {rr.channel === "email" && rr.openedAt && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-[11px] font-medium">
+                            <Eye className="w-2.5 h-2.5" /> Opened
+                          </span>
+                        )}
+                        {rr.followUpCount >= 1 && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-[11px] font-medium">Follow-up 1</span>
+                        )}
+                        {rr.followUpCount >= 2 && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-[11px] font-medium">Follow-up 2</span>
+                        )}
+                        {rr.followUpCount >= 3 && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-[11px] font-medium">Follow-up 3</span>
+                        )}
+                        {rr.rating && rr.rating >= 4 && rr.clickedAt && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[11px] font-medium">
+                            <Eye className="w-2.5 h-2.5" /> Clicked
+                          </span>
+                        )}
+                        {rr.rating && rr.rating >= 4 && !rr.clickedAt && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[11px] font-medium">
+                            <Star className="w-2.5 h-2.5" /> Rated — no click yet
+                          </span>
+                        )}
+                        {feedback && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[11px] font-medium">
+                            <MessageSquare className="w-2.5 h-2.5" /> Private feedback
+                          </span>
+                        )}
+                        {rr.status === "no_response" && !rr.rating && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-[11px] font-medium">No response</span>
+                        )}
+                      </div>
                     </div>
-                    {rr.clickedAt && (
-                      <span className="text-[11.5px] text-purple-600 flex items-center gap-1">
-                        <Eye className="w-3 h-3" /> Clicked
-                      </span>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </CardContent>
             </Card>
           )}

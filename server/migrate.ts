@@ -293,6 +293,9 @@ export async function runMigrations() {
     // Default send time preference
     await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS default_send_time TEXT NOT NULL DEFAULT ''`);
 
+    // Email open tracking
+    await pool.query(`ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS opened_at TIMESTAMP`);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();

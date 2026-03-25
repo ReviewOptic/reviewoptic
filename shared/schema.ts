@@ -35,6 +35,7 @@ export const reviewRequests = pgTable("review_requests", {
   clickedAt: timestamp("clicked_at"),
   followUpCount: integer("follow_up_count").notNull().default(0),
   rating: integer("rating"),
+  openedAt: timestamp("opened_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
