@@ -52,14 +52,22 @@ const inspirationalQuotes = [
   "A satisfied customer is the best business strategy of all.",
   "Excellence is not a skill — it's an attitude.",
   "Your reputation is built one customer at a time.",
+  "People trust people. A real review beats any ad you'll ever run.",
+  "Ask for the review. The worst they can say is nothing.",
+  "Your best salespeople are your happiest customers.",
+  "A business with no reviews is a business people scroll past.",
+  "Reviews aren't just feedback — they're free advertising.",
+  "Word of mouth never went away. It just moved online.",
+  "Great service gets remembered. A review makes sure it gets found.",
+  "The follow-up is where most businesses give up. Don't.",
+  "Consistency builds trust. Trust builds reviews. Reviews build growth.",
+  "One unhappy customer handled well can become your loudest advocate.",
+  "Don't wait for customers to find you. Let your reviews do it for you.",
+  "You can't buy a genuine five-star review — you have to earn it.",
 ];
 
-function getDailyQuote() {
-  const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
-  return inspirationalQuotes[dayOfYear % inspirationalQuotes.length];
-}
-
 // Replace with your real YouTube embed URL when ready
+
 // Format: "https://www.youtube.com/embed/YOUR_VIDEO_ID"
 const INTRO_VIDEO_URL = "";
 
@@ -204,6 +212,7 @@ export default function Dashboard() {
   const [showIntro, setShowIntro] = useState(false);
   const [videoWatched, setVideoWatched] = useState(!INTRO_VIDEO_URL);
   const [respondingTo, setRespondingTo] = useState<any>(null);
+  const [quote] = useState(() => inspirationalQuotes[Math.floor(Math.random() * inspirationalQuotes.length)]);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -303,7 +312,7 @@ export default function Dashboard() {
           <h1 className="text-2xl font-bold text-foreground tracking-tight">
             {getGreeting()}{settings?.ownerName ? `, ${settings.ownerName.trim().split(" ")[0]}` : ""}!
           </h1>
-          <p className="text-[13.5px] text-muted-foreground mt-0.5 italic">{getDailyQuote()}</p>
+          <p className="text-[13.5px] text-muted-foreground mt-0.5 italic">{quote}</p>
         </div>
         {!isReadOnly && (
           <Button variant="outline" size="sm" className="gap-1.5 self-start" onClick={() => navigate("/customers")}>
