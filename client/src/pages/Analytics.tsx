@@ -48,7 +48,7 @@ function useChartColors() {
 // ── Chart layout system ───────────────────────────────────────────────────
 const CHART_IDS = [
   "requests_vs_clicks", "requests_by_channel", "team", "funnel_channel",
-  "best_day", "follow_up", "pipeline", "platform_clicks", "template_perf", "sentiment", "rating_over_time",
+  "best_day", "follow_up", "pipeline", "platform_clicks", "template_perf", "content_type", "sentiment", "rating_over_time",
 ] as const;
 type ChartId = typeof CHART_IDS[number];
 
@@ -62,6 +62,7 @@ const CHART_LABELS: Record<ChartId, string> = {
   pipeline: "Customer Pipeline",
   platform_clicks: "Where Reviews Are Going",
   template_perf: "Template Performance",
+  content_type: "Content Type Performance",
   sentiment: "Sentiment Split & Star Ratings",
   rating_over_time: "Average Star Rating Over Time",
 };
@@ -109,6 +110,7 @@ interface AnalyticsData {
   avgResponseTimeHours?: number | null;
   platformClicks?: Array<{ platform: string; count: number }>;
   pipelineData?: Array<{ status: string; label: string; count: number }>;
+  contentTypeData?: Array<{ type: string; label: string; sent: number; platformClicked: number; clickRate: number }>;
 }
 
 const CHANNELS = ["email", "sms", "whatsapp"] as const;
@@ -757,6 +759,37 @@ export default function Analytics() {
                   </CardContent>
                 </Card>
               );
+            case "content_type": {
+              const ctData = data?.contentTypeData?.filter(d => d.sent > 0);
+              if (!ctData?.length) return null;
+              return (
+                <Card className="border-card-border">
+                  <CardHeader className="pb-2 pt-4 px-5">
+                    <CardTitle className="text-[14px] font-semibold">Content Type Performance</CardTitle>
+                    <p className="text-[12px] text-muted-foreground">Platform click rate by what customers see after rating 4–5★</p>
+                  </CardHeader>
+                  <CardContent className="px-5 pb-4">
+                    {isLoading ? <Skeleton className="h-40 w-full" /> : (
+                      <ResponsiveContainer width="100%" height={Math.max(120, ctData.length * 44)}>
+                        <BarChart data={ctData} layout="vertical" margin={{ top: 5, right: 60, bottom: 5, left: 10 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+                          <XAxis type="number" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                          <YAxis type="category" dataKey="label" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} width={80} />
+                          <Tooltip contentStyle={tooltipStyle} formatter={(v, name, props) => {
+                            if (name === "sent") return [v, "Requests sent"];
+                            if (name === "platformClicked") return [`${v} (${props.payload?.clickRate ?? 0}% click rate)`, "Platform clicks"];
+                            return [v, String(name)];
+                          }} />
+                          <Legend wrapperStyle={{ fontSize: 11 }} />
+                          <Bar dataKey="sent" name="Requests sent" fill={colors.requests} radius={[0, 2, 2, 0]} barSize={14} />
+                          <Bar dataKey="platformClicked" name="Platform clicks" fill={colors.reviews} radius={[0, 4, 4, 0]} barSize={14} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            }
             case "sentiment":
               if (!data?.sentimentSplit || (data.sentimentSplit.positive + data.sentimentSplit.negative) === 0) return null;
               return (

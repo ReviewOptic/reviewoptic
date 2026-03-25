@@ -1949,6 +1949,29 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }).filter(d => d.count > 0);
     } catch { /* ignore */ }
 
+    // Content type performance (text vs voice vs video)
+    let contentTypeData: { type: string; label: string; sent: number; platformClicked: number; clickRate: number }[] = [];
+    try {
+      const { rows: ctRows } = await pool.query(`
+        SELECT
+          COALESCE(rr.recording_type, 'text') as content_type,
+          COUNT(*)::int as sent,
+          COUNT(DISTINCT pc.request_id)::int as platform_clicked
+        FROM review_requests rr
+        LEFT JOIN review_platform_clicks pc ON pc.request_id = rr.id AND pc.account_id = $1
+        WHERE rr.account_id = $1 AND rr.created_at >= $2 AND rr.created_at <= $3
+        GROUP BY content_type
+      `, baseParams);
+      const LABELS: Record<string, string> = { text: "Text only", voice: "Voice note", video: "Video" };
+      contentTypeData = ctRows.map((r: any) => ({
+        type: r.content_type,
+        label: LABELS[r.content_type] || r.content_type,
+        sent: r.sent,
+        platformClicked: r.platform_clicked,
+        clickRate: r.sent > 0 ? Math.round((r.platform_clicked / r.sent) * 100) : 0,
+      }));
+    } catch { /* ignore */ }
+
     // Platform click breakdown
     let platformClicks: { platform: string; count: number }[] = [];
     try {
@@ -1979,6 +2002,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       avgResponseTimeHours,
       platformClicks,
       pipelineData,
+      contentTypeData,
     });
   });
 
