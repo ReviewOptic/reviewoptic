@@ -1113,23 +1113,37 @@ function ReferralTab() {
 
         <div className="space-y-1.5">
           <label className="text-[12.5px] font-medium">Share via</label>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-              onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(`I've been using ReviewOptic to collect customer reviews automatically — it's been great. Sign up here: ${referralLink}`)}`, "_blank")}
-            >
-              <Share2 className="w-3.5 h-3.5" /> WhatsApp
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-              onClick={() => window.open(`mailto:?subject=You should try ReviewOptic&body=${encodeURIComponent(`Hi,\n\nI've been using ReviewOptic to automatically collect customer reviews and it's made a real difference. Thought you might find it useful too.\n\nSign up here: ${referralLink}\n\nBest`)}`, "_blank")}
-            >
-              <Share2 className="w-3.5 h-3.5" /> Email
-            </Button>
+          <div className="flex flex-wrap gap-2">
+            {[
+              {
+                label: "WhatsApp",
+                url: `https://wa.me/?text=${encodeURIComponent(`I've been using ReviewOptic to collect customer reviews automatically — it's been great. Sign up here: ${referralLink}`)}`,
+              },
+              {
+                label: "Facebook",
+                url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(referralLink)}`,
+              },
+              {
+                label: "X (Twitter)",
+                url: `https://twitter.com/intent/tweet?text=${encodeURIComponent(`I've been using ReviewOptic to automate customer review collection — really useful for any business. Check it out:`)}&url=${encodeURIComponent(referralLink)}`,
+              },
+              {
+                label: "LinkedIn",
+                url: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(referralLink)}`,
+              },
+              {
+                label: "Email",
+                url: `mailto:?subject=You should try ReviewOptic&body=${encodeURIComponent(`Hi,\n\nI've been using ReviewOptic to automatically collect customer reviews and it's made a real difference. Thought you might find it useful too.\n\nSign up here: ${referralLink}\n\nBest`)}`,
+              },
+              {
+                label: "SMS",
+                url: `sms:?body=${encodeURIComponent(`Check out ReviewOptic — it automates customer review collection. Sign up here: ${referralLink}`)}`,
+              },
+            ].map(s => (
+              <Button key={s.label} variant="outline" size="sm" className="gap-1.5" onClick={() => window.open(s.url, "_blank")}>
+                <Share2 className="w-3.5 h-3.5" /> {s.label}
+              </Button>
+            ))}
           </div>
         </div>
       </CardContent>
