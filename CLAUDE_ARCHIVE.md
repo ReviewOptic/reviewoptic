@@ -298,3 +298,110 @@ Older session logs moved here to keep CLAUDE.md under 30k chars.
 
 **Lessons learned:**
 - If exploring themes/layouts, do it on a branch — not main — so reverting is a simple branch switch
+
+---
+
+### Session — 2026-03-22 (eighteenth session)
+
+**Tasks completed:**
+- Analytics overhauled — all "reviews received" metrics replaced with "links clicked"; removed Time to Review and Review Platforms charts; renamed `responseRate` → `clickRate`, `reviews` → `clicks`
+- ReviewLanding simplified — no internal review submission form; platform buttons only
+- Billing page — cancel/reactivate section removed
+- Dashboard redesigned — new stat cards layout with greeting
+- Add Customer form — "Preferred Channel" field removed
+- Add/Edit Customer — email and phone format validation added
+- Send Request dialog — channel options disabled based on contact info; custom time picker; template dropdown improvements
+- How-to guides updated
+
+**Architecture notes:**
+- `POST /api/reviews` endpoint orphaned — ReviewLanding no longer submits reviews; safe to remove
+- Analytics `daily` data tracks `clicks` not review submissions
+
+---
+
+### Session — 2026-03-22 (nineteenth session)
+
+**Tasks completed:**
+- Dashboard stats fixed — "Requests This Month" counts total review_requests rows; "Awaiting Response" counts pending review_requests
+- Analytics fully rewritten to query from `review_requests` table (not `customers`)
+- Follow-up Effectiveness chart fixed — uses `follow_up_count > 0` not template_id join
+- Best Day to Send chart — based on `clicked_at` day-of-week
+
+**Architecture notes:**
+- `baseParams` / `baseWhere` pattern used in analytics for clean filter handling
+- `review_requests.clicked_at` stores when link was clicked
+
+---
+
+### Session — 2026-03-23 (twentieth session)
+
+**Tasks completed:**
+- Recordings system overhauled — `recordings` DB table, up to 2 per type per account
+- New API endpoints for recordings (GET/POST upload/PATCH rename/DELETE)
+- Templates → Recordings tab: in-browser recording, record → review → label → save
+- Send Request dialogs updated to use recordingId
+
+**Architecture notes:**
+- `recordings` table: `id, account_id, type, label, url, elevenlabs_voice_id, created_at`
+- Upload fallback: Cloudinary → local disk `/uploads/uuid.webm`
+
+---
+
+### Session — 2026-03-24 (twenty-first session)
+
+**Tasks completed:**
+- Star ratings now appear in Recent Activity
+- Dashboard Private Feedback — removed duplicate plain-list card
+
+**Fixes:** `.gitignore` malformed — `.env` and `uploads/` were on one line; fixed
+
+---
+
+### Session — 2026-03-24 (twenty-second session)
+
+**Tasks completed:**
+- Analytics color theme fix — merged stored colors with Classic defaults on load
+- "Negative" color changed from orange to red (`#ef4444`)
+- Tutorials updated: recordings how-to rewritten; archive/restore how-to added
+
+---
+
+### Session — 2026-03-24 (twenty-third session)
+
+**Tasks completed:**
+- `sendFollowUps()` fully rewritten — handles all 3 follow-up tiers
+- 3rd follow-up added; customer status updated correctly through all stages
+- `no_response` set automatically when follow-ups exhausted
+- Smart template routing: rated-but-not-clicked → `response_positive`; unrated → `follow_up`
+- WhatsApp follow-ups added
+- Follow-up status badges added to Customers page
+- Customer Pipeline chart added to Analytics
+- No Response summary card added to Analytics
+
+**Architecture notes:**
+- All follow-up delays measured from `firstSentAt` (original send date), not sequentially
+- `sentCount` maps: 1=initial, 2=1 follow-up, 3=2 follow-ups, 4=3 follow-ups
+
+---
+
+### Session — 2026-03-24 (twenty-fourth session)
+
+**Tasks completed:**
+- Analytics controls bar fixed — `flex-1` inside `overflow-x-auto` anti-pattern resolved
+- Summary cards grid updated to `lg:grid-cols-7`
+
+**Fix lesson:** Never put `flex-1` inside `overflow-x-auto` — use two sibling groups with `justify-between`
+
+---
+
+### Session — 2026-03-25 (twenty-fifth session)
+
+**Tasks completed:**
+- "After 4–5★ rating, show" option added to Send Request dialogs (Text/Voice/Video)
+- Recording ID passed to server; ReviewLanding shows recording after high rating with autoPlay
+- Subject line input removed from CustomerDetail send dialog
+- Video recorder cancel bug fixed
+
+**Architecture notes:**
+- Initial email is always `sendPreScreenEmail`; "Message" in send dialog = content shown AFTER rating on ReviewLanding
+- `autoPlay` works because customer has already clicked (user gesture satisfied)
