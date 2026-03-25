@@ -45,7 +45,7 @@ function VideoRecorder({ currentUrl, onSaved }: { currentUrl: string; onSaved: (
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.muted = true;
-        videoRef.current.play();
+        videoRef.current.play().catch(() => {});
       }
       setState("previewing");
     } catch {
@@ -753,7 +753,7 @@ function RecordingsTab() {
       if (videoPreviewRef.current) {
         videoPreviewRef.current.srcObject = stream;
         videoPreviewRef.current.muted = true;
-        videoPreviewRef.current.play();
+        videoPreviewRef.current.play().catch(() => {});
       }
       setRecState("previewing");
     } catch {
