@@ -1064,10 +1064,13 @@ function ChangePasswordButton({ email }: { email: string }) {
 function ReferralTab() {
   const { user } = useAuth();
   const [copied, setCopied] = useState(false);
+  const { data: settings } = useQuery<SettingsType>({ queryKey: ["/api/settings"] });
 
   const appUrl = window.location.origin;
-  const refCode = user?.accountId ? user.accountId.slice(0, 8).toUpperCase() : "";
-  const referralLink = `${appUrl}/signup?ref=${refCode}`;
+  const slug = settings?.businessName
+    ? settings.businessName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+    : user?.accountId?.slice(0, 8) ?? "my-business";
+  const referralLink = `${appUrl}/referral/${slug}`;
 
   const copyLink = () => {
     navigator.clipboard.writeText(referralLink);
