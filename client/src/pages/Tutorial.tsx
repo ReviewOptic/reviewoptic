@@ -44,7 +44,7 @@ const VIDEOS = [
   },
   {
     title: "How to send a review request",
-    description: "How to send a review request via email, SMS, or WhatsApp — and how to choose the right channel.",
+    description: "How to send a review request via email, SMS, or WhatsApp — and how to attach a voice note or video for customers who give a high rating.",
     duration: "2 min",
     url: "", // paste YouTube embed URL here
   },
@@ -74,7 +74,7 @@ const VIDEOS = [
   },
   {
     title: "How to record a voice note or video message (optional)",
-    description: "How to record a voice note or video message directly in the app so customers receive a personal message from you via WhatsApp.",
+    description: "How to record a voice note or video directly in the app — and how to attach it to review requests sent via Email, SMS, or WhatsApp so high-rating customers see a personal message from you.",
     duration: "2 min",
     url: "", // paste YouTube embed URL here
   },
@@ -115,7 +115,7 @@ const TIPS = [
   },
   {
     tip: "Check in with your analytics weekly",
-    detail: "Spending 5 minutes a week on Analytics tells you what's working. Check the Customer Pipeline to see how many people are stuck awaiting follow-ups, the Follow-up Effectiveness chart to see if extra reminders are converting, and the No Response count to gauge how many are slipping through.",
+    detail: "Spending 5 minutes a week on Analytics tells you what's working. Check the Customer Pipeline to see how many people are stuck awaiting follow-ups, the Follow-up Effectiveness chart to see if extra reminders are converting, and the Content Type Performance chart to see whether a voice note or video is outperforming plain text.",
   },
   {
     tip: "Private feedback is a gift — use it",
@@ -135,7 +135,7 @@ const TIPS = [
   },
   {
     tip: "WhatsApp gets the highest response rates",
-    detail: "Of all three channels, WhatsApp messages feel the most personal and are read almost immediately. If a customer has given a phone number, WhatsApp is often worth trying first — especially for businesses with a personal touch.",
+    detail: "Of all three channels, WhatsApp messages feel the most personal and are read almost immediately. If a customer has given a phone number, WhatsApp is often worth trying first. For all channels, try attaching a voice note or video for customers who rate highly — a personal message from you before they leave a review can make a real difference.",
   },
   {
     tip: "Keep your review platforms up to date",
