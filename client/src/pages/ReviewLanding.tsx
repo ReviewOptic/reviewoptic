@@ -287,11 +287,11 @@ export default function ReviewLanding() {
               {recordingUrl && (
                 <div className="rounded-xl overflow-hidden border border-border bg-black">
                   {recordingType === "video" ? (
-                    <video src={recordingUrl} controls className="w-full max-h-64 object-contain" />
+                    <video src={recordingUrl} controls autoPlay playsInline className="w-full max-h-64 object-contain" />
                   ) : (
                     <div className="flex items-center gap-3 p-4 bg-muted/40">
                       <span className="text-2xl">🎙️</span>
-                      <audio src={recordingUrl} controls className="flex-1" />
+                      <audio src={recordingUrl} controls autoPlay className="flex-1" />
                     </div>
                   )}
                 </div>

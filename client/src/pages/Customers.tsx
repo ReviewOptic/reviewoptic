@@ -164,6 +164,8 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [selectedRecordingId, setSelectedRecordingId] = useState<string | null>(null);
+  const [emailRecordingType, setEmailRecordingType] = useState<"none" | "voice" | "video">("none");
+  const [emailRecordingId, setEmailRecordingId] = useState<string | null>(null);
 
   const { data: settings } = useQuery<any>({ queryKey: ["/api/settings"] });
   const { data: templates } = useQuery<Template[]>({ queryKey: ["/api/templates"] });
@@ -264,6 +266,9 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
         customMessage: messageMode === "ai" ? (aiMessage || undefined) : undefined,
         customSubject: channel === "email" && customSubject ? customSubject : undefined,
         templateId: messageMode === "template" && selectedTemplate ? selectedTemplate.id : undefined,
+        recordingId: channel === "email" && emailRecordingType !== "none"
+          ? (emailRecordingId ?? (recordings as any[]).find((r: any) => r.type === emailRecordingType)?.id ?? undefined)
+          : undefined,
       });
       return res.json();
     },
@@ -297,7 +302,7 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
           {/* Channel */}
           <div className="space-y-1.5">
             <Label className="text-[12.5px]">Send via</Label>
-            <Select value={channel} onValueChange={(v) => { setChannel(v); setAiMessage(""); setSelectedTemplateId(""); setMessageType("text"); }}>
+            <Select value={channel} onValueChange={(v) => { setChannel(v); setAiMessage(""); setSelectedTemplateId(""); setMessageType("text"); setEmailRecordingType("none"); setEmailRecordingId(null); }}>
               <SelectTrigger data-testid="select-send-channel"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="email" disabled={!customer?.email}>Email</SelectItem>
@@ -352,6 +357,51 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
               </div>
             </div>
           )}
+
+          {/* Email: after-rating media */}
+          {channel === "email" && (() => {
+            const voiceRecs = (recordings as any[]).filter((r: any) => r.type === "voice");
+            const videoRecs = (recordings as any[]).filter((r: any) => r.type === "video");
+            const activeRecs = emailRecordingType === "voice" ? voiceRecs : emailRecordingType === "video" ? videoRecs : [];
+            const activeRecId = emailRecordingId ?? activeRecs[0]?.id ?? null;
+            return (
+              <div className="space-y-1.5">
+                <Label className="text-[12.5px]">After 4–5★ rating, show</Label>
+                <div className="flex gap-1 p-1 bg-muted rounded-lg">
+                  {([
+                    { value: "none" as const, label: "Text only" },
+                    { value: "voice" as const, label: "Voice note", icon: <Mic className="w-3 h-3" /> },
+                    { value: "video" as const, label: "Video", icon: <Video className="w-3 h-3" /> },
+                  ]).map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => { setEmailRecordingType(opt.value); setEmailRecordingId(null); }}
+                      className={`flex-1 py-1.5 rounded-md text-[12px] font-medium transition-colors flex items-center justify-center gap-1 ${emailRecordingType === opt.value ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      {"icon" in opt && opt.icon}{opt.label}
+                    </button>
+                  ))}
+                </div>
+                {emailRecordingType !== "none" && (
+                  activeRecs.length === 0 ? (
+                    <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-center">
+                      <p className="text-[12px] text-amber-700">No {emailRecordingType === "voice" ? "voice notes" : "videos"} recorded yet. <a href="/templates?tab=recordings" className="underline font-medium">Record one in Templates → Recordings</a>.</p>
+                    </div>
+                  ) : activeRecs.length > 1 ? (
+                    <Select value={activeRecId ?? ""} onValueChange={v => setEmailRecordingId(v)}>
+                      <SelectTrigger className="text-[12.5px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {activeRecs.map((r: any) => <SelectItem key={r.id} value={r.id}>{r.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="text-[11.5px] text-muted-foreground px-1">Will use: <span className="font-medium">{activeRecs[0].label}</span></p>
+                  )
+                )}
+              </div>
+            );
+          })()}
 
           {/* WhatsApp message type selector */}
           {channel === "whatsapp" && (
