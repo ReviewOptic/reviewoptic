@@ -22,7 +22,7 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
 
   return (
     <Select value={snapped} onValueChange={onChange}>
-      <SelectTrigger className="text-[13px]"><SelectValue /></SelectTrigger>
+      <SelectTrigger className="w-36 text-[13px]"><SelectValue /></SelectTrigger>
       <SelectContent>
         {SLOTS.map(s => (
           <SelectItem key={s.value} value={s.value} className="text-[13px]">{s.label}</SelectItem>
