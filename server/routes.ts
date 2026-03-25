@@ -1377,23 +1377,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           };
           await sendReviewSMS(customer, settings, fixedTemplate as any, []);
         } else if (channel === "whatsapp" && customer.phone) {
-          const messageType: string = req.body.messageType || "text";
-          if (messageType === "voice" && settings.voiceNoteUrl && settings.elevenLabsVoiceId) {
-            const nameAudioPath = await generateNameAudio(settings.elevenLabsVoiceId, `${firstName}!`);
-            const mergedPath = await stitchNameToFront(nameAudioPath, settings.voiceNoteUrl, "audio");
-            const mediaUrl = `${appUrl}/uploads/tmp/${path.basename(mergedPath)}`;
-            await sendWhatsAppMessage(customer.phone, "", mediaUrl);
-            setTimeout(() => fs.unlink(mergedPath, () => {}), 60_000);
-          } else if (messageType === "video" && settings.videoMessageUrl && settings.elevenLabsVoiceId) {
-            const nameAudioPath = await generateNameAudio(settings.elevenLabsVoiceId, `${firstName}!`);
-            const mergedPath = await stitchNameToFront(nameAudioPath, settings.videoMessageUrl, "video");
-            const mediaUrl = `${appUrl}/uploads/tmp/${path.basename(mergedPath)}`;
-            await sendWhatsAppMessage(customer.phone, "", mediaUrl);
-            setTimeout(() => fs.unlink(mergedPath, () => {}), 60_000);
-          } else {
-            const body = `Hi ${firstName} 👋 Thanks for choosing ${settings.businessName}! How would you rate your experience? Tap here to let us know: ${ratingLink}`;
-            await sendWhatsAppMessage(customer.phone, body);
-          }
+          const body = `Hi ${firstName} 👋 Thanks for choosing ${settings.businessName}! How would you rate your experience? Tap here to let us know: ${ratingLink}`;
+          await sendWhatsAppMessage(customer.phone, body);
         }
       } catch (err: any) {
         console.error(`[review request] Failed to send ${channel} to ${customer.name}:`, err.message);

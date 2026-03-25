@@ -248,8 +248,7 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
   };
 
   const canSend = (delay === "custom" && !customTime) ? false
-    : (channel === "whatsapp" && messageType !== "text") ? !!previewId
-    : (channel === "email" && emailRecordingType !== "none") ? true
+    : (emailRecordingType !== "none") ? true
     : (messageMode === "template" || aiMessage.trim().length > 0);
 
   const mutation = useMutation({
@@ -266,7 +265,7 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
         customMessage: messageMode === "ai" ? (aiMessage || undefined) : undefined,
         customSubject: channel === "email" && customSubject ? customSubject : undefined,
         templateId: messageMode === "template" && selectedTemplate ? selectedTemplate.id : undefined,
-        recordingId: channel === "email" && emailRecordingType !== "none"
+        recordingId: emailRecordingType !== "none"
           ? (emailRecordingId ?? (recordings as any[]).find((r: any) => r.type === emailRecordingType)?.id ?? undefined)
           : undefined,
       });
@@ -358,8 +357,8 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
             </div>
           )}
 
-          {/* Email: after-rating media */}
-          {channel === "email" && (() => {
+          {/* After-rating media (all channels) */}
+          {(() => {
             const voiceRecs = (recordings as any[]).filter((r: any) => r.type === "voice");
             const videoRecs = (recordings as any[]).filter((r: any) => r.type === "video");
             const activeRecs = emailRecordingType === "voice" ? voiceRecs : emailRecordingType === "video" ? videoRecs : [];
@@ -403,90 +402,7 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
             );
           })()}
 
-          {/* WhatsApp message type selector */}
-          {channel === "whatsapp" && (
-            <div className="space-y-1.5">
-              <Label className="text-[12.5px]">Message type</Label>
-              <div className="flex gap-1 p-1 bg-muted rounded-lg">
-                {([
-                  { value: "text", label: "Text", icon: null },
-                  { value: "voice", label: "Voice note", icon: <Mic className="w-3 h-3" /> },
-                  { value: "video", label: "Video", icon: <Video className="w-3 h-3" /> },
-                ] as const).map(opt => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setMessageType(opt.value)}
-                    className={`flex-1 py-1.5 rounded-md text-[12px] font-medium transition-colors flex items-center justify-center gap-1 ${messageType === opt.value ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                  >
-                    {opt.icon}{opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Voice / Video preview + pronunciation */}
-          {channel === "whatsapp" && messageType !== "text" ? (
-            (() => {
-              const typeRecs = (recordings as any[]).filter((r: any) => r.type === messageType);
-              const activeRecId = selectedRecordingId ?? typeRecs[0]?.id ?? null;
-              const firstName = customer?.name?.split(" ")[0] || "";
-              return typeRecs.length > 0 ? (
-                <div className="space-y-3">
-                  {typeRecs.length > 1 && (
-                    <div className="space-y-1.5">
-                      <Label className="text-[12.5px]">Recording</Label>
-                      <Select value={activeRecId ?? ""} onValueChange={v => { setSelectedRecordingId(v); setPreviewId(null); }}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {typeRecs.map((r: any) => <SelectItem key={r.id} value={r.id}>{r.label}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                  {previewId ? (
-                    <div className="space-y-2">
-                      <Label className="text-[12.5px]">Preview — with {firstName}'s name</Label>
-                      {messageType === "voice" ? (
-                        <audio controls src={`/api/recordings/preview/${previewId}`} className="w-full h-10" />
-                      ) : (
-                        <video controls src={`/api/recordings/preview/${previewId}`} className="w-full rounded-lg max-h-40 bg-black" />
-                      )}
-                    </div>
-                  ) : (
-                    <div className="rounded-lg bg-muted/40 border border-border p-3 text-center">
-                      <p className="text-[12px] text-muted-foreground">Generate a preview to hear how it sounds with {firstName}'s name before sending.</p>
-                    </div>
-                  )}
-                  <div className="space-y-1.5">
-                    <Label className="text-[12.5px]">How to pronounce this name <span className="text-muted-foreground font-normal">(for voice only)</span></Label>
-                    <div className="flex gap-2">
-                      <Input
-                        value={phonetic}
-                        onChange={e => { setPhonetic(e.target.value); setPreviewId(null); }}
-                        placeholder={firstName}
-                        className="text-[12.5px] flex-1"
-                      />
-                      <Button size="sm" variant="outline" onClick={() => generatePreview()} disabled={isPreviewing || !activeRecId} className="text-[12.5px] shrink-0">
-                        {isPreviewing ? <><RefreshCw className="w-3 h-3 animate-spin mr-1" />Generating...</> : previewId ? "Re-generate" : "Preview"}
-                      </Button>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">Only used to pronounce the name in voice/video — the spelling in text messages is never changed. E.g. type <span className="italic">See-oh-bhan</span> for Siobhan.</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-center space-y-1">
-                  <p className="text-[12.5px] font-medium text-amber-800">
-                    {messageType === "voice" ? "Voice note" : "Video message"} not set up yet
-                  </p>
-                  <p className="text-[11.5px] text-amber-700">
-                    Record your {messageType === "voice" ? "voice note" : "video"} in <a href="/templates?tab=recordings" className="underline font-medium">Templates → Recordings</a>.
-                  </p>
-                </div>
-              );
-            })()
-          ) : channel === "email" && emailRecordingType !== "none" ? null : (
+          {emailRecordingType !== "none" ? null : (
             /* Text message mode toggle */
             <div className="space-y-2">
               <Label className="text-[12.5px]">Message</Label>
