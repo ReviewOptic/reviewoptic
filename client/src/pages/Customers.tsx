@@ -248,8 +248,8 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
   };
 
   const canSend = (delay === "custom" && !customTime) ? false
-    : (channel === "whatsapp" && messageType !== "text")
-    ? !!previewId
+    : (channel === "whatsapp" && messageType !== "text") ? !!previewId
+    : (channel === "email" && emailRecordingType !== "none") ? true
     : (messageMode === "template" || aiMessage.trim().length > 0);
 
   const mutation = useMutation({
@@ -486,7 +486,7 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
                 </div>
               );
             })()
-          ) : (
+          ) : channel === "email" && emailRecordingType !== "none" ? null : (
             /* Text message mode toggle */
             <div className="space-y-2">
               <Label className="text-[12.5px]">Message</Label>

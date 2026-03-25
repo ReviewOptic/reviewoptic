@@ -180,17 +180,6 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer; op
               </div>
             </div>
           )}
-          {channel === "email" && (
-            <div className="space-y-1.5">
-              <Label className="text-[12.5px]">Subject <span className="text-muted-foreground font-normal">(optional — uses template default if blank)</span></Label>
-              <Input
-                value={customSubject}
-                onChange={e => setCustomSubject(e.target.value)}
-                placeholder={`How was your experience with us?`}
-                className="text-[12.5px]"
-              />
-            </div>
-          )}
           {/* Email: after-rating media */}
           {channel === "email" && (() => {
             const voiceRecs = (recordings as any[]).filter((r: any) => r.type === "voice");
@@ -318,7 +307,7 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer; op
                 </div>
               );
             })()
-          ) : (
+          ) : channel === "email" && emailRecordingType !== "none" ? null : (
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label className="text-[12.5px]">Message</Label>
