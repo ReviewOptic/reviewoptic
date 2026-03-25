@@ -1034,45 +1034,6 @@ function TeamTab() {
   );
 }
 
-function ReferralTab() {
-  const { user } = useAuth();
-  const referralLink = `${window.location.origin}/register?ref=${user?.accountId ?? ""}`;
-  const [copied, setCopied] = useState(false);
-
-  const copyLink = () => {
-    navigator.clipboard.writeText(referralLink).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
-
-  return (
-    <div className="space-y-4 max-w-xl">
-      <Card className="border-card-border">
-        <CardHeader className="pb-2 pt-4 px-5">
-          <CardTitle className="text-[14px] font-semibold">Refer a Business</CardTitle>
-          <CardDescription className="text-[12.5px]">
-            Share ReviewOptic with other business owners. When they sign up using your link, both of you benefit.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="px-5 pb-4 space-y-3">
-          <Label className="text-[12.5px]">Your referral link</Label>
-          <div className="flex gap-2">
-            <Input readOnly value={referralLink} className="text-[12.5px] flex-1" />
-            <Button type="button" size="sm" variant="outline" onClick={copyLink} className="gap-1.5 shrink-0">
-              {copied ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
-              {copied ? "Copied!" : "Copy"}
-            </Button>
-          </div>
-          <p className="text-[11.5px] text-muted-foreground">
-            Share this link with other business owners. They get started with ReviewOptic and you get rewarded.
-          </p>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
 function ChangePasswordButton({ email }: { email: string }) {
   const { toast } = useToast();
   const [sent, setSent] = useState(false);
