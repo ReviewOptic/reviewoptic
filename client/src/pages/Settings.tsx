@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import { TimePicker } from "@/components/ui/time-picker";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Settings as SettingsType } from "@shared/schema";
@@ -498,11 +499,9 @@ export default function Settings() {
 
               <div className="pt-4 border-t border-border space-y-1.5">
                 <Label className="text-[12.5px]">Default send time</Label>
-                <input
-                  type="time"
-                  className="h-9 w-40 rounded-md border border-input bg-background px-3 text-[13px]"
-                  value={form.defaultSendTime || ""}
-                  onChange={e => setForm(f => ({ ...f, defaultSendTime: e.target.value }))}
+                <TimePicker
+                  value={form.defaultSendTime || "09:00"}
+                  onChange={v => setForm(f => ({ ...f, defaultSendTime: v }))}
                 />
                 <p className="text-[11.5px] text-muted-foreground">When set, the send dialog will pre-select this time for scheduled sends.</p>
               </div>

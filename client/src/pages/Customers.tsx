@@ -28,6 +28,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Customer, ReviewRequest, Template } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
+import { TimePicker } from "@/components/ui/time-picker";
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   pending_request: { label: "Pending", color: "bg-muted text-muted-foreground", icon: <Clock className="w-3 h-3" /> },
@@ -326,7 +327,16 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
           {/* Timing */}
           <div className="space-y-1.5">
             <Label className="text-[12.5px]">Timing</Label>
-            <Select value={delay} onValueChange={v => { setDelay(v); setCustomTime(""); }}>
+            <Select value={delay} onValueChange={v => {
+              setDelay(v);
+              if (v === "custom" && !customTime) {
+                const d = new Date(Date.now() + 3600000);
+                const pad = (n: number) => String(n).padStart(2, "0");
+                setCustomTime(`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+              } else if (v !== "custom") {
+                setCustomTime("");
+              }
+            }}>
               <SelectTrigger data-testid="select-send-timing"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="now">Send now</SelectItem>
@@ -335,15 +345,22 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
                 <SelectItem value="custom">Custom time</SelectItem>
               </SelectContent>
             </Select>
-            {delay === "custom" && (
-              <Input
-                type="datetime-local"
-                value={customTime}
-                min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
-                onChange={e => setCustomTime(e.target.value)}
-                className="mt-1.5 text-[13px]"
-              />
-            )}
+            {delay === "custom" && (() => {
+              const datePart = customTime ? customTime.split("T")[0] : new Date().toISOString().split("T")[0];
+              const timePart = customTime ? (customTime.split("T")[1] || "09:00").slice(0, 5) : "09:00";
+              return (
+                <div className="mt-1.5 space-y-1.5">
+                  <Input
+                    type="date"
+                    value={datePart}
+                    min={new Date().toISOString().split("T")[0]}
+                    onChange={e => setCustomTime(`${e.target.value}T${timePart}`)}
+                    className="text-[13px]"
+                  />
+                  <TimePicker value={timePart} onChange={v => setCustomTime(`${datePart}T${v}`)} />
+                </div>
+              );
+            })()}
           </div>
 
           {/* Platforms */}
