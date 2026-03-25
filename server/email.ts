@@ -250,6 +250,72 @@ export async function sendPreScreenEmail(
   console.log(`[pre-screen email] result:`, JSON.stringify(result));
 }
 
+export async function sendPlatformReviewRequest(user: { email: string; firstName: string; companyName: string }, isFollowUp: boolean) {
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`[platform review request] No RESEND_API_KEY. Would email ${user.email}`);
+    return;
+  }
+
+  const googleUrl = process.env.PLATFORM_REVIEW_GOOGLE_URL || "https://g.page/r/reviewoptic/review";
+  const trustpilotUrl = process.env.PLATFORM_REVIEW_TRUSTPILOT_URL || "";
+  const videoUrl = process.env.PLATFORM_REVIEW_VIDEO_URL || "";
+
+  const videoHtml = videoUrl ? `
+    <div style="margin:24px 0;text-align:center;">
+      <a href="${videoUrl}" target="_blank" style="display:inline-block;position:relative;text-decoration:none;">
+        <div style="background:#000;border-radius:12px;overflow:hidden;width:480px;max-width:100%;position:relative;">
+          <div style="background:linear-gradient(135deg,#1e40af,#3b82f6);height:200px;display:flex;align-items:center;justify-content:center;">
+            <div style="width:56px;height:56px;background:rgba(255,255,255,0.95);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+              <div style="width:0;height:0;border-style:solid;border-width:10px 0 10px 18px;border-color:transparent transparent transparent #1e40af;margin-left:4px;"></div>
+            </div>
+          </div>
+          <div style="background:#1e3a5f;color:#fff;padding:12px 16px;font-size:13px;font-family:Arial,sans-serif;">
+            Watch: a quick message from Alicia &amp; Rob
+          </div>
+        </div>
+      </a>
+    </div>` : "";
+
+  const platformLinks = [
+    { name: "Google", url: googleUrl },
+    ...(trustpilotUrl ? [{ name: "Trustpilot", url: trustpilotUrl }] : []),
+  ].map(p =>
+    `<a href="${p.url}" target="_blank" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;font-family:Arial,sans-serif;margin:4px;">${p.name}</a>`
+  ).join("");
+
+  const subjectLine = isFollowUp
+    ? `A quick reminder — would you mind leaving us a review?`
+    : `How are you finding ReviewOptic? We'd love your feedback`;
+
+  const intro = isFollowUp
+    ? `<p style="color:#555;margin:0 0 16px;line-height:1.6;">We wanted to follow up on our earlier message — if you've had a chance to try ReviewOptic, we'd really love to hear what you think.</p>`
+    : `<p style="color:#555;margin:0 0 16px;line-height:1.6;">You've been using ReviewOptic for a little while now, and we hope it's been making a real difference for ${user.companyName}.</p>
+       <p style="color:#555;margin:0 0 16px;line-height:1.6;">We're a small team and honest reviews help us grow so we can keep improving the product for businesses like yours. If you've got 60 seconds, we'd be incredibly grateful if you could share your experience:</p>`;
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  await resend.emails.send({
+    from: REVIEWOPTIC_FROM,
+    to: user.email,
+    subject: subjectLine,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#111;">
+        ${LOGO_HTML}
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Hi ${user.firstName},</h2>
+        ${intro}
+        ${videoHtml}
+        <div style="text-align:center;margin:28px 0;">
+          ${platformLinks}
+        </div>
+        <p style="color:#999;font-size:12px;line-height:1.6;margin-top:32px;">
+          You're receiving this because you have an account with ReviewOptic. If you'd prefer not to hear from us, just reply and let us know.
+        </p>
+        ${POWERED_BY_FOOTER}
+      </div>
+    `,
+  });
+  console.log(`[platform review request] Sent to ${user.email} (followUp=${isFollowUp})`);
+}
+
 export async function sendCancellationEmail(to: string, firstName: string, accessEndsDate: string, reactivateUrl: string) {
   if (!process.env.RESEND_API_KEY) {
     console.log(`[cancellation email] No RESEND_API_KEY. Would have sent to ${to}`);

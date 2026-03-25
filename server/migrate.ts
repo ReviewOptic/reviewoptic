@@ -296,6 +296,10 @@ export async function runMigrations() {
     // Email open tracking
     await pool.query(`ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS opened_at TIMESTAMP`);
 
+    // Automated platform review requests (ReviewOptic collecting its own reviews)
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS auto_review_requested_at TIMESTAMP`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS auto_review_follow_ups INTEGER NOT NULL DEFAULT 0`);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();
