@@ -73,12 +73,6 @@ const VIDEOS = [
     url: "", // paste YouTube embed URL here
   },
   {
-    title: "How to record a voice note or video message (optional)",
-    description: "How to record a voice note or video directly in the app — and how to attach it to review requests sent via Email, SMS, or WhatsApp so high-rating customers see a personal message from you.",
-    duration: "2 min",
-    url: "", // paste YouTube embed URL here
-  },
-  {
     title: "How to archive and restore a customer",
     description: "How to hide a customer from your active list without deleting their data, and how to restore them if needed.",
     duration: "1 min",

@@ -110,17 +110,6 @@ export const HOWTOS: HowTo[] = [
     ],
   },
   {
-    title: "How to record a voice note or video message (optional)",
-    steps: [
-      { text: "Go to Templates and open the Recordings tab.", link: "/templates", linkText: "Templates" },
-      { text: "Under Voice Note or Video Message, click 'Start recording'. Your browser will ask for microphone or camera permission — click Allow." },
-      { text: "Record your message (15–30 seconds is ideal). Speak naturally — something like: 'Hi, it's [your name] from [business] — thank you so much for your rating, it means a lot. Would you mind leaving us a quick review?'" },
-      { text: "When you're done, click Stop. You can play it back before saving. If you're not happy, record again." },
-      { text: "Give it a label (e.g. 'Standard voice note') and click Save. You can save up to 2 recordings per type." },
-      { text: "When sending a review request via Email, SMS, or WhatsApp, look for the 'After 4–5★ rating, show' option in the send dialog. Select 'Voice note' or 'Video' — the recording will play automatically for customers who give a high rating, before they click through to leave a review." },
-    ],
-  },
-  {
     title: "How to archive and restore a customer",
     steps: [
       { text: "Go to the Customers page.", link: "/customers", linkText: "Customers page" },
