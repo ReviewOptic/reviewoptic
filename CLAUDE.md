@@ -366,3 +366,26 @@ Your job is to be the developer they would hire if they could afford a great one
 - Instagram auto-posting and review widget still not built — decide whether to build or remove from features list
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
 - Cloudinary still misconfigured (`CLOUDINARY_CLOUD_NAME` = `"ReviewOptic"` not the real cloud ID) — recordings save to local disk only and won't survive a server restart; fix by updating the secret in the deployment environment
+
+### Session — 2026-03-25 (twenty-sixth session)
+
+**Tasks completed:**
+- SMS and WhatsApp review flow unified with email — all three channels now send a single text link; customer taps it → ReviewLanding → selects stars → confirms → next step (low rating = private feedback, high rating = platform links + optional recording)
+- Old WhatsApp initial voice/video send (recording sent as a WhatsApp attachment before rating) removed entirely
+- "After 4–5★ rating, show" picker (Text only / Voice note / Video) now appears in Send Request dialog for all channels (was email-only); `recordingId` passed to server for all channels so recording shows on ReviewLanding after high rating
+- WhatsApp "Message type" selector (Text/Voice/Video for initial message) removed from both send dialogs
+- `canSend` and Send button `disabled` conditions simplified — WhatsApp no longer requires a preview to be generated before sending
+- Analytics — new "Content Type Performance" chart added: shows platform click rate broken down by content type (Text only, Voice note, Video); helps identify which after-rating content converts best
+- Tutorials & Guides updated: "How to send a review request" rewritten to explain single-link flow and the After 4–5★ option; analytics how-to updated to mention Content Type Performance chart; top tips updated; voice/video how-to and video entry removed (covered inline in send request how-to)
+
+**Architecture notes:**
+- All three channels (email, SMS, WhatsApp) now follow identical flow: initial message with rating link → ReviewLanding → star rating → confirm → next step
+- `recording_url` / `recording_type` on `review_requests` is set when `recordingId` is passed at send time; ReviewLanding reads it and shows the recording after a high rating — no changes needed to ReviewLanding
+- `contentTypeData` query in analytics joins `review_requests` with `review_platform_clicks` on `request_id`; groups by `COALESCE(recording_type, 'text')`
+
+**Notes for next session:**
+- `POST /api/reviews` endpoint in routes.ts is still orphaned — safe to remove in a cleanup pass
+- Instagram auto-posting and review widget still not built — decide whether to build or remove from features list
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+- Cloudinary still misconfigured (`CLOUDINARY_CLOUD_NAME` = `"ReviewOptic"` not the real cloud ID) — recordings save to local disk only and won't survive a server restart; fix by updating the secret in the deployment environment
+- Server restart required for analytics `contentTypeData` query to take effect
