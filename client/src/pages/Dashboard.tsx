@@ -332,25 +332,6 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Quick links */}
-      <div className="grid grid-cols-4 gap-3">
-        {[
-          { label: "Customers", icon: Users, path: "/customers" },
-          { label: "Templates", icon: FileText, path: "/templates" },
-          { label: "Analytics", icon: BarChart2, path: "/analytics" },
-          { label: "Settings", icon: SettingsIcon, path: "/settings" },
-        ].map(link => (
-          <button
-            key={link.path}
-            onClick={() => navigate(link.path)}
-            className="flex flex-col items-center gap-2 py-4 px-2 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors"
-          >
-            <link.icon className="w-5 h-5 text-primary" />
-            <span className="text-[12px] font-medium">{link.label}</span>
-          </button>
-        ))}
-      </div>
-
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <div className="flex items-center gap-3 bg-muted/40 rounded-xl px-4 py-4">
@@ -420,6 +401,25 @@ export default function Dashboard() {
             </>
           )}
         </div>
+      </div>
+
+      {/* Quick links */}
+      <div className="grid grid-cols-4 gap-3">
+        {[
+          { label: "Customers", icon: Users, path: "/customers" },
+          { label: "Templates", icon: FileText, path: "/templates" },
+          { label: "Analytics", icon: BarChart2, path: "/analytics" },
+          { label: "Settings", icon: SettingsIcon, path: "/settings" },
+        ].map(link => (
+          <button
+            key={link.path}
+            onClick={() => navigate(link.path)}
+            className="flex flex-col items-center gap-2 py-4 px-2 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors"
+          >
+            <link.icon className="w-5 h-5 text-primary" />
+            <span className="text-[12px] font-medium">{link.label}</span>
+          </button>
+        ))}
       </div>
 
       {/* To-do nudges */}

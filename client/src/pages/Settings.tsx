@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useState, useEffect, useCallback, useRef } from "react";
 import Cropper from "react-easy-crop";
-import { Save, ExternalLink, Copy, Check, Globe, Bell, FileCode, Star, Share2, Upload, X, Trash2, UserPlus, Mic, Video } from "lucide-react";
+import { Save, ExternalLink, Copy, Check, Globe, Bell, FileCode, Star, Share2, Upload, X, Trash2, UserPlus, Mic, Video, Gift } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -202,6 +202,7 @@ export default function Settings() {
             <TabsTrigger value="social" className="text-[12.5px] whitespace-nowrap" data-testid="tab-social">Social</TabsTrigger>
             <TabsTrigger value="notifications" className="text-[12.5px] whitespace-nowrap" data-testid="tab-notifications">Insight Emails</TabsTrigger>
             <TabsTrigger value="team" className="text-[12.5px] whitespace-nowrap" data-testid="tab-team">Team</TabsTrigger>
+            <TabsTrigger value="referral" className="text-[12.5px] whitespace-nowrap" data-testid="tab-referral">Referral</TabsTrigger>
           </TabsList>
         </div>
 
@@ -771,6 +772,11 @@ export default function Settings() {
           <TeamTab />
         </TabsContent>
 
+        {/* Referral */}
+        <TabsContent value="referral">
+          <ReferralTab />
+        </TabsContent>
+
       </Tabs>
 
     </div>
@@ -1028,6 +1034,45 @@ function TeamTab() {
   );
 }
 
+function ReferralTab() {
+  const { user } = useAuth();
+  const referralLink = `${window.location.origin}/register?ref=${user?.accountId ?? ""}`;
+  const [copied, setCopied] = useState(false);
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(referralLink).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <div className="space-y-4 max-w-xl">
+      <Card className="border-card-border">
+        <CardHeader className="pb-2 pt-4 px-5">
+          <CardTitle className="text-[14px] font-semibold">Refer a Business</CardTitle>
+          <CardDescription className="text-[12.5px]">
+            Share ReviewOptic with other business owners. When they sign up using your link, both of you benefit.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="px-5 pb-4 space-y-3">
+          <Label className="text-[12.5px]">Your referral link</Label>
+          <div className="flex gap-2">
+            <Input readOnly value={referralLink} className="text-[12.5px] flex-1" />
+            <Button type="button" size="sm" variant="outline" onClick={copyLink} className="gap-1.5 shrink-0">
+              {copied ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+              {copied ? "Copied!" : "Copy"}
+            </Button>
+          </div>
+          <p className="text-[11.5px] text-muted-foreground">
+            Share this link with other business owners. They get started with ReviewOptic and you get rewarded.
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function ChangePasswordButton({ email }: { email: string }) {
   const { toast } = useToast();
   const [sent, setSent] = useState(false);
@@ -1052,5 +1097,78 @@ function ChangePasswordButton({ email }: { email: string }) {
     <Button type="button" variant="outline" size="sm" onClick={send} disabled={loading}>
       {loading ? "Sending…" : "Send password reset email"}
     </Button>
+  );
+}
+
+function ReferralTab() {
+  const { user } = useAuth();
+  const [copied, setCopied] = useState(false);
+
+  const appUrl = window.location.origin;
+  const refCode = user?.accountId ? user.accountId.slice(0, 8).toUpperCase() : "";
+  const referralLink = `${appUrl}/signup?ref=${refCode}`;
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(referralLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <Card className="border-card-border">
+      <CardHeader>
+        <CardTitle className="text-[15px] flex items-center gap-2">
+          <Gift className="w-4 h-4 text-primary" /> Refer a Business
+        </CardTitle>
+        <CardDescription className="text-[12.5px]">
+          Share ReviewOptic with other business owners and earn a reward when they sign up.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-5 pb-6">
+        <div className="rounded-xl bg-primary/5 border border-primary/20 p-4 text-center space-y-1">
+          <p className="text-[12px] text-muted-foreground uppercase tracking-wide font-medium">Your referral reward</p>
+          <p className="text-[15px] font-semibold text-foreground">Offer details coming soon 🎁</p>
+          <p className="text-[12px] text-muted-foreground">We're finalising the referral programme — watch this space.</p>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-[12.5px] font-medium">Your unique referral link</label>
+          <div className="flex gap-2">
+            <input
+              readOnly
+              value={referralLink}
+              className="flex-1 h-9 rounded-md border border-input bg-muted/40 px-3 text-[12.5px] text-muted-foreground select-all"
+              onClick={e => (e.target as HTMLInputElement).select()}
+            />
+            <Button size="sm" variant="outline" onClick={copyLink} className="gap-1.5 shrink-0">
+              {copied ? <><Check className="w-3.5 h-3.5 text-green-600" /> Copied</> : <><Copy className="w-3.5 h-3.5" /> Copy</>}
+            </Button>
+          </div>
+          <p className="text-[11.5px] text-muted-foreground">Anyone who signs up using your link will be tracked to your account.</p>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-[12.5px] font-medium">Share via</label>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(`I've been using ReviewOptic to collect customer reviews automatically — it's been great. Sign up here: ${referralLink}`)}`, "_blank")}
+            >
+              <Share2 className="w-3.5 h-3.5" /> WhatsApp
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => window.open(`mailto:?subject=You should try ReviewOptic&body=${encodeURIComponent(`Hi,\n\nI've been using ReviewOptic to automatically collect customer reviews and it's made a real difference. Thought you might find it useful too.\n\nSign up here: ${referralLink}\n\nBest`)}`, "_blank")}
+            >
+              <Share2 className="w-3.5 h-3.5" /> Email
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
