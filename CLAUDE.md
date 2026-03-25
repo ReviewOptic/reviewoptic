@@ -239,3 +239,30 @@ Your job is to be the developer they would hire if they could afford a great one
 - Instagram auto-posting still not built
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
 - Server restart required for `default_send_time` migration to run
+
+### Session — 2026-03-25 (twenty-eighth session)
+
+**Tasks completed:**
+- **Feature 8 — Request History**: CustomerDetail "Review Requests" card redesigned into "Request History" — each request shown as a journey with chips: Sent → Opened (email) → Follow-up 1/2/3 → outcome (Clicked / Rated-no-click / Private feedback / No response). Star rating shown in header. Sorted newest first.
+- **Feature 9 — Email open tracking**: 1×1 GIF pixel embedded in pre-screen emails. Public `GET /api/track/:id/open` endpoint sets `opened_at` on first open. `opened_at` column added to `review_requests` via schema + migration.
+- **Automated platform review requests**: When a ReviewOptic user (business) has been signed up 30 days, they automatically receive an email from ReviewOptic asking them to leave a review. Follow-up 1 at +3 days, Follow-up 2 at +7 days. Tracked via `auto_review_requested_at` and `auto_review_follow_ups` on `users` table. Controlled by env vars: `PLATFORM_REVIEW_GOOGLE_URL`, `PLATFORM_REVIEW_TRUSTPILOT_URL`, `PLATFORM_REVIEW_VIDEO_URL`. Admin users excluded.
+- **Follow-up wording fix**: Settings → Follow-up tab now shows gap-based descriptions ("Send the second follow-up 4 days after the first follow-up") instead of confusing cumulative day numbers. Day badge also shows the gap.
+- **TimePicker component**: Replaced all native `<input type="time">` with a shared `TimePicker` component — hour dropdown (1–12), :00/:30 toggle, AM/PM toggle. Used in Settings default send time and Customers send dialog custom time.
+- **Admin customer data cleared**: All customers, review requests, private feedback, and activity logs deleted from admin account (`hello@reviewoptic.com`) for a clean start.
+- **Dashboard quotes expanded**: 8 → 20 quotes, now randomised on each page load (not daily) so multiple logins per day show different quotes.
+- **Dashboard improvements**: Added quick links row (Customers/Templates/Analytics/Settings icon tiles, placed below stats), "Ready to Send" sidebar card (pending customers with direct Send button), "Latest Ratings" sidebar card (last 4 star ratings). Removed old Quick Actions card.
+- **Settings → Referral tab**: Unique referral link per user using business name slug (e.g. `reviewoptic.com/referral/bobs-plumbing`). Copy button, WhatsApp/Facebook/X/LinkedIn/Email/SMS share buttons. "Offer coming soon" placeholder.
+
+**Architecture notes:**
+- `opened_at TIMESTAMP` on `review_requests` — nullable, set once on first pixel load
+- `auto_review_requested_at TIMESTAMP` + `auto_review_follow_ups INTEGER` on `users` — daily runner in index.ts
+- `TimePicker` shared component at `client/src/components/ui/time-picker.tsx`
+- Referral slug = `businessName.toLowerCase().replace(/[^a-z0-9]+/g, "-")` — no DB column, derived at render time
+- Referral link route (`/referral/:slug`) does NOT exist yet — it's a placeholder display only
+
+**Notes for next session:**
+- **Referral programme activation**: needs (1) server route `GET /referral/:slug` → redirect to `/signup?ref={accountId}`, (2) store `referred_by_account_id` on new accounts at registration, (3) admin view of referral counts, (4) update offer text in Referral tab
+- **Server restart required**: for `opened_at` and `auto_review_*` migrations to run
+- `POST /api/reviews` endpoint still orphaned in routes.ts — safe to remove
+- Instagram auto-posting still not built
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
