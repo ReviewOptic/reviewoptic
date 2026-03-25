@@ -84,6 +84,7 @@ export default function ReviewLanding() {
   const [recordingUrl, setRecordingUrl] = useState("");
   const [recordingType, setRecordingType] = useState("");
   const [feedbackText, setFeedbackText] = useState("");
+  const [clickedPlatform, setClickedPlatform] = useState<string | null>(null);
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   const [ratingLocked, setRatingLocked] = useState(false);
@@ -298,35 +299,44 @@ export default function ReviewLanding() {
               )}
 
               {platforms.length > 0 ? (
-                <div className="grid grid-cols-2 gap-3">
-                  {platforms.map(p => {
-                    const meta = PLATFORM_META[p.key];
-                    return (
-                      <a key={p.key} href={p.url} target="_blank" rel="noopener noreferrer"
-                        onClick={() => {
-                          if (rid) {
-                            fetch(`/api/track/${rid}/platform-click`, {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ platform: p.key }),
-                            }).catch(() => {});
-                          }
-                        }}>
-                        <div className="flex flex-col items-center gap-2 p-4 rounded-xl border border-border bg-card hover:bg-muted/50 hover:border-primary/40 transition-colors cursor-pointer">
-                          {meta?.logo ?? null}
-                          <span className="text-[13px] font-semibold">{p.name}</span>
-                          <span className={cn(
-                            "text-[10.5px] px-2 py-0.5 rounded-full font-medium",
-                            meta?.signIn
-                              ? "bg-amber-50 text-amber-700 border border-amber-200"
-                              : "bg-green-50 text-green-700 border border-green-200"
-                          )}>
-                            {meta?.signIn ? "Sign in required" : "No sign in required"}
-                          </span>
-                        </div>
-                      </a>
-                    );
-                  })}
+                <div className="space-y-3">
+                  {clickedPlatform && (
+                    <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-green-700">
+                      <CheckCircle2 className="w-4 h-4 shrink-0" />
+                      <span className="text-[13px] font-medium">Opening {clickedPlatform} for you — thank you!</span>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-3">
+                    {platforms.map(p => {
+                      const meta = PLATFORM_META[p.key];
+                      return (
+                        <a key={p.key} href={p.url} target="_blank" rel="noopener noreferrer"
+                          onClick={() => {
+                            setClickedPlatform(p.name);
+                            if (rid) {
+                              fetch(`/api/track/${rid}/platform-click`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ platform: p.key }),
+                              }).catch(() => {});
+                            }
+                          }}>
+                          <div className="flex flex-col items-center gap-2 p-4 rounded-xl border border-border bg-card hover:bg-muted/50 hover:border-primary/40 transition-colors cursor-pointer">
+                            {meta?.logo ?? null}
+                            <span className="text-[13px] font-semibold">{p.name}</span>
+                            <span className={cn(
+                              "text-[10.5px] px-2 py-0.5 rounded-full font-medium",
+                              meta?.signIn
+                                ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                : "bg-green-50 text-green-700 border border-green-200"
+                            )}>
+                              {meta?.signIn ? "Sign in required" : "No sign in required"}
+                            </span>
+                          </div>
+                        </a>
+                      );
+                    })}
+                  </div>
                 </div>
               ) : (
                 <p className="text-center text-[13px] text-muted-foreground py-4">

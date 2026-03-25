@@ -760,8 +760,9 @@ export default function Analytics() {
                 </Card>
               );
             case "content_type": {
-              const ctData = data?.contentTypeData?.filter(d => d.sent > 0);
-              if (!ctData?.length) return null;
+              const ctData = data?.contentTypeData;
+              if (!ctData?.length || ctData.every(d => d.sent === 0)) return null;
+              const ctColors: Record<string, string> = { text: colors.requests, voice: colors.clicks, video: colors.positive };
               return (
                 <Card className="border-card-border">
                   <CardHeader className="pb-2 pt-4 px-5">
@@ -770,19 +771,21 @@ export default function Analytics() {
                   </CardHeader>
                   <CardContent className="px-5 pb-4">
                     {isLoading ? <Skeleton className="h-40 w-full" /> : (
-                      <ResponsiveContainer width="100%" height={Math.max(120, ctData.length * 44)}>
-                        <BarChart data={ctData} layout="vertical" margin={{ top: 5, right: 60, bottom: 5, left: 10 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
-                          <XAxis type="number" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
-                          <YAxis type="category" dataKey="label" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} width={80} />
-                          <Tooltip contentStyle={tooltipStyle} formatter={(v, name, props) => {
-                            if (name === "sent") return [v, "Requests sent"];
-                            if (name === "platformClicked") return [`${v} (${props.payload?.clickRate ?? 0}% click rate)`, "Platform clicks"];
-                            return [v, String(name)];
+                      <ResponsiveContainer width="100%" height={200}>
+                        <BarChart data={ctData} margin={{ top: 10, right: 20, bottom: 5, left: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                          <XAxis dataKey="label" tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+                          <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} tickFormatter={v => `${v}%`} domain={[0, 100]} />
+                          <Tooltip contentStyle={tooltipStyle} formatter={(v, _name, props) => {
+                            const p = props.payload;
+                            if (p?.sent === 0) return ["No requests sent yet", ""];
+                            return [`${v}% click rate (${p?.platformClicked ?? 0} of ${p?.sent ?? 0} sent)`, "Platform clicks"];
                           }} />
-                          <Legend wrapperStyle={{ fontSize: 11 }} />
-                          <Bar dataKey="sent" name="Requests sent" fill={colors.requests} radius={[0, 2, 2, 0]} barSize={14} />
-                          <Bar dataKey="platformClicked" name="Platform clicks" fill={colors.reviews} radius={[0, 4, 4, 0]} barSize={14} />
+                          <Bar dataKey="clickRate" name="Click rate" radius={[4, 4, 0, 0]} maxBarSize={80} minPointSize={2}>
+                            {ctData.map((entry) => (
+                              <Cell key={entry.type} fill={entry.sent === 0 ? "hsl(var(--border))" : (ctColors[entry.type] || colors.requests)} />
+                            ))}
+                          </Bar>
                         </BarChart>
                       </ResponsiveContainer>
                     )}

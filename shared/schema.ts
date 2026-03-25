@@ -126,6 +126,7 @@ export const settings = pgTable("settings", {
   socialPostEnabled: boolean("social_post_enabled").notNull().default(false),
   socialPostMessage: text("social_post_message").notNull().default("⭐ We just received a {stars}★ review! Thank you {customer_name}!"),
   country: text("country").notNull().default(""),
+  defaultSendTime: text("default_send_time").notNull().default(""),
   voiceNoteUrl: text("voice_note_url").notNull().default(""),
   videoMessageUrl: text("video_message_url").notNull().default(""),
   elevenLabsVoiceId: text("elevenlabs_voice_id").notNull().default(""),

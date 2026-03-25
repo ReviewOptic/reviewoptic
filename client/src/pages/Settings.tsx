@@ -97,6 +97,7 @@ export default function Settings() {
     widgetMinStars: 4,
     widgetCount: 5,
     widgetLayout: "grid",
+    defaultSendTime: "",
     socialPostEnabled: false,
     socialPostMessage: "⭐ We just received a {stars}★ review! Thank you {customer_name}!",
     country: "",
@@ -130,6 +131,7 @@ export default function Settings() {
         widgetMinStars: settings.widgetMinStars ?? 4,
         widgetCount: settings.widgetCount ?? 5,
         widgetLayout: settings.widgetLayout || "grid",
+        defaultSendTime: settings.defaultSendTime || "",
         socialPostEnabled: settings.socialPostEnabled ?? false,
         socialPostMessage: settings.socialPostMessage || "⭐ We just received a {stars}★ review! Thank you {customer_name}!",
         country: settings.country || "",
@@ -394,7 +396,10 @@ export default function Settings() {
                       className="flex-1"
                     />
                     {(form as any)[key] && (
-                      <Button variant="outline" size="icon" className="h-9 w-9 flex-shrink-0" onClick={() => window.open((form as any)[key], "_blank")}>
+                      <Button variant="outline" size="icon" className="h-9 w-9 flex-shrink-0" onClick={() => {
+                        const raw = (form as any)[key].trim();
+                        window.open(raw.startsWith("http") ? raw : `https://${raw}`, "_blank");
+                      }}>
                         <ExternalLink className="w-3.5 h-3.5" />
                       </Button>
                     )}
@@ -490,6 +495,17 @@ export default function Settings() {
                   </div>
                 </>
               )}
+
+              <div className="pt-4 border-t border-border space-y-1.5">
+                <Label className="text-[12.5px]">Default send time</Label>
+                <input
+                  type="time"
+                  className="h-9 w-40 rounded-md border border-input bg-background px-3 text-[13px]"
+                  value={form.defaultSendTime || ""}
+                  onChange={e => setForm(f => ({ ...f, defaultSendTime: e.target.value }))}
+                />
+                <p className="text-[11.5px] text-muted-foreground">When set, the send dialog will pre-select this time for scheduled sends.</p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -503,8 +519,45 @@ export default function Settings() {
             </CardHeader>
             <CardContent className="space-y-5 pb-5">
               <p className="text-[12.5px] text-muted-foreground">
-                The widget displays your average star rating and total number of ratings collected through ReviewOptic. Paste the code below anywhere in your website's HTML.
+                Displays a row of rating cards on your website — customer name, stars, and date. Paste the embed code anywhere in your site's HTML.
               </p>
+
+              {/* Config controls */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-[12.5px]">Minimum stars</Label>
+                  <select
+                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-[13px]"
+                    value={form.widgetMinStars}
+                    onChange={e => setForm(f => ({ ...f, widgetMinStars: Number(e.target.value) }))}
+                  >
+                    <option value={4}>4 stars and above</option>
+                    <option value={5}>5 stars only</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[12.5px]">Number to show</Label>
+                  <select
+                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-[13px]"
+                    value={form.widgetCount}
+                    onChange={e => setForm(f => ({ ...f, widgetCount: Number(e.target.value) }))}
+                  >
+                    {[3,4,5,6,7,8,9,10].map(n => <option key={n} value={n}>{n} ratings</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[12.5px]">Layout</Label>
+                  <select
+                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-[13px]"
+                    value={form.widgetLayout}
+                    onChange={e => setForm(f => ({ ...f, widgetLayout: e.target.value }))}
+                  >
+                    <option value="grid">Grid</option>
+                    <option value="carousel">Carousel</option>
+                  </select>
+                </div>
+              </div>
+
               <div className="space-y-1.5">
                 <Label className="text-[12.5px]">Embed Code</Label>
                 <div className="relative">

@@ -828,14 +828,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const settings = await storage.getSettings(req.params.businessId);
     const minStars = settings?.widgetMinStars || 4;
     const count = settings?.widgetCount || 5;
-    const allReviews = await storage.getReviews(req.params.businessId);
-    const filtered = allReviews.filter(r => r.stars >= minStars).slice(0, count);
-    const customerList = await Promise.all(filtered.map(r => storage.getCustomer(r.customerId, req.params.businessId)));
-    const result = filtered.map((r, i) => ({
-      ...r,
-      customerName: customerList[i]?.name || "Anonymous",
-    }));
-    res.json({ reviews: result, businessName: settings?.businessName || "My Business" });
+    const layout = settings?.widgetLayout || "grid";
+    const rows = await pool.query(
+      `SELECT rr.rating, rr.created_at, c.name
+       FROM review_requests rr
+       JOIN customers c ON c.id = rr.customer_id
+       WHERE rr.account_id = $1 AND rr.rating >= $2
+       ORDER BY rr.created_at DESC
+       LIMIT $3`,
+      [req.params.businessId, minStars, count]
+    );
+    const result = rows.rows.map((r: any) => {
+      const parts = (r.name || "").trim().split(" ");
+      const displayName = parts.length >= 2
+        ? parts[0] + " " + parts[parts.length - 1][0] + "."
+        : parts[0] || "Anonymous";
+      return { displayName, rating: r.rating, createdAt: r.created_at };
+    });
+    res.json({ reviews: result, businessName: settings?.businessName || "My Business", layout });
   });
 
   // Public branding endpoint — returns the admin account's logo for the login page
@@ -942,7 +952,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           mybuilder: settings?.mybuilderLink || "",
         };
         const platformNames: Record<string, string> = { google: "Google", facebook: "Facebook", trustpilot: "Trustpilot", tripadvisor: "TripAdvisor", checkatrade: "Checkatrade", mybuilder: "MyBuilder" };
-        platforms = Object.entries(platformMap).filter(([, url]) => url).map(([key, url]) => ({ key, name: platformNames[key], url: url.startsWith("http") ? url : `https://${url}` }));
+        platforms = Object.entries(platformMap).filter(([, url]) => url).map(([key, url]) => ({ key, name: platformNames[key], url: url.trim().startsWith("http") ? url.trim() : `https://${url.trim()}` }));
         const { rows: rrRows } = await pool.query(
           `SELECT recording_url, recording_type FROM review_requests WHERE id = $1`,
           [request.id]
@@ -997,7 +1007,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       // Fetch platform links for high rating display on landing page
       const platforms = rating >= 4
-        ? Object.entries(platformMap).filter(([, url]) => url).map(([key, url]) => ({ key, name: platformNames[key], url: url.startsWith("http") ? url : `https://${url}` }))
+        ? Object.entries(platformMap).filter(([, url]) => url).map(([key, url]) => ({ key, name: platformNames[key], url: url.trim().startsWith("http") ? url.trim() : `https://${url.trim()}` }))
         : [];
 
       // Auto-send the appropriate response template via the same channel
@@ -1397,7 +1407,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(rr);
   });
 
-  // Reviews (GET — protected; POST is public above)
+  // Reviews
   app.get("/api/reviews", requireAuth, async (req, res) => {
     res.json(await storage.getReviews(req.session.accountId!));
   });
@@ -1962,14 +1972,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         WHERE rr.account_id = $1 AND rr.created_at >= $2 AND rr.created_at <= $3
         GROUP BY content_type
       `, baseParams);
-      const LABELS: Record<string, string> = { text: "Text only", voice: "Voice note", video: "Video" };
-      contentTypeData = ctRows.map((r: any) => ({
-        type: r.content_type,
-        label: LABELS[r.content_type] || r.content_type,
-        sent: r.sent,
-        platformClicked: r.platform_clicked,
-        clickRate: r.sent > 0 ? Math.round((r.platform_clicked / r.sent) * 100) : 0,
-      }));
+      const LABELS: Record<string, string> = { text: "Text only", voice: "Voice Note", video: "Video" };
+      const ctMap: Record<string, any> = {};
+      for (const r of ctRows) {
+        const key = LABELS[r.content_type] ? r.content_type : "text"; // bucket unknowns into text
+        ctMap[key] = { sent: (ctMap[key]?.sent || 0) + r.sent, platform_clicked: (ctMap[key]?.platform_clicked || 0) + r.platform_clicked };
+      }
+      contentTypeData = ["text", "voice", "video"].map(type => {
+        const r = ctMap[type] || { sent: 0, platform_clicked: 0 };
+        return { type, label: LABELS[type], sent: r.sent, platformClicked: r.platform_clicked, clickRate: r.sent > 0 ? Math.round((r.platform_clicked / r.sent) * 100) : 0 };
+      });
     } catch { /* ignore */ }
 
     // Platform click breakdown

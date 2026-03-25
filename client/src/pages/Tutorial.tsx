@@ -44,7 +44,7 @@ const VIDEOS = [
   },
   {
     title: "How to send a review request",
-    description: "How to send a review request via email, SMS, or WhatsApp — and how to attach a voice note or video for customers who give a high rating.",
+    description: "How to send a single or bulk review request via email, SMS, or WhatsApp — and how to attach a voice note or video for customers who give a high rating.",
     duration: "2 min",
     url: "", // paste YouTube embed URL here
   },
@@ -64,6 +64,12 @@ const VIDEOS = [
     title: "How to mark a customer as Do Not Contact",
     description: "How to stop review requests being sent to a specific customer.",
     duration: "1 min",
+    url: "", // paste YouTube embed URL here
+  },
+  {
+    title: "How to set up your website widget",
+    description: "How to embed a live rating widget on your website and configure which ratings it shows.",
+    duration: "2 min",
     url: "", // paste YouTube embed URL here
   },
   {

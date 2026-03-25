@@ -290,6 +290,9 @@ export async function runMigrations() {
       )
     `);
 
+    // Default send time preference
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS default_send_time TEXT NOT NULL DEFAULT ''`);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();

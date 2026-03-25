@@ -175,6 +175,18 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
   const selectedTemplate = channelTemplates.find(t => t.id === selectedTemplateId) ?? channelTemplates[0];
 
   useEffect(() => {
+    if (settings?.defaultSendTime && customTime === "" && delay === "now") {
+      const [hours, minutes] = settings.defaultSendTime.split(":").map(Number);
+      const d = new Date();
+      d.setHours(hours, minutes, 0, 0);
+      if (d <= new Date()) d.setDate(d.getDate() + 1); // if time already passed, schedule for tomorrow
+      const pad = (n: number) => String(n).padStart(2, "0");
+      setDelay("custom");
+      setCustomTime(`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(hours)}:${pad(minutes)}`);
+    }
+  }, [settings?.defaultSendTime]);
+
+  useEffect(() => {
     if (settings?.businessName && !customSubject) {
       setCustomSubject(`How was your experience with ${settings.businessName}?`);
     }
@@ -770,10 +782,33 @@ export default function Customers() {
   const [showImport, setShowImport] = useState(false);
   const [sendTo, setSendTo] = useState<Customer | null>(null);
   const [editCustomer, setEditCustomer] = useState<Customer | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBulkSend, setShowBulkSend] = useState(false);
+  const [bulkChannel, setBulkChannel] = useState<"email" | "sms" | "whatsapp">("email");
+  const [bulkSending, setBulkSending] = useState(false);
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const { user } = useAuth();
   const isReadOnly = !!user?.isImpersonating;
+
+  async function sendBulkRequests() {
+    const selectedCustomers = displayList.filter(c => selectedIds.has(c.id) && !c.doNotContact);
+    if (!selectedCustomers.length) return;
+    setBulkSending(true);
+    let sent = 0;
+    for (const c of selectedCustomers) {
+      try {
+        await apiRequest("POST", "/api/review-requests", { customerId: c.id, channel: bulkChannel });
+        sent++;
+      } catch {}
+    }
+    setBulkSending(false);
+    setShowBulkSend(false);
+    setSelectedIds(new Set());
+    queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/review-requests"] });
+    toast({ title: `Sent ${sent} request${sent !== 1 ? "s" : ""}` });
+  }
 
   const { data: customers, isLoading } = useQuery<Customer[]>({ queryKey: ["/api/customers"] });
   const { data: archivedCustomers, isLoading: isLoadingArchived } = useQuery<Customer[]>({ queryKey: ["/api/customers/archived"], enabled: showArchived });
@@ -918,6 +953,16 @@ export default function Customers() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-muted/40">
+                {!showArchived && !isReadOnly && (
+                  <th className="pl-4 pr-2 py-3 w-8">
+                    <input
+                      type="checkbox"
+                      className="rounded border-border cursor-pointer"
+                      checked={displayList.length > 0 && displayList.every(c => selectedIds.has(c.id))}
+                      onChange={e => setSelectedIds(e.target.checked ? new Set(displayList.map(c => c.id)) : new Set())}
+                    />
+                  </th>
+                )}
                 <th className="text-left px-4 py-3 text-[11.5px] font-semibold text-muted-foreground uppercase tracking-wider">Name</th>
                 <th className="text-left px-4 py-3 text-[11.5px] font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Email</th>
                 <th className="text-left px-4 py-3 text-[11.5px] font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Service</th>
@@ -963,6 +1008,21 @@ export default function Customers() {
                     className="border-b border-border/50 hover:bg-muted/30 transition-colors"
                     data-testid={`customer-row-${customer.id}`}
                   >
+                    {!showArchived && !isReadOnly && (
+                      <td className="pl-4 pr-2 py-3 w-8">
+                        <input
+                          type="checkbox"
+                          className="rounded border-border cursor-pointer"
+                          checked={selectedIds.has(customer.id)}
+                          onChange={e => setSelectedIds(prev => {
+                            const next = new Set(prev);
+                            e.target.checked ? next.add(customer.id) : next.delete(customer.id);
+                            return next;
+                          })}
+                          onClick={e => e.stopPropagation()}
+                        />
+                      </td>
+                    )}
                     <td className="px-4 py-3">
                       <div>
                         <button
@@ -982,7 +1042,20 @@ export default function Customers() {
                       <span className="text-[13px] text-muted-foreground">{customer.serviceType || "—"}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <StatusBadge status={customer.status} doNotContact={customer.doNotContact} />
+                      <div className="space-y-1">
+                        <StatusBadge status={customer.status} doNotContact={customer.doNotContact} />
+                        {(() => {
+                          const rating = allRequests.filter(r => r.customerId === customer.id && r.rating).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]?.rating;
+                          if (!rating) return null;
+                          return (
+                            <div className="flex gap-0.5">
+                              {[1,2,3,4,5].map(i => (
+                                <Star key={i} className={cn("w-3 h-3", i <= rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/20")} />
+                              ))}
+                            </div>
+                          );
+                        })()}
+                      </div>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
                       <span className="text-[13px] text-muted-foreground">
@@ -1036,7 +1109,7 @@ export default function Customers() {
                                   data-testid={`action-send-${customer.id}`}
                                 >
                                   <Send className="w-3.5 h-3.5 mr-2 text-primary" />
-                                  Send Request
+                                  {["clicked", "no_response"].includes(customer.status) ? "Send New Request" : "Send Request"}
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuItem onClick={() => navigate(`/customers/${customer.id}`)}>
@@ -1089,6 +1162,57 @@ export default function Customers() {
       <ImportCsvDialog open={showImport} onClose={() => setShowImport(false)} />
       <SendRequestDialog customer={sendTo} open={!!sendTo} onClose={() => setSendTo(null)} />
       <EditCustomerDialog customer={editCustomer} open={!!editCustomer} onClose={() => setEditCustomer(null)} />
+
+      {/* Bulk send action bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-background border border-border shadow-lg rounded-xl px-5 py-3">
+          <span className="text-[13px] font-medium">{selectedIds.size} customer{selectedIds.size !== 1 ? "s" : ""} selected</span>
+          <Button size="sm" className="gap-1.5" onClick={() => setShowBulkSend(true)}>
+            <Send className="w-3.5 h-3.5" />
+            Send Requests
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
+            <X className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+      )}
+
+      {/* Bulk send dialog */}
+      <Dialog open={showBulkSend} onOpenChange={v => !bulkSending && setShowBulkSend(v)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Send to {selectedIds.size} customer{selectedIds.size !== 1 ? "s" : ""}</DialogTitle>
+            <DialogDescription>Choose a channel. Customers without the required contact info will be skipped.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <div className="flex gap-2">
+              {(["email", "sms", "whatsapp"] as const).map(ch => (
+                <button
+                  key={ch}
+                  type="button"
+                  onClick={() => setBulkChannel(ch)}
+                  className={cn(
+                    "flex-1 py-2 rounded-lg text-[12.5px] font-medium border transition-colors",
+                    bulkChannel === ch ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  {ch === "email" ? "Email" : ch === "sms" ? "SMS" : "WhatsApp"}
+                </button>
+              ))}
+            </div>
+            <p className="text-[12px] text-muted-foreground">
+              {bulkChannel === "email" ? "Customers without an email address will be skipped." : "Customers without a phone number will be skipped."}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setShowBulkSend(false)} disabled={bulkSending}>Cancel</Button>
+            <Button size="sm" onClick={sendBulkRequests} disabled={bulkSending} className="gap-1.5">
+              <Send className="w-3.5 h-3.5" />
+              {bulkSending ? "Sending..." : `Send to ${selectedIds.size}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

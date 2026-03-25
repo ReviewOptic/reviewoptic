@@ -396,7 +396,7 @@ export default function CustomerDetail() {
           </Button>
           <Button size="sm" onClick={() => setShowSend(true)} disabled={customer.doNotContact} className="gap-1.5" data-testid="button-send-request-detail">
             <Send className="w-3.5 h-3.5" />
-            Send Request
+            {["clicked", "no_response"].includes(customer.status) ? "Send New Request" : "Send Request"}
           </Button>
         </div>
       </div>
@@ -502,20 +502,19 @@ export default function CustomerDetail() {
 
           <Card className="border-card-border">
             <CardHeader className="pb-2">
-              <CardTitle className="text-[14px] font-semibold">Reviews ({customerReviews.length})</CardTitle>
+              <CardTitle className="text-[14px] font-semibold">Ratings</CardTitle>
             </CardHeader>
             <CardContent className="pb-4">
-              {customerReviews.length === 0 ? (
-                <p className="text-[12px] text-muted-foreground">No reviews yet</p>
+              {customerRequests.filter(r => r.rating).length === 0 ? (
+                <p className="text-[12px] text-muted-foreground">No ratings yet</p>
               ) : (
                 <div className="space-y-2">
-                  {customerReviews.map(r => (
-                    <div key={r.id} className="p-2.5 rounded-lg bg-green-50/50 dark:bg-green-900/10 border border-green-200/50 dark:border-green-900/30">
-                      <div className="flex items-center gap-2 mb-1">
-                        <StarRating stars={r.stars} />
-                        <Badge variant="secondary" className="text-[10px] h-4 px-1.5 capitalize">{r.platform}</Badge>
+                  {customerRequests.filter(r => r.rating).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(r => (
+                    <div key={r.id} className="p-2.5 rounded-lg bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-900/30">
+                      <div className="flex items-center justify-between gap-2">
+                        <StarRating stars={r.rating!} />
+                        <span className="text-[11px] text-muted-foreground">{format(new Date(r.createdAt), "d MMM yyyy")}</span>
                       </div>
-                      {r.reviewText && <p className="text-[12px] text-muted-foreground">{r.reviewText}</p>}
                     </div>
                   ))}
                 </div>

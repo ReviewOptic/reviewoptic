@@ -249,6 +249,12 @@ export default function Dashboard() {
 
   const pendingFollowUp = customers?.filter(c => c.status === "request_sent" && !c.doNotContact) || [];
   const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
+  const noResponseCustomers = customers?.filter(c => c.status === "no_response" && !c.doNotContact) || [];
+  const stalePendingCustomers = customers?.filter(c => {
+    if (c.doNotContact || c.status !== "request_sent") return false;
+    const daysSince = (Date.now() - new Date(c.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+    return daysSince > 14;
+  }) || [];
 
   return (
     <div className="px-6 py-7 max-w-6xl mx-auto space-y-7">
@@ -307,7 +313,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <div className="flex items-center gap-3 bg-muted/40 rounded-xl px-4 py-4">
           {statsLoading ? <Skeleton className="h-12 w-full" /> : (
             <>
@@ -316,7 +322,33 @@ export default function Dashboard() {
               </div>
               <div>
                 <div className="text-xl font-bold text-foreground leading-none">{stats?.requestsThisMonth ?? 0}</div>
-                <div className="text-[11.5px] text-muted-foreground mt-1 leading-tight">Requests This Month</div>
+                <div className="text-[11.5px] text-muted-foreground mt-1 leading-tight">Requests Sent</div>
+              </div>
+            </>
+          )}
+        </div>
+        <div className="flex items-center gap-3 bg-muted/40 rounded-xl px-4 py-4">
+          {statsLoading ? <Skeleton className="h-12 w-full" /> : (
+            <>
+              <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/20">
+                <Eye className="w-5 h-5 text-purple-600" />
+              </div>
+              <div>
+                <div className="text-xl font-bold text-foreground leading-none">{stats?.clicksThisMonth ?? 0}</div>
+                <div className="text-[11.5px] text-muted-foreground mt-1 leading-tight">Links Clicked</div>
+              </div>
+            </>
+          )}
+        </div>
+        <div className="flex items-center gap-3 bg-muted/40 rounded-xl px-4 py-4">
+          {statsLoading ? <Skeleton className="h-12 w-full" /> : (
+            <>
+              <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/20">
+                <BarChart2 className="w-5 h-5 text-green-600" />
+              </div>
+              <div>
+                <div className="text-xl font-bold text-foreground leading-none">{stats?.clickRate ?? 0}%</div>
+                <div className="text-[11.5px] text-muted-foreground mt-1 leading-tight">Click Rate</div>
               </div>
             </>
           )}
@@ -325,10 +357,10 @@ export default function Dashboard() {
           {statsLoading ? <Skeleton className="h-12 w-full" /> : (
             <>
               <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/20">
-                <Clock className="w-5 h-5 text-amber-600" />
+                <MessageSquare className="w-5 h-5 text-amber-600" />
               </div>
               <div>
-                <div className="text-xl font-bold text-foreground leading-none">{stats?.pendingRequests ?? 0}</div>
+                <div className="text-xl font-bold text-foreground leading-none">{unrespondedFeedback.length}</div>
                 <div className="text-[11.5px] text-muted-foreground mt-1 leading-tight">Unread Feedback</div>
               </div>
             </>
@@ -350,6 +382,38 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* To-do nudges */}
+      {(noResponseCustomers.length > 0 || stalePendingCustomers.length > 0) && (
+        <div className="space-y-2">
+          {noResponseCustomers.length > 0 && (
+            <div className="flex items-center justify-between gap-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3">
+              <div className="flex items-center gap-2.5">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                <p className="text-[13px] text-amber-800 dark:text-amber-200">
+                  <span className="font-semibold">{noResponseCustomers.length} customer{noResponseCustomers.length !== 1 ? "s" : ""}</span> got no response — consider sending a new request for a recent job.
+                </p>
+              </div>
+              <Button size="sm" variant="outline" className="shrink-0 text-[12px] h-7 border-amber-300 hover:bg-amber-100" onClick={() => navigate("/customers?status=no_response")}>
+                View
+              </Button>
+            </div>
+          )}
+          {stalePendingCustomers.length > 0 && (
+            <div className="flex items-center justify-between gap-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl px-4 py-3">
+              <div className="flex items-center gap-2.5">
+                <Clock className="w-4 h-4 text-blue-600 shrink-0" />
+                <p className="text-[13px] text-blue-800 dark:text-blue-200">
+                  <span className="font-semibold">{stalePendingCustomers.length} customer{stalePendingCustomers.length !== 1 ? "s" : ""}</span> have been waiting over 14 days with no response.
+                </p>
+              </div>
+              <Button size="sm" variant="outline" className="shrink-0 text-[12px] h-7 border-blue-300 hover:bg-blue-100" onClick={() => navigate("/customers")}>
+                View
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Main content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

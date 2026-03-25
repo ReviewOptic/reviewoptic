@@ -387,5 +387,37 @@ Your job is to be the developer they would hire if they could afford a great one
 - `POST /api/reviews` endpoint in routes.ts is still orphaned — safe to remove in a cleanup pass
 - Instagram auto-posting and review widget still not built — decide whether to build or remove from features list
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
-- Cloudinary still misconfigured (`CLOUDINARY_CLOUD_NAME` = `"ReviewOptic"` not the real cloud ID) — recordings save to local disk only and won't survive a server restart; fix by updating the secret in the deployment environment
+- Cloudinary now correctly configured (`CLOUDINARY_CLOUD_NAME` = `dliv5t1po`) — recordings should upload to Cloudinary properly
 - Server restart required for analytics `contentTypeData` query to take effect
+
+### Session — 2026-03-25 (twenty-seventh session)
+
+**Tasks completed:**
+- Orphaned `POST /api/reviews` comment in routes.ts cleaned up (endpoint was already removed, stale comment remained)
+- Website review widget built out fully: widget API now queries `review_requests` (where `rating >= minStars`) instead of empty `reviews` table; widget.js rewritten to show rating cards (name, stars, date) in grid or carousel layout; Settings → Widget tab now has config controls for min stars (4+/5 only), count (3–10), layout (grid/carousel)
+- Content Type Performance chart redesigned: now a vertical bar chart with one bar per content type (Text only, Voice Note, Video) showing click rate %; unknown DB values bucketed into Text; always shows all 3 types; grey bars for unused types
+- "Voice Note" capitalisation fixed in Content Type Performance chart labels
+- Platform review links fixed: ExternalLink test button in Settings now trims and adds `https://` before opening; server-side URL handling also trims whitespace on both platform URL build paths
+- Dashboard stat cards updated from 3 to 5 cards: Requests Sent, Links Clicked, Click Rate, Unread Feedback, Avg. Star Rating
+- Tutorials & Guides fully audited and updated: follow-up timing description corrected (all delays from original send date, not sequential); archive how-to updated to match actual UI ("Archived" button); new "How to set up your website widget" how-to + video entry added
+- **Feature 1 — Send New Request**: button label changes to "Send New Request" on CustomerDetail and dropdown when customer status is `clicked` or `no_response`
+- **Feature 2 — ReviewLanding click confirmation**: clicking a platform button now shows a green "Opening [Platform] for you — thank you!" confirmation banner in the dialog
+- **Feature 3 — Bulk send**: checkboxes added to Customers table; select-all in header; floating action bar appears when customers are selected; bulk send dialog with channel picker (email/SMS/WhatsApp); sends sequentially, skips DNC customers
+- **Feature 4 — Default send time**: new `default_send_time` column in settings DB; time picker in Settings → Follow-up tab; send dialogs auto-pre-select that time when opening (rolls to tomorrow if time already passed)
+- **Feature 5 — Dashboard to-do nudge**: two smart nudge cards above main content — amber for no-response customers, blue for customers pending 14+ days; both link to Customers page; only show when relevant
+- **Feature 7 — Star ratings visible**: customer list rows now show latest star rating as small gold stars under status badge; CustomerDetail "Reviews" card renamed "Ratings" and now shows pre-screen ratings from review_requests with date (old reviews table was empty)
+- Tutorials updated to reflect all new features (bulk send step added to send how-to; default send time added to follow-up how-to; star rating note added to statuses how-to)
+
+**Architecture notes:**
+- `default_send_time` is a TEXT column (e.g. "10:00") stored in settings; send dialog computes a datetime-local string from it on open
+- Bulk send loops through selected customers sequentially via existing `POST /api/review-requests`; no new server endpoint needed
+- Widget.js now uses `/api/widget/:businessId/reviews` (queries review_requests) not `/api/public/widget-stats` (which only returns counts); layout returned from server settings
+- Content type analytics: unknown `recording_type` values bucketed into `text` server-side; all 3 types always returned even if sent=0
+
+**Notes for next session:**
+- **Feature 8 (request history per customer)** — not yet built; CustomerDetail shows activity timeline but not a dedicated request history with all sends/follow-ups/ratings in a structured list
+- **Feature 9 (email open tracking)** — deferred; needs tracking pixel endpoint (`GET /api/track/:id/open` returning 1×1 GIF), `opened_at` column on review_requests, and pixel embedded in outgoing emails
+- `POST /api/reviews` endpoint in routes.ts still orphaned — safe to remove
+- Instagram auto-posting still not built
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+- Server restart required for `default_send_time` migration to run
