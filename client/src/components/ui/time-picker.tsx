@@ -34,8 +34,8 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
 
       {/* Minute toggle */}
       <div className="flex rounded-md border border-input overflow-hidden">
-        <button type="button" onClick={() => emit(hour12, 0, isPM)} className={toggleClass(minute === 0)}>:00</button>
-        <button type="button" onClick={() => emit(hour12, 30, isPM)} className={toggleClass(minute === 30)}>:30</button>
+        <button type="button" onClick={() => emit(hour12, 0, isPM)} className={toggleClass(minute === 0)}>00</button>
+        <button type="button" onClick={() => emit(hour12, 30, isPM)} className={toggleClass(minute === 30)}>30</button>
       </div>
 
       {/* AM/PM toggle */}
