@@ -676,12 +676,12 @@ export default function Analytics() {
             case "pipeline": {
               if (!data?.pipelineData?.length) return null;
               const PIPELINE_COLORS: Record<string, string> = {
-                request_sent: "#4f86f7",
-                follow_up_1_sent: "#0ea5e9",
-                follow_up_2_sent: "#6366f1",
-                follow_up_3_sent: "#8b5cf6",
-                clicked: "#22c55e",
-                no_response: "#f97316",
+                request_sent: colors.requests,
+                follow_up_1_sent: colors.email,
+                follow_up_2_sent: colors.sms,
+                follow_up_3_sent: colors.whatsapp,
+                clicked: colors.positive,
+                no_response: colors.negative,
               };
               return (
                 <Card className="border-card-border">
@@ -717,10 +717,11 @@ export default function Analytics() {
                   </CardHeader>
                   <CardContent className="px-5 pb-4">
                     {isLoading ? <Skeleton className="h-40 w-full" /> : (() => {
-                      const chartData = data.platformClicks!.map(p => ({
+                      const palette = [colors.requests, colors.reviews, colors.positive, colors.email, colors.sms, colors.rating, colors.negative, colors.whatsapp];
+                      const chartData = data.platformClicks!.map((p, i) => ({
                         platform: p.platform.charAt(0).toUpperCase() + p.platform.slice(1),
                         count: p.count,
-                        fill: PLATFORM_COLORS[p.platform] || colors.reviews,
+                        fill: palette[i % palette.length],
                       }));
                       return (
                         <ResponsiveContainer width="100%" height={Math.max(120, chartData.length * 44)}>
