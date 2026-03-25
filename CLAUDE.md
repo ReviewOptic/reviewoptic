@@ -267,3 +267,7 @@ Your job is to be the developer they would hire if they could afford a great one
 - `POST /api/reviews` endpoint still orphaned in routes.ts — safe to remove
 - Instagram auto-posting still not built
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+
+**Late session additions (same day):**
+- **Analytics colour fix**: Customer Pipeline and Where Reviews Are Going were using hardcoded hex colours — both now use the `colors` object so they respond to the user's chosen theme
+- **Global rule added to CLAUDE.md**: Never hardcode hex colours in Analytics charts — always use `colors` from `useChartColors()`. Verified zero remaining hardcoded colours in Analytics.tsx.
