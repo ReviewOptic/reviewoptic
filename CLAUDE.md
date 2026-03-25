@@ -168,6 +168,7 @@ If the human asks for something that will cause problems:
 10. Go silent when stuck instead of saying "I am stuck on X, here is what I have tried"
 11. Keep pushing when something is clearly not working instead of stopping to re-plan
 12. Apply temporary fixes instead of finding the root cause
+13. Hardcode colours in Analytics charts — every chart colour MUST use the `colors` object from `useChartColors()` so it responds to the user's chosen theme. Use `colors.requests`, `colors.reviews`, `colors.positive`, `colors.negative`, `colors.email`, `colors.sms`, `colors.whatsapp`, `colors.rating`. For multi-series charts with more items than colour slots, cycle through a palette array built from those values.
 
 ---
 
