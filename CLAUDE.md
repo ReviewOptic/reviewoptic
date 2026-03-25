@@ -344,3 +344,25 @@ Your job is to be the developer they would hire if they could afford a great one
 - `POST /api/reviews` endpoint in routes.ts is still orphaned — safe to remove in a cleanup pass
 - Instagram auto-posting and review widget still not built — decide whether to build or remove from features list
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+
+### Session — 2026-03-25 (twenty-fifth session)
+
+**Tasks completed:**
+- Email review requests — new "After 4–5★ rating, show" option added to both Send Request dialogs (Customers list + Customer Detail page); sender can choose Text only / Voice note / Video
+- If voice/video selected: auto-uses first recording of that type; dropdown shown if multiple; "not set up" hint with link if none exist
+- Recording ID passed to `POST /api/review-requests`; server already stored `recording_url`/`recording_type` on the review_request row (from session 20); ReviewLanding already rendered it (partial existing support)
+- ReviewLanding — added `autoPlay` + `playsInline` to video and audio in post-rating dialog so recording plays immediately after customer rates 4–5★
+- When voice/video selected for email: "Message" (template/AI) section is hidden — no message required; `canSend` check updated accordingly
+- Subject line input removed from CustomerDetail send dialog — initial email subject should be generic/fixed
+- Video recorder cancel bug fixed — `play()` returns a Promise; cancelling cleared `srcObject` mid-play causing an unhandled rejection; fixed by `.catch(() => {})` on both `play()` calls in Templates.tsx
+
+**Architecture notes:**
+- `recording_url` and `recording_type` columns already existed on `review_requests` table (added session 20); the server endpoint already saved them when `recordingId` was passed; today wired up the UI to actually pass `recordingId` for email sends
+- The "Message" (template/AI) in the send dialog is the content shown on the ReviewLanding page AFTER the customer rates — it is NOT the initial email content; the initial email is always the fixed `sendPreScreenEmail` system template
+- `autoPlay` works for recordings on ReviewLanding because the customer has already clicked "Rate Now" (user gesture), satisfying browser autoplay policy; Safari iOS may still block it but controls remain visible as fallback
+
+**Notes for next session:**
+- `POST /api/reviews` endpoint in routes.ts is still orphaned — safe to remove in a cleanup pass
+- Instagram auto-posting and review widget still not built — decide whether to build or remove from features list
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+- Cloudinary still misconfigured (`CLOUDINARY_CLOUD_NAME` = `"ReviewOptic"` not the real cloud ID) — recordings save to local disk only and won't survive a server restart; fix by updating the secret in the deployment environment
