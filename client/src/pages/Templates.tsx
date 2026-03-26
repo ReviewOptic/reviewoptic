@@ -1083,6 +1083,22 @@ export default function Templates() {
   const isReadOnly = !!user?.isImpersonating;
   const { data: templates, isLoading } = useQuery<Template[]>({ queryKey: ["/api/templates"] });
   const [activeTab, setActiveTab] = useState("email");
+  const { toast } = useToast();
+  const [resetting, setResetting] = useState(false);
+
+  async function resetToDefaults(channel: string) {
+    if (!confirm(`Reset all ${channel.toUpperCase()} templates to defaults? Your customisations will be lost.`)) return;
+    setResetting(true);
+    try {
+      await apiRequest("POST", "/api/templates/reset-defaults", { channel });
+      queryClient.invalidateQueries({ queryKey: ["/api/templates"] });
+      toast({ title: `${channel.toUpperCase()} templates reset to defaults` });
+    } catch {
+      toast({ title: "Failed to reset templates", variant: "destructive" });
+    } finally {
+      setResetting(false);
+    }
+  }
 
   const byChannel = {
     email: templates?.filter(t => t.channel === "email") || [],
@@ -1136,6 +1152,13 @@ export default function Templates() {
 
           {(["email", "sms", "whatsapp"] as const).map(ch => (
             <TabsContent key={ch} value={ch} className="space-y-4">
+              {!isReadOnly && (
+                <div className="flex justify-end">
+                  <Button variant="ghost" size="sm" className="h-7 text-[12px] gap-1.5 text-muted-foreground hover:text-foreground" onClick={() => resetToDefaults(ch)} disabled={resetting}>
+                    <RotateCcw className="w-3 h-3" /> Reset to defaults
+                  </Button>
+                </div>
+              )}
               {TEMPLATE_SLOTS.map(slot => (
                 <TemplateSlot
                   key={slot.type}

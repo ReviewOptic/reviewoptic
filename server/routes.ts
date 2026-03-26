@@ -1594,6 +1594,50 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/templates", requireAuth, async (req, res) => {
     res.json(await storage.getTemplates(req.session.accountId!));
   });
+
+  app.post("/api/templates/reset-defaults", requireAuth, async (req, res) => {
+    const { channel } = req.body as { channel: string };
+    const accountId = req.session.accountId!;
+    const defaults: Record<string, Record<string, { body: string; subject?: string }>> = {
+      email: {
+        response_positive: { body: "Thank you so much for your rating! If you have a moment, we'd really appreciate it if you could share your experience with others on one of our review pages below.\n\nThanks,\n{{business_name}}", subject: "Thank you for your rating — {{business_name}}" },
+        response_negative: { body: "Thank you for your feedback — we're sorry to hear your experience didn't meet expectations. We'd love the chance to make it right.\n\nPlease reply to this message and we'll be in touch shortly.\n\nThanks,\n{{business_name}}", subject: "We'd love to make this right — {{business_name}}" },
+        follow_up_1: { body: "Just a quick follow-up from {{business_name}} — we'd love to hear how we did!\n\nTap the link below to leave your rating.\n\nThanks,\n{{business_name}}", subject: "Just checking in" },
+        follow_up_2: { body: "We know you're busy, but your feedback really means a lot to {{business_name}}!\n\nTap the link below whenever you're ready.\n\nThanks,\n{{business_name}}", subject: "A polite reminder" },
+        follow_up_3: { body: "This is our last message, we promise! If you ever have a moment, we'd still love to hear from you.\n\nTap the link below.\n\nThanks,\n{{business_name}}", subject: "We'd still love to hear from you" },
+      },
+      sms: {
+        response_positive: { body: "Thank you so much for your rating! If you have a moment, we'd really appreciate it if you could share your experience with others on one of our review pages below.\n\nThanks,\n{{business_name}}" },
+        response_negative: { body: "Sorry to hear your experience didn't meet expectations. We'd love the chance to make it right — please reply and we'll be in touch.\n\nThanks,\n{{business_name}}" },
+        follow_up_1: { body: "Just checking in! We'd love to hear from you — tap below:" },
+        follow_up_2: { body: "We'd still love your feedback! Tap below when you get a moment:" },
+        follow_up_3: { body: "Last message from us! We'd still love your feedback — tap below:" },
+      },
+      whatsapp: {
+        response_positive: { body: "Thank you so much for your rating! If you have a moment, we'd really appreciate it if you could share your experience with others on one of our review pages below.\n\nThanks,\n{{business_name}}" },
+        response_negative: { body: "Sorry to hear your experience didn't meet expectations. We'd love the chance to make it right — please reply and we'll be in touch.\n\nThanks,\n{{business_name}}" },
+        follow_up_1: { body: "😊 Just a quick follow-up from {{business_name}} — we'd love to hear how we did! Tap the link below to leave your rating:" },
+        follow_up_2: { body: "💛 We know you're busy, but your feedback really means a lot to {{business_name}}! Tap the link below whenever you're ready:" },
+        follow_up_3: { body: "🙏 This is our last message, we promise! If you ever have a moment, we'd still love to hear from you — tap the link below:" },
+      },
+    };
+    const channelDefaults = defaults[channel];
+    if (!channelDefaults) return res.status(400).json({ message: "Invalid channel" });
+    for (const [type, vals] of Object.entries(channelDefaults)) {
+      if (vals.subject !== undefined) {
+        await pool.query(
+          `UPDATE templates SET body = $1, subject = $2, updated_at = NOW() WHERE account_id = $3 AND template_type = $4 AND channel = $5`,
+          [vals.body, vals.subject, accountId, type, channel]
+        );
+      } else {
+        await pool.query(
+          `UPDATE templates SET body = $1, updated_at = NOW() WHERE account_id = $2 AND template_type = $3 AND channel = $4`,
+          [vals.body, accountId, type, channel]
+        );
+      }
+    }
+    res.json({ ok: true });
+  });
   app.post("/api/templates", requireAuth, async (req, res) => {
     const t = await storage.createTemplate({ ...req.body, accountId: req.session.accountId });
     res.json(t);
