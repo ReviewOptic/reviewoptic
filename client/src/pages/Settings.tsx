@@ -498,6 +498,15 @@ export default function Settings() {
                 </>
               )}
 
+              <div className="pt-2 pb-1 rounded-lg bg-muted/50 border border-border px-4 py-3">
+                <p className="text-[12.5px] font-medium mb-0.5">Follow-up message templates</p>
+                <p className="text-[12px] text-muted-foreground">
+                  Customise what each follow-up says in the{" "}
+                  <a href="/?tab=templates" className="text-primary underline underline-offset-2 hover:text-primary/80">Templates tab</a>.
+                  Each channel (Email, SMS, WhatsApp) has its own Follow-up 1, 2 &amp; 3 templates.
+                </p>
+              </div>
+
               <div className="pt-4 border-t border-border space-y-1.5">
                 <Label className="text-[12.5px]">Default send time</Label>
                 <TimePicker

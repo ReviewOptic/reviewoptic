@@ -3,7 +3,7 @@ import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import pkg from "pg";
 const { Pool } = pkg;
 import { randomUUID } from "crypto";
-import { sendReviewEmail } from "./email";
+import { sendReviewEmail, sendPreScreenEmail } from "./email";
 import { sendReviewSMS, sendWhatsAppMessage } from "./sms";
 import {
   accounts, customers, reviewRequests, reviews, privateFeedback, activityLog, templates, settings, users, passwordResetTokens, adminImpersonationLog,
@@ -412,13 +412,14 @@ export class DatabaseStorage implements IStorage {
         if (!shouldSend) continue;
 
         // Rated 4-5★ but not clicked → use response_positive template (thanks for rating, please review)
-        // Unrated → use follow_up template (generic follow-up asking to rate)
-        const templateType = hasHighRating ? "response_positive" : "follow_up";
+        // Unrated → use follow_up_1/2/3 template matching the send number
+        const templateType = hasHighRating ? "response_positive" : `follow_up_${sentCount}`;
         const allTemplates = await this.getTemplates(accountId);
 
         // Insert a new review_request row for this follow-up
+        const newRequestId = randomUUID();
         await db.insert(reviewRequests).values({
-          id: randomUUID(),
+          id: newRequestId,
           accountId: customer.accountId,
           customerId: customer.id,
           status: "pending",
@@ -444,17 +445,36 @@ export class DatabaseStorage implements IStorage {
           metadata: "{}",
         });
 
+        const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "");
+        const ratingLink = `${appUrl}/review?rid=${newRequestId}`;
+        const firstName = customer.name.split(" ")[0];
+
+        // Build platform list for high-rated customers
+        const platforms: { name: string; url: string }[] = [];
+        if (s.googleReviewLink) platforms.push({ name: "Google", url: s.googleReviewLink });
+        if (s.facebookReviewLink) platforms.push({ name: "Facebook", url: s.facebookReviewLink });
+        if (s.trustpilotLink) platforms.push({ name: "Trustpilot", url: s.trustpilotLink });
+        if (s.tripadvisorLink) platforms.push({ name: "Tripadvisor", url: s.tripadvisorLink });
+        if (s.checkatradeLink) platforms.push({ name: "Checkatrade", url: s.checkatradeLink });
+        if (s.mybuilderLink) platforms.push({ name: "MyBuilder", url: s.mybuilderLink });
+
         // Send the message using the right template type
         if (customer.channel === "email" && customer.email) {
-          const template =
-            allTemplates.find(t => t.channel === "email" && t.templateType === templateType && t.isDefault) ||
-            allTemplates.find(t => t.channel === "email" && t.templateType === templateType) ||
-            allTemplates.find(t => t.channel === "email" && t.templateType === "follow_up" && t.isDefault) ||
-            allTemplates.find(t => t.channel === "email" && t.templateType === "follow_up") ||
-            null;
-          sendReviewEmail(customer, s, template).catch(err =>
-            console.error(`[follow-up] Failed to send email to ${customer.email}:`, err.message)
-          );
+          if (hasHighRating) {
+            // Rated 4-5★ but not clicked — send platform links email
+            const template =
+              allTemplates.find(t => t.channel === "email" && t.templateType === templateType && t.isDefault) ||
+              allTemplates.find(t => t.channel === "email" && t.templateType === templateType) ||
+              null;
+            sendReviewEmail(customer, s, template, platforms).catch(err =>
+              console.error(`[follow-up] Failed to send email to ${customer.email}:`, err.message)
+            );
+          } else {
+            // Not yet rated — send the pre-screen star rating email (same as initial send)
+            sendPreScreenEmail(customer, s, newRequestId, appUrl).catch(err =>
+              console.error(`[follow-up] Failed to send email to ${customer.email}:`, err.message)
+            );
+          }
         } else if (customer.channel === "sms" && customer.phone) {
           const template =
             allTemplates.find(t => t.channel === "sms" && t.templateType === templateType && t.isDefault) ||
@@ -462,28 +482,39 @@ export class DatabaseStorage implements IStorage {
             allTemplates.find(t => t.channel === "sms" && t.templateType === "follow_up" && t.isDefault) ||
             allTemplates.find(t => t.channel === "sms" && t.templateType === "follow_up") ||
             null;
-          sendReviewSMS(customer, s, template).catch(err =>
+          const smsTemplate =
+            allTemplates.find(t => t.channel === "sms" && t.templateType === templateType && t.isDefault) ||
+            allTemplates.find(t => t.channel === "sms" && t.templateType === templateType) ||
+            null;
+          const smsBody = smsTemplate?.body
+            ? smsTemplate.body
+                .replace(/\{\{customer_name\}\}/g, customer.name)
+                .replace(/\{\{first_name\}\}/g, firstName)
+                .replace(/\{\{business_name\}\}/g, s.businessName)
+                .replace(/\{\{service_type\}\}/g, customer.serviceType || "")
+                .replace(/\{\{review_link\}\}/g, ratingLink)
+            : hasHighRating
+              ? `Hi ${firstName}, thanks for rating us! If you have a moment, please share your experience: ${platforms[0]?.url || ratingLink}`
+              : `Hi ${firstName}, just following up — we'd love to hear about your experience with ${s.businessName}: ${ratingLink}`;
+          sendReviewSMS(customer, s, { subject: "", body: smsBody } as any, []).catch(err =>
             console.error(`[follow-up] Failed to send SMS to ${customer.phone}:`, err.message)
           );
         } else if (customer.channel === "whatsapp" && customer.phone) {
           const template =
             allTemplates.find(t => t.channel === "whatsapp" && t.templateType === templateType && t.isDefault) ||
             allTemplates.find(t => t.channel === "whatsapp" && t.templateType === templateType) ||
-            allTemplates.find(t => t.channel === "whatsapp" && t.templateType === "follow_up" && t.isDefault) ||
-            allTemplates.find(t => t.channel === "whatsapp" && t.templateType === "follow_up") ||
             null;
-          const firstName = customer.name.split(" ")[0];
-          const reviewLink = s.googleReviewLink || s.facebookReviewLink || s.trustpilotLink || s.tripadvisorLink || s.checkatradeLink || s.mybuilderLink || "";
+          const waLink = hasHighRating ? (platforms[0]?.url || ratingLink) : ratingLink;
           const body = template?.body
             ? template.body
                 .replace(/\{\{customer_name\}\}/g, customer.name)
                 .replace(/\{\{first_name\}\}/g, firstName)
                 .replace(/\{\{business_name\}\}/g, s.businessName)
                 .replace(/\{\{service_type\}\}/g, customer.serviceType || "")
-                .replace(/\{\{review_link\}\}/g, reviewLink)
+                .replace(/\{\{review_link\}\}/g, waLink)
             : hasHighRating
-              ? `Hi ${firstName}, thanks again for rating us! If you have a moment, we'd love it if you shared your experience in a quick review: ${reviewLink}`
-              : `Hi ${firstName}, just following up — we'd love to hear about your experience with ${s.businessName}! It only takes a moment: ${reviewLink}`;
+              ? `Hi ${firstName}, thanks again for rating us! If you have a moment, we'd love it if you shared your experience in a quick review: ${waLink}`
+              : `Hi ${firstName}, just following up — we'd love to hear about your experience with ${s.businessName}! It only takes a moment: ${ratingLink}`;
           sendWhatsAppMessage(customer.phone, body).catch(err =>
             console.error(`[follow-up] Failed to send WhatsApp to ${customer.phone}:`, err.message)
           );

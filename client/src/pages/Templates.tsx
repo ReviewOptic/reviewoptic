@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useState, useRef, useEffect } from "react";
-import { Edit2, Save, X, FileText, Mail, MessageSquare, Video, Mic, StopCircle, RotateCcw, CheckCircle2, Plus, Trash2, Sparkles, Upload } from "lucide-react";
+import { Edit2, Save, X, FileText, Mail, MessageSquare, Video, Mic, StopCircle, RotateCcw, CheckCircle2, Sparkles, Upload, Plus, Trash2, ChevronDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,8 +15,6 @@ import type { Template } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/hooks/use-auth";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const MERGE_TAGS = ["{{first_name}}", "{{customer_name}}", "{{business_name}}", "{{service_type}}", "{{review_link}}"];
 
@@ -304,14 +302,57 @@ function GenerateAIButton({ channel, onGenerated }: { channel: string; onGenerat
   );
 }
 
-function TemplateEditor({ template, onCancel }: { template: Template; onCancel: () => void }) {
+function RecordingPicker({ type, currentUrl, onSelect }: { type: "video" | "voice"; currentUrl: string; onSelect: (url: string) => void }) {
+  const { data: recordings = [] } = useQuery<any[]>({ queryKey: ["/api/recordings"] });
+  const filtered = (recordings as any[]).filter(r => r.type === type);
+
+  if (filtered.length === 0) {
+    return (
+      <div className="p-4 rounded-lg border border-dashed border-border text-center space-y-1">
+        <p className="text-[13px] text-muted-foreground">No {type} recordings yet.</p>
+        <p className="text-[12px] text-muted-foreground">Add recordings in the <span className="font-medium">Recordings</span> tab, then come back to select one.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="text-[12px] text-muted-foreground">Select a recording to attach:</p>
+      {filtered.map((rec: any) => (
+        <button
+          key={rec.id}
+          type="button"
+          onClick={() => onSelect(currentUrl === rec.url ? "" : rec.url)}
+          className={cn("w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-colors",
+            currentUrl === rec.url ? "border-primary bg-primary/5" : "border-border hover:bg-muted"
+          )}
+        >
+          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-muted flex-shrink-0">
+            {type === "video" ? <Video className="w-4 h-4 text-muted-foreground" /> : <Mic className="w-4 h-4 text-muted-foreground" />}
+          </div>
+          <p className="flex-1 text-[13px] font-medium truncate">{rec.label || `${type} recording`}</p>
+          {currentUrl === rec.url && <CheckCircle2 className="w-4 h-4 text-primary flex-shrink-0" />}
+        </button>
+      ))}
+      {currentUrl && filtered.some((r: any) => r.url === currentUrl) && (
+        <div className="pt-1">
+          {type === "video"
+            ? <video src={currentUrl} controls className="w-full max-h-36 rounded-lg bg-black" />
+            : <audio src={currentUrl} controls className="w-full h-10" />}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TemplateEditor({ template, onCancel, textOnly = false }: { template: Template; onCancel: () => void; textOnly?: boolean }) {
   const { toast } = useToast();
   const [name, setName] = useState(template.name);
   const [subject, setSubject] = useState(template.subject);
   const [body, setBody] = useState(template.body);
   const [videoUrl, setVideoUrl] = useState(template.videoUrl || "");
   const [audioUrl, setAudioUrl] = useState(template.audioUrl || "");
-  const [mode, setMode] = useState<"text" | "video" | "audio">(template.videoUrl ? "video" : template.audioUrl ? "audio" : "text");
+  const [mode, setMode] = useState<"text" | "video" | "audio">(textOnly ? "text" : template.videoUrl ? "video" : template.audioUrl ? "audio" : "text");
   const [bodyEl, setBodyEl] = useState<HTMLTextAreaElement | null>(null);
   const { data: settings } = useQuery<{ logoUrl: string; logoPosition: string }>({ queryKey: ["/api/settings"] });
   const [logoPosition, setLogoPosition] = useState<string>(settings?.logoPosition || "left");
@@ -365,27 +406,29 @@ function TemplateEditor({ template, onCancel }: { template: Template; onCancel: 
         <Label className="text-[12.5px]">Template name</Label>
         <Input value={name} onChange={e => setName(e.target.value)} placeholder="Template name" className="text-[13px]" />
       </div>
-      {/* Mode toggle */}
-      <div className="flex gap-2">
-        <button
-          onClick={() => setMode("text")}
-          className={cn("flex-1 py-1.5 rounded-lg text-[12.5px] font-medium border transition-colors", mode === "text" ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted")}
-        >
-          Text
-        </button>
-        <button
-          onClick={() => setMode("video")}
-          className={cn("flex-1 py-1.5 rounded-lg text-[12.5px] font-medium border transition-colors flex items-center justify-center gap-1.5", mode === "video" ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted")}
-        >
-          <Video className="w-3.5 h-3.5" /> Video
-        </button>
-        <button
-          onClick={() => setMode("audio")}
-          className={cn("flex-1 py-1.5 rounded-lg text-[12.5px] font-medium border transition-colors flex items-center justify-center gap-1.5", mode === "audio" ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted")}
-        >
-          <Mic className="w-3.5 h-3.5" /> Voice Note
-        </button>
-      </div>
+      {/* Mode toggle — only for slots that allow media */}
+      {!textOnly && (
+        <div className="flex gap-2">
+          <button
+            onClick={() => setMode("text")}
+            className={cn("flex-1 py-1.5 rounded-lg text-[12.5px] font-medium border transition-colors", mode === "text" ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted")}
+          >
+            Text
+          </button>
+          <button
+            onClick={() => setMode("video")}
+            className={cn("flex-1 py-1.5 rounded-lg text-[12.5px] font-medium border transition-colors flex items-center justify-center gap-1.5", mode === "video" ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted")}
+          >
+            <Video className="w-3.5 h-3.5" /> Video
+          </button>
+          <button
+            onClick={() => setMode("audio")}
+            className={cn("flex-1 py-1.5 rounded-lg text-[12.5px] font-medium border transition-colors flex items-center justify-center gap-1.5", mode === "audio" ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted")}
+          >
+            <Mic className="w-3.5 h-3.5" /> Voice Note
+          </button>
+        </div>
+      )}
 
       {mode === "text" && (
         <>
@@ -441,10 +484,9 @@ function TemplateEditor({ template, onCancel }: { template: Template; onCancel: 
         </>
       )}
 
-      {/* Video recorder */}
-      {mode === "video" && <VideoRecorder currentUrl={videoUrl} onSaved={url => setVideoUrl(url)} />}
-      {/* Audio recorder */}
-      {mode === "audio" && <AudioRecorder currentUrl={audioUrl} onSaved={url => setAudioUrl(url)} />}
+      {/* Recording pickers — select from Recordings tab */}
+      {mode === "video" && <RecordingPicker type="video" currentUrl={videoUrl} onSelect={url => setVideoUrl(url)} />}
+      {mode === "audio" && <RecordingPicker type="voice" currentUrl={audioUrl} onSelect={url => setAudioUrl(url)} />}
       {/* Merge tags + preview — text mode only */}
       {mode === "text" && (
         <>
@@ -489,190 +531,140 @@ function TemplateEditor({ template, onCancel }: { template: Template; onCancel: 
   );
 }
 
-function TemplateCard({ template, isReadOnly }: { template: Template; isReadOnly: boolean }) {
+const TEMPLATE_SLOTS = [
+  {
+    type: "response_positive",
+    label: "After 4-5★ Rating",
+    description: "Sent to customers who give a high rating. Can include a video or voice note.",
+    textOnly: false,
+    defaultSubject: "Thank you for your rating — {{business_name}}",
+    defaultBody: "Hi {{first_name}},\n\nThank you so much for your rating! If you have a moment, we'd really appreciate it if you could share your experience with others.\n\n{{review_link}}\n\nThanks again,\nThe {{business_name}} team",
+  },
+  {
+    type: "response_negative",
+    label: "After 1-3★ Rating",
+    description: "Sent to customers who give a low rating. Use this to recover the relationship.",
+    textOnly: true,
+    defaultSubject: "We'd love to make this right — {{business_name}}",
+    defaultBody: "Hi {{first_name}},\n\nThank you for your feedback — we're sorry to hear your experience didn't meet expectations. We'd love the chance to make it right.\n\nPlease reply to this message and we'll be in touch shortly.\n\nThe {{business_name}} team",
+  },
+  {
+    type: "follow_up_1",
+    label: "Follow-up 1",
+    description: "First reminder sent to customers who haven't responded.",
+    textOnly: true,
+    defaultSubject: "A quick follow-up from {{business_name}}",
+    defaultBody: "Hi {{first_name}},\n\nJust a quick follow-up — we'd love to hear about your experience with {{business_name}}! It only takes a moment.\n\n{{review_link}}\n\nThanks,\nThe {{business_name}} team",
+  },
+  {
+    type: "follow_up_2",
+    label: "Follow-up 2",
+    description: "Second reminder for customers who still haven't responded.",
+    textOnly: true,
+    defaultSubject: "Still thinking about your experience? — {{business_name}}",
+    defaultBody: "Hi {{first_name}},\n\nWe know you're busy, but your feedback really does make a difference! If you have 30 seconds, we'd love to hear from you.\n\n{{review_link}}\n\nThanks,\nThe {{business_name}} team",
+  },
+  {
+    type: "follow_up_3",
+    label: "Follow-up 3",
+    description: "Final reminder for customers who haven't responded.",
+    textOnly: true,
+    defaultSubject: "Last chance to share your thoughts — {{business_name}}",
+    defaultBody: "Hi {{first_name}},\n\nThis is our last message — we promise! If you ever have a moment to share your experience, we'd really appreciate it.\n\n{{review_link}}\n\nThanks for choosing {{business_name}}.",
+  },
+] as const;
+
+type SlotDef = typeof TEMPLATE_SLOTS[number];
+
+function TemplateSlot({ slot, template, channel, isReadOnly }: {
+  slot: SlotDef;
+  template: Template | undefined;
+  channel: string;
+  isReadOnly: boolean;
+}) {
   const { toast } = useToast();
   const [editing, setEditing] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-
-  const deleteMutation = useMutation({
-    mutationFn: () => fetch(`/api/templates/${template.id}`, { method: "DELETE", credentials: "include" }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/templates"] }); setConfirmDelete(false); toast({ title: "Template deleted" }); },
-    onError: () => toast({ title: "Failed to delete", variant: "destructive" }),
-  });
-
-  return (
-    <>
-      <Card className="border-card-border" data-testid={`template-card-${template.id}`}>
-        <CardHeader className="pb-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
-              <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-primary/10 flex-shrink-0">
-                {channelIcons[template.channel] || <FileText className="w-3.5 h-3.5 text-primary" />}
-              </div>
-              <div className="flex-1 min-w-0">
-                <CardTitle className="text-[14px] font-semibold truncate">{template.name}</CardTitle>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <Badge variant="secondary" className="text-[10px] h-4 px-1.5 capitalize">{template.channel}</Badge>
-                  <Badge variant="outline" className="text-[10px] h-4 px-1.5">
-                    {template.templateType === "response_positive" ? "Request a Review" : template.templateType === "response_negative" ? "Get in Touch" : template.templateType.replace(/_/g, " ")}
-                  </Badge>
-                </div>
-              </div>
-            </div>
-            {!editing && (
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <Button variant="outline" size="sm" className="h-7 text-[12px] gap-1" onClick={() => setEditing(true)} disabled={isReadOnly} data-testid={`button-edit-template-${template.id}`}>
-                  <Edit2 className="w-3 h-3" /> Edit
-                </Button>
-                {!isReadOnly && (
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive" onClick={() => setConfirmDelete(true)}>
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="pb-4">
-          {editing ? (
-            <TemplateEditor template={template} onCancel={() => setEditing(false)} />
-          ) : (
-            <div className="space-y-2">
-              {template.subject && (
-                <div>
-                  <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide mb-0.5">Subject</p>
-                  <p className="text-[13px]">{template.subject}</p>
-                </div>
-              )}
-              <div>
-                <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide mb-0.5">Body</p>
-                <p className="text-[13px] text-muted-foreground whitespace-pre-wrap line-clamp-4">{template.body}</p>
-              </div>
-              {template.videoUrl && (
-                <div>
-                  <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide mb-1">Video Message</p>
-                  <video src={template.videoUrl} controls className="w-full max-h-36 rounded-lg bg-black" />
-                </div>
-              )}
-              {template.audioUrl && (
-                <div>
-                  <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide mb-1">Voice Note</p>
-                  <audio src={template.audioUrl} controls className="w-full h-10" />
-                </div>
-              )}
-              <p className="text-[11px] text-muted-foreground/60">
-                Updated {formatDistanceToNow(new Date(template.updatedAt), { addSuffix: true })}
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
-        <DialogContent className="sm:max-w-xs">
-          <DialogHeader><DialogTitle>Delete template?</DialogTitle></DialogHeader>
-          <p className="text-[13px] text-muted-foreground">"{template.name}" will be permanently deleted.</p>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" size="sm" onClick={() => setConfirmDelete(false)}>Cancel</Button>
-            <Button variant="destructive" size="sm" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending}>Delete</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-}
-
-function NewTemplateDialog({ channel, open, onClose }: { channel: string; open: boolean; onClose: () => void }) {
-  const { toast } = useToast();
-  const [name, setName] = useState("");
-  const [templateType, setTemplateType] = useState("response_positive");
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [localTemplate, setLocalTemplate] = useState<Template | undefined>(undefined);
+  const effectiveTemplate = template || localTemplate;
 
   const createMutation = useMutation({
-    mutationFn: async (opts?: { body?: string; subject?: string }) => apiRequest("POST", "/api/templates", {
-      name: name.trim() || `New ${channel} template`,
-      channel,
-      templateType,
-      subject: opts?.subject || (channel === "email" ? "How was your experience with {{business_name}}?" : ""),
-      body: opts?.body || "Hi {{first_name}},\n\nThank you for choosing {{business_name}}!\n\n{{review_link}}\n\nThanks,\nThe {{business_name}} team",
-    }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/templates"] });
-      toast({ title: "Template created" });
-      setName("");
-      onClose();
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/templates", {
+        name: slot.label,
+        channel,
+        templateType: slot.type,
+        subject: channel === "email" ? slot.defaultSubject : "",
+        body: slot.defaultBody,
+      });
+      return res.json() as Promise<Template>;
     },
-    onError: () => toast({ title: "Failed to create template", variant: "destructive" }),
+    onSuccess: (data: Template) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/templates"] });
+      setLocalTemplate(data);
+      setEditing(true);
+    },
+    onError: () => toast({ title: "Failed to set up template", variant: "destructive" }),
   });
 
-  const generateAndCreate = async () => {
-    setIsGenerating(true);
-    try {
-      const res = await fetch("/api/ai/generate-template", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ channel }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
-      createMutation.mutate({ body: data.body, subject: data.subject });
-    } catch (err: any) {
-      toast({ title: "AI generation failed", description: err.message, variant: "destructive" });
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader><DialogTitle>New {channel} template</DialogTitle></DialogHeader>
-        <div className="space-y-3 py-1">
-          <div className="space-y-1.5">
-            <Label className="text-[12.5px]">Template name</Label>
-            <Input
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder={`e.g. Follow-up ${channel}`}
-              className="text-[13px]"
-              autoFocus
-              onKeyDown={e => e.key === "Enter" && createMutation.mutate(undefined)}
-            />
+    <Card className="border-card-border">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <CardTitle className="text-[14px] font-semibold">{slot.label}</CardTitle>
+            <CardDescription className="text-[12px] mt-0.5">{slot.description}</CardDescription>
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-[12.5px]">Type</Label>
-            <Select value={templateType} onValueChange={setTemplateType}>
-              <SelectTrigger className="text-[13px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="response_positive">Request a Review (4–5 stars)</SelectItem>
-                <SelectItem value="response_negative">Get in Touch (1–3 stars)</SelectItem>
-                <SelectItem value="follow_up">Follow Up</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {!editing && !isReadOnly && (
+            effectiveTemplate ? (
+              <Button variant="outline" size="sm" className="h-7 text-[12px] gap-1 flex-shrink-0" onClick={() => setEditing(true)}>
+                <Edit2 className="w-3 h-3" /> Edit
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" className="h-7 text-[12px] flex-shrink-0" onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>
+                {createMutation.isPending ? "Setting up..." : "Customise"}
+              </Button>
+            )
+          )}
         </div>
-        <DialogFooter className="flex-col gap-2 sm:flex-row">
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5 text-[12px]"
-            onClick={generateAndCreate}
-            disabled={isGenerating || createMutation.isPending}
-          >
-            {isGenerating ? <><Sparkles className="w-3.5 h-3.5 animate-pulse" />Generating...</> : <><Sparkles className="w-3.5 h-3.5" />Generate with AI</>}
-          </Button>
-          <Button
-            size="sm"
-            className="gap-1.5 text-[12px]"
-            onClick={() => createMutation.mutate(undefined)}
-            disabled={createMutation.isPending || isGenerating}
-          >
-            <Plus className="w-3.5 h-3.5" /> Create blank
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </CardHeader>
+      <CardContent className="pb-4">
+        {editing && effectiveTemplate ? (
+          <TemplateEditor template={effectiveTemplate} textOnly={slot.textOnly} onCancel={() => setEditing(false)} />
+        ) : effectiveTemplate ? (
+          <div className="space-y-2">
+            {effectiveTemplate.subject && (
+              <div>
+                <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide mb-0.5">Subject</p>
+                <p className="text-[13px]">{effectiveTemplate.subject}</p>
+              </div>
+            )}
+            <div>
+              <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide mb-0.5">Body</p>
+              <p className="text-[13px] text-muted-foreground whitespace-pre-wrap line-clamp-4">{effectiveTemplate.body}</p>
+            </div>
+            {effectiveTemplate.videoUrl && (
+              <div>
+                <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide mb-1">Video Message</p>
+                <video src={effectiveTemplate.videoUrl} controls className="w-full max-h-36 rounded-lg bg-black" />
+              </div>
+            )}
+            {effectiveTemplate.audioUrl && (
+              <div>
+                <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide mb-1">Voice Note</p>
+                <audio src={effectiveTemplate.audioUrl} controls className="w-full h-10" />
+              </div>
+            )}
+            <p className="text-[11px] text-muted-foreground/60">
+              Updated {formatDistanceToNow(new Date(effectiveTemplate.updatedAt), { addSuffix: true })}
+            </p>
+          </div>
+        ) : (
+          <p className="text-[13px] text-muted-foreground py-1">
+            Using default message — click <span className="font-medium">Customise</span> to write your own.
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1024,12 +1016,138 @@ function RecordingsTab() {
   );
 }
 
+const MAX_CUSTOM = 10;
+
+function CustomTemplatesSection({ templates, channel, isReadOnly }: {
+  templates: Template[];
+  channel: string;
+  isReadOnly: boolean;
+}) {
+  const { toast } = useToast();
+  const [expanded, setExpanded] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [creatingName, setCreatingName] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
+
+  const customTemplates = templates.filter(t => t.templateType === "custom");
+  const canAdd = customTemplates.length < MAX_CUSTOM;
+
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/templates", {
+        name: creatingName.trim() || "Custom template",
+        channel,
+        templateType: "custom",
+        subject: channel === "email" ? "Message from {{business_name}}" : "",
+        body: "Hi {{first_name}},\n\n\n\nThanks,\nThe {{business_name}} team",
+      });
+      return res.json() as Promise<Template>;
+    },
+    onSuccess: (data: Template) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/templates"] });
+      setCreatingName("");
+      setShowCreate(false);
+      setEditingId(data.id);
+      setExpanded(true);
+    },
+    onError: () => toast({ title: "Failed to create template", variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => fetch(`/api/templates/${id}`, { method: "DELETE", credentials: "include" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/templates"] });
+      toast({ title: "Template deleted" });
+    },
+    onError: () => toast({ title: "Failed to delete", variant: "destructive" }),
+  });
+
+  return (
+    <div className="mt-4 border-t border-border pt-4">
+      <button
+        type="button"
+        onClick={() => setExpanded(e => !e)}
+        className="w-full flex items-center justify-between text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <span>Custom Templates ({customTemplates.length}/{MAX_CUSTOM})</span>
+        <ChevronDown className={cn("w-4 h-4 transition-transform", expanded && "rotate-180")} />
+      </button>
+
+      {expanded && (
+        <div className="space-y-2 mt-3">
+          {customTemplates.length === 0 && !showCreate && (
+            <p className="text-[12.5px] text-muted-foreground py-1">
+              No custom templates yet. Add one below to use when manually sending requests.
+            </p>
+          )}
+
+          {customTemplates.map(t => (
+            <div key={t.id} className="rounded-lg border border-card-border overflow-hidden">
+              {editingId === t.id ? (
+                <div className="p-4">
+                  <TemplateEditor template={t} textOnly={false} onCancel={() => setEditingId(null)} />
+                </div>
+              ) : (
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-medium truncate">{t.name}</p>
+                    <p className="text-[11.5px] text-muted-foreground line-clamp-1 mt-0.5">{t.body}</p>
+                  </div>
+                  {!isReadOnly && (
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <Button variant="outline" size="sm" className="h-7 text-[12px] gap-1" onClick={() => setEditingId(t.id)}>
+                        <Edit2 className="w-3 h-3" /> Edit
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                        onClick={() => deleteMutation.mutate(t.id)} disabled={deleteMutation.isPending}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+
+          {!isReadOnly && canAdd && (
+            showCreate ? (
+              <div className="flex items-center gap-2 p-3 rounded-lg border border-card-border">
+                <Input
+                  autoFocus
+                  value={creatingName}
+                  onChange={e => setCreatingName(e.target.value)}
+                  placeholder="Template name (e.g. Bathroom Fitting)"
+                  className="text-[13px] flex-1"
+                  onKeyDown={e => { if (e.key === "Enter") createMutation.mutate(); if (e.key === "Escape") { setShowCreate(false); setCreatingName(""); }}}
+                />
+                <Button size="sm" className="h-7 text-[12px]" onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>
+                  {createMutation.isPending ? "Creating..." : "Create"}
+                </Button>
+                <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setShowCreate(false); setCreatingName(""); }}>
+                  <X className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            ) : (
+              <Button variant="outline" size="sm" className="w-full gap-1.5 text-[12.5px]" onClick={() => setShowCreate(true)}>
+                <Plus className="w-3.5 h-3.5" /> Add custom template
+              </Button>
+            )
+          )}
+
+          {!canAdd && !isReadOnly && (
+            <p className="text-[11.5px] text-muted-foreground text-center py-1">Maximum of {MAX_CUSTOM} custom templates reached.</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Templates() {
   const { user } = useAuth();
   const isReadOnly = !!user?.isImpersonating;
   const { data: templates, isLoading } = useQuery<Template[]>({ queryKey: ["/api/templates"] });
   const [activeTab, setActiveTab] = useState("email");
-  const [showNew, setShowNew] = useState(false);
 
   const byChannel = {
     email: templates?.filter(t => t.channel === "email") || [],
@@ -1039,35 +1157,28 @@ export default function Templates() {
 
   return (
     <div className="px-6 py-7 max-w-4xl mx-auto">
-      <div className="mb-6 flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Message Templates</h1>
-          <p className="text-[13.5px] text-muted-foreground mt-0.5">
-            Customize the messages sent to your customers. Use merge tags to personalize.
-          </p>
-        </div>
-        {!isReadOnly && activeTab !== "recordings" && (
-          <Button size="sm" className="gap-1.5 text-[12px] flex-shrink-0" onClick={() => setShowNew(true)}>
-            <Plus className="w-3.5 h-3.5" /> New Template
-          </Button>
-        )}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold tracking-tight">Message Templates</h1>
+        <p className="text-[13.5px] text-muted-foreground mt-0.5">
+          Customise the messages sent to your customers at each stage of the review journey.
+        </p>
       </div>
 
       {isLoading ? (
         <div className="space-y-4">
-          {[1,2,3].map(i => <Skeleton key={i} className="h-40 w-full" />)}
+          {[1,2,3,4,5].map(i => <Skeleton key={i} className="h-28 w-full" />)}
         </div>
       ) : (
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-5">
             <TabsTrigger value="email" className="gap-1.5 text-[13px]" data-testid="tab-email">
-              <Mail className="w-3.5 h-3.5" /> Email ({byChannel.email.length})
+              <Mail className="w-3.5 h-3.5" /> Email
             </TabsTrigger>
             <TabsTrigger value="sms" className="gap-1.5 text-[13px]" data-testid="tab-sms">
-              <MessageSquare className="w-3.5 h-3.5" /> SMS ({byChannel.sms.length})
+              <MessageSquare className="w-3.5 h-3.5" /> SMS
             </TabsTrigger>
             <TabsTrigger value="whatsapp" className="gap-1.5 text-[13px]" data-testid="tab-whatsapp">
-              <MessageSquare className="w-3.5 h-3.5 text-green-500" /> WhatsApp ({byChannel.whatsapp.length})
+              <MessageSquare className="w-3.5 h-3.5 text-green-500" /> WhatsApp
             </TabsTrigger>
             <TabsTrigger value="recordings" className="gap-1.5 text-[13px]" data-testid="tab-recordings">
               <Mic className="w-3.5 h-3.5" /> Recordings
@@ -1090,19 +1201,16 @@ export default function Templates() {
 
           {(["email", "sms", "whatsapp"] as const).map(ch => (
             <TabsContent key={ch} value={ch} className="space-y-4">
-              {byChannel[ch].length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <FileText className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                  <p className="text-[13px] mb-3">No {ch} templates yet</p>
-                  {!isReadOnly && (
-                    <Button size="sm" variant="outline" className="gap-1.5 text-[12px]" onClick={() => setShowNew(true)}>
-                      <Plus className="w-3.5 h-3.5" /> Create one
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                byChannel[ch].map(t => <TemplateCard key={t.id} template={t} isReadOnly={isReadOnly} />)
-              )}
+              {TEMPLATE_SLOTS.map(slot => (
+                <TemplateSlot
+                  key={slot.type}
+                  slot={slot}
+                  template={byChannel[ch].find(t => t.templateType === slot.type)}
+                  channel={ch}
+                  isReadOnly={isReadOnly}
+                />
+              ))}
+              <CustomTemplatesSection templates={byChannel[ch]} channel={ch} isReadOnly={isReadOnly} />
             </TabsContent>
           ))}
 
@@ -1111,8 +1219,6 @@ export default function Templates() {
           </TabsContent>
         </Tabs>
       )}
-
-      <NewTemplateDialog channel={activeTab} open={showNew} onClose={() => setShowNew(false)} />
     </div>
   );
 }
