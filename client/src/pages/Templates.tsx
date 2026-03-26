@@ -454,8 +454,8 @@ const TEMPLATE_SLOTS: {
     textOnly: true,
     defaultSubject: "Just checking in",
     defaultBody: "Just a quick follow-up from {{business_name}} — we'd love to hear how we did!\n\nTap the link below to leave your rating.\n\nThanks,\n{{business_name}}",
-    defaultBodySms: "Just checking in! We'd love to hear from you — tap below:",
-    defaultBodyWa: "😊 Just a quick follow-up from {{business_name}} — we'd love to hear how we did! Tap the link below to leave your rating:",
+    defaultBodySms: "Just a quick follow-up from {{business_name}} — we'd love to hear how we did!",
+    defaultBodyWa: "😊 Just a quick follow-up from {{business_name}} — we'd love to hear how we did! Tap the link below when you get a moment 👇",
   },
   {
     type: "follow_up_2",
@@ -464,8 +464,8 @@ const TEMPLATE_SLOTS: {
     textOnly: true,
     defaultSubject: "A polite reminder",
     defaultBody: "We know you're busy, but your feedback really means a lot to {{business_name}}!\n\nTap the link below whenever you're ready.\n\nThanks,\n{{business_name}}",
-    defaultBodySms: "We'd still love your feedback! Tap below when you get a moment:",
-    defaultBodyWa: "💛 We know you're busy, but your feedback really means a lot to {{business_name}}! Tap the link below whenever you're ready:",
+    defaultBodySms: "Your feedback means a lot to us — tap below when you're ready!\n{{business_name}}",
+    defaultBodyWa: "💛 Your feedback really means a lot to us! Whenever you're ready, just tap the link below — we appreciate it 🙏\n\n{{business_name}}",
   },
   {
     type: "follow_up_3",
@@ -474,8 +474,8 @@ const TEMPLATE_SLOTS: {
     textOnly: true,
     defaultSubject: "We'd still love to hear from you",
     defaultBody: "This is our last message, we promise! If you ever have a moment, we'd still love to hear from you.\n\nTap the link below.\n\nThanks,\n{{business_name}}",
-    defaultBodySms: "Last message from us! We'd still love your feedback — tap below:",
-    defaultBodyWa: "🙏 This is our last message, we promise! If you ever have a moment, we'd still love to hear from you — tap the link below:",
+    defaultBodySms: "Last one from us! If you get a moment, we'd love your feedback.\n{{business_name}}",
+    defaultBodyWa: "🙏 Last message from us, we promise! If you ever get a moment, we'd genuinely love to hear from you.\n\n{{business_name}}",
   },
 ];
 

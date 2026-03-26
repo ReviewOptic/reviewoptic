@@ -382,16 +382,16 @@ export async function runMigrations() {
     }
 
     // Force-set SMS follow-up bodies — always overwrite to ensure correct length and no greeting
-    const r1 = await pool.query(`UPDATE templates SET body = 'Just checking in! We''d love to hear from you — tap below:' WHERE template_type = 'follow_up_1' AND channel = 'sms'`);
-    const r2 = await pool.query(`UPDATE templates SET body = 'We''d still love your feedback! Tap below when you get a moment:' WHERE template_type = 'follow_up_2' AND channel = 'sms'`);
-    const r3 = await pool.query(`UPDATE templates SET body = 'Last message from us! We''d still love your feedback — tap below:' WHERE template_type = 'follow_up_3' AND channel = 'sms'`);
+    const r1 = await pool.query(`UPDATE templates SET body = 'Just a quick follow-up from {{business_name}} — we''d love to hear how we did!' WHERE template_type = 'follow_up_1' AND channel = 'sms'`);
+    const r2 = await pool.query(`UPDATE templates SET body = 'Your feedback means a lot to us — tap below when you''re ready!\n{{business_name}}' WHERE template_type = 'follow_up_2' AND channel = 'sms'`);
+    const r3 = await pool.query(`UPDATE templates SET body = 'Last one from us! If you get a moment, we''d love your feedback.\n{{business_name}}' WHERE template_type = 'follow_up_3' AND channel = 'sms'`);
     console.log(`[migrate] SMS follow-up fix: fu1=${r1.rowCount} fu2=${r2.rowCount} fu3=${r3.rowCount} rows updated`);
     const { rows: smsCheck } = await pool.query(`SELECT template_type, channel, LEFT(body, 60) AS body_preview FROM templates WHERE channel = 'sms' AND template_type LIKE 'follow_up%' LIMIT 10`);
     console.log("[migrate] SMS follow-up templates in DB:", JSON.stringify(smsCheck));
-    // Force-set WhatsApp follow-up bodies — always overwrite to ensure no greeting
-    await pool.query(`UPDATE templates SET body = '😊 Just a quick follow-up from {{business_name}} — we''d love to hear how we did! Tap the link below to leave your rating:' WHERE template_type = 'follow_up_1' AND channel = 'whatsapp'`);
-    await pool.query(`UPDATE templates SET body = '💛 We know you''re busy, but your feedback really means a lot to {{business_name}}! Tap the link below whenever you''re ready:' WHERE template_type = 'follow_up_2' AND channel = 'whatsapp'`);
-    await pool.query(`UPDATE templates SET body = '🙏 This is our last message, we promise! If you ever have a moment, we''d still love to hear from you — tap the link below:' WHERE template_type = 'follow_up_3' AND channel = 'whatsapp'`);
+    // Force-set WhatsApp follow-up bodies
+    await pool.query(`UPDATE templates SET body = '😊 Just a quick follow-up from {{business_name}} — we''d love to hear how we did! Tap the link below when you get a moment 👇' WHERE template_type = 'follow_up_1' AND channel = 'whatsapp'`);
+    await pool.query(`UPDATE templates SET body = '💛 Your feedback really means a lot to us! Whenever you''re ready, just tap the link below — we appreciate it 🙏\n\n{{business_name}}' WHERE template_type = 'follow_up_2' AND channel = 'whatsapp'`);
+    await pool.query(`UPDATE templates SET body = '🙏 Last message from us, we promise! If you ever get a moment, we''d genuinely love to hear from you.\n\n{{business_name}}' WHERE template_type = 'follow_up_3' AND channel = 'whatsapp'`);
     // Email follow-ups — fix greeting and "The {{business_name}} team" sign-off
     await pool.query(`UPDATE templates SET body = 'Just a quick follow-up from {{business_name}} — we''d love to hear how we did!\n\nTap the link below to leave your rating.\n\nThanks,\n{{business_name}}' WHERE template_type IN ('follow_up', 'follow_up_1') AND channel = 'email' AND (body ILIKE 'Hi {{first_name}}%' OR body LIKE '%The {{business_name}} team%')`);
     await pool.query(`UPDATE templates SET body = 'We know you''re busy, but your feedback really means a lot to {{business_name}}!\n\nTap the link below whenever you''re ready.\n\nThanks,\n{{business_name}}' WHERE template_type = 'follow_up_2' AND channel = 'email' AND (body ILIKE 'Hi {{first_name}}%' OR body LIKE '%The {{business_name}} team%')`);

@@ -338,37 +338,37 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         id: randomUUID(), accountId: account.id, name: "Follow-up 1", templateType: "follow_up_1",
         channel: "sms", isDefault: true, preferredPlatform: "",
         subject: "",
-        body: "Just checking in! We'd love to hear from you — tap below:",
+        body: "Just a quick follow-up from {{business_name}} — we'd love to hear how we did!",
       },
       {
         id: randomUUID(), accountId: account.id, name: "Follow-up 2", templateType: "follow_up_2",
         channel: "sms", isDefault: true, preferredPlatform: "",
         subject: "",
-        body: "We'd still love your feedback! Tap below when you get a moment:",
+        body: "Your feedback means a lot to us — tap below when you're ready!\n{{business_name}}",
       },
       {
         id: randomUUID(), accountId: account.id, name: "Follow-up 3", templateType: "follow_up_3",
         channel: "sms", isDefault: true, preferredPlatform: "",
         subject: "",
-        body: "Last message from us! We'd still love your feedback — tap below:",
+        body: "Last one from us! If you get a moment, we'd love your feedback.\n{{business_name}}",
       },
       {
         id: randomUUID(), accountId: account.id, name: "Follow-up 1", templateType: "follow_up_1",
         channel: "whatsapp", isDefault: true, preferredPlatform: "",
         subject: "",
-        body: "😊 Just a quick follow-up from {{business_name}} — we'd love to hear how we did! Tap the link below to leave your rating:",
+        body: "😊 Just a quick follow-up from {{business_name}} — we'd love to hear how we did! Tap the link below when you get a moment 👇",
       },
       {
         id: randomUUID(), accountId: account.id, name: "Follow-up 2", templateType: "follow_up_2",
         channel: "whatsapp", isDefault: true, preferredPlatform: "",
         subject: "",
-        body: "💛 We know you're busy, but your feedback really means a lot to {{business_name}}! Tap the link below whenever you're ready:",
+        body: "💛 Your feedback really means a lot to us! Whenever you're ready, just tap the link below — we appreciate it 🙏\n\n{{business_name}}",
       },
       {
         id: randomUUID(), accountId: account.id, name: "Follow-up 3", templateType: "follow_up_3",
         channel: "whatsapp", isDefault: true, preferredPlatform: "",
         subject: "",
-        body: "🙏 This is our last message, we promise! If you ever have a moment, we'd still love to hear from you — tap the link below:",
+        body: "🙏 Last message from us, we promise! If you ever get a moment, we'd genuinely love to hear from you.\n\n{{business_name}}",
       },
     ];
     for (const t of defaultTemplates) {
@@ -1609,16 +1609,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       sms: {
         response_positive: { body: "Thank you so much for your rating! If you have a moment, we'd really appreciate it if you could share your experience with others on one of our review pages below.\n\nThanks,\n{{business_name}}" },
         response_negative: { body: "Sorry to hear your experience didn't meet expectations. We'd love the chance to make it right — please reply and we'll be in touch.\n\nThanks,\n{{business_name}}" },
-        follow_up_1: { body: "Just checking in! We'd love to hear from you — tap below:" },
-        follow_up_2: { body: "We'd still love your feedback! Tap below when you get a moment:" },
-        follow_up_3: { body: "Last message from us! We'd still love your feedback — tap below:" },
+        follow_up_1: { body: "Just a quick follow-up from {{business_name}} — we'd love to hear how we did!" },
+        follow_up_2: { body: "Your feedback means a lot to us — tap below when you're ready!\n{{business_name}}" },
+        follow_up_3: { body: "Last one from us! If you get a moment, we'd love your feedback.\n{{business_name}}" },
       },
       whatsapp: {
         response_positive: { body: "Thank you so much for your rating! If you have a moment, we'd really appreciate it if you could share your experience with others on one of our review pages below.\n\nThanks,\n{{business_name}}" },
         response_negative: { body: "Sorry to hear your experience didn't meet expectations. We'd love the chance to make it right — please reply and we'll be in touch.\n\nThanks,\n{{business_name}}" },
-        follow_up_1: { body: "😊 Just a quick follow-up from {{business_name}} — we'd love to hear how we did! Tap the link below to leave your rating:" },
-        follow_up_2: { body: "💛 We know you're busy, but your feedback really means a lot to {{business_name}}! Tap the link below whenever you're ready:" },
-        follow_up_3: { body: "🙏 This is our last message, we promise! If you ever have a moment, we'd still love to hear from you — tap the link below:" },
+        follow_up_1: { body: "😊 Just a quick follow-up from {{business_name}} — we'd love to hear how we did! Tap the link below when you get a moment 👇" },
+        follow_up_2: { body: "💛 Your feedback really means a lot to us! Whenever you're ready, just tap the link below — we appreciate it 🙏\n\n{{business_name}}" },
+        follow_up_3: { body: "🙏 Last message from us, we promise! If you ever get a moment, we'd genuinely love to hear from you.\n\n{{business_name}}" },
       },
     };
     const channelDefaults = defaults[channel];
