@@ -578,7 +578,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }).catch(() => res.status(500).json({ message: "Server error" }));
   }
 
-  app.post("/api/admin/fix-templates", requireAdmin, async (req, res) => {
+  app.get("/api/admin/fix-templates", requireAdmin, async (req, res) => {
     await pool.query(`UPDATE templates SET body = 'Just checking in! We''d love to hear from you — tap below:' WHERE template_type = 'follow_up_1' AND channel = 'sms'`);
     await pool.query(`UPDATE templates SET body = 'We''d still love your feedback! Tap below when you get a moment:' WHERE template_type = 'follow_up_2' AND channel = 'sms'`);
     await pool.query(`UPDATE templates SET body = 'Last message from us! We''d still love your feedback — tap below:' WHERE template_type = 'follow_up_3' AND channel = 'sms'`);
