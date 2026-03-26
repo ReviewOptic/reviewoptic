@@ -578,6 +578,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }).catch(() => res.status(500).json({ message: "Server error" }));
   }
 
+  app.post("/api/admin/fix-templates", requireAdmin, async (req, res) => {
+    await pool.query(`UPDATE templates SET body = 'Just checking in! We''d love to hear from you — tap below:' WHERE template_type = 'follow_up_1' AND channel = 'sms'`);
+    await pool.query(`UPDATE templates SET body = 'We''d still love your feedback! Tap below when you get a moment:' WHERE template_type = 'follow_up_2' AND channel = 'sms'`);
+    await pool.query(`UPDATE templates SET body = 'Last message from us! We''d still love your feedback — tap below:' WHERE template_type = 'follow_up_3' AND channel = 'sms'`);
+    await pool.query(`UPDATE templates SET body = '😊 Just a quick follow-up from {{business_name}} — we''d love to hear how we did! Tap the link below to leave your rating:' WHERE template_type = 'follow_up_1' AND channel = 'whatsapp'`);
+    await pool.query(`UPDATE templates SET body = '💛 We know you''re busy, but your feedback really means a lot to {{business_name}}! Tap the link below whenever you''re ready:' WHERE template_type = 'follow_up_2' AND channel = 'whatsapp'`);
+    await pool.query(`UPDATE templates SET body = '🙏 This is our last message, we promise! If you ever have a moment, we''d still love to hear from you — tap the link below:' WHERE template_type = 'follow_up_3' AND channel = 'whatsapp'`);
+    await pool.query(`UPDATE templates SET body = 'Just a quick follow-up from {{business_name}} — we''d love to hear how we did!\n\nTap the link below to leave your rating.\n\nThanks,\n{{business_name}}' WHERE template_type IN ('follow_up', 'follow_up_1') AND channel = 'email' AND (body ILIKE '%Hi {{first_name}}%' OR body LIKE '%The {{business_name}} team%' OR body LIKE '%The {{business_name}} Team%')`);
+    await pool.query(`UPDATE templates SET body = 'We know you''re busy, but your feedback really means a lot to {{business_name}}!\n\nTap the link below whenever you''re ready.\n\nThanks,\n{{business_name}}' WHERE template_type = 'follow_up_2' AND channel = 'email' AND (body ILIKE '%Hi {{first_name}}%' OR body LIKE '%The {{business_name}} team%')`);
+    await pool.query(`UPDATE templates SET body = 'This is our last message, we promise! If you ever have a moment, we''d still love to hear from you.\n\nTap the link below.\n\nThanks,\n{{business_name}}' WHERE template_type = 'follow_up_3' AND channel = 'email' AND (body ILIKE '%Hi {{first_name}}%' OR body LIKE '%The {{business_name}} team%')`);
+    await pool.query(`UPDATE templates SET body = 'Thank you so much for your rating! If you have a moment, we''d really appreciate it if you could share your experience with others on one of our review pages below.\n\nThanks,\n{{business_name}}' WHERE template_type = 'response_positive' AND (body ILIKE '%Hi {{first_name}}%' OR body LIKE '%The {{business_name}} team%')`);
+    await pool.query(`UPDATE templates SET body = 'Thank you for your feedback — we''re sorry to hear your experience didn''t meet expectations. We''d love the chance to make it right.\n\nPlease reply to this message and we''ll be in touch shortly.\n\nThanks,\n{{business_name}}' WHERE template_type = 'response_negative' AND (body ILIKE '%Hi {{first_name}}%' OR body LIKE '%The {{business_name}} team%')`);
+    res.json({ ok: true, message: "Templates fixed" });
+  });
+
   app.get("/api/admin/users", requireAdmin, async (req, res) => {
     const [allUsers, stats] = await Promise.all([storage.getAllUsers(), storage.getAdminUserStats()]);
     const { rows: planRows } = await pool.query(`SELECT id, plan_type, COALESCE(email_unsubscribed, false) as email_unsubscribed FROM users`);

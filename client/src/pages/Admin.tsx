@@ -248,6 +248,13 @@ export default function Admin() {
               <Printer className="w-3.5 h-3.5" />
               Export PDF
             </Button>
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={async () => {
+              await fetch("/api/admin/fix-templates", { method: "POST" });
+              alert("Templates fixed — reload the Templates page to see the changes.");
+            }}>
+              <Zap className="w-3.5 h-3.5" />
+              Fix Templates
+            </Button>
           </div>
         )}
       </div>
