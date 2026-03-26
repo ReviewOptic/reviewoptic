@@ -344,6 +344,11 @@ export async function runMigrations() {
     // Platform email unsubscribe flag for users
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_unsubscribed BOOLEAN NOT NULL DEFAULT false`);
 
+    // Fix follow-up subject lines to be consistent and non-misleading
+    await pool.query(`UPDATE templates SET subject = 'Just checking in' WHERE template_type = 'follow_up_1' AND is_default = true`);
+    await pool.query(`UPDATE templates SET subject = 'A polite reminder' WHERE template_type = 'follow_up_2' AND is_default = true`);
+    await pool.query(`UPDATE templates SET subject = 'We''d still love to hear from you' WHERE template_type = 'follow_up_3' AND is_default = true`);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();

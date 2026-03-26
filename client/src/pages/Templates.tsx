@@ -430,7 +430,7 @@ const TEMPLATE_SLOTS = [
     label: "Follow-up 1",
     description: "First reminder sent to customers who haven't responded.",
     textOnly: true,
-    defaultSubject: "A quick follow-up from {{business_name}}",
+    defaultSubject: "Just checking in",
     defaultBody: "Hi {{first_name}},\n\nJust a quick follow-up — we'd love to hear about your experience with {{business_name}}! It only takes a moment — tap the link below.\n\nThanks,\nThe {{business_name}} team",
   },
   {
@@ -438,7 +438,7 @@ const TEMPLATE_SLOTS = [
     label: "Follow-up 2",
     description: "Second reminder for customers who still haven't responded.",
     textOnly: true,
-    defaultSubject: "Still thinking about your experience? — {{business_name}}",
+    defaultSubject: "A polite reminder",
     defaultBody: "Hi {{first_name}},\n\nWe know you're busy, but your feedback really does make a difference! If you have 30 seconds, we'd love to hear from you — tap the link below.\n\nThanks,\nThe {{business_name}} team",
   },
   {
@@ -446,7 +446,7 @@ const TEMPLATE_SLOTS = [
     label: "Follow-up 3",
     description: "Final reminder for customers who haven't responded.",
     textOnly: true,
-    defaultSubject: "Last chance to share your thoughts — {{business_name}}",
+    defaultSubject: "We'd still love to hear from you",
     defaultBody: "Hi {{first_name}},\n\nThis is our last message — we promise! If you ever have a moment to share your experience, we'd really appreciate it — just tap the link below.\n\nThanks for choosing {{business_name}}.",
   },
 ] as const;
