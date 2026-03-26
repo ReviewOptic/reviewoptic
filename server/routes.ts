@@ -556,8 +556,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.get("/api/admin/users", requireAdmin, async (req, res) => {
     const [allUsers, stats] = await Promise.all([storage.getAllUsers(), storage.getAdminUserStats()]);
-    const { rows: planRows } = await pool.query(`SELECT id, plan_type FROM users`);
+    const { rows: planRows } = await pool.query(`SELECT id, plan_type, COALESCE(email_unsubscribed, false) as email_unsubscribed FROM users`);
     const planMap = Object.fromEntries(planRows.map((r: any) => [r.id, r.plan_type]));
+    const unsubMap = Object.fromEntries(planRows.map((r: any) => [r.id, r.email_unsubscribed]));
     const statsMap = Object.fromEntries(stats.map(s => [s.userId, s]));
     const activeUsers = allUsers.filter(u => {
       if (u.isAdmin) return true;
@@ -571,6 +572,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       isAdmin: u.isAdmin,
       emailVerified: u.emailVerified,
       planType: planMap[u.id] || "free",
+      emailUnsubscribed: unsubMap[u.id] ?? false,
       customerCount: statsMap[u.id]?.customerCount ?? 0,
       reviewRequestCount: statsMap[u.id]?.reviewRequestCount ?? 0,
       lastActive: statsMap[u.id]?.lastActive ?? null,
@@ -2772,6 +2774,49 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.setHeader("Content-Type", "image/gif");
     res.setHeader("Cache-Control", "no-store");
     res.end(gif);
+  });
+
+  // Unsubscribe: platform emails (ReviewOptic → user)
+  app.get("/api/unsubscribe/platform", async (req, res) => {
+    const { uid } = req.query;
+    if (uid) {
+      await pool.query(
+        `UPDATE users SET email_unsubscribed = true WHERE id = $1`,
+        [uid]
+      ).catch(() => {});
+    }
+    res.send(`
+      <!DOCTYPE html><html><head><meta charset="utf-8"><title>Unsubscribed — ReviewOptic</title>
+      <style>body{font-family:sans-serif;max-width:480px;margin:80px auto;padding:0 24px;text-align:center;color:#333;}
+      h2{font-size:22px;font-weight:700;margin-bottom:8px;}p{color:#666;font-size:14px;line-height:1.6;}
+      a{color:#2563eb;text-decoration:underline;}</style></head>
+      <body>
+        <h2>You've been unsubscribed</h2>
+        <p>You won't receive any more emails from ReviewOptic.</p>
+        <p>You can still <a href="/login">log in to your account</a> at any time.</p>
+      </body></html>
+    `);
+  });
+
+  // Unsubscribe: customer emails (business → customer) — sets Do Not Contact
+  app.get("/api/unsubscribe/customer", async (req, res) => {
+    const { cid } = req.query;
+    if (cid) {
+      await pool.query(
+        `UPDATE customers SET do_not_contact = true WHERE id = $1`,
+        [cid]
+      ).catch(() => {});
+    }
+    res.send(`
+      <!DOCTYPE html><html><head><meta charset="utf-8"><title>Unsubscribed</title>
+      <style>body{font-family:sans-serif;max-width:480px;margin:80px auto;padding:0 24px;text-align:center;color:#333;}
+      h2{font-size:22px;font-weight:700;margin-bottom:8px;}p{color:#666;font-size:14px;line-height:1.6;}</style></head>
+      <body>
+        <h2>You've been unsubscribed</h2>
+        <p>You won't receive any more emails from this business.</p>
+        <p>If you believe this was a mistake, please contact the business directly.</p>
+      </body></html>
+    `);
   });
 
   // Insight email opt-out

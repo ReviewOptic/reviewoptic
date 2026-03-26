@@ -113,6 +113,27 @@ function applyMergeTags(text: string, customer: Customer, settings: Settings, re
     .replace(/\{\{review_link\}\}/g, reviewLinkOverride || getReviewLink(settings));
 }
 
+function customerUnsubscribeFooter(customerId: string): string {
+  const unsubUrl = `${APP_URL}/api/unsubscribe/customer?cid=${encodeURIComponent(customerId)}`;
+  return `
+  <div style="border-top:1px solid #e5e7eb;margin-top:32px;padding-top:16px;text-align:center;">
+    <span style="font-size:11px;color:#9ca3af;">
+      Don't want to receive emails like this?
+      <a href="${unsubUrl}" style="color:#9ca3af;text-decoration:underline;">Unsubscribe</a>
+    </span>
+  </div>`;
+}
+
+function platformUnsubscribeFooter(userId: string): string {
+  const unsubUrl = `${APP_URL}/api/unsubscribe/platform?uid=${encodeURIComponent(userId)}`;
+  return `
+  <div style="border-top:1px solid #e5e7eb;margin-top:8px;padding-top:12px;text-align:center;">
+    <span style="font-size:11px;color:#9ca3af;">
+      <a href="${unsubUrl}" style="color:#9ca3af;text-decoration:underline;">Unsubscribe from ReviewOptic emails</a>
+    </span>
+  </div>`;
+}
+
 export async function sendReviewEmail(
   customer: Customer,
   settings: Settings,
@@ -163,6 +184,7 @@ export async function sendReviewEmail(
       ${bodyText.replace(/\n/g, "<br>")}
       ${platforms.length ? `<br><br>${platformButtons}` : ""}
       ${POWERED_BY_FOOTER}
+      ${customerUnsubscribeFooter(customer.id)}
     </div>`;
   } else {
     const firstName = customer.name.split(" ")[0];
@@ -174,10 +196,8 @@ export async function sendReviewEmail(
         Thank you for choosing ${settings.businessName}. We'd love to hear about your experience — it only takes a minute and means a lot to us.
       </p>
       ${platformButtons}
-      <p style="color:#999;font-size:12px;margin-top:32px;line-height:1.6;">
-        If you'd prefer not to receive emails like this, please let us know.
-      </p>
       ${POWERED_BY_FOOTER}
+      ${customerUnsubscribeFooter(customer.id)}
     </div>`;
   }
 
@@ -239,10 +259,8 @@ export async function sendPreScreenEmail(
           <tr>${stars}</tr>
         </table>
         <p style="text-align:center;color:#9ca3af;font-size:12px;margin:0 0 32px;">Tap a star to submit your rating</p>
-        <p style="color:#999;font-size:12px;line-height:1.6;">
-          If you'd prefer not to receive emails like this, please let us know.
-        </p>
         ${POWERED_BY_FOOTER}
+        ${customerUnsubscribeFooter(customer.id)}
         <img src="${baseUrl}/api/track/${requestId}/open" width="1" height="1" alt="" style="display:block;border:0;width:1px;height:1px;" />
       </div>
     `,
@@ -250,7 +268,7 @@ export async function sendPreScreenEmail(
   console.log(`[pre-screen email] result:`, JSON.stringify(result));
 }
 
-export async function sendPlatformReviewRequest(user: { email: string; firstName: string; companyName: string }, isFollowUp: boolean) {
+export async function sendPlatformReviewRequest(user: { id: string; email: string; firstName: string; companyName: string }, isFollowUp: boolean) {
   if (!process.env.RESEND_API_KEY) {
     console.log(`[platform review request] No RESEND_API_KEY. Would email ${user.email}`);
     return;
@@ -307,9 +325,10 @@ export async function sendPlatformReviewRequest(user: { email: string; firstName
           ${platformLinks}
         </div>
         <p style="color:#999;font-size:12px;line-height:1.6;margin-top:32px;">
-          You're receiving this because you have an account with ReviewOptic. If you'd prefer not to hear from us, just reply and let us know.
+          You're receiving this because you have an account with ReviewOptic.
         </p>
         ${POWERED_BY_FOOTER}
+        ${platformUnsubscribeFooter(user.id)}
       </div>
     `,
   });

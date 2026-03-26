@@ -16,7 +16,7 @@ import {
 
 interface AdminUser {
   id: string; email: string; accountId: string; isAdmin: boolean;
-  emailVerified: boolean; planType: string; customerCount: number; reviewRequestCount: number; lastActive: string | null;
+  emailVerified: boolean; planType: string; emailUnsubscribed: boolean; customerCount: number; reviewRequestCount: number; lastActive: string | null;
 }
 
 interface Metrics {
@@ -660,6 +660,11 @@ export default function Admin() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <p className="text-sm text-muted-foreground">{users.filter(u => planFilter === "all" || u.planType === planFilter).length} user{users.filter(u => planFilter === "all" || u.planType === planFilter).length !== 1 ? "s" : ""}</p>
+              {users.some(u => u.emailUnsubscribed) && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
+                  {users.filter(u => u.emailUnsubscribed).length} unsubscribed
+                </span>
+              )}
               <div className="flex gap-1">
                 {["all", "standard", "agency", "complimentary", "cancelled"].map(p => (
                   <button key={p} onClick={() => setPlanFilter(p)}
@@ -704,7 +709,10 @@ export default function Admin() {
                     <td className="px-4 py-3 text-muted-foreground">{u.reviewRequestCount}</td>
                     <td className="px-4 py-3 text-muted-foreground">{fmtDate(u.lastActive)}</td>
                     <td className="px-4 py-3">{u.emailVerified ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <XCircle className="w-4 h-4 text-muted-foreground" />}</td>
-                    <td className="px-4 py-3">{u.isAdmin ? <span className="text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">Admin</span> : <span className="text-xs text-muted-foreground">User</span>}</td>
+                    <td className="px-4 py-3">
+                      {u.isAdmin ? <span className="text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">Admin</span> : <span className="text-xs text-muted-foreground">User</span>}
+                      {u.emailUnsubscribed && <span className="ml-1.5 text-xs font-medium px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">Unsub</span>}
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5 justify-end">
                         {!u.emailVerified && <Button size="sm" variant="outline" onClick={() => verifyUser(u.id)} title="Verify email"><CheckCircle2 className="w-3.5 h-3.5" /></Button>}

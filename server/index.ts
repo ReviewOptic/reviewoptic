@@ -137,12 +137,13 @@ app.use((req, res, next) => {
         SELECT id, email, first_name, last_name, company_name FROM users
         WHERE email_verified = true
           AND is_admin = false
+          AND COALESCE(email_unsubscribed, false) = false
           AND auto_review_requested_at IS NULL
           AND created_at <= NOW() - INTERVAL '30 days'
       `);
       for (const u of initial) {
         try {
-          await sendPlatformReviewRequest({ email: u.email, firstName: u.first_name, companyName: u.company_name }, false);
+          await sendPlatformReviewRequest({ id: u.id, email: u.email, firstName: u.first_name, companyName: u.company_name }, false);
           await pool.query(`UPDATE users SET auto_review_requested_at = NOW(), auto_review_follow_ups = 0 WHERE id = $1`, [u.id]);
           log(`[platform review] Initial request sent to ${u.email}`);
         } catch (err: any) {
@@ -155,13 +156,14 @@ app.use((req, res, next) => {
         SELECT id, email, first_name, last_name, company_name FROM users
         WHERE email_verified = true
           AND is_admin = false
+          AND COALESCE(email_unsubscribed, false) = false
           AND auto_review_requested_at IS NOT NULL
           AND auto_review_follow_ups = 0
           AND auto_review_requested_at <= NOW() - INTERVAL '3 days'
       `);
       for (const u of fu1) {
         try {
-          await sendPlatformReviewRequest({ email: u.email, firstName: u.first_name, companyName: u.company_name }, true);
+          await sendPlatformReviewRequest({ id: u.id, email: u.email, firstName: u.first_name, companyName: u.company_name }, true);
           await pool.query(`UPDATE users SET auto_review_follow_ups = 1 WHERE id = $1`, [u.id]);
           log(`[platform review] Follow-up 1 sent to ${u.email}`);
         } catch (err: any) {
@@ -174,13 +176,14 @@ app.use((req, res, next) => {
         SELECT id, email, first_name, last_name, company_name FROM users
         WHERE email_verified = true
           AND is_admin = false
+          AND COALESCE(email_unsubscribed, false) = false
           AND auto_review_requested_at IS NOT NULL
           AND auto_review_follow_ups = 1
           AND auto_review_requested_at <= NOW() - INTERVAL '7 days'
       `);
       for (const u of fu2) {
         try {
-          await sendPlatformReviewRequest({ email: u.email, firstName: u.first_name, companyName: u.company_name }, true);
+          await sendPlatformReviewRequest({ id: u.id, email: u.email, firstName: u.first_name, companyName: u.company_name }, true);
           await pool.query(`UPDATE users SET auto_review_follow_ups = 2 WHERE id = $1`, [u.id]);
           log(`[platform review] Follow-up 2 sent to ${u.email}`);
         } catch (err: any) {

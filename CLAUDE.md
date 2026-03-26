@@ -317,8 +317,20 @@ Your job is to be the developer they would hire if they could afford a great one
 - `{{service_type}}` in response templates: if empty, regex strips `" and our {{service_type}}"` before display
 - Follow-up link = `${appUrl}/review?rid=${newRequestId}` auto-appended after template body — not a merge tag
 
+### Session — 2026-03-26 (thirty-first session)
+
+**Tasks completed:**
+- **Unsubscribe for platform emails (ReviewOptic → user)**: New `email_unsubscribed` boolean column on `users` (migration added). `GET /api/unsubscribe/platform?uid=X` public endpoint sets the flag and returns a confirmation HTML page. `sendPlatformReviewRequest` now accepts `id` in the user param and embeds a real unsubscribe link in the email footer. `runPlatformReviewRequests` in index.ts and `runMonthlyInsightEmails` in insightEmail.ts both filter out users with `email_unsubscribed = true`.
+- **Unsubscribe for customer emails (business → customer)**: `GET /api/unsubscribe/customer?cid=X` public endpoint sets `do_not_contact = true` on the customer and returns a confirmation HTML page. Real unsubscribe link added to `sendPreScreenEmail` and `sendReviewEmail` footers.
+- **Admin panel tracking**: `/api/admin/users` now returns `emailUnsubscribed` per user. Admin Users tab shows orange "Unsub" badge on each unsubscribed user, plus a count badge in the header showing how many users have unsubscribed.
+
+**Architecture notes:**
+- Two helper functions in email.ts: `customerUnsubscribeFooter(customerId)` and `platformUnsubscribeFooter(userId)` — centralised so any new email type can add them in one line
+- Customer unsubscribe reuses existing `do_not_contact` flag — no new column needed; customer automatically appears as DNC in the Customers tab
+- Platform unsubscribe link is NOT added to: verification email, password reset, cancellation email (all transactional)
+
 **Notes for next session:**
-- **Server restart required** for all migrations to run (template body reset, review_link strip, positive/negative template column additions)
+- **Server restart required** for `email_unsubscribed` migration to run, and for all previous pending migrations
 - **Referral programme activation**: needs (1) server route `GET /referral/:slug` → redirect to `/signup?ref={accountId}`, (2) store `referred_by_account_id` on new accounts at registration, (3) admin view of referral counts, (4) update offer text in Referral tab
 - `POST /api/reviews` endpoint still orphaned in routes.ts — safe to remove
 - Instagram auto-posting still not built

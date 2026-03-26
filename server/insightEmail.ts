@@ -159,6 +159,7 @@ export async function runMonthlyInsightEmails(): Promise<void> {
       AND role = 'owner'
       AND insight_email_frequency != 'never'
       AND insight_emails_opt_out = false
+      AND COALESCE(email_unsubscribed, false) = false
       AND (
         last_insight_email_at IS NULL
         OR (insight_email_frequency = 'weekly'  AND last_insight_email_at < NOW() - INTERVAL '7 days')

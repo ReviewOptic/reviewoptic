@@ -341,6 +341,9 @@ export async function runMigrations() {
         AND body LIKE '%{{review_link}}%'
     `);
 
+    // Platform email unsubscribe flag for users
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_unsubscribed BOOLEAN NOT NULL DEFAULT false`);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();
