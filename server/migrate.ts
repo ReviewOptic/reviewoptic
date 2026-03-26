@@ -382,9 +382,12 @@ export async function runMigrations() {
     }
 
     // Force-set SMS follow-up bodies — always overwrite to ensure correct length and no greeting
-    await pool.query(`UPDATE templates SET body = 'Just checking in! We''d love to hear from you — tap below:' WHERE template_type = 'follow_up_1' AND channel = 'sms'`);
-    await pool.query(`UPDATE templates SET body = 'We''d still love your feedback! Tap below when you get a moment:' WHERE template_type = 'follow_up_2' AND channel = 'sms'`);
-    await pool.query(`UPDATE templates SET body = 'Last message from us! We''d still love your feedback — tap below:' WHERE template_type = 'follow_up_3' AND channel = 'sms'`);
+    const r1 = await pool.query(`UPDATE templates SET body = 'Just checking in! We''d love to hear from you — tap below:' WHERE template_type = 'follow_up_1' AND channel = 'sms'`);
+    const r2 = await pool.query(`UPDATE templates SET body = 'We''d still love your feedback! Tap below when you get a moment:' WHERE template_type = 'follow_up_2' AND channel = 'sms'`);
+    const r3 = await pool.query(`UPDATE templates SET body = 'Last message from us! We''d still love your feedback — tap below:' WHERE template_type = 'follow_up_3' AND channel = 'sms'`);
+    console.log(`[migrate] SMS follow-up fix: fu1=${r1.rowCount} fu2=${r2.rowCount} fu3=${r3.rowCount} rows updated`);
+    const { rows: smsCheck } = await pool.query(`SELECT template_type, channel, LEFT(body, 60) AS body_preview FROM templates WHERE channel = 'sms' AND template_type LIKE 'follow_up%' LIMIT 10`);
+    console.log("[migrate] SMS follow-up templates in DB:", JSON.stringify(smsCheck));
     // Force-set WhatsApp follow-up bodies — always overwrite to ensure no greeting
     await pool.query(`UPDATE templates SET body = '😊 Just a quick follow-up from {{business_name}} — we''d love to hear how we did! Tap the link below to leave your rating:' WHERE template_type = 'follow_up_1' AND channel = 'whatsapp'`);
     await pool.query(`UPDATE templates SET body = '💛 We know you''re busy, but your feedback really means a lot to {{business_name}}! Tap the link below whenever you''re ready:' WHERE template_type = 'follow_up_2' AND channel = 'whatsapp'`);
