@@ -349,6 +349,46 @@ export async function runMigrations() {
     await pool.query(`UPDATE templates SET subject = 'A polite reminder' WHERE template_type = 'follow_up_2' AND is_default = true`);
     await pool.query(`UPDATE templates SET subject = 'We''d still love to hear from you' WHERE template_type = 'follow_up_3' AND is_default = true`);
 
+    // Create follow_up_1/2/3 templates for SMS and WhatsApp (were never seeded — accounts only had old "follow_up" type)
+    const fuSlots = [
+      {
+        type: "follow_up_1",
+        smsBody: "Just checking in! We'd love to hear from you — tap below:",
+        waBody: "😊 Just a quick follow-up from {{business_name}} — we'd love to hear how we did! Tap the link below to leave your rating:",
+      },
+      {
+        type: "follow_up_2",
+        smsBody: "We'd still love your feedback! Tap below when you get a moment:",
+        waBody: "💛 We know you're busy, but your feedback really means a lot to {{business_name}}! Tap the link below whenever you're ready:",
+      },
+      {
+        type: "follow_up_3",
+        smsBody: "Last message from us! We'd still love your feedback — tap below:",
+        waBody: "🙏 This is our last message, we promise! If you ever have a moment, we'd still love to hear from you — tap the link below:",
+      },
+    ];
+    for (const slot of fuSlots) {
+      for (const [channel, body] of [["sms", slot.smsBody], ["whatsapp", slot.waBody]] as const) {
+        await pool.query(`
+          INSERT INTO templates (id, account_id, name, template_type, channel, is_default, subject, body, preferred_platform, video_url, audio_url, created_at, updated_at)
+          SELECT gen_random_uuid(), a.id, $1, $2, $3, true, '', $4, '', null, null, NOW(), NOW()
+          FROM (SELECT DISTINCT account_id AS id FROM templates) a
+          WHERE NOT EXISTS (
+            SELECT 1 FROM templates t2
+            WHERE t2.account_id = a.id AND t2.template_type = $2 AND t2.channel = $3
+          )
+        `, [slot.type === "follow_up_1" ? "Follow-up 1" : slot.type === "follow_up_2" ? "Follow-up 2" : "Follow-up 3", slot.type, channel, body]);
+      }
+    }
+
+    // Force-correct SMS follow-up bodies to fit within 86-char limit (short link + Reply STOP take remaining space)
+    await pool.query(`UPDATE templates SET body = 'Just checking in! We''d love to hear from you — tap below:' WHERE template_type = 'follow_up_1' AND channel = 'sms' AND is_default = true`);
+    await pool.query(`UPDATE templates SET body = 'We''d still love your feedback! Tap below when you get a moment:' WHERE template_type = 'follow_up_2' AND channel = 'sms' AND is_default = true`);
+    await pool.query(`UPDATE templates SET body = 'Last message from us! We''d still love your feedback — tap below:' WHERE template_type = 'follow_up_3' AND channel = 'sms' AND is_default = true`);
+    await pool.query(`UPDATE templates SET body = '😊 Just a quick follow-up from {{business_name}} — we''d love to hear how we did! Tap the link below to leave your rating:' WHERE template_type = 'follow_up_1' AND channel = 'whatsapp' AND is_default = true`);
+    await pool.query(`UPDATE templates SET body = '💛 We know you''re busy, but your feedback really means a lot to {{business_name}}! Tap the link below whenever you''re ready:' WHERE template_type = 'follow_up_2' AND channel = 'whatsapp' AND is_default = true`);
+    await pool.query(`UPDATE templates SET body = '🙏 This is our last message, we promise! If you ever have a moment, we''d still love to hear from you — tap the link below:' WHERE template_type = 'follow_up_3' AND channel = 'whatsapp' AND is_default = true`);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();

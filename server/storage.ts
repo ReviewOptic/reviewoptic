@@ -3,7 +3,7 @@ import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import pkg from "pg";
 const { Pool } = pkg;
 import { randomUUID } from "crypto";
-import { sendReviewEmail, sendPreScreenEmail } from "./email";
+import { sendPreScreenEmail, sendShareRatingEmail } from "./email";
 import { sendReviewSMS, sendWhatsAppMessage } from "./sms";
 import {
   accounts, customers, reviewRequests, reviews, privateFeedback, activityLog, templates, settings, users, passwordResetTokens, adminImpersonationLog,
@@ -411,10 +411,15 @@ export class DatabaseStorage implements IStorage {
 
         if (!shouldSend) continue;
 
-        // Rated 4-5★ but not clicked → use response_positive template (thanks for rating, please review)
-        // Unrated → use follow_up_1/2/3 template matching the send number
-        const templateType = hasHighRating ? "response_positive" : `follow_up_${sentCount}`;
+        // Unrated → use follow_up_1/2/3 template
+        const templateType = `follow_up_${sentCount}`;
         const allTemplates = await this.getTemplates(accountId);
+
+        // For already-rated 4-5★ customers: pre-set the rating on the new request so ReviewLanding
+        // skips the star step and goes straight to the platform buttons page
+        const existingRating = hasHighRating
+          ? (requests.find(r => r.rating !== null && r.rating >= 4)?.rating ?? null)
+          : null;
 
         // Insert a new review_request row for this follow-up
         const newRequestId = randomUUID();
@@ -426,6 +431,7 @@ export class DatabaseStorage implements IStorage {
           channel: customer.channel,
           sentAt: now,
           followUpCount: sentCount,
+          ...(existingRating ? { rating: existingRating } : {}),
         });
 
         // Update customer status
@@ -447,80 +453,59 @@ export class DatabaseStorage implements IStorage {
 
         const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "");
         const ratingLink = `${appUrl}/review?rid=${newRequestId}`;
+        const smsLink = `${appUrl}/r/${newRequestId}`;
         const firstName = customer.name.split(" ")[0];
 
-        // Build platform list for high-rated customers
-        const platforms: { name: string; url: string }[] = [];
-        if (s.googleReviewLink) platforms.push({ name: "Google", url: s.googleReviewLink });
-        if (s.facebookReviewLink) platforms.push({ name: "Facebook", url: s.facebookReviewLink });
-        if (s.trustpilotLink) platforms.push({ name: "Trustpilot", url: s.trustpilotLink });
-        if (s.tripadvisorLink) platforms.push({ name: "Tripadvisor", url: s.tripadvisorLink });
-        if (s.checkatradeLink) platforms.push({ name: "Checkatrade", url: s.checkatradeLink });
-        if (s.mybuilderLink) platforms.push({ name: "MyBuilder", url: s.mybuilderLink });
+        const resolveBody = (tmpl: any, link = ratingLink) => tmpl?.body
+          ? tmpl.body
+              .replace(/\{\{customer_name\}\}/g, customer.name)
+              .replace(/\{\{first_name\}\}/g, firstName)
+              .replace(/\{\{business_name\}\}/g, s.businessName)
+              .replace(/\{\{service_type\}\}/g, customer.serviceType || "")
+              .replace(/\{\{review_link\}\}/g, "")
+              .trim() + `\n${link}`
+          : null;
 
-        // Send the message using the right template type
+        // All channels: link always goes to ReviewLanding.
+        // For 4-5★ customers the new request has existingRating pre-set, so ReviewLanding
+        // auto-skips the star step and opens the platform buttons page.
         if (customer.channel === "email" && customer.email) {
           if (hasHighRating) {
-            // Rated 4-5★ but not clicked — send platform links email
-            const template =
-              allTemplates.find(t => t.channel === "email" && t.templateType === templateType && t.isDefault) ||
-              allTemplates.find(t => t.channel === "email" && t.templateType === templateType) ||
-              null;
-            sendReviewEmail(customer, s, template, platforms).catch(err =>
-              console.error(`[follow-up] Failed to send email to ${customer.email}:`, err.message)
+            // Already rated — send a "thanks, please share it" email with a ReviewLanding button
+            const responseTmpl = allTemplates.find(t => t.channel === "email" && t.templateType === "response_positive" && t.isDefault)
+              || allTemplates.find(t => t.channel === "email" && t.templateType === "response_positive")
+              || null;
+            sendShareRatingEmail(customer, s, ratingLink, responseTmpl).catch(err =>
+              console.error(`[follow-up] Failed to send share-rating email to ${customer.email}:`, err.message)
             );
           } else {
-            // Not yet rated — send the pre-screen star rating email (same as initial send)
+            // Not yet rated — re-send the pre-screen star rating email
             sendPreScreenEmail(customer, s, newRequestId, appUrl).catch(err =>
               console.error(`[follow-up] Failed to send email to ${customer.email}:`, err.message)
             );
           }
         } else if (customer.channel === "sms" && customer.phone) {
-          const template =
-            allTemplates.find(t => t.channel === "sms" && t.templateType === templateType && t.isDefault) ||
-            allTemplates.find(t => t.channel === "sms" && t.templateType === templateType) ||
-            allTemplates.find(t => t.channel === "sms" && t.templateType === "follow_up" && t.isDefault) ||
-            allTemplates.find(t => t.channel === "sms" && t.templateType === "follow_up") ||
-            null;
-          const smsTemplate =
-            allTemplates.find(t => t.channel === "sms" && t.templateType === templateType && t.isDefault) ||
-            allTemplates.find(t => t.channel === "sms" && t.templateType === templateType) ||
-            null;
-          const resolveBody = (tmpl: any) => tmpl?.body
-            ? tmpl.body
-                .replace(/\{\{customer_name\}\}/g, customer.name)
-                .replace(/\{\{first_name\}\}/g, firstName)
-                .replace(/\{\{business_name\}\}/g, s.businessName)
-                .replace(/\{\{service_type\}\}/g, customer.serviceType || "")
-                .replace(/\{\{review_link\}\}/g, "")
-                .trim() + `\n${ratingLink}`
-            : null;
-          const smsBody = resolveBody(smsTemplate)
+          const tmplType = hasHighRating ? "response_positive" : templateType;
+          const tmpl = allTemplates.find(t => t.channel === "sms" && t.templateType === tmplType && t.isDefault)
+            || allTemplates.find(t => t.channel === "sms" && t.templateType === tmplType)
+            || null;
+          const smsBody = resolveBody(tmpl, smsLink)
             || (hasHighRating
-              ? `Hi ${firstName}, thanks for rating us! If you have a moment, please share your experience: ${ratingLink}`
-              : `Hi ${firstName}, just following up — we'd love to hear about your experience with ${s.businessName}: ${ratingLink}`);
+              ? `Hi ${firstName}, thanks for your rating! Share your experience here:\n${smsLink}`
+              : `Hi ${firstName}, just following up — tap to leave a quick rating:\n${smsLink}`);
           sendReviewSMS(customer, s, { subject: "", body: smsBody } as any, []).catch(err =>
             console.error(`[follow-up] Failed to send SMS to ${customer.phone}:`, err.message)
           );
         } else if (customer.channel === "whatsapp" && customer.phone) {
-          const template =
-            allTemplates.find(t => t.channel === "whatsapp" && t.templateType === templateType && t.isDefault) ||
-            allTemplates.find(t => t.channel === "whatsapp" && t.templateType === templateType) ||
-            null;
-          const resolveWaBody = (tmpl: any) => tmpl?.body
-            ? tmpl.body
-                .replace(/\{\{customer_name\}\}/g, customer.name)
-                .replace(/\{\{first_name\}\}/g, firstName)
-                .replace(/\{\{business_name\}\}/g, s.businessName)
-                .replace(/\{\{service_type\}\}/g, customer.serviceType || "")
-                .replace(/\{\{review_link\}\}/g, "")
-                .trim() + `\n${ratingLink}`
-            : null;
-          const body = resolveWaBody(template)
+          const tmplType = hasHighRating ? "response_positive" : templateType;
+          const tmpl = allTemplates.find(t => t.channel === "whatsapp" && t.templateType === tmplType && t.isDefault)
+            || allTemplates.find(t => t.channel === "whatsapp" && t.templateType === tmplType)
+            || null;
+          const waBody = resolveBody(tmpl)
             || (hasHighRating
-              ? `Hi ${firstName}, thanks again for rating us! If you have a moment, we'd love it if you shared your experience: ${ratingLink}`
-              : `Hi ${firstName}, just following up — we'd love to hear about your experience with ${s.businessName}! It only takes a moment: ${ratingLink}`);
-          sendWhatsAppMessage(customer.phone, body).catch(err =>
+              ? `Hi ${firstName} 😊 Thanks so much for your rating! If you have a moment, we'd really appreciate it if you could share your experience:\n${ratingLink}`
+              : `Hi ${firstName}, just following up — tap below to leave us a quick rating:\n${ratingLink}`);
+          sendWhatsAppMessage(customer.phone, waBody).catch(err =>
             console.error(`[follow-up] Failed to send WhatsApp to ${customer.phone}:`, err.message)
           );
         }

@@ -763,7 +763,7 @@ export default function Analytics() {
             case "content_type": {
               const ctData = data?.contentTypeData;
               if (!ctData?.length || ctData.every(d => d.sent === 0)) return null;
-              const ctColors: Record<string, string> = { text: colors.requests, voice: colors.clicks, video: colors.positive };
+              const ctColors: Record<string, string> = { text: colors.requests, voice: colors.sms, video: colors.positive };
               return (
                 <Card className="border-card-border">
                   <CardHeader className="pb-2 pt-4 px-5">

@@ -14,6 +14,7 @@ interface UserStats {
   totalCustomers: number;
   avgRatingLastMonth: number;
   reviewsLastMonth: number;
+  platformClicks: { platform: string; count: number }[];
 }
 
 async function getUserStats(accountId: string): Promise<UserStats | null> {
@@ -23,7 +24,7 @@ async function getUserStats(accountId: string): Promise<UserStats | null> {
 
   const [
     settingsRes, totalReviewsRes, avgRatingRes, reviewsThisMonthRes,
-    reviewsLastMonthRes, requestsThisMonthRes, channelRes, customersRes,
+    reviewsLastMonthRes, requestsThisMonthRes, channelRes, customersRes, platformClicksRes,
   ] = await Promise.all([
     pool.query(`SELECT business_name, business_email FROM settings WHERE account_id = $1`, [accountId]),
     pool.query(`SELECT COUNT(*) FROM reviews WHERE account_id = $1`, [accountId]),
@@ -33,6 +34,7 @@ async function getUserStats(accountId: string): Promise<UserStats | null> {
     pool.query(`SELECT COUNT(*) FROM review_requests WHERE account_id = $1 AND created_at >= $2`, [accountId, startOfThisMonth]),
     pool.query(`SELECT channel, COUNT(*) as count FROM review_requests WHERE account_id = $1 AND created_at >= $2 GROUP BY channel ORDER BY count DESC LIMIT 1`, [accountId, startOfThisMonth]),
     pool.query(`SELECT COUNT(*) FROM customers WHERE account_id = $1`, [accountId]),
+    pool.query(`SELECT platform, COUNT(*) as count FROM review_platform_clicks WHERE account_id = $1 AND created_at >= $2 GROUP BY platform ORDER BY count DESC`, [accountId, startOfThisMonth]),
   ]);
 
   const settings = settingsRes.rows[0];
@@ -47,13 +49,17 @@ async function getUserStats(accountId: string): Promise<UserStats | null> {
   const conversionRate = requestsSentThisMonth > 0 ? Math.round((reviewsThisMonth / requestsSentThisMonth) * 100) : 0;
   const bestChannel = channelRes.rows[0]?.channel || "email";
   const totalCustomers = parseInt(customersRes.rows[0].count) || 0;
+  const platformClicks = platformClicksRes.rows.map(r => ({
+    platform: r.platform.charAt(0).toUpperCase() + r.platform.slice(1),
+    count: parseInt(r.count) || 0,
+  }));
 
   return {
     businessName: settings.business_name || "Your Business",
     email: settings.business_email,
     totalReviews, avgRating, reviewsThisMonth, reviewsLastMonth,
     avgRatingLastMonth, requestsSentThisMonth, conversionRate,
-    bestChannel, totalCustomers,
+    bestChannel, totalCustomers, platformClicks,
   };
 }
 
@@ -133,6 +139,15 @@ async function sendInsightEmail(stats: UserStats, insights: string, userId: stri
           ${statRow("Best channel", stats.bestChannel.charAt(0).toUpperCase() + stats.bestChannel.slice(1))}
           ${statRow("Total reviews (all time)", String(stats.totalReviews))}
         </table>
+
+        ${stats.platformClicks.length > 0 ? `
+        <div style="margin-top:24px;">
+          <h3 style="font-size:15px;font-weight:700;margin:0 0 10px;color:#111;">Platform clicks this period</h3>
+          <table style="width:100%;border-collapse:collapse;">
+            ${stats.platformClicks.map(p => statRow(p.platform, String(p.count))).join("")}
+          </table>
+          <p style="color:#888;font-size:12px;margin:8px 0 0;">Each click is a customer who tapped a review platform link. Check your profiles for new reviews.</p>
+        </div>` : ""}
 
         ${insightsHtml}
 

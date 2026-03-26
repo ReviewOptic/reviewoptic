@@ -335,16 +335,40 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         body: `Hi {{first_name}},\n\nWe're so glad you had a positive experience with {{business_name}}! If you have a spare moment, it would mean the world to us if you'd share your thoughts in a quick public review.\n\n{{review_link}}\n\nIt really does make a difference. Thank you!\n\nThe {{business_name}} team`,
       },
       {
-        id: randomUUID(), accountId: account.id, name: "Follow-up", templateType: "follow_up",
+        id: randomUUID(), accountId: account.id, name: "Follow-up 1", templateType: "follow_up_1",
         channel: "sms", isDefault: true, preferredPlatform: "",
         subject: "",
-        body: "Hi {{first_name}}, just a gentle nudge from {{business_name}} — would you mind leaving a quick review? It really helps: {{review_link}}",
+        body: "Just checking in! We'd love to hear from you — tap below:",
       },
       {
-        id: randomUUID(), accountId: account.id, name: "Follow-up", templateType: "follow_up",
+        id: randomUUID(), accountId: account.id, name: "Follow-up 2", templateType: "follow_up_2",
+        channel: "sms", isDefault: true, preferredPlatform: "",
+        subject: "",
+        body: "We'd still love your feedback! Tap below when you get a moment:",
+      },
+      {
+        id: randomUUID(), accountId: account.id, name: "Follow-up 3", templateType: "follow_up_3",
+        channel: "sms", isDefault: true, preferredPlatform: "",
+        subject: "",
+        body: "Last message from us! We'd still love your feedback — tap below:",
+      },
+      {
+        id: randomUUID(), accountId: account.id, name: "Follow-up 1", templateType: "follow_up_1",
         channel: "whatsapp", isDefault: true, preferredPlatform: "",
         subject: "",
-        body: "Hi {{first_name}}, we hope you're well! Just a friendly reminder — if you have a moment, a quick review for {{business_name}} would mean a lot to us:\n\n{{review_link}}",
+        body: "😊 Just a quick follow-up from {{business_name}} — we'd love to hear how we did! Tap the link below to leave your rating:",
+      },
+      {
+        id: randomUUID(), accountId: account.id, name: "Follow-up 2", templateType: "follow_up_2",
+        channel: "whatsapp", isDefault: true, preferredPlatform: "",
+        subject: "",
+        body: "💛 We know you're busy, but your feedback really means a lot to {{business_name}}! Tap the link below whenever you're ready:",
+      },
+      {
+        id: randomUUID(), accountId: account.id, name: "Follow-up 3", templateType: "follow_up_3",
+        channel: "whatsapp", isDefault: true, preferredPlatform: "",
+        subject: "",
+        body: "🙏 This is our last message, we promise! If you ever have a moment, we'd still love to hear from you — tap the link below:",
       },
     ];
     for (const t of defaultTemplates) {
@@ -761,6 +785,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // ── Public routes (no requireAuth) ───────────────────────────────────────
+
+  // Short link redirect for SMS — /r/:id → /review?rid=:id (saves ~10 chars per SMS)
+  app.get("/r/:id", (req, res) => {
+    res.redirect(302, `/review?rid=${req.params.id}`);
+  });
 
   // Email open tracking pixel — 1×1 transparent GIF, sets opened_at once
   app.get("/api/track/:requestId/open", async (req, res) => {
@@ -1220,6 +1249,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!row.email && !row.phone) { skipped.push({ row: rowNum, reason: "email or phone required" }); continue; }
       try {
         await storage.createCustomer({
+          id: randomUUID(),
           name: row.name,
           email: row.email || "",
           phone: row.phone || "",
@@ -1315,19 +1345,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       } else if (templateType === "follow_up_1") {
         bodyPrompt = isSMS
-          ? `Write a friendly first follow-up SMS for a business called "${businessName}" to a customer who gave a high rating but hasn't yet shared their experience publicly. Gently nudge them — a link will be added automatically after the message. Use {{first_name}}, {{business_name}}. Under 140 characters. Just the message text, no link.`
+          ? `Write a friendly first follow-up SMS for "${businessName}" to a customer. A rating link is appended automatically — do NOT include a link. STRICT LIMIT: 86 characters total including spaces. Do not start with "Hi {{first_name}}," — go straight to the message. Use {{business_name}} if it helps. Just the text, nothing else.`
           : `Write a friendly first follow-up email for "${businessName}" to a customer who gave a high rating but hasn't yet shared their experience publicly. Gentle nudge — let them know a link is waiting below. Use {{first_name}}, {{business_name}}. 2–3 sentences. Start with "Hi {{first_name}}," — just the body, no subject, no sign-off, no link.`;
         openingPrompt = !isSMS ? `Write a short, friendly subject line for a first follow-up email from "${businessName}" asking a happy customer to share their experience. No quotes.` : "";
 
       } else if (templateType === "follow_up_2") {
         bodyPrompt = isSMS
-          ? `Write a second follow-up SMS for "${businessName}" to a customer who gave a high rating but still hasn't shared their experience. More personal — explain how much it would mean. A link will be added automatically. Use {{first_name}}, {{business_name}}. Under 140 characters. Just the message text, no link.`
+          ? `Write a second follow-up SMS for "${businessName}" to a customer. A rating link is appended automatically — do NOT include a link. STRICT LIMIT: 86 characters total including spaces. Do not start with "Hi {{first_name}}," — go straight to the message. Use {{business_name}} if it helps. Just the text, nothing else.`
           : `Write a second follow-up email for "${businessName}" to a customer who gave a high rating but still hasn't shared their experience. More heartfelt — explain why it matters. A link is waiting below. Use {{first_name}}, {{business_name}}. 2–3 sentences. Start with "Hi {{first_name}}," — just the body, no subject, no sign-off, no link.`;
         openingPrompt = !isSMS ? `Write a short, warm subject line for a second follow-up email from "${businessName}" asking a happy customer to share their experience. No quotes.` : "";
 
       } else if (templateType === "follow_up_3") {
         bodyPrompt = isSMS
-          ? `Write a final, kind follow-up SMS for "${businessName}" to a customer who gave a high rating but hasn't shared their experience after two reminders. No pressure — last ask. A link will be added automatically. Use {{first_name}}, {{business_name}}. Under 140 characters. Just the message text, no link.`
+          ? `Write a final kind follow-up SMS for "${businessName}" to a customer. A rating link is appended automatically — do NOT include a link. STRICT LIMIT: 86 characters total including spaces. Do not start with "Hi {{first_name}}," — go straight to the message. Use {{business_name}} if it helps. Just the text, nothing else.`
           : `Write a final follow-up email for "${businessName}" to a customer who gave a high rating but hasn't shared their experience after two reminders. Kind, no-pressure tone. A link is waiting below. Use {{first_name}}, {{business_name}}. 2–3 sentences. Start with "Hi {{first_name}}," — just the body, no subject, no sign-off, no link.`;
         openingPrompt = !isSMS ? `Write a short, gentle subject line for a final follow-up email from "${businessName}" asking a happy customer to share their experience. No quotes.` : "";
 
@@ -1354,8 +1384,26 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const cleanBody = (text: string) =>
         text.replace(/[^\n]*\{\{review_link\}\}[^\n]*/g, "").replace(/\n{3,}/g, "\n\n").trim();
 
+      const isSmsFollowUp = channel === "sms" && templateType?.startsWith("follow_up");
+      const SMS_FOLLOW_UP_LIMIT = 86;
+
+      let body = cleanBody(bodyResult.choices[0]?.message?.content || "");
+
+      if (isSmsFollowUp) {
+        // Collapse newlines and extra spaces — SMS is single-line
+        body = body.replace(/\s*\n+\s*/g, " ").replace(/\s{2,}/g, " ").trim();
+      }
+      if (isSmsFollowUp && body.length > SMS_FOLLOW_UP_LIMIT) {
+        // Strip greeting ("Hi {{first_name}}, " etc.) to save space
+        body = body.replace(/^Hi \{\{first_name\}\}[,!.]?\s*/i, "");
+      }
+      if (isSmsFollowUp && body.length > SMS_FOLLOW_UP_LIMIT) {
+        // Hard truncate at last word boundary within limit
+        body = body.slice(0, SMS_FOLLOW_UP_LIMIT).replace(/\s+\S*$/, "").trimEnd();
+      }
+
       res.json({
-        body: cleanBody(bodyResult.choices[0]?.message?.content || ""),
+        body,
         subject: openingResult ? openingResult.choices[0]?.message?.content?.trim() || "" : "",
       });
     } catch (err: any) {
@@ -1425,37 +1473,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const settings = await storage.getSettings(req.session.accountId!);
     const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "");
     const ratingLink = `${appUrl}/review?rid=${rr.id}`;
+    const smsLink = `${appUrl}/r/${rr.id}`;
     const firstName = customer.name.split(" ")[0];
 
-    // Load custom template body if one was selected (SMS/WhatsApp only)
-    let customTemplateBody: string | null = null;
-    if (templateId && (channel === "sms" || channel === "whatsapp")) {
-      const { rows: tRows } = await pool.query(
-        `SELECT body FROM templates WHERE id = $1 AND account_id = $2`,
-        [templateId, req.session.accountId]
-      ).catch(() => ({ rows: [] as any[] }));
-      if (tRows.length > 0) {
-        customTemplateBody = tRows[0].body
-          .replace(/\{\{customer_name\}\}/g, customer.name)
-          .replace(/\{\{first_name\}\}/g, firstName)
-          .replace(/\{\{business_name\}\}/g, settings?.businessName || "")
-          .replace(/\{\{service_type\}\}/g, customer.serviceType || "")
-          .replace(/\{\{review_link\}\}/g, ratingLink);
-      }
-    }
-
     // Schedule the actual send — fires immediately if sendDelay is 0
-    // Email always uses fixed pre-screen stars; SMS/WhatsApp use custom template body if provided
     setTimeout(async () => {
       if (!settings) return;
       try {
         if (channel === "email" && customer.email) {
           await sendPreScreenEmail(customer, settings, rr.id, appUrl);
         } else if (channel === "sms" && customer.phone) {
-          const body = customTemplateBody || `Hi ${firstName}, how would you rate your experience with ${settings.businessName}? Tap here to let us know: ${ratingLink}`;
+          const body = `Hi ${firstName}, thanks for choosing ${settings.businessName}! Tap the link below to rate your experience — it only takes a second:\n${smsLink}`;
           await sendReviewSMS(customer, settings, { subject: "", body } as any, []);
         } else if (channel === "whatsapp" && customer.phone) {
-          const body = customTemplateBody || `Hi ${firstName} 👋 Thanks for choosing ${settings.businessName}! How would you rate your experience? Tap here to let us know: ${ratingLink}`;
+          const body = `Hi ${firstName} 👋\n\nThank you for choosing ${settings.businessName}! We'd love to hear how we did.\n\nTap the link below to rate your experience — it only takes a second:\n${ratingLink}`;
           await sendWhatsAppMessage(customer.phone, body);
         }
       } catch (err: any) {
@@ -1561,6 +1592,67 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     await storage.deleteTemplate(String(req.params.id), req.session.accountId!);
     res.json({ success: true });
   });
+  app.post("/api/templates/:id/test-send", requireAuth, async (req, res) => {
+    try {
+      const template = (await storage.getTemplates(req.session.accountId!)).find(t => t.id === req.params.id);
+      if (!template) return res.status(404).json({ message: "Template not found" });
+
+      const settings = await storage.getSettings(req.session.accountId!);
+      const user = await storage.getUser(req.session.userId!);
+      if (!settings || !user) return res.status(400).json({ message: "Account not configured" });
+
+      const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ") || "Test User";
+      const firstName = user.firstName || "there";
+      const resolvedBody = template.body
+        .replace(/\{\{first_name\}\}/g, firstName)
+        .replace(/\{\{business_name\}\}/g, settings.businessName || "your business")
+        .replace(/\{\{service_type\}\}/g, "your recent service")
+        .replace(/\{\{customer_name\}\}/g, fullName)
+        .replace(/\{\{review_link\}\}/g, "");
+
+      if (template.channel === "email") {
+        if (!user.email) return res.status(400).json({ message: "No email address on your account" });
+        if (!process.env.RESEND_API_KEY) return res.status(503).json({ message: "Email not configured" });
+        const { Resend } = await import("resend");
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const subject = `[TEST] ${template.subject || "Template preview"}`;
+        const opening = (template as any).opening || (template as any).subject || "";
+        const bodyHtml = resolvedBody.replace(/\n/g, "<br>");
+        await resend.emails.send({
+          from: `${settings.businessName} <noreply@reviewoptic.com>`,
+          to: user.email,
+          subject,
+          html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+            <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:6px;padding:10px 14px;font-size:13px;color:#92400e;margin-bottom:20px">
+              This is a test — only you will receive this.
+            </div>
+            ${opening ? `<p style="font-weight:600;margin-bottom:12px">${opening}</p>` : ""}
+            <div style="font-size:15px;line-height:1.6;color:#111">${bodyHtml}</div>
+          </div>`,
+        });
+        return res.json({ message: `Test email sent to ${user.email}` });
+      }
+
+      const testPhone: string = (req.body.phone || "").trim();
+      if (!testPhone) return res.status(400).json({ message: "Enter a phone number to send the test to", needsPhone: true });
+
+      if (template.channel === "sms") {
+        await sendPlainSMS(testPhone, `[TEST] ${resolvedBody}\nReply STOP`, settings.businessName);
+        return res.json({ message: `Test SMS sent to ${testPhone}` });
+      }
+
+      if (template.channel === "whatsapp") {
+        await sendWhatsAppMessage(testPhone, `[TEST] ${resolvedBody}`);
+        return res.json({ message: `Test WhatsApp sent to ${testPhone}` });
+      }
+
+      res.status(400).json({ message: "Unknown channel" });
+    } catch (err: any) {
+      console.error("[test-send]", err.message);
+      res.status(500).json({ message: err.message || "Failed to send test" });
+    }
+  });
+
   app.post("/api/templates/upload-video", requireAuth, videoUpload.single("video"), (req, res) => {
     if (!req.file) return res.status(400).json({ message: "No video uploaded" });
     res.json({ url: `/uploads/${req.file.filename}` });
@@ -2817,6 +2909,31 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         <p>If you believe this was a mistake, please contact the business directly.</p>
       </body></html>
     `);
+  });
+
+  // Twilio inbound SMS/WhatsApp webhook — handles STOP replies → set customer do_not_contact
+  app.post("/api/webhooks/twilio-inbound", express.urlencoded({ extended: false }), async (req, res) => {
+    try {
+      const body: string = (req.body.Body || "").trim().toUpperCase();
+      const from: string = (req.body.From || "").replace(/^whatsapp:/, "").trim();
+      const stopWords = ["STOP", "STOPALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT"];
+      if (from && stopWords.includes(body)) {
+        // Normalise to E.164 and also try without country code for matching
+        const normalised = from.replace(/\s+/g, "");
+        const ukLocal = normalised.startsWith("+44") ? "0" + normalised.slice(3) : null;
+        const conditions = [normalised, ukLocal].filter(Boolean).map((_, i) => `$${i + 1}`).join(", ");
+        const values = [normalised, ukLocal].filter(Boolean);
+        await pool.query(
+          `UPDATE customers SET do_not_contact = true WHERE REPLACE(phone, ' ', '') = ANY(ARRAY[${conditions}])`,
+          values
+        ).catch(() => {});
+        console.log(`[twilio-inbound] STOP received from ${from} — customer(s) set to Do Not Contact`);
+      }
+    } catch (err: any) {
+      console.error("[twilio-inbound]", err.message);
+    }
+    // Twilio expects a 200 with TwiML (empty response = no reply sent)
+    res.set("Content-Type", "text/xml").send(`<?xml version="1.0" encoding="UTF-8"?><Response></Response>`);
   });
 
   // Insight email opt-out

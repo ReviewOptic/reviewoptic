@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import {
   Plus, Search, Send, MoreHorizontal, Ban, Trash2, Users,
-  Upload, X, CheckCircle2, Clock, Star, Eye, AlertCircle, Edit2, Sparkles, RefreshCw, Mic, Video, Archive, ArchiveRestore
+  Upload, Download, X, CheckCircle2, Clock, Star, Eye, AlertCircle, Edit2, Sparkles, RefreshCw, Mic, Video, Archive, ArchiveRestore
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -753,6 +753,26 @@ export default function Customers() {
     { value: "dnc", label: "Do Not Contact" },
   ];
 
+  function exportCSV() {
+    const rows = displayList.map(c => {
+      const reqs = allRequests.filter(r => r.customerId === c.id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      const latest = reqs[0];
+      const rating = latest?.rating ?? "";
+      const sentAt = latest?.sentAt ? new Date(latest.sentAt).toLocaleDateString() : "";
+      const clickedAt = latest?.clickedAt ? new Date(latest.clickedAt).toLocaleDateString() : "";
+      const escape = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+      return [escape(c.name), escape(c.email), escape(c.phone), escape(c.channel), escape(c.status), escape(rating), escape(sentAt), escape(clickedAt)].join(",");
+    });
+    const header = "Name,Email,Phone,Channel,Status,Star Rating,Date Sent,Date Clicked";
+    const blob = new Blob([[header, ...rows].join("\n")], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `customers-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="px-6 py-7 max-w-7xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -775,10 +795,16 @@ export default function Customers() {
           {!isReadOnly && !showArchived && (
             <>
               <div className="flex flex-col items-center gap-1">
-                <Button variant="outline" size="sm" className="gap-1.5 w-full" onClick={() => setShowImport(true)} data-testid="button-import-csv">
-                  <Upload className="w-3.5 h-3.5" />
-                  Import CSV
-                </Button>
+                <div className="flex gap-1.5 w-full">
+                  <Button variant="outline" size="sm" className="gap-1.5 flex-1" onClick={() => setShowImport(true)} data-testid="button-import-csv">
+                    <Upload className="w-3.5 h-3.5" />
+                    Import
+                  </Button>
+                  <Button variant="outline" size="sm" className="gap-1.5 flex-1" onClick={exportCSV} disabled={!displayList.length}>
+                    <Download className="w-3.5 h-3.5" />
+                    Export
+                  </Button>
+                </div>
                 <a href="/customer-import-template.csv" download className="text-[13px] text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors">
                   Download CSV template
                 </a>

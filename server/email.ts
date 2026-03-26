@@ -268,6 +268,68 @@ export async function sendPreScreenEmail(
   console.log(`[pre-screen email] result:`, JSON.stringify(result));
 }
 
+// Sent to customers who rated 4-5★ but haven't yet clicked a platform review link.
+// Uses the response_positive template if available, otherwise falls back to default text.
+export async function sendShareRatingEmail(
+  customer: Customer,
+  settings: Settings,
+  ratingLink: string,
+  template?: { subject: string; body: string } | null
+): Promise<void> {
+  if (!customer.email) return;
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`[share-rating email] No RESEND_API_KEY. Would email ${customer.email}`);
+    return;
+  }
+
+  const firstName = customer.name.split(" ")[0];
+  const baseUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "");
+  const logoAlign = settings.logoPosition === "center" ? "center" : settings.logoPosition === "right" ? "right" : "left";
+  const logoSrc = settings.logoUrl?.startsWith("http") ? settings.logoUrl : settings.logoUrl ? `${baseUrl}${settings.logoUrl}` : "";
+  const logoImg = logoSrc ? `<img src="${logoSrc}" alt="${settings.businessName}" style="max-height:112px;max-width:300px;object-fit:contain;display:inline-block;" />` : "";
+  const websiteHref = settings.websiteUrl ? (settings.websiteUrl.startsWith("http") ? settings.websiteUrl : `https://${settings.websiteUrl}`) : "";
+  const logoContent = logoImg && websiteHref ? `<a href="${websiteHref}" target="_blank" style="text-decoration:none;">${logoImg}</a>` : logoImg;
+  const logoHtml = logoContent ? `<div style="text-align:${logoAlign};margin-bottom:24px;">${logoContent}</div>` : "";
+
+  const resolve = (text: string) => text
+    .replace(/\{\{first_name\}\}/g, firstName)
+    .replace(/\{\{customer_name\}\}/g, customer.name)
+    .replace(/\{\{business_name\}\}/g, settings.businessName)
+    .replace(/\{\{service_type\}\}/g, customer.serviceType || "")
+    .replace(/\{\{review_link\}\}/g, "");
+
+  const subject = template?.subject
+    ? resolve(template.subject)
+    : `Thank you for your rating — ${settings.businessName}`;
+  const opening = template?.subject ? resolve(template.subject) : `Thank you for your rating, ${firstName}!`;
+  const body = template?.body
+    ? resolve(template.body)
+    : `We really appreciate you taking the time to rate your experience with ${settings.businessName}. If you have a moment, we'd love it if you could share your experience on one of our review pages — it makes a huge difference to us.`;
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  await resend.emails.send({
+    from: customerFrom(settings),
+    replyTo: settings.businessEmail || undefined,
+    to: customer.email,
+    subject,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#111;">
+        ${logoHtml}
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 8px;">${opening}</h2>
+        <p style="color:#555;margin:0 0 28px;line-height:1.6;">${body.replace(/\n/g, "<br/>")}</p>
+        <div style="text-align:center;margin:0 0 32px;">
+          <a href="${ratingLink}" style="display:inline-block;background:#111;color:#fff;font-size:15px;font-weight:600;padding:14px 32px;border-radius:8px;text-decoration:none;">
+            Share your review &rarr;
+          </a>
+        </div>
+        ${POWERED_BY_FOOTER}
+        ${customerUnsubscribeFooter(customer.id)}
+      </div>
+    `,
+  });
+  console.log(`[share-rating email] sent to ${customer.email}`);
+}
+
 export async function sendPlatformReviewRequest(user: { id: string; email: string; firstName: string; companyName: string }, isFollowUp: boolean) {
   if (!process.env.RESEND_API_KEY) {
     console.log(`[platform review request] No RESEND_API_KEY. Would email ${user.email}`);

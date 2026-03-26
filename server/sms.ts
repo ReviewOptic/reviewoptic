@@ -62,9 +62,11 @@ export async function sendReviewSMS(
     settings.mybuilderLink ||
     "";
 
-  const body = template?.body
+  const rawBody = template?.body
     ? applyMergeTags(template.body, customer, settings, reviewLink)
     : `Hi ${customer.name.split(" ")[0]}, thanks for choosing ${settings.businessName}! We'd love a quick review: ${reviewLink}`;
+
+  const body = rawBody + "\nReply STOP";
 
   const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
   await client.messages.create({

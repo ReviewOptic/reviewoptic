@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useState, useRef, useEffect } from "react";
-import { Edit2, Save, X, FileText, Mail, MessageSquare, Video, Mic, StopCircle, RotateCcw, CheckCircle2, Sparkles, Upload, Plus, Trash2, ChevronDown } from "lucide-react";
+import { Edit2, Save, X, FileText, Mail, MessageSquare, Video, Mic, StopCircle, RotateCcw, CheckCircle2, Sparkles, Upload, Plus, Trash2, ChevronDown, Send } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -257,8 +257,12 @@ function TemplateEditor({ template, onCancel, textOnly = false }: { template: Te
   };
 
   const isResponseTemplate = template.templateType === "response_positive" || template.templateType === "response_negative";
+  const isFollowUp = template.templateType?.startsWith("follow_up");
+  const isCustom = template.templateType === "custom";
+  const showLinkPlaceholder = isFollowUp || (isCustom && template.channel !== "email");
+  const smsCharLimit = isFollowUp ? 86 : 149;
   const charCount = body.length;
-  const isSmsWarning = template.channel === "sms" && charCount > 160;
+  const isSmsWarning = template.channel === "sms" && !isResponseTemplate && charCount > smsCharLimit;
   const availableMergeTags = MERGE_TAGS;
 
   // Preview with sample data
@@ -340,7 +344,7 @@ function TemplateEditor({ template, onCancel, textOnly = false }: { template: Te
               <div className="flex items-center gap-3">
                 <GenerateAIButton channel={template.channel} templateType={template.templateType} onGenerated={(b, s) => { setBody(b); if (s) setSubject(s); }} />
                 <span className={cn("text-[11px] font-mono", isSmsWarning ? "text-destructive font-semibold" : "text-muted-foreground")}>
-                  {charCount} chars {template.channel === "sms" && "(max 160)"}
+                  {charCount} chars {template.channel === "sms" && !isResponseTemplate && `(max ${smsCharLimit})`}
                 </span>
               </div>
             </div>
@@ -351,8 +355,14 @@ function TemplateEditor({ template, onCancel, textOnly = false }: { template: Te
               ref={el => setBodyEl(el)}
               data-testid="textarea-template-body"
             />
+            {showLinkPlaceholder && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-md border border-dashed border-border bg-muted/40 select-none pointer-events-none">
+                <span className="text-[11px] text-muted-foreground/60 font-mono truncate">🔗 https://reviewoptic.app/review?rid=...</span>
+                <span className="text-[11px] text-muted-foreground/50 italic shrink-0">added automatically</span>
+              </div>
+            )}
             {isSmsWarning && (
-              <p className="text-[11.5px] text-destructive">⚠ SMS messages over 160 characters may be split into multiple messages</p>
+              <p className="text-[11.5px] text-destructive">⚠ Message over {smsCharLimit} characters — the rating link may not fit in one SMS</p>
             )}
           </div>
         </>
@@ -391,6 +401,9 @@ function TemplateEditor({ template, onCancel, textOnly = false }: { template: Te
                 <p className="font-medium text-foreground mb-2">{subject.replace(/{{first_name}}/g, "Sarah").replace(/{{business_name}}/g, "Clean Pro Services")}</p>
               )}
               {preview}
+              {showLinkPlaceholder && (
+                <p className="mt-2 text-[11px] text-muted-foreground/50 font-mono">🔗 https://reviewoptic.app/review?rid=... <span className="italic not-italic font-sans">(rating link)</span></p>
+              )}
             </div>
           </div>
         </>
@@ -408,19 +421,28 @@ function TemplateEditor({ template, onCancel, textOnly = false }: { template: Te
   );
 }
 
-const TEMPLATE_SLOTS = [
+const TEMPLATE_SLOTS: {
+  type: string;
+  label: string;
+  description: string;
+  textOnly: boolean;
+  defaultSubject: string;
+  defaultBody: string;
+  defaultBodySms?: string;
+  defaultBodyWa?: string;
+}[] = [
   {
     type: "response_positive",
     label: "After 4-5★ Rating",
-    description: "Sent to customers who give a high rating. Can include a video or voice note.",
-    textOnly: false,
+    description: "Shown to customers who give a high rating. Appears as a message in the pop-up after they rate.",
+    textOnly: true,
     defaultSubject: "Thank you for your rating — {{business_name}}",
     defaultBody: "Hi {{first_name}},\n\nThank you so much for your rating! If you have a moment, we'd really appreciate it if you could share your experience with others on one of our review pages below.\n\nThanks again,\nThe {{business_name}} team",
   },
   {
     type: "response_negative",
     label: "After 1-3★ Rating",
-    description: "Sent to customers who give a low rating. Use this to recover the relationship.",
+    description: "Shown to customers who give a low rating. Appears as a message in the pop-up after they rate.",
     textOnly: true,
     defaultSubject: "We'd love to make this right — {{business_name}}",
     defaultBody: "Hi {{first_name}},\n\nThank you for your feedback — we're sorry to hear your experience didn't meet expectations. We'd love the chance to make it right.\n\nPlease reply to this message and we'll be in touch shortly.\n\nThe {{business_name}} team",
@@ -428,34 +450,38 @@ const TEMPLATE_SLOTS = [
   {
     type: "follow_up_1",
     label: "Follow-up 1",
-    description: "First reminder sent to customers who haven't responded.",
+    description: "First reminder sent to customers who haven't rated yet. Only sent if they haven't tapped the original link.",
     textOnly: true,
     defaultSubject: "Just checking in",
-    defaultBody: "Hi {{first_name}},\n\nJust a quick follow-up — we'd love to hear about your experience with {{business_name}}! It only takes a moment — tap the link below.\n\nThanks,\nThe {{business_name}} team",
+    defaultBody: "Hi {{first_name}},\n\nJust a quick follow-up — we'd love to hear how we did! Tap the link below to leave your rating.\n\nThanks,\nThe {{business_name}} team",
+    defaultBodySms: "Just checking in! We'd love to hear from you — tap below:",
+    defaultBodyWa: "😊 Just a quick follow-up from {{business_name}} — we'd love to hear how we did! Tap the link below to leave your rating:",
   },
   {
     type: "follow_up_2",
     label: "Follow-up 2",
-    description: "Second reminder for customers who still haven't responded.",
+    description: "Second reminder for customers who still haven't rated. Only sent if they haven't tapped the original link.",
     textOnly: true,
     defaultSubject: "A polite reminder",
-    defaultBody: "Hi {{first_name}},\n\nWe know you're busy, but your feedback really does make a difference! If you have 30 seconds, we'd love to hear from you — tap the link below.\n\nThanks,\nThe {{business_name}} team",
+    defaultBody: "Hi {{first_name}},\n\nWe know you're busy, but your feedback really means a lot to us! Tap the link below whenever you're ready.\n\nThanks,\nThe {{business_name}} team",
+    defaultBodySms: "We'd still love your feedback! Tap below when you get a moment:",
+    defaultBodyWa: "💛 We know you're busy, but your feedback really means a lot to {{business_name}}! Tap the link below whenever you're ready:",
   },
   {
     type: "follow_up_3",
     label: "Follow-up 3",
-    description: "Final reminder for customers who haven't responded.",
+    description: "Final reminder for customers who still haven't rated. Only sent if they haven't tapped the original link.",
     textOnly: true,
     defaultSubject: "We'd still love to hear from you",
-    defaultBody: "Hi {{first_name}},\n\nThis is our last message — we promise! If you ever have a moment to share your experience, we'd really appreciate it — just tap the link below.\n\nThanks for choosing {{business_name}}.",
+    defaultBody: "Hi {{first_name}},\n\nThis is our last message, we promise! If you ever have a moment, we'd still love to hear from you — tap the link below.\n\nThanks for choosing {{business_name}}.",
+    defaultBodySms: "Last message from us! We'd still love your feedback — tap below:",
+    defaultBodyWa: "🙏 This is our last message, we promise! If you ever have a moment, we'd still love to hear from you — tap the link below:",
   },
-] as const;
-
-type SlotDef = typeof TEMPLATE_SLOTS[number];
+];
 
 
 function TemplateSlot({ slot, template, channel, isReadOnly }: {
-  slot: SlotDef;
+  slot: typeof TEMPLATE_SLOTS[number];
   template: Template | undefined;
   channel: string;
   isReadOnly: boolean;
@@ -464,6 +490,27 @@ function TemplateSlot({ slot, template, channel, isReadOnly }: {
   const [editing, setEditing] = useState(false);
   const [localTemplate, setLocalTemplate] = useState<Template | undefined>(undefined);
   const effectiveTemplate = template || localTemplate;
+  const [testSending, setTestSending] = useState(false);
+
+  const sendTest = async (phone?: string) => {
+    if (!effectiveTemplate) return;
+    if ((effectiveTemplate.channel === "sms" || effectiveTemplate.channel === "whatsapp") && !phone) {
+      const entered = window.prompt(`Enter your phone number to receive the test ${effectiveTemplate.channel === "whatsapp" ? "WhatsApp" : "SMS"} (e.g. +447700900000):`);
+      if (!entered?.trim()) return;
+      return sendTest(entered.trim());
+    }
+    setTestSending(true);
+    try {
+      const res = await apiRequest("POST", `/api/templates/${effectiveTemplate.id}/test-send`, phone ? { phone } : {});
+      const data = await res.json();
+      if (res.ok) toast({ title: data.message });
+      else toast({ title: data.message || "Failed to send test", variant: "destructive" });
+    } catch {
+      toast({ title: "Failed to send test", variant: "destructive" });
+    } finally {
+      setTestSending(false);
+    }
+  };
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -472,7 +519,11 @@ function TemplateSlot({ slot, template, channel, isReadOnly }: {
         channel,
         templateType: slot.type,
         subject: channel === "email" ? slot.defaultSubject : "",
-        body: slot.defaultBody,
+        body: channel === "sms" && slot.defaultBodySms
+          ? slot.defaultBodySms
+          : channel === "whatsapp" && slot.defaultBodyWa
+            ? slot.defaultBodyWa
+            : slot.defaultBody,
       });
       return res.json() as Promise<Template>;
     },
@@ -494,9 +545,14 @@ function TemplateSlot({ slot, template, channel, isReadOnly }: {
           </div>
           {!editing && !isReadOnly && (
             effectiveTemplate ? (
-              <Button variant="outline" size="sm" className="h-7 text-[12px] gap-1 flex-shrink-0" onClick={() => setEditing(true)}>
-                <Edit2 className="w-3 h-3" /> Edit
-              </Button>
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <Button variant="ghost" size="sm" className="h-7 text-[12px] gap-1 text-muted-foreground hover:text-foreground" onClick={() => sendTest()} disabled={testSending} title="Send a test to yourself">
+                  <Send className="w-3 h-3" />{testSending ? "Sending..." : "Test"}
+                </Button>
+                <Button variant="outline" size="sm" className="h-7 text-[12px] gap-1" onClick={() => setEditing(true)}>
+                  <Edit2 className="w-3 h-3" /> Edit
+                </Button>
+              </div>
             ) : (
               <Button variant="outline" size="sm" className="h-7 text-[12px] flex-shrink-0" onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>
                 {createMutation.isPending ? "Setting up..." : "Customise"}
@@ -719,8 +775,8 @@ function RecordingsTab() {
       recs: voiceRecs,
       title: "Voice Notes",
       icon: <Mic className="w-4 h-4 text-primary" />,
-      description: "Record a short voice message requesting a review. We'll personalise it with each customer's name using AI voice synthesis before sending via WhatsApp.",
-      emptyHint: <>Try: <span className="italic">"It's [your business name] — we'd love to hear what you thought. Could you spare a moment to leave us a review?"</span><br /><span className="text-[11px] mt-1 block">The customer's first name is added automatically to the start — e.g. <span className="font-medium italic">"Sarah! It's [your business name]..."</span></span></>,
+      description: "Record a personal voice message to show customers after they give a 4-5★ rating. Select it in the Send Request dialog under 'After 4-5★ rating'. Works for email, SMS, and WhatsApp.",
+      emptyHint: <>Try: <span className="italic">"Thank you so much for your rating — it means the world to us! If you have a moment, we'd really love it if you could share your experience online."</span></>,
       addLabel: "Record voice note",
     },
     {
@@ -728,8 +784,8 @@ function RecordingsTab() {
       recs: videoRecs,
       title: "Video Messages",
       icon: <Video className="w-4 h-4 text-primary" />,
-      description: "Record a short video requesting a review. Sent directly to customers via WhatsApp as a personalised video message.",
-      emptyHint: <>Try: <span className="italic">"Thank you so much for choosing us. Could you take a moment to leave us a review?"</span><br /><span className="text-[11px] mt-1 block">The customer's first name is added as a caption at the start of the video.</span></>,
+      description: "Record a personal video message to show customers after they give a 4-5★ rating. Select it in the Send Request dialog under 'After 4-5★ rating'. Works for email, SMS, and WhatsApp.",
+      emptyHint: <>Try: <span className="italic">"Hi, thank you so much for your rating — it really means a lot to us! If you'd like to share your experience, we'd be incredibly grateful."</span></>,
       addLabel: "Record video message",
     },
   ];
@@ -942,21 +998,47 @@ function CustomTemplatesSection({ templates, channel, isReadOnly }: {
 
   return (
     <div className="mt-4 border-t border-border pt-4">
-      <button
-        type="button"
-        onClick={() => setExpanded(e => !e)}
-        className="w-full flex items-center justify-between text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <span>Custom Templates ({customTemplates.length}/{MAX_CUSTOM})</span>
-        <ChevronDown className={cn("w-4 h-4 transition-transform", expanded && "rotate-180")} />
-      </button>
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setExpanded(e => !e)}
+          className="flex items-center gap-2 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <span>Custom Templates ({customTemplates.length}/{MAX_CUSTOM})</span>
+          <ChevronDown className={cn("w-4 h-4 transition-transform", expanded && "rotate-180")} />
+        </button>
+        {!isReadOnly && canAdd && !showCreate && (
+          <Button variant="outline" size="sm" className="h-7 text-[12px] gap-1.5" onClick={() => { setShowCreate(true); setExpanded(true); }}>
+            <Plus className="w-3 h-3" /> Add template
+          </Button>
+        )}
+      </div>
 
       {expanded && (
         <div className="space-y-2 mt-3">
           {customTemplates.length === 0 && !showCreate && (
             <p className="text-[12.5px] text-muted-foreground py-1">
-              No custom templates yet. Add one below to use when manually sending requests.
+              No custom templates yet. Click <span className="font-medium">Add template</span> above to create one.
             </p>
+          )}
+
+          {showCreate && (
+            <div className="flex items-center gap-2 p-3 rounded-lg border border-card-border">
+              <Input
+                autoFocus
+                value={creatingName}
+                onChange={e => setCreatingName(e.target.value)}
+                placeholder="Template name (e.g. Bathroom Fitting)"
+                className="text-[13px] flex-1"
+                onKeyDown={e => { if (e.key === "Enter") createMutation.mutate(); if (e.key === "Escape") { setShowCreate(false); setCreatingName(""); }}}
+              />
+              <Button size="sm" className="h-7 text-[12px]" onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>
+                {createMutation.isPending ? "Creating..." : "Create"}
+              </Button>
+              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setShowCreate(false); setCreatingName(""); }}>
+                <X className="w-3.5 h-3.5" />
+              </Button>
+            </div>
           )}
 
           {customTemplates.map(t => (
@@ -986,31 +1068,6 @@ function CustomTemplatesSection({ templates, channel, isReadOnly }: {
               )}
             </div>
           ))}
-
-          {!isReadOnly && canAdd && (
-            showCreate ? (
-              <div className="flex items-center gap-2 p-3 rounded-lg border border-card-border">
-                <Input
-                  autoFocus
-                  value={creatingName}
-                  onChange={e => setCreatingName(e.target.value)}
-                  placeholder="Template name (e.g. Bathroom Fitting)"
-                  className="text-[13px] flex-1"
-                  onKeyDown={e => { if (e.key === "Enter") createMutation.mutate(); if (e.key === "Escape") { setShowCreate(false); setCreatingName(""); }}}
-                />
-                <Button size="sm" className="h-7 text-[12px]" onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>
-                  {createMutation.isPending ? "Creating..." : "Create"}
-                </Button>
-                <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setShowCreate(false); setCreatingName(""); }}>
-                  <X className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-            ) : (
-              <Button variant="outline" size="sm" className="w-full gap-1.5 text-[12.5px]" onClick={() => setShowCreate(true)}>
-                <Plus className="w-3.5 h-3.5" /> Add custom template
-              </Button>
-            )
-          )}
 
           {!canAdd && !isReadOnly && (
             <p className="text-[11.5px] text-muted-foreground text-center py-1">Maximum of {MAX_CUSTOM} custom templates reached.</p>

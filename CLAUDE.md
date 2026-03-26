@@ -347,3 +347,37 @@ Your job is to be the developer they would hire if they could afford a great one
 - Instagram auto-posting still not built
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
 - Pre-existing TS errors in Analytics.tsx, Tutorial.tsx, routes.ts — carry forward
+
+### Session — 2026-03-26 (thirty-third session)
+
+**Tasks completed:**
+- **SMS/WhatsApp template overhaul**: Response templates (After 4–5★, After 1–3★) no longer show char limits on SMS/WhatsApp tabs — they're shown in a pop-up, not sent as SMS. Follow-up template descriptions cleaned up.
+- **SMS character limit properly calculated**: Limit = 86 chars for follow-up body (160 total − short link ~62 chars − `\nReply STOP` 11 chars). Char counter shows `(max 86)` for follow-up SMS, `(max 149)` for custom SMS.
+- **Greyed-out link placeholder**: Follow-up and custom SMS/WA template editor shows a non-editable placeholder below the textarea showing the auto-appended link.
+- **SMS opt-out**: `\nReply STOP` appended to every outgoing SMS in `sendReviewSMS` (covers initial + all follow-ups).
+- **Short URL `/r/:id`**: Server redirect added (`GET /r/:id` → `/review?rid=:id`). SMS sends now use `/r/UUID` (~10 chars shorter). Saves space for body text.
+- **Greetings removed from SMS/WA follow-ups**: All follow-up templates no longer start with "Hi {{first_name}}" — straight to the message. All seeding, migrations, and frontend defaults updated.
+- **Twilio STOP webhook**: `POST /api/webhooks/twilio-inbound` — when customer replies STOP/STOPALL/UNSUBSCRIBE/CANCEL/END/QUIT, their number is matched and `do_not_contact = true` set. Follow-up runner already filters DNC. Webhook URL: `https://reviewoptic.com/api/webhooks/twilio-inbound`
+- **Test send button**: "Test" button on every template slot. Email → sends to account email via Resend. SMS/WhatsApp → prompts for phone number, sends with `[TEST]` prefix.
+- **AI generation SMS limit**: Prompts updated to 86-char limit, no greeting. Server-side enforcement strips greeting then hard-truncates if AI still exceeds limit.
+- **CSV export on Customers page**: Export button next to Import. Downloads current filtered list with: Name, Email, Phone, Channel, Status, Star Rating, Date Sent, Date Clicked.
+- **Platform clicks in insight emails**: Insight emails now include a "Platform clicks this period" section showing per-platform click counts with a note to check their profiles for new reviews.
+- **All TS errors fixed**: Analytics.tsx (`colors.clicks` → `colors.sms`), Tutorial.tsx (Set spread → `Array.from`), routes.ts (missing `id` on CSV import, `user.name` → `user.firstName`, `settings.phone` → request body phone).
+- **Tutorials & Guides fully updated**: howtos.ts updated for all new features (test send, opt-out, STOP reply, CSV export, insight email platform clicks, 86-char SMS limit). New how-to added: "How to export your customer data". TIPS and video descriptions updated in Tutorial.tsx.
+
+**Architecture notes:**
+- `sendReviewSMS` in sms.ts appends `\nReply STOP` to ALL outgoing customer SMS — single place, covers everything
+- Short link: `/r/:id` is an Express redirect before the SPA catch-all — safe. Only used for SMS (not email/WA)
+- Twilio webhook expects `application/x-www-form-urlencoded` (Twilio default). Returns empty TwiML `<Response></Response>`
+- Test send for SMS/WA accepts `phone` from request body; frontend uses `window.prompt` to collect it
+- Platform clicks query in insightEmail.ts: `SELECT platform, COUNT(*) FROM review_platform_clicks WHERE account_id = $1 AND created_at >= $2 GROUP BY platform`
+- SMS follow-up AI prompt: 86-char limit enforced in prompt + server strips greeting + hard-truncates at word boundary
+
+**Notes for next session:**
+- **⚠️ TWILIO WEBHOOK NOT YET ACTIVATED** — must set `https://reviewoptic.com/api/webhooks/twilio-inbound` in Twilio console (SMS number + WhatsApp sender → "A message comes in"). Remind every session until confirmed.
+- **Server restart required** for all migrations to run (SMS body corrections, email_unsubscribed, follow-up subjects, positive/negative template IDs)
+- **Referral programme activation**: needs (1) server route `GET /referral/:slug` → redirect to `/signup?ref={accountId}`, (2) store `referred_by_account_id` on new accounts, (3) admin view, (4) update offer text
+- `POST /api/reviews` endpoint still orphaned in routes.ts — safe to remove
+- Instagram auto-posting still not built
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+- **Next feature ideas discussed**: QR code (quick win), Zapier webhook for auto-adding customers (high impact), re-engagement campaigns for past customers

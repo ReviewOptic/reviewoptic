@@ -26,7 +26,7 @@ const VIDEOS = [
   },
   {
     title: "How to customise your templates",
-    description: "How to edit your message templates so they sound like you, not a generic message.",
+    description: "How to edit your message templates so they sound like you, not a generic message — including how to use the Test button and AI generation.",
     duration: "3 min",
     url: "", // paste YouTube embed URL here
   },
@@ -44,7 +44,7 @@ const VIDEOS = [
   },
   {
     title: "How to send a review request",
-    description: "How to send a single or bulk review request via email, SMS, or WhatsApp — and how to attach a voice note or video for customers who give a high rating.",
+    description: "How to send a single or bulk review request via email, SMS, or WhatsApp — and how to attach a voice note or video for customers who give a high rating. SMS messages include an automatic opt-out.",
     duration: "2 min",
     url: "", // paste YouTube embed URL here
   },
@@ -115,7 +115,7 @@ const TIPS = [
   },
   {
     tip: "Check in with your analytics weekly",
-    detail: "Spending 5 minutes a week on Analytics tells you what's working. Check the Customer Pipeline to see how many people are stuck awaiting follow-ups, the Follow-up Effectiveness chart to see if extra reminders are converting, and the Content Type Performance chart to see whether a voice note or video is outperforming plain text.",
+    detail: "Spending 5 minutes a week on Analytics tells you what's working. Check the Customer Pipeline to see how many people are stuck awaiting follow-ups, the Follow-up Effectiveness chart to see if extra reminders are converting, and the Content Type Performance chart to see whether a voice note or video is outperforming plain text. Your weekly or monthly insight email also shows platform clicks by channel — use that as a prompt to check your Google or Trustpilot profile for new reviews.",
   },
   {
     tip: "Private feedback is a gift — use it",
@@ -135,7 +135,7 @@ const TIPS = [
   },
   {
     tip: "WhatsApp gets the highest response rates",
-    detail: "Of all three channels, WhatsApp messages feel the most personal and are read almost immediately. If a customer has given a phone number, WhatsApp is often worth trying first. For all channels, try attaching a voice note or video for customers who rate highly — a personal message from you before they leave a review can make a real difference.",
+    detail: "Of all three channels, WhatsApp messages feel the most personal and are read almost immediately. If a customer has given a phone number, WhatsApp is often worth trying first. For all channels, try attaching a voice note or video for customers who rate highly — a personal message from you before they leave a review can make a real difference. SMS and WhatsApp messages include an automatic opt-out, so customers can reply STOP at any time and they'll be removed from your list without you needing to do anything.",
   },
   {
     tip: "Keep your review platforms up to date",
@@ -283,7 +283,7 @@ export default function Tutorial() {
     setWatched(prev => {
       const next = new Set(prev);
       if (next.has(index)) next.delete(index); else next.add(index);
-      localStorage.setItem(WATCHED_KEY, JSON.stringify([...next]));
+      localStorage.setItem(WATCHED_KEY, JSON.stringify(Array.from(next)));
       return next;
     });
   }
