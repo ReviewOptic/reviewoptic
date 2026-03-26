@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/hooks/use-auth";
 
-const MERGE_TAGS = ["{{first_name}}", "{{customer_name}}", "{{business_name}}", "{{service_type}}", "{{review_link}}"];
+const MERGE_TAGS = ["{{first_name}}", "{{customer_name}}", "{{business_name}}", "{{service_type}}"];
 
 const channelIcons: Record<string, React.ReactNode> = {
   email: <Mail className="w-3.5 h-3.5" />,
@@ -143,7 +143,7 @@ function AudioRecorder({ currentUrl, onSaved }: { currentUrl: string; onSaved: (
   );
 }
 
-function GenerateAIButton({ channel, onGenerated }: { channel: string; onGenerated: (body: string, subject?: string) => void }) {
+function GenerateAIButton({ channel, templateType, onGenerated }: { channel: string; templateType: string; onGenerated: (body: string, subject?: string) => void }) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const generate = async () => {
@@ -153,7 +153,7 @@ function GenerateAIButton({ channel, onGenerated }: { channel: string; onGenerat
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ channel }),
+        body: JSON.stringify({ channel, templateType }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
@@ -256,13 +256,10 @@ function TemplateEditor({ template, onCancel, textOnly = false }: { template: Te
     }, 0);
   };
 
+  const isResponseTemplate = template.templateType === "response_positive" || template.templateType === "response_negative";
   const charCount = body.length;
   const isSmsWarning = template.channel === "sms" && charCount > 160;
-  const needsReviewLink = template.templateType !== "response_negative" && template.templateType !== "response_positive";
-  const missingReviewLink = needsReviewLink && !body.includes("{{review_link}}");
-  const availableMergeTags = (template.templateType === "response_negative" || template.templateType === "response_positive")
-    ? MERGE_TAGS.filter(t => t !== "{{review_link}}")
-    : MERGE_TAGS;
+  const availableMergeTags = MERGE_TAGS;
 
   // Preview with sample data
   const preview = body
@@ -305,7 +302,14 @@ function TemplateEditor({ template, onCancel, textOnly = false }: { template: Te
 
       {mode === "text" && (
         <>
-          {template.channel === "email" && (
+          {isResponseTemplate ? (
+            <div className="space-y-1.5">
+              <Label className="text-[12.5px]">Opening line</Label>
+              <Input value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g. Thank you so much for your rating!" className="text-[13px]" data-testid="input-template-subject" />
+              <p className="text-[11.5px] text-muted-foreground">This appears as the first line in the pop-up dialogue, before your message below.</p>
+            </div>
+          ) : null}
+          {!isResponseTemplate && template.channel === "email" && (
             <>
               <div className="space-y-1.5">
                 <Label className="text-[12.5px]">Subject Line</Label>
@@ -334,7 +338,7 @@ function TemplateEditor({ template, onCancel, textOnly = false }: { template: Te
             <div className="flex items-center justify-between">
               <Label className="text-[12.5px]">Message Body</Label>
               <div className="flex items-center gap-3">
-                <GenerateAIButton channel={template.channel} onGenerated={(b, s) => { setBody(b); if (s) setSubject(s); }} />
+                <GenerateAIButton channel={template.channel} templateType={template.templateType} onGenerated={(b, s) => { setBody(b); if (s) setSubject(s); }} />
                 <span className={cn("text-[11px] font-mono", isSmsWarning ? "text-destructive font-semibold" : "text-muted-foreground")}>
                   {charCount} chars {template.channel === "sms" && "(max 160)"}
                 </span>
@@ -349,9 +353,6 @@ function TemplateEditor({ template, onCancel, textOnly = false }: { template: Te
             />
             {isSmsWarning && (
               <p className="text-[11.5px] text-destructive">⚠ SMS messages over 160 characters may be split into multiple messages</p>
-            )}
-            {missingReviewLink && (
-              <p className="text-[11.5px] text-amber-600">⚠ Template should include {"{{"}<span>review_link</span>{"}}"}  merge tag</p>
             )}
           </div>
         </>
@@ -381,10 +382,13 @@ function TemplateEditor({ template, onCancel, textOnly = false }: { template: Te
           <div className="space-y-1.5">
             <Label className="text-[12px] text-muted-foreground">Preview (sample data):</Label>
             <div className="p-3 rounded-lg bg-white border border-border text-[12.5px] whitespace-pre-wrap text-foreground">
-              {settings?.logoUrl && template.channel === "email" && (
+              {settings?.logoUrl && template.channel === "email" && !isResponseTemplate && (
                 <div style={{ textAlign: logoPosition === "center" ? "center" : logoPosition === "right" ? "right" : "left" }} className="mb-3">
                   <img src={settings.logoUrl} alt="Logo" className="inline-block max-h-10 max-w-[160px] object-contain" />
                 </div>
+              )}
+              {isResponseTemplate && subject && (
+                <p className="font-medium text-foreground mb-2">{subject.replace(/{{first_name}}/g, "Sarah").replace(/{{business_name}}/g, "Clean Pro Services")}</p>
               )}
               {preview}
             </div>
@@ -427,7 +431,7 @@ const TEMPLATE_SLOTS = [
     description: "First reminder sent to customers who haven't responded.",
     textOnly: true,
     defaultSubject: "A quick follow-up from {{business_name}}",
-    defaultBody: "Hi {{first_name}},\n\nJust a quick follow-up — we'd love to hear about your experience with {{business_name}}! It only takes a moment.\n\n{{review_link}}\n\nThanks,\nThe {{business_name}} team",
+    defaultBody: "Hi {{first_name}},\n\nJust a quick follow-up — we'd love to hear about your experience with {{business_name}}! It only takes a moment — tap the link below.\n\nThanks,\nThe {{business_name}} team",
   },
   {
     type: "follow_up_2",
@@ -435,7 +439,7 @@ const TEMPLATE_SLOTS = [
     description: "Second reminder for customers who still haven't responded.",
     textOnly: true,
     defaultSubject: "Still thinking about your experience? — {{business_name}}",
-    defaultBody: "Hi {{first_name}},\n\nWe know you're busy, but your feedback really does make a difference! If you have 30 seconds, we'd love to hear from you.\n\n{{review_link}}\n\nThanks,\nThe {{business_name}} team",
+    defaultBody: "Hi {{first_name}},\n\nWe know you're busy, but your feedback really does make a difference! If you have 30 seconds, we'd love to hear from you — tap the link below.\n\nThanks,\nThe {{business_name}} team",
   },
   {
     type: "follow_up_3",
@@ -443,7 +447,7 @@ const TEMPLATE_SLOTS = [
     description: "Final reminder for customers who haven't responded.",
     textOnly: true,
     defaultSubject: "Last chance to share your thoughts — {{business_name}}",
-    defaultBody: "Hi {{first_name}},\n\nThis is our last message — we promise! If you ever have a moment to share your experience, we'd really appreciate it.\n\n{{review_link}}\n\nThanks for choosing {{business_name}}.",
+    defaultBody: "Hi {{first_name}},\n\nThis is our last message — we promise! If you ever have a moment to share your experience, we'd really appreciate it — just tap the link below.\n\nThanks for choosing {{business_name}}.",
   },
 ] as const;
 

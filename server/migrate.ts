@@ -304,6 +304,43 @@ export async function runMigrations() {
     await pool.query(`ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS positive_template_id TEXT`);
     await pool.query(`ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS negative_template_id TEXT`);
 
+    // Force-set all default response templates to their final clean state
+    const positiveBody = "We hope you enjoyed your experience with {{business_name}} and our {{service_type}}! Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!";
+    const defaultResponseTemplates = [
+      { type: "response_positive", channel: "email",    subject: "", body: positiveBody },
+      { type: "response_positive", channel: "sms",      subject: "", body: positiveBody },
+      { type: "response_positive", channel: "whatsapp", subject: "", body: positiveBody },
+      { type: "response_negative", channel: "email",    subject: "Thank you for your honest feedback.", body: "Hi {{first_name}},\n\nSorry to hear you did not have the experience what you expected. We would appreciate your feedback on how we can improve for next time and will be in touch.\n\nMany thanks" },
+      { type: "response_negative", channel: "sms",      subject: "Thank you for your feedback.", body: "Hi {{first_name}},\n\nSorry to hear you did not have the experience what you expected. We would appreciate your feedback on how we can improve for next time and will be in touch.\n\nMany thanks" },
+      { type: "response_negative", channel: "whatsapp", subject: "Thank you for your feedback.", body: "Hi {{first_name}},\n\nSorry to hear you did not have the experience what you expected. We would appreciate your feedback on how we can improve for next time and will be in touch.\n\nMany thanks" },
+    ];
+    for (const t of defaultResponseTemplates) {
+      await pool.query(
+        `UPDATE templates SET subject = $1, body = $2 WHERE template_type = $3 AND channel = $4 AND is_default = true`,
+        [t.subject, t.body, t.type, t.channel]
+      );
+    }
+
+    // Strip {{review_link}} from all template bodies — the link is now auto-appended by the server
+    await pool.query(`
+      UPDATE templates
+      SET body = TRIM(REGEXP_REPLACE(body, '[^\\n]*\\{\\{review_link\\}\\}[^\\n]*\\n?', '', 'g'))
+      WHERE body LIKE '%{{review_link}}%'
+    `);
+
+    // Remove {{review_link}} from positive response templates (now shown as buttons on the page)
+    await pool.query(`
+      UPDATE templates
+      SET body = TRIM(
+        REGEXP_REPLACE(
+          REGEXP_REPLACE(body, '[^\\n]*\\{\\{review_link\\}\\}[^\\n]*\\n?', '', 'g'),
+          '\\n{2,}', E'\\n\\n', 'g'
+        )
+      )
+      WHERE template_type = 'response_positive'
+        AND body LIKE '%{{review_link}}%'
+    `);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();

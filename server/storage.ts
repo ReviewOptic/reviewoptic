@@ -486,16 +486,19 @@ export class DatabaseStorage implements IStorage {
             allTemplates.find(t => t.channel === "sms" && t.templateType === templateType && t.isDefault) ||
             allTemplates.find(t => t.channel === "sms" && t.templateType === templateType) ||
             null;
-          const smsBody = smsTemplate?.body
-            ? smsTemplate.body
+          const resolveBody = (tmpl: any) => tmpl?.body
+            ? tmpl.body
                 .replace(/\{\{customer_name\}\}/g, customer.name)
                 .replace(/\{\{first_name\}\}/g, firstName)
                 .replace(/\{\{business_name\}\}/g, s.businessName)
                 .replace(/\{\{service_type\}\}/g, customer.serviceType || "")
-                .replace(/\{\{review_link\}\}/g, ratingLink)
-            : hasHighRating
-              ? `Hi ${firstName}, thanks for rating us! If you have a moment, please share your experience: ${platforms[0]?.url || ratingLink}`
-              : `Hi ${firstName}, just following up — we'd love to hear about your experience with ${s.businessName}: ${ratingLink}`;
+                .replace(/\{\{review_link\}\}/g, "")
+                .trim() + `\n${ratingLink}`
+            : null;
+          const smsBody = resolveBody(smsTemplate)
+            || (hasHighRating
+              ? `Hi ${firstName}, thanks for rating us! If you have a moment, please share your experience: ${ratingLink}`
+              : `Hi ${firstName}, just following up — we'd love to hear about your experience with ${s.businessName}: ${ratingLink}`);
           sendReviewSMS(customer, s, { subject: "", body: smsBody } as any, []).catch(err =>
             console.error(`[follow-up] Failed to send SMS to ${customer.phone}:`, err.message)
           );
@@ -504,17 +507,19 @@ export class DatabaseStorage implements IStorage {
             allTemplates.find(t => t.channel === "whatsapp" && t.templateType === templateType && t.isDefault) ||
             allTemplates.find(t => t.channel === "whatsapp" && t.templateType === templateType) ||
             null;
-          const waLink = hasHighRating ? (platforms[0]?.url || ratingLink) : ratingLink;
-          const body = template?.body
-            ? template.body
+          const resolveWaBody = (tmpl: any) => tmpl?.body
+            ? tmpl.body
                 .replace(/\{\{customer_name\}\}/g, customer.name)
                 .replace(/\{\{first_name\}\}/g, firstName)
                 .replace(/\{\{business_name\}\}/g, s.businessName)
                 .replace(/\{\{service_type\}\}/g, customer.serviceType || "")
-                .replace(/\{\{review_link\}\}/g, waLink)
-            : hasHighRating
-              ? `Hi ${firstName}, thanks again for rating us! If you have a moment, we'd love it if you shared your experience in a quick review: ${waLink}`
-              : `Hi ${firstName}, just following up — we'd love to hear about your experience with ${s.businessName}! It only takes a moment: ${ratingLink}`;
+                .replace(/\{\{review_link\}\}/g, "")
+                .trim() + `\n${ratingLink}`
+            : null;
+          const body = resolveWaBody(template)
+            || (hasHighRating
+              ? `Hi ${firstName}, thanks again for rating us! If you have a moment, we'd love it if you shared your experience: ${ratingLink}`
+              : `Hi ${firstName}, just following up — we'd love to hear about your experience with ${s.businessName}! It only takes a moment: ${ratingLink}`);
           sendWhatsAppMessage(customer.phone, body).catch(err =>
             console.error(`[follow-up] Failed to send WhatsApp to ${customer.phone}:`, err.message)
           );

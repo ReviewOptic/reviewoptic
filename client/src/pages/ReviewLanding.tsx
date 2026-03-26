@@ -83,6 +83,8 @@ export default function ReviewLanding() {
   const [platforms, setPlatforms] = useState<{ key: string; name: string; url: string }[]>([]);
   const [recordingUrl, setRecordingUrl] = useState("");
   const [recordingType, setRecordingType] = useState("");
+  const [templateBody, setTemplateBody] = useState("");
+  const [templateOpening, setTemplateOpening] = useState("");
   const [feedbackText, setFeedbackText] = useState("");
   const [clickedPlatform, setClickedPlatform] = useState<string | null>(null);
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
@@ -143,6 +145,8 @@ export default function ReviewLanding() {
       setPlatforms(data.platforms || []);
       setRecordingUrl(data.recordingUrl || "");
       setRecordingType(data.recordingType || "");
+      setTemplateBody(data.templateBody || "");
+      setTemplateOpening(data.templateOpening || "");
       setRatingLocked(true);
       setDialogOpen(true);
     } catch {
@@ -280,9 +284,17 @@ export default function ReviewLanding() {
                 <DialogTitle className="text-center">
                   Thanks for the rating{firstName ? `, ${firstName}` : ""}!
                 </DialogTitle>
-                <DialogDescription className="text-center">
-                  Would you please take a couple of moments to leave us a review?
-                </DialogDescription>
+                {(templateOpening || templateBody) && (
+                  <DialogDescription className="text-center whitespace-pre-line">
+                    {templateOpening && <span className="block font-medium text-foreground">{templateOpening}</span>}
+                    {templateBody && <span className="block mt-1">{templateBody}</span>}
+                  </DialogDescription>
+                )}
+                {!templateOpening && !templateBody && platforms.length > 0 && (
+                  <DialogDescription className="text-center">
+                    Would you please take a couple of moments to leave us a review?
+                  </DialogDescription>
+                )}
               </DialogHeader>
 
               {recordingUrl && (
@@ -338,11 +350,11 @@ export default function ReviewLanding() {
                     })}
                   </div>
                 </div>
-              ) : (
+              ) : !templateBody ? (
                 <p className="text-center text-[13px] text-muted-foreground py-4">
                   Thank you for your support — your kind words mean a lot to us.
                 </p>
-              )}
+              ) : null}
             </div>
           )}
 
@@ -367,8 +379,9 @@ export default function ReviewLanding() {
                   ))}
                 </div>
                 <DialogTitle className="text-center">We're sorry to hear that</DialogTitle>
-                <DialogDescription className="text-center">
-                  Would you take a couple of moments to share your experience and let us know how we can improve?
+                <DialogDescription className="text-center whitespace-pre-line">
+                  {templateOpening && <span className="block font-medium text-foreground">{templateOpening}</span>}
+                  <span className="block mt-1">{templateBody || "Would you take a couple of moments to share your experience and let us know how we can improve?"}</span>
                 </DialogDescription>
               </DialogHeader>
 

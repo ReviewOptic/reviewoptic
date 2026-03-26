@@ -297,3 +297,30 @@ Your job is to be the developer they would hire if they could afford a great one
 - Instagram auto-posting still not built
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
 - Pre-existing TS errors in Analytics.tsx (missing `clicks` colour key), Tutorial.tsx (Set iteration), routes.ts (missing `id` on customer insert) — not introduced this session, carry forward
+
+### Session — 2026-03-26 (thirtieth session)
+
+**Tasks completed:**
+- **Response templates now display on ReviewLanding, not sent via email/SMS**: Rating endpoint no longer sends a second email/SMS after rating. Instead, resolved template body + opening line returned in JSON and displayed in the post-rating dialog.
+- **Templates page — response slots redesigned**: Subject field replaced with "Opening line" field for `response_positive` / `response_negative` templates (stored in `subject` column). Opening line shows in bold above body in the dialog and in the editor preview.
+- **`{{review_link}}` removed from all templates**: No longer a merge tag anywhere. Follow-up messages auto-append the rating landing page URL (`/review?rid=...`) at send time — no merge tag needed. Migration strips `{{review_link}}` from all existing template bodies.
+- **Default template bodies set**:
+  - 4-5★: "We hope you enjoyed your experience with {{business_name}} and our {{service_type}}! Your feedback means a lot to us..." If no service type, "and our {{service_type}}" is stripped cleanly at resolve time.
+  - 1-3★: "Hi {{first_name}}, Sorry to hear you did not have the experience what you expected. We would appreciate your feedback... Many thanks"
+- **AI generation fixed per template type**: response_positive generates appreciation variations; response_negative generates apology variations; follow-ups generate nudge messages appropriate to which reminder (1st/2nd/final); all explicitly told not to add review links.
+- **Hard strip on AI output**: Any `{{review_link}}` the AI generates is stripped server-side before returning.
+- **Follow-up send code fixed**: SMS/WhatsApp follow-ups no longer use `platforms[0]?.url` (direct platform link) — all channels now auto-append `ratingLink` (landing page) to the resolved body.
+- **Migration added**: Force-sets all default response templates to final clean state on server restart.
+
+**Architecture notes:**
+- `templateOpening` (subject field) + `templateBody` (body field) both returned from rating endpoint and displayed in ReviewLanding dialog
+- `{{service_type}}` in response templates: if empty, regex strips `" and our {{service_type}}"` before display
+- Follow-up link = `${appUrl}/review?rid=${newRequestId}` auto-appended after template body — not a merge tag
+
+**Notes for next session:**
+- **Server restart required** for all migrations to run (template body reset, review_link strip, positive/negative template column additions)
+- **Referral programme activation**: needs (1) server route `GET /referral/:slug` → redirect to `/signup?ref={accountId}`, (2) store `referred_by_account_id` on new accounts at registration, (3) admin view of referral counts, (4) update offer text in Referral tab
+- `POST /api/reviews` endpoint still orphaned in routes.ts — safe to remove
+- Instagram auto-posting still not built
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+- Pre-existing TS errors in Analytics.tsx, Tutorial.tsx, routes.ts — carry forward

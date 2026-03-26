@@ -293,39 +293,39 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       {
         id: randomUUID(), accountId: account.id, name: "Request a Review", templateType: "response_positive",
         channel: "email", isDefault: true, preferredPlatform: "google",
-        subject: "Would you mind sharing your experience?",
-        body: `Hi {{first_name}},\n\nThank you so much for the kind rating! It genuinely means a lot to us.\n\nIf you have just a minute, we'd love it if you could share your experience in a quick review:\n\n{{review_link}}\n\nThank you,\nThe {{business_name}} team`,
+        subject: "",
+        body: `We hope you enjoyed your experience with {{business_name}} and our {{service_type}}! Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!`,
       },
       {
         id: randomUUID(), accountId: account.id, name: "Request a Review", templateType: "response_positive",
         channel: "sms", isDefault: true, preferredPlatform: "google",
         subject: "",
-        body: "Hi {{first_name}}, thanks so much for the rating! Would you mind leaving a quick review? It really helps us: {{review_link}}",
+        body: `We hope you enjoyed your experience with {{business_name}} and our {{service_type}}! Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!`,
       },
       {
         id: randomUUID(), accountId: account.id, name: "Request a Review", templateType: "response_positive",
         channel: "whatsapp", isDefault: true, preferredPlatform: "google",
         subject: "",
-        body: "Hi {{first_name}} 🌟 Thanks so much for the great rating! If you have a moment, we'd love it if you could leave a quick review — it means the world to us:\n\n{{review_link}}",
+        body: `We hope you enjoyed your experience with {{business_name}} and our {{service_type}}! Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!`,
       },
       // After 1-3 stars: ask them to get in touch
       {
         id: randomUUID(), accountId: account.id, name: "Get in Touch", templateType: "response_negative",
         channel: "email", isDefault: true, preferredPlatform: "",
-        subject: "We're sorry to hear that — can we make it right?",
-        body: `Hi {{first_name}},\n\nThank you for your honest feedback. We're sorry your experience with {{business_name}} didn't meet your expectations.\n\nWe'd really like to make it right. Please don't hesitate to get in touch with us directly so we can look into this for you.\n\nKind regards,\nThe {{business_name}} team`,
+        subject: "Thank you for your honest feedback.",
+        body: `Hi {{first_name}},\n\nSorry to hear you did not have the experience what you expected. We would appreciate your feedback on how we can improve for next time and will be in touch.\n\nMany thanks`,
       },
       {
         id: randomUUID(), accountId: account.id, name: "Get in Touch", templateType: "response_negative",
         channel: "sms", isDefault: true, preferredPlatform: "",
-        subject: "",
-        body: "Hi {{first_name}}, we're really sorry your experience wasn't what you'd hoped for. Please get in touch with us directly and we'll do our best to make it right.",
+        subject: "Thank you for your feedback.",
+        body: `Hi {{first_name}},\n\nSorry to hear you did not have the experience what you expected. We would appreciate your feedback on how we can improve for next time and will be in touch.\n\nMany thanks`,
       },
       {
         id: randomUUID(), accountId: account.id, name: "Get in Touch", templateType: "response_negative",
         channel: "whatsapp", isDefault: true, preferredPlatform: "",
-        subject: "",
-        body: "Hi {{first_name}}, we're so sorry to hear that. We'd love the chance to make it right — please feel free to reach out to us directly and we'll do everything we can to help.",
+        subject: "Thank you for your feedback.",
+        body: `Hi {{first_name}},\n\nSorry to hear you did not have the experience what you expected. We would appreciate your feedback on how we can improve for next time and will be in touch.\n\nMany thanks`,
       },
       // Follow-ups: for 4-5 star customers who haven't yet left a review
       {
@@ -1052,38 +1052,32 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         || allTemplates.find(t => t.templateType === templateType && t.channel === request.channel)
         || null;
 
+      // Resolve template content to display on the landing page (no email/SMS sent)
+      let templateBody = "";
+      let templateOpening = "";
       if (responseTemplate && customer && settings) {
         const firstName = customer.name.split(" ")[0];
-        // For positive templates, resolve {{review_link}} to the preferred platform or first available
         const preferredPlatformUrl = responseTemplate.preferredPlatform
           ? platformMap[responseTemplate.preferredPlatform] || ""
           : "";
         const reviewLink = preferredPlatformUrl || Object.values(platformMap).find(u => u) || "";
-
-        const resolveBody = (body: string) => body
-          .replace(/\{\{first_name\}\}/g, firstName)
-          .replace(/\{\{customer_name\}\}/g, customer.name)
-          .replace(/\{\{business_name\}\}/g, settings.businessName)
-          .replace(/\{\{review_link\}\}/g, reviewLink);
-
-        try {
-          if (request.channel === "email" && customer.email) {
-            await sendReviewEmail(customer, settings, {
-              ...responseTemplate,
-              subject: resolveBody(responseTemplate.subject),
-              body: resolveBody(responseTemplate.body),
-            } as any, []);
-          } else if (request.channel === "sms" && customer.phone) {
-            await sendReviewSMS(customer, settings, {
-              ...responseTemplate,
-              body: resolveBody(responseTemplate.body),
-            } as any, []);
-          } else if (request.channel === "whatsapp" && customer.phone) {
-            await sendWhatsAppMessage(customer.phone, resolveBody(responseTemplate.body));
+        const serviceType = customer.serviceType || "";
+        const resolve = (s: string) => {
+          let out = s
+            .replace(/\{\{first_name\}\}/g, firstName)
+            .replace(/\{\{customer_name\}\}/g, customer.name)
+            .replace(/\{\{business_name\}\}/g, settings.businessName)
+            .replace(/\{\{review_link\}\}/g, reviewLink);
+          // If no service type, remove "and our {{service_type}}" (and variants) cleanly
+          if (!serviceType) {
+            out = out.replace(/\s*and our \{\{service_type\}\}/gi, "").replace(/\{\{service_type\}\}/g, "");
+          } else {
+            out = out.replace(/\{\{service_type\}\}/g, serviceType);
           }
-        } catch (err: any) {
-          console.error(`[response template] Failed to send:`, err.message);
-        }
+          return out;
+        };
+        templateOpening = resolve(responseTemplate.subject || "");
+        templateBody = resolve(responseTemplate.body);
       }
 
       // Auto-post to social for happy customers
@@ -1107,7 +1101,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
       }
 
-      res.json({ highRating: rating >= 4, platforms, recordingUrl, recordingType });
+      res.json({ highRating: rating >= 4, platforms, recordingUrl, recordingType, templateBody, templateOpening });
     } catch {
       res.status(500).json({ message: "Server error" });
     }
@@ -1295,7 +1289,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/ai/generate-template", requireAuth, async (req, res) => {
     try {
-      const { channel } = req.body;
+      const { channel, templateType } = req.body;
       const settings = await storage.getSettings(req.session.accountId!);
       const businessName = settings?.businessName || "our business";
 
@@ -1306,31 +1300,62 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const isSMS = channel === "sms" || channel === "whatsapp";
       const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-      if (isSMS) {
-        const completion = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
-          messages: [{ role: "user", content: `Write a friendly SMS review request template for a business called "${businessName}". Use {{first_name}}, {{business_name}}, and {{review_link}} merge tags. Keep it under 160 characters. Just the message text.` }],
-          max_tokens: 200,
-        });
-        res.json({ body: completion.choices[0]?.message?.content?.trim() || "", subject: "" });
+      // Build prompt based on template purpose
+      let bodyPrompt = "";
+      let openingPrompt = "";
+
+      if (templateType === "response_positive") {
+        bodyPrompt = `Write a variation of this message shown to a customer after they give a high rating. Keep the same tone, structure and purpose — expressing appreciation and mentioning the business and service. Use {{business_name}} and {{service_type}} merge tags.\n\nExample: "We hope you enjoyed your experience with {{business_name}} and our {{service_type}}! Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!"\n\nWrite a fresh variation. Same purpose, different wording.`;
+
+      } else if (templateType === "response_negative") {
+        openingPrompt = `Write a single short sentence (no more than 10 words) thanking a customer for their feedback after a low rating. No business name. No quotes.`;
+        bodyPrompt = `Write a variation of this message shown to a customer after they give a low rating. Keep the same tone and purpose — apologising and letting them know you will be in touch. Use {{first_name}}.\n\nExample: "Hi {{first_name}},\n\nSorry to hear you did not have the experience what you expected. We would appreciate your feedback on how we can improve for next time and will be in touch.\n\nMany thanks"\n\nWrite a fresh variation. Same purpose, different wording.`;
+
+      } else if (templateType === "follow_up_1") {
+        bodyPrompt = isSMS
+          ? `Write a friendly first follow-up SMS for a business called "${businessName}" to a customer who gave a high rating but hasn't yet shared their experience publicly. Gently nudge them — a link will be added automatically after the message. Use {{first_name}}, {{business_name}}. Under 140 characters. Just the message text, no link.`
+          : `Write a friendly first follow-up email for "${businessName}" to a customer who gave a high rating but hasn't yet shared their experience publicly. Gentle nudge — let them know a link is waiting below. Use {{first_name}}, {{business_name}}. 2–3 sentences. Start with "Hi {{first_name}}," — just the body, no subject, no sign-off, no link.`;
+        openingPrompt = !isSMS ? `Write a short, friendly subject line for a first follow-up email from "${businessName}" asking a happy customer to share their experience. No quotes.` : "";
+
+      } else if (templateType === "follow_up_2") {
+        bodyPrompt = isSMS
+          ? `Write a second follow-up SMS for "${businessName}" to a customer who gave a high rating but still hasn't shared their experience. More personal — explain how much it would mean. A link will be added automatically. Use {{first_name}}, {{business_name}}. Under 140 characters. Just the message text, no link.`
+          : `Write a second follow-up email for "${businessName}" to a customer who gave a high rating but still hasn't shared their experience. More heartfelt — explain why it matters. A link is waiting below. Use {{first_name}}, {{business_name}}. 2–3 sentences. Start with "Hi {{first_name}}," — just the body, no subject, no sign-off, no link.`;
+        openingPrompt = !isSMS ? `Write a short, warm subject line for a second follow-up email from "${businessName}" asking a happy customer to share their experience. No quotes.` : "";
+
+      } else if (templateType === "follow_up_3") {
+        bodyPrompt = isSMS
+          ? `Write a final, kind follow-up SMS for "${businessName}" to a customer who gave a high rating but hasn't shared their experience after two reminders. No pressure — last ask. A link will be added automatically. Use {{first_name}}, {{business_name}}. Under 140 characters. Just the message text, no link.`
+          : `Write a final follow-up email for "${businessName}" to a customer who gave a high rating but hasn't shared their experience after two reminders. Kind, no-pressure tone. A link is waiting below. Use {{first_name}}, {{business_name}}. 2–3 sentences. Start with "Hi {{first_name}}," — just the body, no subject, no sign-off, no link.`;
+        openingPrompt = !isSMS ? `Write a short, gentle subject line for a final follow-up email from "${businessName}" asking a happy customer to share their experience. No quotes.` : "";
+
       } else {
-        const [bodyCompletion, subjectCompletion] = await Promise.all([
-          openai.chat.completions.create({
-            model: "gpt-4o-mini",
-            messages: [{ role: "user", content: `Write a friendly email review request template for "${businessName}". Use {{first_name}}, {{business_name}}, {{service_type}}, and {{review_link}} merge tags. 3–4 sentences. Start with "Hi {{first_name}}," — just the body text, no subject line, no sign-off.` }],
-            max_tokens: 300,
-          }),
-          openai.chat.completions.create({
-            model: "gpt-4o-mini",
-            messages: [{ role: "user", content: `Write a short email subject line for a review request from "${businessName}". Use {{business_name}} if appropriate. Just the subject text, no quotes.` }],
-            max_tokens: 60,
-          }),
-        ]);
-        res.json({
-          body: bodyCompletion.choices[0]?.message?.content?.trim() || "",
-          subject: subjectCompletion.choices[0]?.message?.content?.trim() || "",
-        });
+        // Generic / custom template
+        bodyPrompt = isSMS
+          ? `Write a friendly, personalised SMS message for a business called "${businessName}" to send to a customer. Use {{first_name}} and {{business_name}} merge tags. Keep it under 160 characters. Just the message text.`
+          : `Write a friendly, personalised email message for "${businessName}" to send to a customer. Use {{first_name}}, {{business_name}}, and {{service_type}} merge tags. 3–4 sentences. Start with "Hi {{first_name}}," — just the body text, no subject line, no sign-off.`;
+        openingPrompt = !isSMS ? `Write a short email subject line for a message from "${businessName}" to a customer. Just the subject text, no quotes.` : "";
       }
+
+      const systemMsg = (templateType === "response_positive" || templateType === "response_negative")
+        ? "You write short dialogue messages shown on a webpage after a customer submits a rating. Review platform buttons are already shown on the page. You must NEVER mention reviews, platforms (Google, Trustpilot etc), links, or ask the customer to take any action. Only write what is explicitly asked."
+        : "You write customer message templates for a review management platform. Follow the instructions precisely.";
+
+      const requests: Promise<any>[] = [
+        openai.chat.completions.create({ model: "gpt-4o-mini", messages: [{ role: "system", content: systemMsg }, { role: "user", content: bodyPrompt }], max_tokens: 300 }),
+      ];
+      if (openingPrompt) {
+        requests.push(openai.chat.completions.create({ model: "gpt-4o-mini", messages: [{ role: "system", content: systemMsg }, { role: "user", content: openingPrompt }], max_tokens: 60 }));
+      }
+
+      const [bodyResult, openingResult] = await Promise.all(requests);
+      const cleanBody = (text: string) =>
+        text.replace(/[^\n]*\{\{review_link\}\}[^\n]*/g, "").replace(/\n{3,}/g, "\n\n").trim();
+
+      res.json({
+        body: cleanBody(bodyResult.choices[0]?.message?.content || ""),
+        subject: openingResult ? openingResult.choices[0]?.message?.content?.trim() || "" : "",
+      });
     } catch (err: any) {
       console.error("[ai/generate-template]", err.message);
       res.status(500).json({ message: "Failed to generate template" });
