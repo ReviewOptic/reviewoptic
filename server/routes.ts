@@ -1345,19 +1345,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       } else if (templateType === "follow_up_1") {
         bodyPrompt = isSMS
-          ? `Write a friendly first follow-up SMS for "${businessName}" to a customer. A rating link is appended automatically — do NOT include a link. STRICT LIMIT: 86 characters total including spaces. Do not start with "Hi {{first_name}}," — go straight to the message. Use {{business_name}} if it helps. Just the text, nothing else.`
+          ? `SMS follow-up text for ${businessName}. Rules: NO greeting, do NOT start with Hi or Dear or any name. NO link. MAX 86 characters. Just a short friendly nudge. Example output: "Just checking in — we'd love to hear how we did!"`
           : `Write a friendly first follow-up email for "${businessName}" to a customer who gave a high rating but hasn't yet shared their experience publicly. Gentle nudge — let them know a link is waiting below. Use {{first_name}}, {{business_name}}. 2–3 sentences. Start with "Hi {{first_name}}," — just the body, no subject, no sign-off, no link.`;
         openingPrompt = !isSMS ? `Write a short, friendly subject line for a first follow-up email from "${businessName}" asking a happy customer to share their experience. No quotes.` : "";
 
       } else if (templateType === "follow_up_2") {
         bodyPrompt = isSMS
-          ? `Write a second follow-up SMS for "${businessName}" to a customer. A rating link is appended automatically — do NOT include a link. STRICT LIMIT: 86 characters total including spaces. Do not start with "Hi {{first_name}}," — go straight to the message. Use {{business_name}} if it helps. Just the text, nothing else.`
+          ? `SMS second follow-up text for ${businessName}. Rules: NO greeting, do NOT start with Hi or Dear or any name. NO link. MAX 86 characters. Short and warm — explain how much feedback means. Example output: "Your feedback really means a lot to us — tap below when you're ready!"`
           : `Write a second follow-up email for "${businessName}" to a customer who gave a high rating but still hasn't shared their experience. More heartfelt — explain why it matters. A link is waiting below. Use {{first_name}}, {{business_name}}. 2–3 sentences. Start with "Hi {{first_name}}," — just the body, no subject, no sign-off, no link.`;
         openingPrompt = !isSMS ? `Write a short, warm subject line for a second follow-up email from "${businessName}" asking a happy customer to share their experience. No quotes.` : "";
 
       } else if (templateType === "follow_up_3") {
         bodyPrompt = isSMS
-          ? `Write a final kind follow-up SMS for "${businessName}" to a customer. A rating link is appended automatically — do NOT include a link. STRICT LIMIT: 86 characters total including spaces. Do not start with "Hi {{first_name}}," — go straight to the message. Use {{business_name}} if it helps. Just the text, nothing else.`
+          ? `SMS final follow-up text for ${businessName}. Rules: NO greeting, do NOT start with Hi or Dear or any name. NO link. MAX 86 characters. Kind and low pressure — last ask. Example output: "Last one from us — we'd still love your feedback if you get a moment!"`
           : `Write a final follow-up email for "${businessName}" to a customer who gave a high rating but hasn't shared their experience after two reminders. Kind, no-pressure tone. A link is waiting below. Use {{first_name}}, {{business_name}}. 2–3 sentences. Start with "Hi {{first_name}}," — just the body, no subject, no sign-off, no link.`;
         openingPrompt = !isSMS ? `Write a short, gentle subject line for a final follow-up email from "${businessName}" asking a happy customer to share their experience. No quotes.` : "";
 
@@ -1392,14 +1392,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (isSmsFollowUp) {
         // Collapse newlines and extra spaces — SMS is single-line
         body = body.replace(/\s*\n+\s*/g, " ").replace(/\s{2,}/g, " ").trim();
-      }
-      if (isSmsFollowUp && body.length > SMS_FOLLOW_UP_LIMIT) {
-        // Strip greeting ("Hi {{first_name}}, " etc.) to save space
-        body = body.replace(/^Hi \{\{first_name\}\}[,!.]?\s*/i, "");
-      }
-      if (isSmsFollowUp && body.length > SMS_FOLLOW_UP_LIMIT) {
-        // Hard truncate at last word boundary within limit
-        body = body.slice(0, SMS_FOLLOW_UP_LIMIT).replace(/\s+\S*$/, "").trimEnd();
+        // Always strip any greeting the AI added — SMS follow-ups never start with Hi/Dear/name
+        body = body.replace(/^(Hi|Hello|Hey|Dear)\b[^,!.]*[,!.]?\s*/i, "");
+        // Capitalise first letter after stripping
+        body = body.charAt(0).toUpperCase() + body.slice(1);
+        // Hard truncate at word boundary if still over limit
+        if (body.length > SMS_FOLLOW_UP_LIMIT) {
+          body = body.slice(0, SMS_FOLLOW_UP_LIMIT).replace(/\s+\S*$/, "").trimEnd();
+        }
       }
 
       res.json({
