@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import {
   Send, Clock, CheckCircle2, ArrowRight, Plus, BarChart2,
   Eye, Users, Star, MessageSquare, Play, AlertCircle, Mail,
-  FileText, Settings as SettingsIcon
+  FileText, Settings as SettingsIcon, X
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -213,6 +213,10 @@ export default function Dashboard() {
   const [showIntro, setShowIntro] = useState(false);
   const [videoWatched, setVideoWatched] = useState(!INTRO_VIDEO_URL);
   const [respondingTo, setRespondingTo] = useState<any>(null);
+  const ignoreFeedbackMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("PATCH", `/api/private-feedback/${id}/ignore`, {}),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/private-feedback"] }),
+  });
   const [quote] = useState(() => inspirationalQuotes[Math.floor(Math.random() * inspirationalQuotes.length)]);
   const { user } = useAuth();
   const { toast } = useToast();
@@ -253,9 +257,9 @@ export default function Dashboard() {
     queryKey: ["/api/activity"],
   });
 
-  const { data: customers } = useQuery<Customer[]>({ queryKey: ["/api/customers"] });
+  const { data: customers } = useQuery<Customer[]>({ queryKey: ["/api/customers"], refetchInterval: 15000 });
   const { data: settings } = useQuery<Settings>({ queryKey: ["/api/settings"] });
-  const { data: privateFeedback = [] } = useQuery<any[]>({ queryKey: ["/api/private-feedback"] });
+  const { data: privateFeedback = [] } = useQuery<any[]>({ queryKey: ["/api/private-feedback"], refetchInterval: 15000 });
   const { data: allRequests = [] } = useQuery<ReviewRequest[]>({ queryKey: ["/api/review-requests"] });
 
   const pendingFollowUp = customers?.filter(c => c.status === "request_sent" && !c.doNotContact) || [];
@@ -513,10 +517,9 @@ export default function Dashboard() {
                 {unrespondedFeedback.slice(0, 4).map((f: any) => (
                   <div
                     key={f.id}
-                    onClick={() => setRespondingTo(f)}
-                    className="flex items-start gap-2 p-2.5 rounded-lg hover:bg-accent transition-colors cursor-pointer"
+                    className="flex items-start gap-2 p-2.5 rounded-lg hover:bg-accent transition-colors"
                   >
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setRespondingTo(f)}>
                       <div className="flex items-center gap-1.5 mb-0.5">
                         <p className="text-[13px] font-medium truncate">{f.customer_name}</p>
                         <div className="flex">
@@ -527,7 +530,22 @@ export default function Dashboard() {
                       </div>
                       <p className="text-[11.5px] text-muted-foreground truncate italic">"{f.message}"</p>
                     </div>
-                    <ArrowRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button
+                        onClick={() => setRespondingTo(f)}
+                        className="p-1 rounded hover:bg-background text-muted-foreground hover:text-foreground transition-colors"
+                        title="Respond"
+                      >
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => ignoreFeedbackMutation.mutate(f.id)}
+                        className="p-1 rounded hover:bg-background text-muted-foreground hover:text-destructive transition-colors"
+                        title="Ignore"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </CardContent>

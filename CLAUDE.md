@@ -381,3 +381,37 @@ Your job is to be the developer they would hire if they could afford a great one
 - Instagram auto-posting still not built
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
 - **Next feature ideas discussed**: QR code (quick win), Zapier webhook for auto-adding customers (high impact), re-engagement campaigns for past customers
+
+### Session — 2026-03-26 (thirty-fourth session)
+
+**Tasks completed:**
+- **Template reset-defaults bug fixed**: Root cause was `created_at` column in INSERT — that column doesn't exist in schema. Removed it and added try-catch to surface errors properly. Reset button now works on all tabs.
+- **migrate.ts INSERT fix**: Same `created_at` issue existed in two new-account seeding INSERT statements. Both fixed.
+- **Private feedback auto-refresh**: Dashboard private feedback and customers queries now use `refetchInterval: 15000` — new feedback appears within 15 seconds without page reload.
+- **Response template subjects fixed**: `{{business_name}}` removed from `response_positive` and `response_negative` email subjects. New defaults: "Thank you for your rating" (positive) and "We'd love to make this right" (negative). Fixed in migrate.ts (unconditional UPDATE) and Templates.tsx defaults.
+- **WhatsApp response template bodies fixed**: DB had fragment values ("Thanks again," / "Please reply..."). Fixed by unconditional UPDATE in migrate.ts to canonical bodies across all response template rows.
+- **`{{owner_name}}` merge tag added**: Resolves to first name from Settings → "Your Name". Added to: rating endpoint resolver, test-send resolver, follow-up runner (storage.ts), email.ts send functions, and Templates.tsx preview/merge-tags list. Sign-off `{{owner_name}}\n{{business_name}}` added to all response template defaults.
+- **Email follow-up templates now include rating link**: Previously used `sendPreScreenEmail` (which ignores template body and sends a fixed star-rating format). Changed to new `sendFollowUpEmail` function in email.ts that sends the template body + a "Rate your experience →" CTA button, with the rating link auto-appended.
+- **Subject field hidden on email response templates**: After 4–5★ and After 1–3★ slots on the email tab no longer show a subject field in the card view — they display in a pop-up, not as emails.
+- **Opening line hidden in email response template editor**: Email tab for response templates hides the Opening line field (only relevant for SMS/WA pop-up display).
+- **Test button removed from response template slots**: After 4–5★ and After 1–3★ slots across all tabs no longer show a Test button — they're not sent as messages.
+- **Canonical defaults enforced everywhere**: New account seeding (routes.ts), migrate.ts unconditional UPDATEs, and reset-defaults endpoint all use identical template bodies/subjects. Any new account or reset will get the same clean defaults.
+- **Private feedback ignore button**: New `PATCH /api/private-feedback/:id/ignore` endpoint sets `responded = true`. X button added to each feedback row on Dashboard — dismisses item from "Needs Response" list without sending a reply. Arrow button retained for full respond dialog.
+- **Tutorials & Guides fully updated**: How-to for templates updated ({{owner_name}}, response pop-up behaviour, Reset to Defaults). Private feedback how-to updated (respond vs ignore, auto-refresh). Two new video entries added (private feedback, CSV export). Tips updated ({{owner_name}} in personalisation tip, ignore flow in private feedback tip).
+
+**Architecture notes:**
+- `sendFollowUpEmail` in email.ts: takes customer, settings, ratingLink, template — sends template body + "Rate your experience →" button. `{{owner_name}}` resolved from `settings.ownerName.split(" ")[0]`
+- Response templates (response_positive / response_negative): displayed in ReviewLanding pop-up only — never sent as email/SMS. Subject field = "opening line" shown in bold above body in the dialog
+- Canonical positive body: `"We hope you enjoyed your experience with {{business_name}} and our {{service_type}}!...{{owner_name}}\n{{business_name}}"`
+- Canonical negative body: `"We would appreciate your feedback on how we can improve for next time and will be in touch.\n\nMany thanks,\n{{owner_name}}\n{{business_name}}"`
+- `{{service_type}}` strip: regex removes `" and our {{service_type}}"` at resolve time if service type is empty
+- Ignore endpoint: `PATCH /api/private-feedback/:id/ignore` → sets `responded=true, response='ignored'` — reuses existing `updatePrivateFeedback` in storage.ts
+
+**Notes for next session:**
+- **⚠️ SERVER RESTART REQUIRED** for all pending migrations: `email_unsubscribed`, follow-up subject fixes, response template body/subject fixes, `positive_template_id`/`negative_template_id` columns, canonical template resets
+- **⚠️ TWILIO WEBHOOK NOT YET ACTIVATED** — must set `https://reviewoptic.com/api/webhooks/twilio-inbound` in Twilio console
+- **Referral programme activation**: needs (1) server route `GET /referral/:slug` → redirect to `/signup?ref={accountId}`, (2) store `referred_by_account_id` on new accounts, (3) admin view, (4) update offer text
+- `POST /api/reviews` endpoint still orphaned in routes.ts — safe to remove
+- Instagram auto-posting still not built
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+- **Next feature ideas**: QR code (quick win), Zapier webhook for auto-adding customers (high impact), re-engagement campaigns for past customers

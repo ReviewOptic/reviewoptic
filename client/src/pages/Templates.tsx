@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/hooks/use-auth";
 
-const MERGE_TAGS = ["{{first_name}}", "{{customer_name}}", "{{business_name}}", "{{service_type}}"];
+const MERGE_TAGS = ["{{first_name}}", "{{customer_name}}", "{{business_name}}", "{{owner_name}}", "{{service_type}}"];
 
 const channelIcons: Record<string, React.ReactNode> = {
   email: <Mail className="w-3.5 h-3.5" />,
@@ -223,7 +223,7 @@ function TemplateEditor({ template, onCancel, textOnly = false }: { template: Te
   const [audioUrl, setAudioUrl] = useState(template.audioUrl || "");
   const [mode, setMode] = useState<"text" | "video" | "audio">(textOnly ? "text" : template.videoUrl ? "video" : template.audioUrl ? "audio" : "text");
   const [bodyEl, setBodyEl] = useState<HTMLTextAreaElement | null>(null);
-  const { data: settings } = useQuery<{ logoUrl: string; logoPosition: string }>({ queryKey: ["/api/settings"] });
+  const { data: settings } = useQuery<{ logoUrl: string; logoPosition: string; ownerName: string }>({ queryKey: ["/api/settings"] });
   const [logoPosition, setLogoPosition] = useState<string>(settings?.logoPosition || "left");
   const logoPosMutation = useMutation({
     mutationFn: (pos: string) => apiRequest("PATCH", "/api/settings", { logoPosition: pos }),
@@ -265,11 +265,13 @@ function TemplateEditor({ template, onCancel, textOnly = false }: { template: Te
   const isSmsWarning = template.channel === "sms" && !isResponseTemplate && charCount > smsCharLimit;
   const availableMergeTags = MERGE_TAGS;
 
-  // Preview with sample data
+  // Preview with sample data (owner_name uses real value from settings)
+  const ownerFirstName = (settings?.ownerName || "").split(" ")[0] || "Emma";
   const preview = body
     .replace(/{{first_name}}/g, "Sarah")
     .replace(/{{customer_name}}/g, "Sarah Jones")
     .replace(/{{business_name}}/g, "Clean Pro Services")
+    .replace(/{{owner_name}}/g, ownerFirstName)
     .replace(/{{service_type}}/g, "House Cleaning")
     .replace(/{{review_link}}/g, "https://reviewoptic.app/r/abc123");
 
@@ -306,7 +308,7 @@ function TemplateEditor({ template, onCancel, textOnly = false }: { template: Te
 
       {mode === "text" && (
         <>
-          {isResponseTemplate ? (
+          {isResponseTemplate && template.channel !== "email" ? (
             <div className="space-y-1.5">
               <Label className="text-[12.5px]">Opening line</Label>
               <Input value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g. Thank you so much for your rating!" className="text-[13px]" data-testid="input-template-subject" />
@@ -436,16 +438,16 @@ const TEMPLATE_SLOTS: {
     label: "After 4-5★ Rating",
     description: "Shown to customers who give a high rating. Appears as a message in the pop-up after they rate.",
     textOnly: true,
-    defaultSubject: "Thank you for your rating — {{business_name}}",
-    defaultBody: "Thank you so much for your rating! If you have a moment, we'd really appreciate it if you could share your experience with others on one of our review pages below.\n\nThanks,\n{{business_name}}",
+    defaultSubject: "Thank you for your rating",
+    defaultBody: "We hope you enjoyed your experience with {{business_name}} and our {{service_type}}! Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!\n\n{{owner_name}}\n{{business_name}}",
   },
   {
     type: "response_negative",
     label: "After 1-3★ Rating",
     description: "Shown to customers who give a low rating. Appears as a message in the pop-up after they rate.",
     textOnly: true,
-    defaultSubject: "We'd love to make this right — {{business_name}}",
-    defaultBody: "Thank you for your feedback — we're sorry to hear your experience didn't meet expectations. We'd love the chance to make it right.\n\nPlease reply to this message and we'll be in touch shortly.\n\nThanks,\n{{business_name}}",
+    defaultSubject: "We'd love to make this right",
+    defaultBody: "We would appreciate your feedback on how we can improve for next time and will be in touch.\n\nMany thanks,\n{{owner_name}}\n{{business_name}}",
   },
   {
     type: "follow_up_1",
@@ -546,9 +548,11 @@ function TemplateSlot({ slot, template, channel, isReadOnly }: {
           {!editing && !isReadOnly && (
             effectiveTemplate ? (
               <div className="flex items-center gap-1.5 flex-shrink-0">
-                <Button variant="ghost" size="sm" className="h-7 text-[12px] gap-1 text-muted-foreground hover:text-foreground" onClick={() => sendTest()} disabled={testSending} title="Send a test to yourself">
-                  <Send className="w-3 h-3" />{testSending ? "Sending..." : "Test"}
-                </Button>
+                {slot.type !== "response_positive" && slot.type !== "response_negative" && (
+                  <Button variant="ghost" size="sm" className="h-7 text-[12px] gap-1 text-muted-foreground hover:text-foreground" onClick={() => sendTest()} disabled={testSending} title="Send a test to yourself">
+                    <Send className="w-3 h-3" />{testSending ? "Sending..." : "Test"}
+                  </Button>
+                )}
                 <Button variant="outline" size="sm" className="h-7 text-[12px] gap-1" onClick={() => setEditing(true)}>
                   <Edit2 className="w-3 h-3" /> Edit
                 </Button>
@@ -566,7 +570,7 @@ function TemplateSlot({ slot, template, channel, isReadOnly }: {
           <TemplateEditor template={effectiveTemplate} textOnly={slot.textOnly} onCancel={() => setEditing(false)} />
         ) : effectiveTemplate ? (
           <div className="space-y-2">
-            {effectiveTemplate.subject && (
+            {effectiveTemplate.subject && !(slot.type === "response_positive" || slot.type === "response_negative") && (
               <div>
                 <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide mb-0.5">Subject</p>
                 <p className="text-[13px]">{effectiveTemplate.subject}</p>

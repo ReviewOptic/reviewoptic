@@ -26,7 +26,7 @@ const VIDEOS = [
   },
   {
     title: "How to customise your templates",
-    description: "How to edit your message templates so they sound like you, not a generic message — including how to use the Test button and AI generation.",
+    description: "How to edit your message templates so they sound like you — including merge tags ({{owner_name}}, {{first_name}}, etc.), the Test button, AI generation, and how After 4–5★ / After 1–3★ templates work.",
     duration: "3 min",
     url: "", // paste YouTube embed URL here
   },
@@ -84,6 +84,18 @@ const VIDEOS = [
     duration: "1 min",
     url: "", // paste YouTube embed URL here
   },
+  {
+    title: "How to handle private feedback",
+    description: "How to respond to 1–3★ private feedback, ignore items you don't need to act on, and use the dashboard to track what needs attention.",
+    duration: "2 min",
+    url: "", // paste YouTube embed URL here
+  },
+  {
+    title: "How to export your customer data",
+    description: "How to download a CSV of your customer list — including status, star ratings, and send dates — for reporting or record-keeping.",
+    duration: "1 min",
+    url: "", // paste YouTube embed URL here
+  },
 ];
 // ───────────────────────────────────────────────────────────────────────────
 
@@ -99,7 +111,7 @@ const TIPS = [
   },
   {
     tip: "Sound like yourself, not a template",
-    detail: "Edit your templates to use your natural voice. Customers can tell when a message is robotic. A personal-sounding message gets far more responses than a generic one.",
+    detail: "Edit your templates to use your natural voice. Use {{owner_name}} to sign off with your first name (pulled from 'Your Name' in Settings) — it makes every message feel personal. Use {{first_name}} for the customer's name. Customers can tell when a message is robotic — a personal-sounding message gets far more responses than a generic one.",
   },
   {
     tip: "Timing matters more than you think",
@@ -119,7 +131,7 @@ const TIPS = [
   },
   {
     tip: "Private feedback is a gift — use it",
-    detail: "When a customer rates 1–3 stars, they're giving you something most businesses never get: an honest reason to improve before it becomes a public complaint. Read every piece of private feedback and act on it. Customers who feel heard often become your biggest advocates.",
+    detail: "When a customer rates 1–3 stars, they're giving you something most businesses never get: an honest reason to improve before it becomes a public complaint. Click the arrow to respond directly to them by email, SMS, or WhatsApp. If it's a one-off and you've already handled it offline, hit the X to dismiss it. Either way, keep the list clear so real issues don't get buried.",
   },
   {
     tip: "Google is usually the priority",

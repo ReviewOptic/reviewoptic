@@ -3,7 +3,7 @@ import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import pkg from "pg";
 const { Pool } = pkg;
 import { randomUUID } from "crypto";
-import { sendPreScreenEmail, sendShareRatingEmail } from "./email";
+import { sendPreScreenEmail, sendShareRatingEmail, sendFollowUpEmail } from "./email";
 import { sendReviewSMS, sendWhatsAppMessage } from "./sms";
 import {
   accounts, customers, reviewRequests, reviews, privateFeedback, activityLog, templates, settings, users, passwordResetTokens, adminImpersonationLog,
@@ -456,11 +456,13 @@ export class DatabaseStorage implements IStorage {
         const smsLink = `${appUrl}/r/${newRequestId}`;
         const firstName = customer.name.split(" ")[0];
 
+        const ownerFirstName = (s.ownerName || "").split(" ")[0];
         const resolveBody = (tmpl: any, link = ratingLink) => tmpl?.body
           ? tmpl.body
               .replace(/\{\{customer_name\}\}/g, customer.name)
               .replace(/\{\{first_name\}\}/g, firstName)
               .replace(/\{\{business_name\}\}/g, s.businessName)
+              .replace(/\{\{owner_name\}\}/g, ownerFirstName)
               .replace(/\{\{service_type\}\}/g, customer.serviceType || "")
               .replace(/\{\{review_link\}\}/g, "")
               .trim() + `\n${link}`
@@ -479,8 +481,11 @@ export class DatabaseStorage implements IStorage {
               console.error(`[follow-up] Failed to send share-rating email to ${customer.email}:`, err.message)
             );
           } else {
-            // Not yet rated — re-send the pre-screen star rating email
-            sendPreScreenEmail(customer, s, newRequestId, appUrl).catch(err =>
+            // Not yet rated — send follow-up email using the follow-up template body + "Rate your experience" button
+            const fuTmpl = allTemplates.find(t => t.channel === "email" && t.templateType === templateType && t.isDefault)
+              || allTemplates.find(t => t.channel === "email" && t.templateType === templateType)
+              || null;
+            sendFollowUpEmail(customer, s, ratingLink, fuTmpl).catch(err =>
               console.error(`[follow-up] Failed to send email to ${customer.email}:`, err.message)
             );
           }

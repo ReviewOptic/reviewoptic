@@ -370,8 +370,8 @@ export async function runMigrations() {
     for (const slot of fuSlots) {
       for (const [channel, body] of [["sms", slot.smsBody], ["whatsapp", slot.waBody]] as const) {
         await pool.query(`
-          INSERT INTO templates (id, account_id, name, template_type, channel, is_default, subject, body, preferred_platform, video_url, audio_url, created_at, updated_at)
-          SELECT gen_random_uuid(), a.id, $1, $2, $3, true, '', $4, '', null, null, NOW(), NOW()
+          INSERT INTO templates (id, account_id, name, template_type, channel, is_default, subject, body, preferred_platform, video_url, audio_url, updated_at)
+          SELECT gen_random_uuid(), a.id, $1, $2, $3, true, '', $4, '', null, null, NOW()
           FROM (SELECT DISTINCT account_id AS id FROM templates) a
           WHERE NOT EXISTS (
             SELECT 1 FROM templates t2
@@ -381,38 +381,44 @@ export async function runMigrations() {
       }
     }
 
-    // Force-set SMS follow-up bodies — always overwrite to ensure correct length and no greeting
-    const r1 = await pool.query(`UPDATE templates SET body = 'Just a quick follow-up from {{business_name}} — we''d love to hear how we did!' WHERE template_type = 'follow_up_1' AND channel = 'sms'`);
-    const r2 = await pool.query(`UPDATE templates SET body = 'Your feedback means a lot to us — tap below when you''re ready!\n{{business_name}}' WHERE template_type = 'follow_up_2' AND channel = 'sms'`);
-    const r3 = await pool.query(`UPDATE templates SET body = 'Last one from us! If you get a moment, we''d love your feedback.\n{{business_name}}' WHERE template_type = 'follow_up_3' AND channel = 'sms'`);
-    console.log(`[migrate] SMS follow-up fix: fu1=${r1.rowCount} fu2=${r2.rowCount} fu3=${r3.rowCount} rows updated`);
-    const { rows: smsCheck } = await pool.query(`SELECT template_type, channel, LEFT(body, 60) AS body_preview FROM templates WHERE channel = 'sms' AND template_type LIKE 'follow_up%' LIMIT 10`);
-    console.log("[migrate] SMS follow-up templates in DB:", JSON.stringify(smsCheck));
-    // Force-set WhatsApp follow-up bodies
+    // ── Canonical template defaults — applied unconditionally to all existing accounts ──
+    const posBody = `We hope you enjoyed your experience with {{business_name}} and our {{service_type}}! Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!\n\n{{owner_name}}\n{{business_name}}`;
+    const negBody = `We would appreciate your feedback on how we can improve for next time and will be in touch.\n\nMany thanks,\n{{owner_name}}\n{{business_name}}`;
+
+    // Response templates — body same across all channels
+    await pool.query(`UPDATE templates SET body = $1 WHERE template_type = 'response_positive'`, [posBody]);
+    await pool.query(`UPDATE templates SET body = $1 WHERE template_type = 'response_negative'`, [negBody]);
+    // Response template subjects (email only)
+    await pool.query(`UPDATE templates SET subject = 'Thank you for your rating' WHERE template_type = 'response_positive' AND channel = 'email'`);
+    await pool.query(`UPDATE templates SET subject = 'We''d love to make this right' WHERE template_type = 'response_negative' AND channel = 'email'`);
+
+    // Email follow-ups — unconditional body + subject update
+    await pool.query(`UPDATE templates SET body = 'Just a quick follow-up from {{business_name}} — we''d love to hear how we did!\n\nTap the link below to leave your rating.\n\nThanks,\n{{owner_name}}\n{{business_name}}', subject = 'Just checking in' WHERE template_type IN ('follow_up', 'follow_up_1') AND channel = 'email'`);
+    await pool.query(`UPDATE templates SET body = 'We know you''re busy, but your feedback really means a lot to {{business_name}}!\n\nTap the link below whenever you''re ready.\n\nThanks,\n{{owner_name}}\n{{business_name}}', subject = 'A polite reminder' WHERE template_type = 'follow_up_2' AND channel = 'email'`);
+    await pool.query(`UPDATE templates SET body = 'This is our last message, we promise! If you ever have a moment, we''d still love to hear from you.\n\nTap the link below.\n\nThanks,\n{{owner_name}}\n{{business_name}}', subject = 'We''d still love to hear from you' WHERE template_type = 'follow_up_3' AND channel = 'email'`);
+
+    // SMS follow-ups
+    await pool.query(`UPDATE templates SET body = 'Just a quick follow-up from {{business_name}} — we''d love to hear how we did!' WHERE template_type = 'follow_up_1' AND channel = 'sms'`);
+    await pool.query(`UPDATE templates SET body = 'Your feedback means a lot to us — tap below when you''re ready!\n{{business_name}}' WHERE template_type = 'follow_up_2' AND channel = 'sms'`);
+    await pool.query(`UPDATE templates SET body = 'Last one from us! If you get a moment, we''d love your feedback.\n{{business_name}}' WHERE template_type = 'follow_up_3' AND channel = 'sms'`);
+
+    // WhatsApp follow-ups
     await pool.query(`UPDATE templates SET body = '😊 Just a quick follow-up from {{business_name}} — we''d love to hear how we did! Tap the link below when you get a moment 👇' WHERE template_type = 'follow_up_1' AND channel = 'whatsapp'`);
     await pool.query(`UPDATE templates SET body = '💛 Your feedback really means a lot to us! Whenever you''re ready, just tap the link below — we appreciate it 🙏\n\n{{business_name}}' WHERE template_type = 'follow_up_2' AND channel = 'whatsapp'`);
     await pool.query(`UPDATE templates SET body = '🙏 Last message from us, we promise! If you ever get a moment, we''d genuinely love to hear from you.\n\n{{business_name}}' WHERE template_type = 'follow_up_3' AND channel = 'whatsapp'`);
-    // Email follow-ups — fix greeting and "The {{business_name}} team" sign-off
-    await pool.query(`UPDATE templates SET body = 'Just a quick follow-up from {{business_name}} — we''d love to hear how we did!\n\nTap the link below to leave your rating.\n\nThanks,\n{{business_name}}' WHERE template_type IN ('follow_up', 'follow_up_1') AND channel = 'email' AND (body ILIKE 'Hi {{first_name}}%' OR body LIKE '%The {{business_name}} team%')`);
-    await pool.query(`UPDATE templates SET body = 'We know you''re busy, but your feedback really means a lot to {{business_name}}!\n\nTap the link below whenever you''re ready.\n\nThanks,\n{{business_name}}' WHERE template_type = 'follow_up_2' AND channel = 'email' AND (body ILIKE 'Hi {{first_name}}%' OR body LIKE '%The {{business_name}} team%')`);
-    await pool.query(`UPDATE templates SET body = 'This is our last message, we promise! If you ever have a moment, we''d still love to hear from you.\n\nTap the link below.\n\nThanks,\n{{business_name}}' WHERE template_type = 'follow_up_3' AND channel = 'email' AND (body ILIKE 'Hi {{first_name}}%' OR body LIKE '%The {{business_name}} team%')`);
-    // Response templates — remove "Hi {{first_name}}" and "The {{business_name}} team"
-    await pool.query(`UPDATE templates SET body = 'Thank you so much for your rating! If you have a moment, we''d really appreciate it if you could share your experience with others on one of our review pages below.\n\nThanks,\n{{business_name}}' WHERE template_type = 'response_positive' AND (body ILIKE 'Hi {{first_name}}%' OR body LIKE '%The {{business_name}} team%')`);
-    await pool.query(`UPDATE templates SET body = 'Thank you for your feedback — we''re sorry to hear your experience didn''t meet expectations. We''d love the chance to make it right.\n\nPlease reply to this message and we''ll be in touch shortly.\n\nThanks,\n{{business_name}}' WHERE template_type = 'response_negative' AND (body ILIKE 'Hi {{first_name}}%' OR body LIKE '%The {{business_name}} team%')`);
-    // Create email follow_up_1/2/3 for accounts that only have the old "follow_up" type
-    for (const [type, name, body] of [
-      ["follow_up_1", "Follow-up 1", "Just a quick follow-up from {{business_name}} — we'd love to hear how we did!\n\nTap the link below to leave your rating.\n\nThanks,\n{{business_name}}"],
-      ["follow_up_2", "Follow-up 2", "We know you're busy, but your feedback really means a lot to {{business_name}}!\n\nTap the link below whenever you're ready.\n\nThanks,\n{{business_name}}"],
-      ["follow_up_3", "Follow-up 3", "This is our last message, we promise! If you ever have a moment, we'd still love to hear from you.\n\nTap the link below.\n\nThanks,\n{{business_name}}"],
+
+    // Create email follow_up_1/2/3 for any accounts that still only have the old "follow_up" type
+    for (const [type, name, subject, body] of [
+      ["follow_up_1", "Follow-up 1", "Just checking in", "Just a quick follow-up from {{business_name}} — we'd love to hear how we did!\n\nTap the link below to leave your rating.\n\nThanks,\n{{owner_name}}\n{{business_name}}"],
+      ["follow_up_2", "Follow-up 2", "A polite reminder", "We know you're busy, but your feedback really means a lot to {{business_name}}!\n\nTap the link below whenever you're ready.\n\nThanks,\n{{owner_name}}\n{{business_name}}"],
+      ["follow_up_3", "Follow-up 3", "We'd still love to hear from you", "This is our last message, we promise! If you ever have a moment, we'd still love to hear from you.\n\nTap the link below.\n\nThanks,\n{{owner_name}}\n{{business_name}}"],
     ] as const) {
       await pool.query(`
-        INSERT INTO templates (id, account_id, name, template_type, channel, is_default, subject, body, preferred_platform, video_url, audio_url, created_at, updated_at)
-        SELECT gen_random_uuid(), a.id, $1, $2, 'email', true, '', $3, '', null, null, NOW(), NOW()
+        INSERT INTO templates (id, account_id, name, template_type, channel, is_default, subject, body, preferred_platform, video_url, audio_url, updated_at)
+        SELECT gen_random_uuid(), a.id, $1, $2, 'email', true, $3, $4, '', null, null, NOW()
         FROM (SELECT DISTINCT account_id AS id FROM templates) a
-        WHERE NOT EXISTS (
-          SELECT 1 FROM templates t2 WHERE t2.account_id = a.id AND t2.template_type = $2 AND t2.channel = 'email'
-        )
-      `, [name, type, body]);
+        WHERE NOT EXISTS (SELECT 1 FROM templates t2 WHERE t2.account_id = a.id AND t2.template_type = $2 AND t2.channel = 'email')
+      `, [name, type, subject, body]);
     }
 
     console.log("[migrate] Migrations complete");
