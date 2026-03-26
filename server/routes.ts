@@ -1623,18 +1623,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     };
     const channelDefaults = defaults[channel];
     if (!channelDefaults) return res.status(400).json({ message: "Invalid channel" });
+    const types = Object.keys(channelDefaults);
+    // Delete all existing fixed-slot templates for this channel, then re-insert clean ones
+    await pool.query(
+      `DELETE FROM templates WHERE account_id = $1 AND channel = $2 AND template_type = ANY($3)`,
+      [accountId, channel, types]
+    );
     for (const [type, vals] of Object.entries(channelDefaults)) {
-      if (vals.subject !== undefined) {
-        await pool.query(
-          `UPDATE templates SET body = $1, subject = $2, updated_at = NOW() WHERE account_id = $3 AND template_type = $4 AND channel = $5`,
-          [vals.body, vals.subject, accountId, type, channel]
-        );
-      } else {
-        await pool.query(
-          `UPDATE templates SET body = $1, updated_at = NOW() WHERE account_id = $2 AND template_type = $3 AND channel = $4`,
-          [vals.body, accountId, type, channel]
-        );
-      }
+      const names: Record<string, string> = { response_positive: "After 4–5★ Rating", response_negative: "After 1–3★ Rating", follow_up_1: "Follow-up 1", follow_up_2: "Follow-up 2", follow_up_3: "Follow-up 3" };
+      await pool.query(
+        `INSERT INTO templates (id, account_id, name, template_type, channel, is_default, subject, body, preferred_platform, created_at, updated_at) VALUES (gen_random_uuid(), $1, $2, $3, $4, true, $5, $6, '', NOW(), NOW())`,
+        [accountId, names[type] || type, type, channel, vals.subject || '', vals.body]
+      );
     }
     res.json({ ok: true });
   });
