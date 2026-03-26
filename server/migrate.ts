@@ -300,6 +300,10 @@ export async function runMigrations() {
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS auto_review_requested_at TIMESTAMP`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS auto_review_follow_ups INTEGER NOT NULL DEFAULT 0`);
 
+    // Per-request response template overrides
+    await pool.query(`ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS positive_template_id TEXT`);
+    await pool.query(`ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS negative_template_id TEXT`);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();

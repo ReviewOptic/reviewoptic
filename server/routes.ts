@@ -1041,7 +1041,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
 
       const templateType = rating >= 4 ? "response_positive" : "response_negative";
-      const responseTemplate = allTemplates.find(t => t.templateType === templateType && t.channel === request.channel && t.isDefault)
+      // Use per-request template override if set, otherwise fall back to account default
+      const { rows: rrMeta } = await pool.query(
+        `SELECT positive_template_id, negative_template_id FROM review_requests WHERE id = $1`,
+        [request.id]
+      ).catch(() => ({ rows: [] as any[] }));
+      const storedTemplateId = rating >= 4 ? rrMeta[0]?.positive_template_id : rrMeta[0]?.negative_template_id;
+      const responseTemplate = (storedTemplateId ? allTemplates.find(t => t.id === storedTemplateId) : null)
+        || allTemplates.find(t => t.templateType === templateType && t.channel === request.channel && t.isDefault)
         || allTemplates.find(t => t.templateType === templateType && t.channel === request.channel)
         || null;
 
@@ -1347,6 +1354,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (templateId) {
       await pool.query(`UPDATE review_requests SET template_id = $1 WHERE id = $2`, [templateId, rr.id]).catch(() => {});
     }
+    const positiveTemplateId: string | undefined = req.body.positiveTemplateId || undefined;
+    const negativeTemplateId: string | undefined = req.body.negativeTemplateId || undefined;
+    if (positiveTemplateId) {
+      await pool.query(`UPDATE review_requests SET positive_template_id = $1 WHERE id = $2`, [positiveTemplateId, rr.id]).catch(() => {});
+    }
+    if (negativeTemplateId) {
+      await pool.query(`UPDATE review_requests SET negative_template_id = $1 WHERE id = $2`, [negativeTemplateId, rr.id]).catch(() => {});
+    }
     // If a recording was sent, store its URL so the landing page can show it after rating
     const recordingId: string | undefined = req.body.recordingId || undefined;
     if (recordingId) {
@@ -1385,21 +1400,35 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const ratingLink = `${appUrl}/review?rid=${rr.id}`;
     const firstName = customer.name.split(" ")[0];
 
+    // Load custom template body if one was selected (SMS/WhatsApp only)
+    let customTemplateBody: string | null = null;
+    if (templateId && (channel === "sms" || channel === "whatsapp")) {
+      const { rows: tRows } = await pool.query(
+        `SELECT body FROM templates WHERE id = $1 AND account_id = $2`,
+        [templateId, req.session.accountId]
+      ).catch(() => ({ rows: [] as any[] }));
+      if (tRows.length > 0) {
+        customTemplateBody = tRows[0].body
+          .replace(/\{\{customer_name\}\}/g, customer.name)
+          .replace(/\{\{first_name\}\}/g, firstName)
+          .replace(/\{\{business_name\}\}/g, settings?.businessName || "")
+          .replace(/\{\{service_type\}\}/g, customer.serviceType || "")
+          .replace(/\{\{review_link\}\}/g, ratingLink);
+      }
+    }
+
     // Schedule the actual send — fires immediately if sendDelay is 0
-    // Initial outreach is a fixed system message — not a template
+    // Email always uses fixed pre-screen stars; SMS/WhatsApp use custom template body if provided
     setTimeout(async () => {
       if (!settings) return;
       try {
         if (channel === "email" && customer.email) {
           await sendPreScreenEmail(customer, settings, rr.id, appUrl);
         } else if (channel === "sms" && customer.phone) {
-          const fixedTemplate = {
-            subject: "",
-            body: `Hi ${firstName}, how would you rate your experience with ${settings.businessName}? Tap here to let us know: ${ratingLink}`,
-          };
-          await sendReviewSMS(customer, settings, fixedTemplate as any, []);
+          const body = customTemplateBody || `Hi ${firstName}, how would you rate your experience with ${settings.businessName}? Tap here to let us know: ${ratingLink}`;
+          await sendReviewSMS(customer, settings, { subject: "", body } as any, []);
         } else if (channel === "whatsapp" && customer.phone) {
-          const body = `Hi ${firstName} 👋 Thanks for choosing ${settings.businessName}! How would you rate your experience? Tap here to let us know: ${ratingLink}`;
+          const body = customTemplateBody || `Hi ${firstName} 👋 Thanks for choosing ${settings.businessName}! How would you rate your experience? Tap here to let us know: ${ratingLink}`;
           await sendWhatsAppMessage(customer.phone, body);
         }
       } catch (err: any) {

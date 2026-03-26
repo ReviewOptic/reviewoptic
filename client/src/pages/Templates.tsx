@@ -24,137 +24,6 @@ const channelIcons: Record<string, React.ReactNode> = {
   whatsapp: <MessageSquare className="w-3.5 h-3.5 text-green-500" />,
 };
 
-function VideoRecorder({ currentUrl, onSaved }: { currentUrl: string; onSaved: (url: string) => void }) {
-  const { toast } = useToast();
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const [state, setState] = useState<"idle" | "previewing" | "recording" | "recorded" | "uploading">("idle");
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [savedUrl, setSavedUrl] = useState(currentUrl || "");
-
-  useEffect(() => {
-    if (currentUrl) setSavedUrl(currentUrl);
-  }, [currentUrl]);
-
-  const startPreview = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.muted = true;
-        videoRef.current.play().catch(() => {});
-      }
-      setState("previewing");
-    } catch {
-      toast({ title: "Camera access denied", description: "Allow camera and microphone to record a video.", variant: "destructive" });
-    }
-  };
-
-  const startRecording = () => {
-    const stream = (videoRef.current?.srcObject as MediaStream);
-    if (!stream) return;
-    chunksRef.current = [];
-    const mr = new MediaRecorder(stream, { mimeType: "video/webm" });
-    mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-    mr.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: "video/webm" });
-      const url = URL.createObjectURL(blob);
-      setPreviewUrl(url);
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-        videoRef.current.src = url;
-        videoRef.current.muted = false;
-        videoRef.current.load();
-      }
-      stream.getTracks().forEach(t => t.stop());
-      setState("recorded");
-    };
-    mr.start();
-    mediaRecorderRef.current = mr;
-    setState("recording");
-  };
-
-  const stopRecording = () => mediaRecorderRef.current?.stop();
-
-  const reset = () => {
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setPreviewUrl(null);
-    if (videoRef.current) { videoRef.current.src = ""; videoRef.current.srcObject = null; }
-    setState("idle");
-  };
-
-  const uploadVideo = async () => {
-    if (!previewUrl) return;
-    setState("uploading");
-    try {
-      const blob = new Blob(chunksRef.current, { type: "video/webm" });
-      const formData = new FormData();
-      formData.append("video", blob, "recording.webm");
-      const res = await fetch("/api/templates/upload-video", { method: "POST", body: formData });
-      if (!res.ok) throw new Error();
-      const { url } = await res.json();
-      setSavedUrl(url);
-      onSaved(url);
-      toast({ title: "Video saved" });
-      setState("idle");
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(null);
-    } catch {
-      toast({ title: "Upload failed", variant: "destructive" });
-      setState("recorded");
-    }
-  };
-
-  return (
-    <div className="space-y-3 p-3 rounded-lg border border-border bg-muted/30">
-      <div className="flex items-center justify-between">
-        <Label className="text-[12.5px] flex items-center gap-1.5"><Video className="w-3.5 h-3.5" /> Video Message</Label>
-        {savedUrl && state === "idle" && (
-          <span className="text-[11px] text-green-600 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Video saved</span>
-        )}
-      </div>
-
-      {savedUrl && state === "idle" && (
-        <video src={savedUrl} controls className="w-full max-h-40 rounded-lg bg-black" />
-      )}
-
-      {state !== "idle" && (
-        <video ref={videoRef} className="w-full max-h-48 rounded-lg bg-black" playsInline autoPlay={state === "previewing" || state === "recording"} controls={state === "recorded"} />
-      )}
-
-      <div className="flex gap-2 flex-wrap">
-        {state === "idle" && (
-          <Button size="sm" variant="outline" className="text-[12px] h-7 gap-1.5" onClick={startPreview}>
-            <Video className="w-3.5 h-3.5" /> {savedUrl ? "Re-record" : "Record Video"}
-          </Button>
-        )}
-        {state === "previewing" && (
-          <Button size="sm" className="text-[12px] h-7 gap-1.5 bg-red-500 hover:bg-red-600" onClick={startRecording}>
-            <StopCircle className="w-3.5 h-3.5" /> Start Recording
-          </Button>
-        )}
-        {state === "recording" && (
-          <Button size="sm" className="text-[12px] h-7 gap-1.5" onClick={stopRecording} variant="destructive">
-            <StopCircle className="w-3.5 h-3.5" /> Stop Recording
-          </Button>
-        )}
-        {(state === "recorded" || state === "uploading") && (
-          <>
-            <Button size="sm" className="text-[12px] h-7 gap-1.5" onClick={uploadVideo} disabled={state === "uploading"}>
-              <Save className="w-3.5 h-3.5" /> {state === "uploading" ? "Uploading..." : "Save Video"}
-            </Button>
-            <Button size="sm" variant="outline" className="text-[12px] h-7 gap-1.5" onClick={reset} disabled={state === "uploading"}>
-              <RotateCcw className="w-3.5 h-3.5" /> Retake
-            </Button>
-          </>
-        )}
-      </div>
-      <p className="text-[11px] text-muted-foreground">Video will be attached when sending via WhatsApp or SMS.</p>
-    </div>
-  );
-}
-
 function AudioRecorder({ currentUrl, onSaved }: { currentUrl: string; onSaved: (url: string) => void }) {
   const { toast } = useToast();
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -389,7 +258,11 @@ function TemplateEditor({ template, onCancel, textOnly = false }: { template: Te
 
   const charCount = body.length;
   const isSmsWarning = template.channel === "sms" && charCount > 160;
-  const missingReviewLink = !body.includes("{{review_link}}");
+  const needsReviewLink = template.templateType !== "response_negative" && template.templateType !== "response_positive";
+  const missingReviewLink = needsReviewLink && !body.includes("{{review_link}}");
+  const availableMergeTags = (template.templateType === "response_negative" || template.templateType === "response_positive")
+    ? MERGE_TAGS.filter(t => t !== "{{review_link}}")
+    : MERGE_TAGS;
 
   // Preview with sample data
   const preview = body
@@ -493,7 +366,7 @@ function TemplateEditor({ template, onCancel, textOnly = false }: { template: Te
           <div className="space-y-1.5">
             <Label className="text-[12px] text-muted-foreground">Insert merge tags:</Label>
             <div className="flex flex-wrap gap-1.5">
-              {MERGE_TAGS.map(tag => (
+              {availableMergeTags.map(tag => (
                 <button
                   key={tag}
                   onClick={() => insertTag(tag)}
@@ -538,7 +411,7 @@ const TEMPLATE_SLOTS = [
     description: "Sent to customers who give a high rating. Can include a video or voice note.",
     textOnly: false,
     defaultSubject: "Thank you for your rating — {{business_name}}",
-    defaultBody: "Hi {{first_name}},\n\nThank you so much for your rating! If you have a moment, we'd really appreciate it if you could share your experience with others.\n\n{{review_link}}\n\nThanks again,\nThe {{business_name}} team",
+    defaultBody: "Hi {{first_name}},\n\nThank you so much for your rating! If you have a moment, we'd really appreciate it if you could share your experience with others on one of our review pages below.\n\nThanks again,\nThe {{business_name}} team",
   },
   {
     type: "response_negative",
@@ -575,6 +448,7 @@ const TEMPLATE_SLOTS = [
 ] as const;
 
 type SlotDef = typeof TEMPLATE_SLOTS[number];
+
 
 function TemplateSlot({ slot, template, channel, isReadOnly }: {
   slot: SlotDef;

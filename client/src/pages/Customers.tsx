@@ -154,17 +154,8 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
   const [channel, setChannel] = useState(() => getValidChannel(customer));
   const [delay, setDelay] = useState("now");
   const [customTime, setCustomTime] = useState("");
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
-  const [messageMode, setMessageMode] = useState<"template" | "ai">("template");
-  const [messageType, setMessageType] = useState<"text" | "voice" | "video">("text");
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
-  const [aiMessage, setAiMessage] = useState("");
-  const [customSubject, setCustomSubject] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [phonetic, setPhonetic] = useState("");
-  const [previewId, setPreviewId] = useState<string | null>(null);
-  const [isPreviewing, setIsPreviewing] = useState(false);
-  const [selectedRecordingId, setSelectedRecordingId] = useState<string | null>(null);
+  const [positiveTemplateId, setPositiveTemplateId] = useState<string>("");
+  const [negativeTemplateId, setNegativeTemplateId] = useState<string>("");
   const [emailRecordingType, setEmailRecordingType] = useState<"none" | "voice" | "video">("none");
   const [emailRecordingId, setEmailRecordingId] = useState<string | null>(null);
 
@@ -172,8 +163,21 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
   const { data: templates } = useQuery<Template[]>({ queryKey: ["/api/templates"] });
   const { data: recordings = [] } = useQuery<any[]>({ queryKey: ["/api/recordings"] });
 
-  const channelTemplates = (templates || []).filter(t => t.channel === channel && t.templateType === "review_request");
-  const selectedTemplate = channelTemplates.find(t => t.id === selectedTemplateId) ?? channelTemplates[0];
+  const positiveTemplates = (templates || []).filter(t => t.channel === channel && t.templateType === "response_positive");
+  const negativeTemplates = (templates || []).filter(t => t.channel === channel && t.templateType === "response_negative");
+
+  // Auto-select first template when templates load or channel changes
+  useEffect(() => {
+    if (positiveTemplates.length > 0 && !positiveTemplates.find(t => t.id === positiveTemplateId)) {
+      setPositiveTemplateId(positiveTemplates[0].id);
+    }
+  }, [positiveTemplates.map(t => t.id).join(","), channel]);
+
+  useEffect(() => {
+    if (negativeTemplates.length > 0 && !negativeTemplates.find(t => t.id === negativeTemplateId)) {
+      setNegativeTemplateId(negativeTemplates[0].id);
+    }
+  }, [negativeTemplates.map(t => t.id).join(","), channel]);
 
   useEffect(() => {
     if (settings?.defaultSendTime && customTime === "" && delay === "now") {
@@ -188,24 +192,10 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
   }, [settings?.defaultSendTime]);
 
   useEffect(() => {
-    if (settings?.businessName && !customSubject) {
-      setCustomSubject(`How was your experience with ${settings.businessName}?`);
-    }
-  }, [settings]);
-
-  useEffect(() => {
     setChannel(getValidChannel(customer));
   }, [customer?.id]);
 
-  useEffect(() => {
-    if (customer) setPhonetic(customer.namePronunciation || "");
-  }, [customer?.id]);
 
-  useEffect(() => {
-    if (messageMode === "template" && selectedTemplate?.subject) {
-      setCustomSubject(selectedTemplate.subject);
-    }
-  }, [selectedTemplate?.id, messageMode]);
 
   const availablePlatforms = settings ? [
     { key: "google", name: "Google", url: settings.googleReviewLink },
@@ -216,53 +206,11 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
     { key: "mybuilder", name: "MyBuilder", url: settings.mybuilderLink },
   ].filter(p => p.url) : [];
 
-  const togglePlatform = (key: string) => {
-    setSelectedPlatforms(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
-  };
 
-  const generateAIMessage = async () => {
-    setIsGenerating(true);
-    try {
-      const res = await apiRequest("POST", "/api/ai/generate-message", { customerId: customer?.id, channel });
-      const data = await res.json();
-      setAiMessage(data.message || "");
-    } catch (err: any) {
-      toast({ title: "Could not generate message", description: err?.message || String(err), variant: "destructive" });
-    } finally {
-      setIsGenerating(false);
-    }
-  };
 
-  const generatePreview = async (phon?: string) => {
-    setIsPreviewing(true);
-    setPreviewId(null);
-    const typeRecs = (recordings as any[]).filter((r: any) => r.type === messageType);
-    const activeRecId = selectedRecordingId ?? typeRecs[0]?.id ?? null;
-    try {
-      const res = await apiRequest("POST", "/api/recordings/preview", {
-        customerId: customer?.id,
-        recordingId: activeRecId,
-        phonetic: phon ?? phonetic,
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
-      setPreviewId(data.previewId);
-      // Save phonetic spelling to customer if different from their name
-      const firstName = customer?.name.split(" ")[0] || "";
-      const spellingToSave = phon ?? phonetic;
-      if (spellingToSave && spellingToSave !== firstName) {
-        await apiRequest("PATCH", `/api/customers/${customer?.id}`, { namePronunciation: spellingToSave });
-      }
-    } catch (err: any) {
-      toast({ title: "Preview failed", description: err.message, variant: "destructive" });
-    } finally {
-      setIsPreviewing(false);
-    }
-  };
-
-  const canSend = (delay === "custom" && !customTime) ? false
-    : (emailRecordingType !== "none") ? true
-    : (messageMode === "template" || aiMessage.trim().length > 0);
+  const canSend = !(delay === "custom" && !customTime)
+    && (positiveTemplates.length === 0 || !!positiveTemplateId)
+    && (negativeTemplates.length === 0 || !!negativeTemplateId);
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -274,10 +222,9 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
           : delay === "2h" ? new Date(Date.now() + 2 * 60 * 60 * 1000)
           : delay === "custom" && customTime ? new Date(customTime)
           : new Date(),
-        selectedPlatforms: availablePlatforms.filter(p => selectedPlatforms.includes(p.key)).map(p => ({ name: p.name, url: p.url })),
-        customMessage: messageMode === "ai" ? (aiMessage || undefined) : undefined,
-        customSubject: channel === "email" && customSubject ? customSubject : undefined,
-        templateId: messageMode === "template" && selectedTemplate ? selectedTemplate.id : undefined,
+        selectedPlatforms: availablePlatforms.map(p => ({ name: p.name, url: p.url })),
+        positiveTemplateId: positiveTemplateId || undefined,
+        negativeTemplateId: negativeTemplateId || undefined,
         recordingId: emailRecordingType !== "none"
           ? (emailRecordingId ?? (recordings as any[]).find((r: any) => r.type === emailRecordingType)?.id ?? undefined)
           : undefined,
@@ -314,7 +261,7 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
           {/* Channel */}
           <div className="space-y-1.5">
             <Label className="text-[12.5px]">Send via</Label>
-            <Select value={channel} onValueChange={(v) => { setChannel(v); setAiMessage(""); setSelectedTemplateId(""); setMessageType("text"); setEmailRecordingType("none"); setEmailRecordingId(null); }}>
+            <Select value={channel} onValueChange={(v) => { setChannel(v); setPositiveTemplateId(""); setNegativeTemplateId(""); setEmailRecordingType("none"); setEmailRecordingId(null); }}>
               <SelectTrigger data-testid="select-send-channel"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="email" disabled={!customer?.email}>Email</SelectItem>
@@ -363,28 +310,6 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
             })()}
           </div>
 
-          {/* Platforms */}
-          {availablePlatforms.length > 0 && (
-            <div className="space-y-1.5">
-              <Label className="text-[12.5px]">Review platforms <span className="text-muted-foreground font-normal">(select all that apply)</span></Label>
-              <div className="flex flex-wrap gap-2">
-                {availablePlatforms.map(p => (
-                  <button
-                    key={p.key}
-                    type="button"
-                    onClick={() => togglePlatform(p.key)}
-                    className={`px-3 py-1.5 rounded-lg border text-[12.5px] font-medium transition-colors ${
-                      selectedPlatforms.includes(p.key)
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-background border-border text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {p.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* After-rating media (all channels) */}
           {(() => {
@@ -431,105 +356,43 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
             );
           })()}
 
-          {emailRecordingType !== "none" ? null : (
-            /* Text message mode toggle */
-            <div className="space-y-2">
-              <Label className="text-[12.5px]">Message</Label>
-              <div className="flex gap-1 p-1 bg-muted rounded-lg">
-                <button
-                  type="button"
-                  onClick={() => { setMessageMode("template"); setAiMessage(""); }}
-                  className={`flex-1 py-1.5 rounded-md text-[12px] font-medium transition-colors ${messageMode === "template" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                >
-                  Use a template
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMessageMode("ai")}
-                  className={`flex-1 py-1.5 rounded-md text-[12px] font-medium transition-colors flex items-center justify-center gap-1.5 ${messageMode === "ai" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                >
-                  <Sparkles className="w-3 h-3" /> Generate with AI
-                </button>
-              </div>
+          {/* After 4-5★ template */}
+          <div className="space-y-1.5">
+            <Label className="text-[12.5px]">After 4–5★ rating — response template</Label>
+            {positiveTemplates.length === 0 ? (
+              <p className="text-[12px] text-muted-foreground">
+                No {channel} template for 4–5★ yet. <a href="/?tab=templates" className="text-primary underline font-medium">Set one up in Templates</a>.
+              </p>
+            ) : (
+              <Select value={positiveTemplateId} onValueChange={v => setPositiveTemplateId(v)}>
+                <SelectTrigger className="text-[12.5px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {positiveTemplates.map(t => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
 
-              {/* Template mode */}
-              {messageMode === "template" && (
-                <div className="space-y-2">
-                  {channelTemplates.length === 0 ? (
-                    <div className="rounded-lg bg-muted/50 border border-dashed border-border p-3 text-center">
-                      <p className="text-[11.5px] text-muted-foreground">
-                        No {channel} templates yet. <a href="/templates" className="font-medium text-primary underline">Create one in Templates</a>.
-                      </p>
-                    </div>
-                  ) : (
-                    <>
-                      {channelTemplates.length > 1 && (
-                        <Select value={selectedTemplate?.id ?? ""} onValueChange={setSelectedTemplateId}>
-                          <SelectTrigger className="text-[12.5px]"><SelectValue placeholder="Choose template…" /></SelectTrigger>
-                          <SelectContent>
-                            {channelTemplates.map(t => (
-                              <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
-                      {selectedTemplate && (
-                        <div className="rounded-lg border border-border bg-muted/30 p-3 text-[12.5px] text-muted-foreground whitespace-pre-wrap line-clamp-5">
-                          {selectedTemplate.body}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* AI mode */}
-              {messageMode === "ai" && (
-                <div className="space-y-2">
-                  <div className="flex justify-end">
-                    <button
-                      type="button"
-                      onClick={generateAIMessage}
-                      disabled={isGenerating}
-                      className="flex items-center gap-1.5 text-[11.5px] font-medium text-primary hover:text-primary/80 disabled:opacity-50 transition-colors"
-                    >
-                      {isGenerating
-                        ? <><RefreshCw className="w-3 h-3 animate-spin" />Generating...</>
-                        : <><Sparkles className="w-3 h-3" />{aiMessage ? "Regenerate" : "Generate"}</>
-                      }
-                    </button>
-                  </div>
-                  {aiMessage ? (
-                    <Textarea
-                      value={aiMessage}
-                      onChange={(e) => setAiMessage(e.target.value)}
-                      rows={channel === "sms" || channel === "whatsapp" ? 3 : 5}
-                      className="text-[12.5px] resize-none"
-                    />
-                  ) : (
-                    <div className="rounded-lg bg-muted/50 border border-dashed border-border p-3 text-center">
-                      <p className="text-[11.5px] text-muted-foreground">
-                        Click <span className="font-medium text-primary">Generate</span> to create a personalised message for {customer?.name?.split(" ")[0]}.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Subject (email only) */}
-          {channel === "email" && (
-            <div className="space-y-1.5">
-              <Label className="text-[12.5px]">Subject</Label>
-              <Input
-                value={customSubject}
-                onChange={e => setCustomSubject(e.target.value)}
-                placeholder="How was your experience with us?"
-                className="text-[12.5px]"
-              />
-            </div>
-          )}
+          {/* After 1-3★ template */}
+          <div className="space-y-1.5">
+            <Label className="text-[12.5px]">After 1–3★ rating — response template</Label>
+            {negativeTemplates.length === 0 ? (
+              <p className="text-[12px] text-muted-foreground">
+                No {channel} template for 1–3★ yet. <a href="/?tab=templates" className="text-primary underline font-medium">Set one up in Templates</a>.
+              </p>
+            ) : (
+              <Select value={negativeTemplateId} onValueChange={v => setNegativeTemplateId(v)}>
+                <SelectTrigger className="text-[12.5px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {negativeTemplates.map(t => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>

@@ -271,3 +271,29 @@ Your job is to be the developer they would hire if they could afford a great one
 **Late session additions (same day):**
 - **Analytics colour fix**: Customer Pipeline and Where Reviews Are Going were using hardcoded hex colours — both now use the `colors` object so they respond to the user's chosen theme
 - **Global rule added to CLAUDE.md**: Never hardcode hex colours in Analytics charts — always use `colors` from `useChartColors()`. Verified zero remaining hardcoded colours in Analytics.tsx.
+
+### Session — 2026-03-26 (twenty-ninth session)
+
+**Tasks completed:**
+- **Follow-up email/SMS/WhatsApp bugs fixed** (3 bugs): (1) Unrated email customers received a follow-up with no rating link — fixed to use `sendPreScreenEmail` with a new requestId; (2) High-rated email customers received a follow-up with no platform buttons — fixed to pass `selectedPlatforms`; (3) SMS/WhatsApp follow-ups used raw platform URLs instead of ReviewLanding links — fixed to use `/review?rid=newRequestId`
+- **Templates page redesigned**: Replaced free-form template list with 5 fixed slots per channel tab: After 4–5★ Rating (`response_positive`), After 1–3★ Rating (`response_negative`), Follow-up 1/2/3. Custom templates section (max 10) still available below the fixed slots.
+- **Template types renamed**: `follow_up` → `follow_up_1` / `follow_up_2` / `follow_up_3` to match the 3 fixed follow-up slots
+- **RecordingPicker in Templates**: Removed ability to record new voice/video inside template editor; user now selects from existing recordings in the Recordings tab
+- **1–3★ template**: Removed false warning about missing `{{review_link}}` — that template correctly has no review link
+- **4–5★ template**: Platform review buttons removed from the template preview in Templates tab — they display on ReviewLanding only, not in the editor
+- **Send Request dialog rewritten**: Removed old message compose area and platform selector. Now shows: (1) Channel dropdown, (2) Timing, (3) After 4–5★ recording picker (Text/Voice/Video), (4) After 4–5★ template dropdown, (5) After 1–3★ template dropdown. Templates auto-select the first available for the channel; user must explicitly pick one (no "use default" blank option).
+- **DB columns added**: `positive_template_id` and `negative_template_id` on `review_requests` — stored at send time, read when customer rates to override account defaults
+- **routes.ts — rating endpoint updated**: `POST /api/public/review/:id/rate` now checks `positive_template_id` / `negative_template_id` on the request before falling back to account-default templates
+
+**Architecture notes:**
+- Template selection at send time: `positiveTemplateId` / `negativeTemplateId` stored on the `review_requests` row; the rating endpoint checks these first, then falls back to account defaults
+- Initial outreach message is always the standard pre-screen format (not editable) — no `templateId` passed for the outbound message itself
+- `response_positive` and `response_negative` are the new canonical template types for post-rating responses
+
+**Notes for next session:**
+- **Server restart required** for `positive_template_id` / `negative_template_id` migration columns to be created
+- **Referral programme activation**: needs (1) server route `GET /referral/:slug` → redirect to `/signup?ref={accountId}`, (2) store `referred_by_account_id` on new accounts at registration, (3) admin view of referral counts, (4) update offer text in Referral tab
+- `POST /api/reviews` endpoint still orphaned in routes.ts — safe to remove
+- Instagram auto-posting still not built
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+- Pre-existing TS errors in Analytics.tsx (missing `clicks` colour key), Tutorial.tsx (Set iteration), routes.ts (missing `id` on customer insert) — not introduced this session, carry forward
