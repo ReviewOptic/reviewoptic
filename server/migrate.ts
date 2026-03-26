@@ -381,13 +381,37 @@ export async function runMigrations() {
       }
     }
 
-    // Force-correct SMS follow-up bodies to fit within 86-char limit (short link + Reply STOP take remaining space)
-    await pool.query(`UPDATE templates SET body = 'Just checking in! We''d love to hear from you — tap below:' WHERE template_type = 'follow_up_1' AND channel = 'sms' AND is_default = true`);
-    await pool.query(`UPDATE templates SET body = 'We''d still love your feedback! Tap below when you get a moment:' WHERE template_type = 'follow_up_2' AND channel = 'sms' AND is_default = true`);
-    await pool.query(`UPDATE templates SET body = 'Last message from us! We''d still love your feedback — tap below:' WHERE template_type = 'follow_up_3' AND channel = 'sms' AND is_default = true`);
-    await pool.query(`UPDATE templates SET body = '😊 Just a quick follow-up from {{business_name}} — we''d love to hear how we did! Tap the link below to leave your rating:' WHERE template_type = 'follow_up_1' AND channel = 'whatsapp' AND is_default = true`);
-    await pool.query(`UPDATE templates SET body = '💛 We know you''re busy, but your feedback really means a lot to {{business_name}}! Tap the link below whenever you''re ready:' WHERE template_type = 'follow_up_2' AND channel = 'whatsapp' AND is_default = true`);
-    await pool.query(`UPDATE templates SET body = '🙏 This is our last message, we promise! If you ever have a moment, we''d still love to hear from you — tap the link below:' WHERE template_type = 'follow_up_3' AND channel = 'whatsapp' AND is_default = true`);
+    // Force-correct all follow-up template bodies: fix greeting, over-limit SMS, sign-off
+    // SMS — fix any template with a greeting or over 86 chars
+    await pool.query(`UPDATE templates SET body = 'Just checking in! We''d love to hear from you — tap below:' WHERE template_type = 'follow_up_1' AND channel = 'sms' AND (body ILIKE 'Hi %' OR length(body) > 86)`);
+    await pool.query(`UPDATE templates SET body = 'We''d still love your feedback! Tap below when you get a moment:' WHERE template_type = 'follow_up_2' AND channel = 'sms' AND (body ILIKE 'Hi %' OR length(body) > 86)`);
+    await pool.query(`UPDATE templates SET body = 'Last message from us! We''d still love your feedback — tap below:' WHERE template_type = 'follow_up_3' AND channel = 'sms' AND (body ILIKE 'Hi %' OR length(body) > 86)`);
+    // WhatsApp — fix any template with a greeting
+    await pool.query(`UPDATE templates SET body = '😊 Just a quick follow-up from {{business_name}} — we''d love to hear how we did! Tap the link below to leave your rating:' WHERE template_type = 'follow_up_1' AND channel = 'whatsapp' AND body ILIKE 'Hi %'`);
+    await pool.query(`UPDATE templates SET body = '💛 We know you''re busy, but your feedback really means a lot to {{business_name}}! Tap the link below whenever you''re ready:' WHERE template_type = 'follow_up_2' AND channel = 'whatsapp' AND body ILIKE 'Hi %'`);
+    await pool.query(`UPDATE templates SET body = '🙏 This is our last message, we promise! If you ever have a moment, we''d still love to hear from you — tap the link below:' WHERE template_type = 'follow_up_3' AND channel = 'whatsapp' AND body ILIKE 'Hi %'`);
+    // Email follow-ups — fix greeting and "The {{business_name}} team" sign-off
+    await pool.query(`UPDATE templates SET body = 'Just a quick follow-up from {{business_name}} — we''d love to hear how we did!\n\nTap the link below to leave your rating.\n\nThanks,\n{{business_name}}' WHERE template_type IN ('follow_up', 'follow_up_1') AND channel = 'email' AND (body ILIKE 'Hi {{first_name}}%' OR body LIKE '%The {{business_name}} team%')`);
+    await pool.query(`UPDATE templates SET body = 'We know you''re busy, but your feedback really means a lot to {{business_name}}!\n\nTap the link below whenever you''re ready.\n\nThanks,\n{{business_name}}' WHERE template_type = 'follow_up_2' AND channel = 'email' AND (body ILIKE 'Hi {{first_name}}%' OR body LIKE '%The {{business_name}} team%')`);
+    await pool.query(`UPDATE templates SET body = 'This is our last message, we promise! If you ever have a moment, we''d still love to hear from you.\n\nTap the link below.\n\nThanks,\n{{business_name}}' WHERE template_type = 'follow_up_3' AND channel = 'email' AND (body ILIKE 'Hi {{first_name}}%' OR body LIKE '%The {{business_name}} team%')`);
+    // Response templates — remove "Hi {{first_name}}" and "The {{business_name}} team"
+    await pool.query(`UPDATE templates SET body = 'Thank you so much for your rating! If you have a moment, we''d really appreciate it if you could share your experience with others on one of our review pages below.\n\nThanks,\n{{business_name}}' WHERE template_type = 'response_positive' AND (body ILIKE 'Hi {{first_name}}%' OR body LIKE '%The {{business_name}} team%')`);
+    await pool.query(`UPDATE templates SET body = 'Thank you for your feedback — we''re sorry to hear your experience didn''t meet expectations. We''d love the chance to make it right.\n\nPlease reply to this message and we''ll be in touch shortly.\n\nThanks,\n{{business_name}}' WHERE template_type = 'response_negative' AND (body ILIKE 'Hi {{first_name}}%' OR body LIKE '%The {{business_name}} team%')`);
+    // Create email follow_up_1/2/3 for accounts that only have the old "follow_up" type
+    for (const [type, name, body] of [
+      ["follow_up_1", "Follow-up 1", "Just a quick follow-up from {{business_name}} — we'd love to hear how we did!\n\nTap the link below to leave your rating.\n\nThanks,\n{{business_name}}"],
+      ["follow_up_2", "Follow-up 2", "We know you're busy, but your feedback really means a lot to {{business_name}}!\n\nTap the link below whenever you're ready.\n\nThanks,\n{{business_name}}"],
+      ["follow_up_3", "Follow-up 3", "This is our last message, we promise! If you ever have a moment, we'd still love to hear from you.\n\nTap the link below.\n\nThanks,\n{{business_name}}"],
+    ] as const) {
+      await pool.query(`
+        INSERT INTO templates (id, account_id, name, template_type, channel, is_default, subject, body, preferred_platform, video_url, audio_url, created_at, updated_at)
+        SELECT gen_random_uuid(), a.id, $1, $2, 'email', true, '', $3, '', null, null, NOW(), NOW()
+        FROM (SELECT DISTINCT account_id AS id FROM templates) a
+        WHERE NOT EXISTS (
+          SELECT 1 FROM templates t2 WHERE t2.account_id = a.id AND t2.template_type = $2 AND t2.channel = 'email'
+        )
+      `, [name, type, body]);
+    }
 
     console.log("[migrate] Migrations complete");
   } finally {

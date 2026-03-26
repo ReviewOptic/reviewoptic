@@ -294,45 +294,45 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         id: randomUUID(), accountId: account.id, name: "Request a Review", templateType: "response_positive",
         channel: "email", isDefault: true, preferredPlatform: "google",
         subject: "",
-        body: `We hope you enjoyed your experience with {{business_name}} and our {{service_type}}! Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!`,
+        body: `Thank you so much for your rating! If you have a moment, we'd really appreciate it if you could share your experience with others on one of our review pages below.\n\nThanks,\n{{business_name}}`,
       },
       {
         id: randomUUID(), accountId: account.id, name: "Request a Review", templateType: "response_positive",
         channel: "sms", isDefault: true, preferredPlatform: "google",
         subject: "",
-        body: `We hope you enjoyed your experience with {{business_name}} and our {{service_type}}! Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!`,
+        body: `Thank you so much for your rating! If you have a moment, we'd really appreciate it if you could share your experience with others on one of our review pages below.\n\nThanks,\n{{business_name}}`,
       },
       {
         id: randomUUID(), accountId: account.id, name: "Request a Review", templateType: "response_positive",
         channel: "whatsapp", isDefault: true, preferredPlatform: "google",
         subject: "",
-        body: `We hope you enjoyed your experience with {{business_name}} and our {{service_type}}! Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!`,
+        body: `Thank you so much for your rating! If you have a moment, we'd really appreciate it if you could share your experience with others on one of our review pages below.\n\nThanks,\n{{business_name}}`,
       },
       // After 1-3 stars: ask them to get in touch
       {
         id: randomUUID(), accountId: account.id, name: "Get in Touch", templateType: "response_negative",
         channel: "email", isDefault: true, preferredPlatform: "",
         subject: "Thank you for your honest feedback.",
-        body: `Hi {{first_name}},\n\nSorry to hear you did not have the experience what you expected. We would appreciate your feedback on how we can improve for next time and will be in touch.\n\nMany thanks`,
+        body: `Sorry to hear your experience didn't meet expectations. We'd love the chance to make it right.\n\nPlease reply to this message and we'll be in touch shortly.\n\nThanks,\n{{business_name}}`,
       },
       {
         id: randomUUID(), accountId: account.id, name: "Get in Touch", templateType: "response_negative",
         channel: "sms", isDefault: true, preferredPlatform: "",
         subject: "Thank you for your feedback.",
-        body: `Hi {{first_name}},\n\nSorry to hear you did not have the experience what you expected. We would appreciate your feedback on how we can improve for next time and will be in touch.\n\nMany thanks`,
+        body: `Sorry to hear your experience didn't meet expectations. We'd love the chance to make it right — please reply and we'll be in touch.\n\nThanks,\n{{business_name}}`,
       },
       {
         id: randomUUID(), accountId: account.id, name: "Get in Touch", templateType: "response_negative",
         channel: "whatsapp", isDefault: true, preferredPlatform: "",
         subject: "Thank you for your feedback.",
-        body: `Hi {{first_name}},\n\nSorry to hear you did not have the experience what you expected. We would appreciate your feedback on how we can improve for next time and will be in touch.\n\nMany thanks`,
+        body: `Sorry to hear your experience didn't meet expectations. We'd love the chance to make it right — please reply and we'll be in touch.\n\nThanks,\n{{business_name}}`,
       },
       // Follow-ups: for 4-5 star customers who haven't yet left a review
       {
         id: randomUUID(), accountId: account.id, name: "Follow-up", templateType: "follow_up",
         channel: "email", isDefault: true, preferredPlatform: "",
         subject: "A gentle reminder — would you share your experience?",
-        body: `Hi {{first_name}},\n\nWe're so glad you had a positive experience with {{business_name}}! If you have a spare moment, it would mean the world to us if you'd share your thoughts in a quick public review.\n\n{{review_link}}\n\nIt really does make a difference. Thank you!\n\nThe {{business_name}} team`,
+        body: `Just a quick follow-up from {{business_name}} — we'd love to hear how we did!\n\nTap the link below to leave your rating.\n\nThanks,\n{{business_name}}`,
       },
       {
         id: randomUUID(), accountId: account.id, name: "Follow-up 1", templateType: "follow_up_1",
