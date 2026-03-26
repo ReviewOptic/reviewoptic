@@ -329,8 +329,19 @@ Your job is to be the developer they would hire if they could afford a great one
 - Customer unsubscribe reuses existing `do_not_contact` flag — no new column needed; customer automatically appears as DNC in the Customers tab
 - Platform unsubscribe link is NOT added to: verification email, password reset, cancellation email (all transactional)
 
+### Session — 2026-03-26 (thirty-second session)
+
+**Tasks completed:**
+- **Follow-up email subject lines fixed**: All three follow-up subjects updated in both code defaults (Templates.tsx) and DB migration (migrate.ts):
+  - Follow-up 1: "Just checking in"
+  - Follow-up 2: "A polite reminder"
+  - Follow-up 3: "We'd still love to hear from you"
+- Removed `{{business_name}}` from all follow-up subjects — redundant since it already shows in the From field
+- Follow-up 2 previously showed "one last nudge" which was misleading (Follow-up 3 comes after it)
+
 **Notes for next session:**
-- **Server restart required** for `email_unsubscribed` migration to run, and for all previous pending migrations
+- **Templates page — still to review**: SMS tab, WhatsApp tab, and Recordings tab not yet checked this session — user wants to continue tab by tab
+- **Server restart required** for `email_unsubscribed` migration and follow-up subject fix migrations to run
 - **Referral programme activation**: needs (1) server route `GET /referral/:slug` → redirect to `/signup?ref={accountId}`, (2) store `referred_by_account_id` on new accounts at registration, (3) admin view of referral counts, (4) update offer text in Referral tab
 - `POST /api/reviews` endpoint still orphaned in routes.ts — safe to remove
 - Instagram auto-posting still not built
