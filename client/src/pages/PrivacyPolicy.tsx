@@ -61,10 +61,10 @@ export default function PrivacyPolicy() {
             </p>
             <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
               <li><strong className="text-foreground">Resend</strong> — email delivery service</li>
-              <li><strong className="text-foreground">[DATABASE PROVIDER]</strong> — secure data storage</li>
+              <li><strong className="text-foreground">Neon (PostgreSQL)</strong> — secure data storage</li>
               <li><strong className="text-foreground">Meta (Facebook/Instagram)</strong> — if you connect your social accounts</li>
               <li><strong className="text-foreground">LinkedIn</strong> — if you connect your LinkedIn account</li>
-              <li><strong className="text-foreground">[PAYMENT PROVIDER]</strong> — for billing and subscription management</li>
+              <li><strong className="text-foreground">Stripe</strong> — for billing and subscription management</li>
             </ul>
             <p className="text-muted-foreground leading-relaxed mt-3">
               All third-party providers are required to handle your data securely and in accordance with applicable law.
