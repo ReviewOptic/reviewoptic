@@ -56,7 +56,7 @@ export default function Register() {
 
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8">
           <h1 className="text-2xl font-bold text-gray-900 mb-1">Create your account</h1>
-          <p className="text-sm text-gray-500 mb-6">Takes less than a minute. Choose your plan after.</p>
+          <p className="text-sm text-gray-500 mb-6">Start your 14-day free trial. Cancel within 14 days and pay nothing.</p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="flex gap-3">

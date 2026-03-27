@@ -2348,6 +2348,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const user = await storage.getUser(req.session.userId!);
     if (!user) return res.status(401).json({ message: "User not found" });
 
+    // Check if this user has ever had a subscription — existing subscribers don't get a trial
+    const { rows: subRows } = await pool.query(
+      `SELECT stripe_customer_id FROM users WHERE id = $1`,
+      [req.session.userId]
+    );
+    const isNewSubscriber = !subRows[0]?.stripe_customer_id;
+
     const appUrl = process.env.APP_URL || `https://${process.env.REPLIT_DEV_DOMAIN}` || "http://localhost:5000";
     const price = PRICES[key];
 
@@ -2365,6 +2372,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         },
         quantity: 1,
       }],
+      ...(isNewSubscriber ? { subscription_data: { trial_period_days: 14 } } : {}),
       return_url: `${appUrl}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
       metadata: { userId: user.id, plan, period },
     });
@@ -2464,6 +2472,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         status: sub.status,
         currentPeriodEnd: sub.current_period_end,
         cancelAtPeriodEnd: sub.cancel_at_period_end,
+        trialEnd: sub.trial_end || null,
         planType: row.plan_type,
         planPeriod: row.plan_period,
       },

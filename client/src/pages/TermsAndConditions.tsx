@@ -54,48 +54,64 @@ export default function TermsAndConditions() {
               annual, as selected at sign-up).
             </p>
             <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
-              <li><strong className="text-foreground">Monthly billing:</strong> charged every 30 days from your sign-up date</li>
-              <li><strong className="text-foreground">Annual billing:</strong> charged once per year from your sign-up date, at a discounted rate</li>
+              <li><strong className="text-foreground">Monthly billing:</strong> charged every 30 days from the date your trial ends</li>
+              <li><strong className="text-foreground">Annual billing:</strong> charged once per year from the date your trial ends, at a discounted rate</li>
               <li>Subscription fees are non-refundable except where required by law or as stated in our refund policy below</li>
-              <li>We reserve the right to change pricing with at least 30 days' notice. Continued use after the notice period constitutes acceptance of the new price</li>
               <li>If a payment fails, we will notify you and may suspend access to the service until payment is resolved</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">5. Free trial</h2>
-            <p className="text-muted-foreground leading-relaxed">
-              [FREE TRIAL TERMS TO BE ADDED — e.g. "We may offer a free trial period at our discretion.
-              At the end of the trial, your account will automatically convert to a paid subscription
-              unless you cancel before the trial ends."]
+            <h2 className="text-lg font-semibold mb-2">5. Price guarantee</h2>
+            <p className="text-muted-foreground leading-relaxed mb-3">
+              We believe in rewarding loyalty. As long as your subscription remains active and uninterrupted,
+              the price you pay will never increase — even if we raise prices for new customers.
             </p>
+            <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+              <li>Your locked-in price applies to the plan and billing period you are currently on</li>
+              <li>Switching to a different plan (e.g. from Lite to Pro, or from monthly to annual) will apply the price current at the time of switching</li>
+              <li>If you cancel your subscription and later re-subscribe, the price current at the time of re-subscribing will apply</li>
+              <li>This guarantee does not apply where pricing changes are required by law (e.g. changes in VAT rates)</li>
+            </ul>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">6. Cancellation</h2>
+            <h2 className="text-lg font-semibold mb-2">6. Free trial</h2>
+            <p className="text-muted-foreground leading-relaxed mb-3">
+              New accounts are offered a 14-day free trial. During the trial you have full access to all
+              features included in your chosen plan. A valid payment method is required to start your trial.
+            </p>
+            <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+              <li>Only one free trial is permitted per person or business</li>
+              <li>At the end of the 14-day trial, your payment method will be charged automatically for your chosen plan (monthly or annual) unless you cancel before the trial ends</li>
+              <li>You may cancel at any time during the trial and will not be charged</li>
+              <li>We reserve the right to modify or withdraw the free trial offer at any time for new sign-ups</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold mb-2">7. Cancellation</h2>
             <p className="text-muted-foreground leading-relaxed">
-              [CANCELLATION TERMS TO BE ADDED — e.g. minimum contract length, notice period, etc.]
               You may cancel your subscription at any time through your account settings or by contacting
-              us at [CONTACT EMAIL]. Upon cancellation, you will retain access to the service until the
-              end of your current billing period. We do not provide refunds for unused portions of a
-              billing period. After cancellation, your account data will be retained for 30 days, after
-              which it will be permanently deleted. You are responsible for exporting any data you wish
-              to keep before this period expires.
+              us at hello@reviewoptic.com. Upon cancellation, you will retain full access to the service
+              until the end of your current billing period. We do not provide refunds for unused portions
+              of a billing period. After your access ends, your account data will be retained for 30 days,
+              after which it will be permanently deleted. You are responsible for exporting any data you
+              wish to keep before this period expires.
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">7. Refunds</h2>
+            <h2 className="text-lg font-semibold mb-2">8. Refunds</h2>
             <p className="text-muted-foreground leading-relaxed">
-              [REFUND POLICY TO BE CONFIRMED — e.g. no refunds / 14-day money back guarantee].
               Subscription fees are generally non-refundable. If you believe you have been charged in
-              error, contact us at [CONTACT EMAIL] within 14 days of the charge and we will review
+              error, contact us at hello@reviewoptic.com within 14 days of the charge and we will review
               your case. Nothing in these Terms affects your statutory rights under UK consumer law.
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">8. Acceptable use</h2>
+            <h2 className="text-lg font-semibold mb-2">9. Acceptable use</h2>
             <p className="text-muted-foreground leading-relaxed mb-3">
               You agree to use ReviewOptic only for lawful purposes and in accordance with these Terms.
               You must not use the service to:
@@ -116,7 +132,7 @@ export default function TermsAndConditions() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">9. Your content and your customers</h2>
+            <h2 className="text-lg font-semibold mb-2">10. Your content and your customers</h2>
             <p className="text-muted-foreground leading-relaxed">
               You are solely responsible for all messages, content, and communications sent through
               ReviewOptic to your customers. We act as a technology platform only and do not review,
@@ -128,7 +144,7 @@ export default function TermsAndConditions() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">10. Data and privacy</h2>
+            <h2 className="text-lg font-semibold mb-2">11. Data and privacy</h2>
             <p className="text-muted-foreground leading-relaxed">
               Our collection and use of personal data is described in our{" "}
               <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">
@@ -141,7 +157,7 @@ export default function TermsAndConditions() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">11. Intellectual property</h2>
+            <h2 className="text-lg font-semibold mb-2">12. Intellectual property</h2>
             <p className="text-muted-foreground leading-relaxed">
               All intellectual property rights in the ReviewOptic platform, including its software, design,
               and content, belong to us. You are granted a limited, non-exclusive, non-transferable licence
@@ -151,7 +167,7 @@ export default function TermsAndConditions() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">12. Disclaimer of warranties</h2>
+            <h2 className="text-lg font-semibold mb-2">13. Disclaimer of warranties</h2>
             <p className="text-muted-foreground leading-relaxed">
               ReviewOptic is provided "as is" and "as available". We do not guarantee that the service
               will be uninterrupted, error-free, or meet your specific requirements. We make no warranty
@@ -160,7 +176,7 @@ export default function TermsAndConditions() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">13. Limitation of liability</h2>
+            <h2 className="text-lg font-semibold mb-2">14. Limitation of liability</h2>
             <p className="text-muted-foreground leading-relaxed">
               To the fullest extent permitted by law, we shall not be liable for any indirect, incidental,
               special, consequential, or punitive damages, including loss of profits, revenue, data, or
@@ -173,7 +189,7 @@ export default function TermsAndConditions() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">14. Termination</h2>
+            <h2 className="text-lg font-semibold mb-2">15. Termination</h2>
             <p className="text-muted-foreground leading-relaxed">
               We may suspend or terminate your account at any time if you breach these Terms, fail to
               pay subscription fees, or if we reasonably believe your use of the service poses a risk
@@ -183,7 +199,7 @@ export default function TermsAndConditions() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">15. Governing law and disputes</h2>
+            <h2 className="text-lg font-semibold mb-2">16. Governing law and disputes</h2>
             <p className="text-muted-foreground leading-relaxed">
               These Terms are governed by the laws of England and Wales. Any dispute arising out of or
               in connection with these Terms shall be subject to the exclusive jurisdiction of the courts
@@ -193,7 +209,7 @@ export default function TermsAndConditions() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">16. Changes to these terms</h2>
+            <h2 className="text-lg font-semibold mb-2">17. Changes to these terms</h2>
             <p className="text-muted-foreground leading-relaxed">
               We may update these Terms from time to time. We will notify you of material changes by
               email or in-app notice at least 14 days before they take effect. Continued use of the
@@ -202,7 +218,7 @@ export default function TermsAndConditions() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">17. Contact</h2>
+            <h2 className="text-lg font-semibold mb-2">18. Contact</h2>
             <p className="text-muted-foreground leading-relaxed">
               For any questions about these Terms, contact us at:<br />
               <strong className="text-foreground">[CONTACT EMAIL]</strong><br />

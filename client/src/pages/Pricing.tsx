@@ -94,7 +94,10 @@ export default function Pricing() {
       </button>
       <div className="text-center mb-10">
         <h1 className="text-4xl font-bold text-gray-900 mb-3">Simple, transparent pricing</h1>
-        <p className="text-lg text-gray-500">No setup fees. No hidden charges. Cancel anytime.</p>
+        <p className="text-lg text-gray-500 mb-3">No setup fees. No hidden charges. Cancel anytime.</p>
+        <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 text-sm font-semibold px-4 py-1.5 rounded-full border border-blue-200">
+          14-day free trial — cancel anytime within 14 days and pay nothing
+        </span>
       </div>
 
       {/* Monthly / Annual toggle */}

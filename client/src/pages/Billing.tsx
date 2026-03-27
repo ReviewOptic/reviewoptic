@@ -123,6 +123,9 @@ export default function Billing() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-lg font-semibold text-gray-900">{planLabel} — {periodLabel}</span>
+                {sub?.status === "trialing" && (
+                  <span className="text-xs bg-blue-100 text-blue-700 font-semibold px-2.5 py-1 rounded-full">Free trial</span>
+                )}
                 {sub?.status === "active" && !sub.cancelAtPeriodEnd && (
                   <span className="text-xs bg-green-100 text-green-700 font-semibold px-2.5 py-1 rounded-full">Active</span>
                 )}
@@ -137,7 +140,12 @@ export default function Billing() {
                   ? "Unlimited review requests per month"
                   : null}
               </p>
-              {sub?.currentPeriodEnd && (
+              {sub?.status === "trialing" && sub?.trialEnd && (
+                <p className="text-sm text-blue-600 font-medium">
+                  Your free trial ends on {formatDate(sub.trialEnd)} — no charge until then.
+                </p>
+              )}
+              {sub?.currentPeriodEnd && sub?.status !== "trialing" && (
                 <p className="text-sm text-gray-500">
                   {sub.cancelAtPeriodEnd
                     ? `Access ends on ${formatDate(sub.currentPeriodEnd)}`
