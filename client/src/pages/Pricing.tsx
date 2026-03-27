@@ -58,7 +58,7 @@ export default function Pricing() {
 
   async function openCheckout(planId: string) {
     if (!user) {
-      navigate("/login?mode=register");
+      navigate("/register");
       return;
     }
     try {
