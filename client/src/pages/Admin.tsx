@@ -291,10 +291,10 @@ export default function Admin() {
             {metrics && (
               <div className="mt-4 grid grid-cols-2 md:grid-cols-5 gap-4">
                 {[
-                  { label: "Standard — Monthly", planType: "standard", planPeriod: "monthly" },
-                  { label: "Standard — Annual",  planType: "standard", planPeriod: "annual"  },
-                  { label: "Agency — Monthly",   planType: "agency",   planPeriod: "monthly" },
-                  { label: "Agency — Annual",    planType: "agency",   planPeriod: "annual"  },
+                  { label: "Lite — Monthly", planType: "lite", planPeriod: "monthly" },
+                  { label: "Lite — Annual",  planType: "lite", planPeriod: "annual"  },
+                  { label: "Pro — Monthly",  planType: "pro",  planPeriod: "monthly" },
+                  { label: "Pro — Annual",   planType: "pro",  planPeriod: "annual"  },
                 ].map(({ label, planType, planPeriod }) => {
                   const row = metrics.userMetrics.planBreakdown?.find(
                     r => r.planType === planType && r.planPeriod === planPeriod
@@ -666,7 +666,7 @@ export default function Admin() {
                 </span>
               )}
               <div className="flex gap-1">
-                {["all", "standard", "agency", "complimentary", "cancelled"].map(p => (
+                {["all", "lite", "pro", "complimentary", "cancelled"].map(p => (
                   <button key={p} onClick={() => setPlanFilter(p)}
                     className={`text-xs px-3 py-1 rounded-full font-medium transition-colors capitalize ${planFilter === p ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
                     {p === "all" ? "All" : p}
@@ -698,8 +698,8 @@ export default function Admin() {
                     <td className="px-4 py-3 font-medium">{u.email}</td>
                     <td className="px-4 py-3">
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${
-                        u.planType === "standard" ? "bg-blue-100 text-blue-700" :
-                        u.planType === "agency" ? "bg-purple-100 text-purple-700" :
+                        u.planType === "pro" ? "bg-blue-100 text-blue-700" :
+                        u.planType === "lite" ? "bg-indigo-100 text-indigo-700" :
                         u.planType === "complimentary" ? "bg-green-100 text-green-700" :
                         u.planType === "cancelled" ? "bg-red-100 text-red-700" :
                         "bg-muted text-muted-foreground"

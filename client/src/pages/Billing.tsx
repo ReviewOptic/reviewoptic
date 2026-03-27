@@ -89,14 +89,13 @@ export default function Billing() {
     }
   }
 
-  async function upgradeToAnnual() {
-    const plan = user?.planType || "standard";
+  async function openUpgradeCheckout(plan: string, period: string) {
     try {
       const res = await fetch("/api/billing/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ plan, period: "annual" }),
+        body: JSON.stringify({ plan, period }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to start upgrade");
@@ -106,8 +105,9 @@ export default function Billing() {
     }
   }
 
-  const planLabel = user?.planType === "agency" ? "Agency Plan" : "Standard Plan";
+  const planLabel = user?.planType === "pro" ? "Pro Plan" : user?.planType === "lite" ? "Lite Plan" : "Plan";
   const periodLabel = user?.planPeriod === "annual" ? "Annual" : "Monthly";
+  const annualSaving = user?.planType === "lite" ? "Save £29 — equivalent to 1 month free" : "Save £49 — equivalent to 1 month free";
 
   return (
     <div className="max-w-2xl mx-auto px-6 py-10 space-y-8">
@@ -130,6 +130,13 @@ export default function Billing() {
                   <span className="text-xs bg-amber-100 text-amber-700 font-semibold px-2.5 py-1 rounded-full">Cancelling</span>
                 )}
               </div>
+              <p className="text-sm text-gray-500">
+                {user?.planType === "lite"
+                  ? "Up to 10 review requests per month"
+                  : user?.planType === "pro"
+                  ? "Unlimited review requests per month"
+                  : null}
+              </p>
               {sub?.currentPeriodEnd && (
                 <p className="text-sm text-gray-500">
                   {sub.cancelAtPeriodEnd
@@ -141,21 +148,44 @@ export default function Billing() {
           )}
         </div>
 
-        {/* Upgrade to annual */}
-        {user?.planPeriod === "monthly" && sub?.status === "active" && !sub.cancelAtPeriodEnd && (
-          <div className="pt-4 border-t border-gray-100">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-sm font-semibold text-gray-800">Switch to annual billing</p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {user.planType === "agency" ? "Save £149 — equivalent to 1 month free" : "Save £49 — equivalent to 1 month free"}
-                </p>
+        {/* Plan switching */}
+        {(user?.planType === "lite" || user?.planType === "pro") && sub?.status === "active" && !sub.cancelAtPeriodEnd && (
+          <div className="pt-4 border-t border-gray-100 space-y-3">
+            {user.planType === "lite" && (
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">Upgrade to Pro</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Unlimited review requests every month</p>
+                </div>
+                <Button size="sm" className="shrink-0 gap-1.5" onClick={() => openUpgradeCheckout("pro", user.planPeriod)}>
+                  <ArrowUpCircle className="w-4 h-4" />
+                  Upgrade
+                </Button>
               </div>
-              <Button size="sm" variant="outline" className="shrink-0 gap-1.5" onClick={upgradeToAnnual}>
-                <ArrowUpCircle className="w-4 h-4" />
-                Upgrade
-              </Button>
-            </div>
+            )}
+            {user.planType === "pro" && (
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">Switch to Lite</p>
+                  <p className="text-xs text-gray-500 mt-0.5">£29/month — up to 10 review requests per month</p>
+                </div>
+                <Button size="sm" variant="outline" className="shrink-0" onClick={() => openUpgradeCheckout("lite", user.planPeriod)}>
+                  Switch
+                </Button>
+              </div>
+            )}
+            {user.planPeriod === "monthly" && (
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">Switch to annual billing</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{annualSaving}</p>
+                </div>
+                <Button size="sm" variant="outline" className="shrink-0 gap-1.5" onClick={() => openUpgradeCheckout(user.planType || "pro", "annual")}>
+                  <ArrowUpCircle className="w-4 h-4" />
+                  Switch
+                </Button>
+              </div>
+            )}
           </div>
         )}
 

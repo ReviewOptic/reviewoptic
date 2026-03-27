@@ -1367,6 +1367,31 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/review-requests", requireAuth, async (req, res) => {
     try {
+    // Enforce Lite plan 10-request limit per calendar month (follow-ups don't count)
+    const { rows: planRows } = await pool.query(
+      `SELECT plan_type FROM users WHERE account_id = $1 AND role = 'owner' LIMIT 1`,
+      [req.session.accountId]
+    );
+    if (planRows[0]?.plan_type === "lite") {
+      const { rows: countRows } = await pool.query(
+        `SELECT COUNT(*) as cnt FROM review_requests
+         WHERE account_id = $1
+           AND (follow_up_count IS NULL OR follow_up_count = 0)
+           AND DATE_TRUNC('month', sent_at) = DATE_TRUNC('month', NOW())`,
+        [req.session.accountId]
+      );
+      if (parseInt(countRows[0]?.cnt || "0") >= 10) {
+        // Next reset = 1st of next calendar month
+        const now = new Date();
+        const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        return res.status(403).json({
+          message: "Monthly review request limit reached.",
+          code: "lite_limit_reached",
+          resetDate: resetDate.toISOString(),
+        });
+      }
+    }
+
     const customer = await storage.getCustomer(req.body.customerId, req.session.accountId!);
     if (!customer) return res.status(404).json({ message: "Customer not found" });
     const rr = await storage.createReviewRequest({
@@ -2301,10 +2326,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // ── Billing / Stripe ──────────────────────────────────────────────────────
 
   const PRICES: Record<string, { unit_amount: number; interval: "month" | "year"; name: string }> = {
-    standard_monthly: { unit_amount: 4900,   interval: "month", name: "Standard Plan (Monthly)" },
-    standard_annual:  { unit_amount: 53900,  interval: "year",  name: "Standard Plan (Annual)" },
-    agency_monthly:   { unit_amount: 14900,  interval: "month", name: "Agency Plan (Monthly)" },
-    agency_annual:    { unit_amount: 163900, interval: "year",  name: "Agency Plan (Annual)" },
+    lite_monthly: { unit_amount: 2900,  interval: "month", name: "Lite Plan (Monthly)" },
+    lite_annual:  { unit_amount: 31900, interval: "year",  name: "Lite Plan (Annual)" },
+    pro_monthly:  { unit_amount: 4900,  interval: "month", name: "Pro Plan (Monthly)" },
+    pro_annual:   { unit_amount: 53900, interval: "year",  name: "Pro Plan (Annual)" },
   };
 
   app.get("/api/billing/config", (_req, res) => {
@@ -2372,8 +2397,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const customerId = typeof session.customer === "string" ? session.customer : (session.customer as any)?.id ?? "";
     const subscriptionId = typeof session.subscription === "string" ? session.subscription : (session.subscription as any)?.id ?? "";
 
-    const { rows: prevRows } = await pool.query(`SELECT cancelled_at FROM users WHERE id = $1`, [userId]);
+    const { rows: prevRows } = await pool.query(`SELECT cancelled_at, stripe_subscription_id FROM users WHERE id = $1`, [userId]);
     const wasCancelled = !!prevRows[0]?.cancelled_at;
+    const oldSubId = prevRows[0]?.stripe_subscription_id;
+
+    // If user is switching plans and has an existing subscription, cancel the old one immediately
+    if (oldSubId && oldSubId !== subscriptionId) {
+      await stripe.subscriptions.cancel(oldSubId).catch(err =>
+        console.error("[billing/confirm] Failed to cancel old subscription:", err.message)
+      );
+    }
+
     await pool.query(
       `UPDATE users SET plan_type = $1, plan_period = $2, stripe_customer_id = $3, stripe_subscription_id = $4${wasCancelled ? ", reactivated_at = NOW()" : ""} WHERE id = $5`,
       [plan, period, customerId, subscriptionId, userId]

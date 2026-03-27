@@ -405,3 +405,82 @@ Older session logs moved here to keep CLAUDE.md under 30k chars.
 **Architecture notes:**
 - Initial email is always `sendPreScreenEmail`; "Message" in send dialog = content shown AFTER rating on ReviewLanding
 - `autoPlay` works because customer has already clicked (user gesture satisfied)
+
+### Session — 2026-03-25 (twenty-sixth session)
+
+**Tasks completed:**
+- SMS and WhatsApp review flow unified with email — all three channels now send a single text link; customer taps it → ReviewLanding → selects stars → confirms → next step (low rating = private feedback, high rating = platform links + optional recording)
+- Old WhatsApp initial voice/video send removed entirely
+- "After 4–5★ rating, show" picker now appears in Send Request dialog for all channels
+- WhatsApp "Message type" selector removed from both send dialogs
+- Analytics — new "Content Type Performance" chart added
+- Tutorials & Guides updated for single-link flow
+
+**Architecture notes:**
+- All three channels follow identical flow: initial message with rating link → ReviewLanding → star rating → confirm → next step
+- `recording_url` / `recording_type` on `review_requests` set when `recordingId` passed at send time
+- `contentTypeData` query groups by `COALESCE(recording_type, 'text')`
+
+### Session — 2026-03-25 (twenty-seventh session)
+
+**Tasks completed:**
+- Widget API now queries `review_requests`; widget.js rewritten for grid/carousel layouts
+- Content Type Performance chart redesigned as vertical bar chart
+- Platform review links fixed (trim + https:// on both frontend and server)
+- Dashboard stat cards updated from 3 to 5
+- Feature 1: Send New Request button label change
+- Feature 2: ReviewLanding click confirmation banner
+- Feature 3: Bulk send with checkboxes + floating action bar
+- Feature 4: Default send time (Settings → Follow-up tab + send dialogs)
+- Feature 5: Dashboard to-do nudge cards
+- Feature 7: Star ratings visible in customer list + CustomerDetail
+
+**Architecture notes:**
+- `default_send_time` TEXT column in settings (e.g. "10:00")
+- Bulk send loops through selected customers via existing POST /api/review-requests
+- Widget layout returned from server settings
+
+### Session — 2026-03-25 (twenty-eighth session)
+
+**Tasks completed:**
+- Feature 8: Request History — each request shown as journey with chips in CustomerDetail
+- Feature 9: Email open tracking — 1×1 GIF pixel, `opened_at` column, public endpoint
+- Automated platform review requests at 30/33/37 days since signup
+- Follow-up wording fix (gap-based descriptions)
+- TimePicker shared component (hour dropdown + :00/:30 toggle + AM/PM)
+- Admin customer data cleared
+- Dashboard quotes expanded (8→20, randomised per page load)
+- Dashboard: quick links row, Ready to Send card, Latest Ratings card
+- Settings → Referral tab with shareable link
+
+**Architecture notes:**
+- `opened_at TIMESTAMP` on `review_requests` — nullable, set once on first pixel load
+- `auto_review_requested_at` + `auto_review_follow_ups` on `users` — daily runner in index.ts
+- `TimePicker` at `client/src/components/ui/time-picker.tsx`
+- Referral slug derived at render time; no DB column; route `/referral/:slug` not yet built
+
+### Session — 2026-03-26 (twenty-ninth session)
+
+**Tasks completed:**
+- Follow-up email/SMS/WhatsApp bugs fixed (3 bugs): rating link in follow-ups, platform buttons for high-rated email, SMS/WA use ReviewLanding links not raw platform URLs
+- Templates page redesigned: 5 fixed slots per channel tab (response_positive, response_negative, follow_up_1/2/3)
+- Template types renamed: follow_up → follow_up_1/2/3
+- RecordingPicker in Templates: select from existing recordings only
+- Send Request dialog rewritten: channel, timing, recording picker, template dropdowns
+- DB columns added: `positive_template_id` and `negative_template_id` on `review_requests`
+- Rating endpoint checks per-request template IDs before falling back to account defaults
+
+### Session — 2026-03-26 (thirtieth session)
+
+**Tasks completed:**
+- Response templates display on ReviewLanding pop-up, not sent via email/SMS
+- Templates page: subject field replaced with "Opening line" for response templates
+- `{{review_link}}` removed from all templates; follow-ups auto-append URL
+- Default template bodies set for positive and negative response
+- AI generation fixed per template type; hard strip on AI output
+- Follow-up send code fixed: all channels auto-append ratingLink
+
+**Architecture notes:**
+- `templateOpening` + `templateBody` returned from rating endpoint and displayed in ReviewLanding
+- `{{service_type}}` strip: regex removes " and our {{service_type}}" if empty
+- Follow-up link = `${appUrl}/review?rid=${newRequestId}` auto-appended after template body

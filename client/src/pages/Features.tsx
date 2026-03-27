@@ -4,7 +4,8 @@ const FEATURES = [
   {
     category: "Review Requests",
     items: [
-      "Unlimited review requests via email, SMS & WhatsApp",
+      "Review requests via email, SMS & WhatsApp",
+      "Lite plan: up to 10 requests per month · Pro plan: unlimited",
       "Send to individual customers or in bulk",
       "Works with Google, Trustpilot, Facebook, Checkatrade, TripAdvisor, MyBuilder & more",
       "Choose which review platforms to send each customer",
@@ -57,7 +58,7 @@ const FEATURES = [
     category: "Marketing & Integrations",
     items: [
       "Embeddable review widget for your website",
-      "Auto-post 4 & 5-star reviews to Facebook, Instagram & LinkedIn",
+      "Auto-post 4 & 5-star reviews to Facebook & LinkedIn",
       "AI chat assistant for review management advice",
       "Custom branding with your logo",
       "Logo position control (left, centre, right)",

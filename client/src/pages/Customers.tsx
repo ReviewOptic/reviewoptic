@@ -154,6 +154,7 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
   const [channel, setChannel] = useState(() => getValidChannel(customer));
   const [delay, setDelay] = useState("now");
   const [customTime, setCustomTime] = useState("");
+  const [liteLimitResetDate, setLiteLimitResetDate] = useState<string | null>(null);
   const [positiveTemplateId, setPositiveTemplateId] = useState<string>("");
   const [negativeTemplateId, setNegativeTemplateId] = useState<string>("");
   const [emailRecordingType, setEmailRecordingType] = useState<"none" | "voice" | "video">("none");
@@ -244,8 +245,44 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
       }
       onClose();
     },
-    onError: () => toast({ title: "Failed to send request", variant: "destructive" }),
+    onError: (err: any) => {
+      try {
+        const json = JSON.parse(err.message.replace(/^\d+: /, ""));
+        if (json.code === "lite_limit_reached") {
+          setLiteLimitResetDate(json.resetDate || null);
+          return;
+        }
+      } catch {}
+      toast({ title: "Failed to send request", variant: "destructive" });
+    },
   });
+
+  if (liteLimitResetDate !== null) {
+    const resetFormatted = new Date(liteLimitResetDate).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+    return (
+      <Dialog open={open} onOpenChange={() => { setLiteLimitResetDate(null); onClose(); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Monthly limit reached</DialogTitle>
+            <DialogDescription>You've used all 10 review requests for this month on your Lite plan.</DialogDescription>
+          </DialogHeader>
+          <div className="py-2 space-y-3">
+            <p className="text-sm text-gray-600">
+              Your allowance resets on <strong>{resetFormatted}</strong>. You can wait until then, or upgrade to Pro for unlimited review requests every month.
+            </p>
+          </div>
+          <DialogFooter className="flex gap-2 sm:flex-row flex-col">
+            <Button variant="outline" onClick={() => { setLiteLimitResetDate(null); onClose(); }}>
+              Wait until {resetFormatted}
+            </Button>
+            <Button onClick={() => window.location.href = "/pricing"}>
+              Upgrade to Pro — unlimited requests
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onClose}>

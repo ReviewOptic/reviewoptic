@@ -421,6 +421,9 @@ export async function runMigrations() {
       `, [name, type, subject, body]);
     }
 
+    // Rename old plan types to new names (standard → pro, agency → pro)
+    await pool.query(`UPDATE users SET plan_type = 'pro' WHERE plan_type IN ('standard', 'agency')`);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();

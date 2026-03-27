@@ -1,35 +1,42 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { Check, X, ArrowLeft } from "lucide-react";
+import { Check, X, ArrowLeft, Star } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
 import { EmbeddedCheckout, EmbeddedCheckoutProvider } from "@stripe/react-stripe-js";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 
+const SHARED_FEATURES = [
+  "Email, SMS & WhatsApp review requests",
+  "Automatic follow-ups — all 3 included",
+  "AI-generated & custom message templates",
+  "Full analytics dashboard",
+  "Private feedback capture",
+  "Website review widget",
+  "Multiple users & team management",
+  "Works with Google, Trustpilot, Facebook, Checkatrade & more",
+  "No contracts — cancel anytime",
+];
+
 const PLANS = [
   {
-    id: "standard",
-    name: "Business Plan",
-    description: "For local service businesses",
+    id: "lite",
+    name: "Lite",
+    description: "Perfect for getting started",
+    monthly: { display: "£29", per: "/month" },
+    annual:  { display: "£319", per: "/year", saving: "Save £29 — 1 month free" },
+    highlight: false,
+    limitLine: "Up to 10 review requests per month",
+  },
+  {
+    id: "pro",
+    name: "Pro",
+    description: "For businesses serious about reviews",
     monthly: { display: "£49", per: "/month" },
     annual:  { display: "£539", per: "/year", saving: "Save £49 — 1 month free" },
-    keyFeatures: [
-      "Unlimited review requests via email, SMS & WhatsApp",
-      "Automatic follow-ups & AI-generated messages",
-      "Full analytics dashboard with PDF & CSV export",
-      "Multiple users & team management",
-    ],
-    extraFeatures: [
-      "Custom message templates",
-      "Insight emails with performance tips",
-      "Review widget for your website",
-      "Auto-post reviews to social media",
-      "AI chat assistant",
-      "Works with Google, Trustpilot, Facebook, Checkatrade & more",
-      "Private feedback capture",
-      "No contracts — cancel anytime",
-    ],
+    highlight: true,
+    limitLine: "Unlimited review requests per month",
   },
 ];
 
@@ -37,8 +44,6 @@ export default function Pricing() {
   const { user, refreshUser } = useAuth();
   const [, navigate] = useLocation();
 
-  // If an admin landed here while impersonating, refresh auth so stale
-  // requiresPayment data doesn't block navigation back to the app
   useEffect(() => {
     if (user?.isImpersonating) refreshUser();
   }, []);
@@ -70,7 +75,6 @@ export default function Pricing() {
       toast({ title: "Checkout failed", description: err.message, variant: "destructive" });
     }
   }
-
 
   return (
     <div className="relative min-h-screen bg-gray-50 flex flex-col items-center px-4 py-16">
@@ -122,8 +126,21 @@ export default function Pricing() {
         {PLANS.map((plan) => {
           const pricing = period === "monthly" ? plan.monthly : plan.annual;
           const isCurrentPlan = user?.planType === plan.id && user?.planPeriod === period;
+          const isOtherPeriod = user?.planType === plan.id && user?.planPeriod !== period;
           return (
-            <div key={plan.id} className="flex-1 rounded-2xl border-2 border-gray-200 bg-white p-8 flex flex-col shadow-sm">
+            <div
+              key={plan.id}
+              className={`flex-1 rounded-2xl border-2 bg-white p-8 flex flex-col shadow-sm relative ${
+                plan.highlight ? "border-blue-500" : "border-gray-200"
+              }`}
+            >
+              {plan.highlight && (
+                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+                  <span className="flex items-center gap-1 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow">
+                    <Star className="w-3 h-3 fill-white" /> Most popular
+                  </span>
+                </div>
+              )}
               <div className="mb-6">
                 <h2 className="text-xl font-bold text-gray-900">{plan.name}</h2>
                 <p className="text-sm text-gray-500 mt-1">{plan.description}</p>
@@ -146,28 +163,57 @@ export default function Pricing() {
                   </p>
                 )}
               </div>
-              <ul className="flex-1 space-y-3 mb-4">
-                {plan.keyFeatures.map((f) => (
+
+              {/* Review request limit — the key differentiator */}
+              <div className={`mb-5 px-3 py-2 rounded-lg text-sm font-semibold ${
+                plan.id === "pro" ? "bg-blue-50 text-blue-700" : "bg-gray-50 text-gray-700"
+              }`}>
+                {plan.limitLine}
+              </div>
+
+              <ul className="flex-1 space-y-3 mb-3">
+                {SHARED_FEATURES.map((f) => (
                   <li key={f} className="flex items-start gap-2 text-sm text-gray-700">
                     <Check className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
                     {f}
                   </li>
                 ))}
-                {plan.extraFeatures.length > 0 && (
-                  <li className="text-sm text-gray-500 pt-1">
-                    + more features —{" "}
-                    <a href="/features" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-medium">
-                      see full list
-                    </a>
-                  </li>
-                )}
               </ul>
+              <a
+                href="/features"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-blue-600 hover:underline font-medium mb-5 block"
+              >
+                See full feature list →
+              </a>
+
               {isCurrentPlan ? (
                 <div className="w-full text-center py-2.5 rounded-lg bg-green-50 text-green-700 text-sm font-semibold border border-green-200">
                   Your current plan
                 </div>
+              ) : isOtherPeriod ? (
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => openCheckout(plan.id)}
+                >
+                  Switch to {period === "annual" ? "annual" : "monthly"}
+                </Button>
+              ) : user?.planType && user.planType !== "free" && user.planType !== "cancelled" && user.planType !== plan.id ? (
+                <Button
+                  className="w-full"
+                  variant={plan.highlight ? "default" : "outline"}
+                  onClick={() => openCheckout(plan.id)}
+                >
+                  {plan.id === "pro" ? "Upgrade to Pro" : "Switch to Lite"}
+                </Button>
               ) : (
-                <Button className="w-full" variant="default" onClick={() => openCheckout(plan.id)}>
+                <Button
+                  className="w-full"
+                  variant={plan.highlight ? "default" : "outline"}
+                  onClick={() => openCheckout(plan.id)}
+                >
                   Get started
                 </Button>
               )}
