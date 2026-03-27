@@ -29,6 +29,7 @@ import AcceptInvite from "@/pages/AcceptInvite";
 import BillingSuccess from "@/pages/BillingSuccess";
 import Billing from "@/pages/Billing";
 import Tutorial from "@/pages/Tutorial";
+import FAQ from "@/pages/FAQ";
 
 function PlanCancelled() {
   const [, navigate] = useLocation();
@@ -114,6 +115,7 @@ function Router() {
       <Route path="/terms" component={TermsAndConditions} />
       <Route path="/pricing" component={Pricing} />
       <Route path="/features" component={Features} />
+      <Route path="/faq" component={FAQ} />
       <Route path="/billing/success" component={BillingSuccess} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />

@@ -225,9 +225,14 @@ export default function Pricing() {
         })}
       </div>
 
-      <p className="mt-8 text-sm text-gray-400 text-center">
-        Payments are processed securely by Stripe. You can cancel at any time from your account settings.
-      </p>
+      <div className="mt-8 flex flex-col items-center gap-2">
+        <a href="/faq" target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline font-medium">
+          Have questions? Read our FAQ →
+        </a>
+        <p className="text-sm text-gray-400 text-center">
+          Payments are processed securely by Stripe. You can cancel at any time from your account settings.
+        </p>
+      </div>
 
       {/* Embedded checkout modal */}
       {clientSecret && (

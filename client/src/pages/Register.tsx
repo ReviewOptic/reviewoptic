@@ -132,6 +132,11 @@ export default function Register() {
             Sign in
           </button>
         </p>
+        <p className="text-center text-sm text-gray-400 mt-2 space-x-3">
+          <button type="button" onClick={() => navigate("/pricing")} className="underline hover:text-gray-600">View pricing plans</button>
+          <span>·</span>
+          <button type="button" onClick={() => navigate("/faq")} className="underline hover:text-gray-600">FAQ</button>
+        </p>
       </div>
     </div>
   );

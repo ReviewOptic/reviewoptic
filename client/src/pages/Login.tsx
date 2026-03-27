@@ -304,8 +304,10 @@ export default function Login() {
             </>
           )}
         </div>
-        <p className="text-center text-sm text-muted-foreground mt-4">
+        <p className="text-center text-sm text-muted-foreground mt-4 space-x-3">
           <button type="button" onClick={() => navigate("/pricing")} className="underline hover:text-foreground font-medium">View pricing plans</button>
+          <span>·</span>
+          <button type="button" onClick={() => navigate("/faq")} className="underline hover:text-foreground font-medium">FAQ</button>
         </p>
         <p className="text-center text-xs text-muted-foreground mt-3">
           By signing up, you agree to our{" "}

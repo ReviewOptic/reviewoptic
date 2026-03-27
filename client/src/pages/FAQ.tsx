@@ -1,0 +1,195 @@
+import { useState } from "react";
+import { ChevronDown, ChevronUp, ArrowLeft } from "lucide-react";
+import { useLocation } from "wouter";
+
+const FAQS = [
+  {
+    category: "Getting started",
+    items: [
+      {
+        q: "What is ReviewOptic?",
+        a: "ReviewOptic is a review management platform for local service businesses. It lets you send review requests to customers via email, SMS, or WhatsApp, automatically follows up if they don't respond, and helps you grow your reputation on Google, Trustpilot, Facebook, and more — without any manual effort.",
+      },
+      {
+        q: "How does the free trial work?",
+        a: "Every new account gets a 14-day free trial with full access to all features on your chosen plan. You'll need to enter a payment method when you choose your plan, but you won't be charged anything until the 14 days are up. Cancel any time before then and you pay nothing.",
+      },
+      {
+        q: "Do I need a credit card to sign up?",
+        a: "You don't need a card to create your account. You will need to enter payment details when you select your plan — but your card won't be charged until the 14-day trial ends.",
+      },
+      {
+        q: "How do I get started?",
+        a: "Create your account, choose a plan (Lite or Pro), and add your first customer. You can then send them a review request via email, SMS, or WhatsApp in a few clicks. ReviewOptic handles the follow-ups automatically.",
+      },
+    ],
+  },
+  {
+    category: "Plans and pricing",
+    items: [
+      {
+        q: "What's the difference between Lite and Pro?",
+        a: "The only difference is the number of review requests you can send each month. Lite allows up to 10 review requests per month. Pro gives you unlimited review requests. Everything else — templates, analytics, follow-ups, the website widget, team members, AI tools, and more — is included on both plans.",
+      },
+      {
+        q: "Do follow-ups count toward my monthly limit on the Lite plan?",
+        a: "No. Only the initial review request counts toward your 10 per month. Automatic follow-ups (up to 3 per customer) are sent on top of that at no extra cost.",
+      },
+      {
+        q: "When does my monthly allowance reset on the Lite plan?",
+        a: "Your allowance resets on the 1st of each calendar month.",
+      },
+      {
+        q: "Can I switch between Lite and Pro?",
+        a: "Yes, at any time from the Billing tab in your account settings. Upgrading or downgrading takes effect immediately via a new subscription at the current price.",
+      },
+      {
+        q: "Can I switch from monthly to annual billing?",
+        a: "Yes. You can switch to annual billing from the Billing tab. Paying annually gives you the equivalent of 1 month free — £319/year for Lite (vs £348 monthly) and £539/year for Pro (vs £588 monthly).",
+      },
+      {
+        q: "Will my price ever go up?",
+        a: "Not while you stay subscribed. We guarantee that your price will never increase as long as your subscription remains active. If we increase prices for new customers, your rate stays the same. This applies to the plan and billing period you're currently on. If you cancel and re-subscribe at a later date, the price current at that time will apply.",
+      },
+    ],
+  },
+  {
+    category: "Sending review requests",
+    items: [
+      {
+        q: "Which review platforms does ReviewOptic work with?",
+        a: "Google, Trustpilot, Facebook, Checkatrade, TripAdvisor, MyBuilder, and more. You choose which platforms to include for each customer — or set a default.",
+      },
+      {
+        q: "Which channels can I use to send requests?",
+        a: "Email, SMS, and WhatsApp. You can set a preferred channel per customer or choose at send time.",
+      },
+      {
+        q: "How do automatic follow-ups work?",
+        a: "If a customer doesn't respond to your initial request, ReviewOptic sends up to 3 follow-up messages automatically. You control the timing (e.g. 3 days, 7 days, 14 days after the original send) and the message content. You can turn follow-ups on or off in Settings.",
+      },
+      {
+        q: "What is the star rating pre-screen?",
+        a: "When a customer clicks your review link, they first select a star rating privately. If they give 4 or 5 stars, they're shown your review platform links. If they give 1–3 stars, they're taken to a private feedback form instead. This helps protect your public reputation.",
+      },
+      {
+        q: "Can I send to multiple customers at once?",
+        a: "Yes. Use the bulk send feature on the Customers page — select multiple customers and send in one go.",
+      },
+      {
+        q: "Can I import my existing customer list?",
+        a: "Yes. You can import customers via CSV from the Customers page. You can also export your customer list at any time.",
+      },
+    ],
+  },
+  {
+    category: "Features",
+    items: [
+      {
+        q: "What analytics does ReviewOptic provide?",
+        a: "The analytics dashboard shows request sent, click rate, average star rating, best day to send, follow-up effectiveness, platform breakdown, per-channel performance, and more. You can export reports as PDF or CSV and filter by date range.",
+      },
+      {
+        q: "What is private feedback?",
+        a: "When a customer gives a low rating (1–3 stars), instead of being sent to a public review platform, they're shown a private feedback form. Their message comes directly to you so you can resolve the issue before it becomes a public review.",
+      },
+      {
+        q: "What is the website review widget?",
+        a: "A small snippet of code you can add to your website to display your recent reviews automatically. You control the minimum star rating shown, the number of reviews, and the layout (grid or carousel).",
+      },
+      {
+        q: "Can I add team members to my account?",
+        a: "Yes. You can invite team members from Settings → Team. They can send review requests and view customers but cannot access billing or account settings.",
+      },
+      {
+        q: "What is the AI chat assistant?",
+        a: "An in-app AI assistant that can answer questions about review management, help you craft messages, or give advice on improving your review performance.",
+      },
+    ],
+  },
+  {
+    category: "Account and billing",
+    items: [
+      {
+        q: "Can I cancel anytime?",
+        a: "Yes. Cancel from the Billing tab in your account settings at any time — no contracts, no notice period. You'll keep full access until the end of your current billing period.",
+      },
+      {
+        q: "What happens to my data if I cancel?",
+        a: "Your account data is retained for 30 days after your access ends. After that it is permanently deleted. We recommend exporting your customer list (CSV) before cancelling if you want to keep a copy.",
+      },
+      {
+        q: "Is my data secure?",
+        a: "Yes. All data is stored securely, payments are processed by Stripe (a PCI-compliant payment provider), and we never sell your data to third parties. See our Privacy Policy for full details.",
+      },
+      {
+        q: "How do I get support?",
+        a: "Email us at hello@reviewoptic.com and we'll get back to you as soon as possible.",
+      },
+    ],
+  },
+];
+
+function FAQItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-b border-gray-100 last:border-0">
+      <button
+        className="w-full flex items-start justify-between gap-4 py-4 text-left"
+        onClick={() => setOpen(o => !o)}
+      >
+        <span className="text-sm font-medium text-gray-900">{q}</span>
+        {open
+          ? <ChevronUp className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+          : <ChevronDown className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />}
+      </button>
+      {open && (
+        <p className="text-sm text-gray-600 leading-relaxed pb-4">{a}</p>
+      )}
+    </div>
+  );
+}
+
+export default function FAQ() {
+  const [, navigate] = useLocation();
+  return (
+    <div className="min-h-screen bg-gray-50 px-4 py-16">
+      <div className="max-w-2xl mx-auto">
+        <button
+          onClick={() => navigate("/pricing")}
+          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition-colors mb-10"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to pricing
+        </button>
+
+        <div className="text-center mb-12">
+          <h1 className="text-3xl font-bold text-gray-900 mb-3">Frequently asked questions</h1>
+          <p className="text-gray-500">Can't find what you're looking for? Email us at{" "}
+            <a href="mailto:hello@reviewoptic.com" className="text-blue-600 hover:underline">hello@reviewoptic.com</a>
+          </p>
+        </div>
+
+        <div className="space-y-8">
+          {FAQS.map(section => (
+            <div key={section.category}>
+              <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2 px-1">
+                {section.category}
+              </h2>
+              <div className="bg-white rounded-xl border border-gray-200 px-5">
+                {section.items.map(item => (
+                  <FAQItem key={item.q} q={item.q} a={item.a} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <p className="text-center text-sm text-gray-400 mt-12">
+          Still have questions?{" "}
+          <a href="mailto:hello@reviewoptic.com" className="text-blue-600 hover:underline">Get in touch</a>
+        </p>
+      </div>
+    </div>
+  );
+}
