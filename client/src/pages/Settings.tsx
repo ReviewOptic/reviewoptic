@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useState, useEffect, useCallback, useRef } from "react";
 import Cropper from "react-easy-crop";
-import { Save, ExternalLink, Copy, Check, Globe, Bell, FileCode, Star, Share2, Upload, X, Trash2, UserPlus, Mic, Video, Gift } from "lucide-react";
+import { Save, ExternalLink, Copy, Check, Globe, Bell, FileCode, Star, Share2, Upload, X, Trash2, UserPlus, Mic, Video, Gift, Zap, QrCode, Download, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -203,6 +203,7 @@ export default function Settings() {
             <TabsTrigger value="notifications" className="text-[12.5px] whitespace-nowrap" data-testid="tab-notifications">Insight Emails</TabsTrigger>
             <TabsTrigger value="team" className="text-[12.5px] whitespace-nowrap" data-testid="tab-team">Team</TabsTrigger>
             <TabsTrigger value="referral" className="text-[12.5px] whitespace-nowrap" data-testid="tab-referral">Referral</TabsTrigger>
+            <TabsTrigger value="integrations" className="text-[12.5px] whitespace-nowrap" data-testid="tab-integrations">Integrations</TabsTrigger>
           </TabsList>
         </div>
 
@@ -786,6 +787,11 @@ export default function Settings() {
           <ReferralTab />
         </TabsContent>
 
+        {/* Integrations */}
+        <TabsContent value="integrations">
+          <IntegrationsTab />
+        </TabsContent>
+
       </Tabs>
 
     </div>
@@ -1157,5 +1163,159 @@ function ReferralTab() {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function IntegrationsTab() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [webhookCopied, setWebhookCopied] = useState(false);
+  const [qrCopied, setQrCopied] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+
+  const { data: webhookData, refetch: refetchWebhook } = useQuery<{ token: string; webhookUrl: string }>({
+    queryKey: ["/api/settings/webhook-token"],
+    queryFn: async () => {
+      const res = await fetch("/api/settings/webhook-token", { credentials: "include" });
+      return res.json();
+    },
+  });
+
+  const accountId = user?.accountId ?? "";
+  const qrUrl = accountId ? `/api/public/qr/${accountId}` : null;
+  const scanUrl = accountId ? `${window.location.origin}/scan/${accountId}` : "";
+
+  const copyWebhook = () => {
+    navigator.clipboard.writeText(webhookData?.webhookUrl || "");
+    setWebhookCopied(true);
+    setTimeout(() => setWebhookCopied(false), 2000);
+  };
+
+  const copyScanUrl = () => {
+    navigator.clipboard.writeText(scanUrl);
+    setQrCopied(true);
+    setTimeout(() => setQrCopied(false), 2000);
+  };
+
+  const downloadQr = async () => {
+    if (!qrUrl) return;
+    const res = await fetch(qrUrl);
+    const svg = await res.text();
+    const blob = new Blob([svg], { type: "image/svg+xml" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "reviewoptic-qr.svg";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  const regenerateToken = async () => {
+    if (!confirm("This will invalidate your current webhook URL. Any existing Zapier zaps will need to be updated. Continue?")) return;
+    setRegenerating(true);
+    await fetch("/api/settings/webhook-token/regenerate", { method: "POST", credentials: "include" }).catch(() => {});
+    await refetchWebhook();
+    setRegenerating(false);
+    toast({ title: "Webhook URL regenerated" });
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* QR Code */}
+      <Card className="border-card-border">
+        <CardHeader>
+          <CardTitle className="text-[15px] flex items-center gap-2">
+            <QrCode className="w-4 h-4 text-primary" /> QR Code
+          </CardTitle>
+          <CardDescription className="text-[12.5px]">
+            Print this on receipts, flyers, or your counter. Customers scan it to rate their experience on the spot.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4 pb-6">
+          <div className="flex gap-6 items-start">
+            {qrUrl && (
+              <div className="shrink-0 w-36 h-36 border border-border rounded-xl overflow-hidden bg-white p-2">
+                <img src={qrUrl} alt="QR code" className="w-full h-full" />
+              </div>
+            )}
+            <div className="flex-1 space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-[12.5px] font-medium">Scan link</label>
+                <div className="flex gap-2">
+                  <input
+                    readOnly value={scanUrl}
+                    className="flex-1 h-9 rounded-md border border-input bg-muted/40 px-3 text-[12px] text-muted-foreground select-all"
+                    onClick={e => (e.target as HTMLInputElement).select()}
+                  />
+                  <Button size="sm" variant="outline" onClick={copyScanUrl} className="gap-1.5 shrink-0">
+                    {qrCopied ? <><Check className="w-3.5 h-3.5 text-green-600" /> Copied</> : <><Copy className="w-3.5 h-3.5" /> Copy</>}
+                  </Button>
+                </div>
+              </div>
+              <Button size="sm" variant="outline" onClick={downloadQr} className="gap-1.5">
+                <Download className="w-3.5 h-3.5" /> Download QR (SVG)
+              </Button>
+              <p className="text-[11.5px] text-muted-foreground">
+                4–5★ ratings are directed to your review platforms. 1–3★ ratings go to a private feedback form.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Zapier Webhook */}
+      <Card className="border-card-border">
+        <CardHeader>
+          <CardTitle className="text-[15px] flex items-center gap-2">
+            <Zap className="w-4 h-4 text-primary" /> Zapier Webhook
+          </CardTitle>
+          <CardDescription className="text-[12.5px]">
+            Connect any booking system (Acuity, Calendly, Jobber, etc.) to automatically add customers and schedule review requests.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5 pb-6">
+          <div className="space-y-1.5">
+            <label className="text-[12.5px] font-medium">Your webhook URL</label>
+            <div className="flex gap-2">
+              <input
+                readOnly value={webhookData?.webhookUrl || "Loading..."}
+                className="flex-1 h-9 rounded-md border border-input bg-muted/40 px-3 text-[12px] text-muted-foreground select-all"
+                onClick={e => (e.target as HTMLInputElement).select()}
+              />
+              <Button size="sm" variant="outline" onClick={copyWebhook} className="gap-1.5 shrink-0">
+                {webhookCopied ? <><Check className="w-3.5 h-3.5 text-green-600" /> Copied</> : <><Copy className="w-3.5 h-3.5" /> Copy</>}
+              </Button>
+            </div>
+            <p className="text-[11.5px] text-muted-foreground">Keep this URL private. Anyone with it can add customers to your account.</p>
+          </div>
+
+          <div className="rounded-xl bg-muted/40 border border-border p-4 space-y-3">
+            <p className="text-[12.5px] font-semibold">How to use in Zapier</p>
+            <ol className="text-[12px] text-muted-foreground space-y-1.5 list-decimal list-inside">
+              <li>Create a new Zap. Set your booking app (e.g. Acuity) as the trigger.</li>
+              <li>Add a <strong>Webhooks by Zapier</strong> action → <strong>POST</strong>.</li>
+              <li>Paste your webhook URL above into the URL field.</li>
+              <li>Set Data Type to <strong>JSON</strong> and map the fields below.</li>
+            </ol>
+            <div className="rounded-lg bg-background border border-border p-3 font-mono text-[11.5px] space-y-1 text-foreground">
+              <p className="text-muted-foreground mb-1">JSON fields:</p>
+              <p><span className="text-primary">firstName</span> <span className="text-muted-foreground">— required</span></p>
+              <p><span className="text-primary">lastName</span> <span className="text-muted-foreground">— optional</span></p>
+              <p><span className="text-primary">email</span> <span className="text-muted-foreground">— required if no phone</span></p>
+              <p><span className="text-primary">phone</span> <span className="text-muted-foreground">— required if no email</span></p>
+              <p><span className="text-primary">channel</span> <span className="text-muted-foreground">— "email", "sms", or "whatsapp"</span></p>
+              <p><span className="text-primary">scheduledSendDate</span> <span className="text-muted-foreground">— optional, ISO format e.g. "2026-04-15T09:00:00"</span></p>
+              <p><span className="text-primary">serviceType</span> <span className="text-muted-foreground">— optional</span></p>
+            </div>
+            <p className="text-[11.5px] text-muted-foreground">
+              If <strong>scheduledSendDate</strong> is set, the review request fires automatically on that date. If omitted, the customer is added but no request is sent until you trigger it manually.
+            </p>
+          </div>
+
+          <Button size="sm" variant="ghost" onClick={regenerateToken} disabled={regenerating} className="gap-1.5 text-muted-foreground hover:text-destructive">
+            <RefreshCw className={`w-3.5 h-3.5 ${regenerating ? "animate-spin" : ""}`} /> Regenerate webhook URL
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

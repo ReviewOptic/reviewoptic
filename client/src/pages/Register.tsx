@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 export default function Register() {
   const { register, user } = useAuth();
   const [, navigate] = useLocation();
+  const search = useSearch();
+  const referredByAccountId = new URLSearchParams(search).get("ref") || undefined;
   const { data: branding } = useQuery<{ logoUrl: string }>({ queryKey: ["/api/public/branding"] });
 
   useEffect(() => {
@@ -36,7 +38,7 @@ export default function Register() {
     if (!/[^a-zA-Z0-9]/.test(password)) { setError("Password must contain at least one symbol"); return; }
     setLoading(true);
     try {
-      await register(email, password, firstName, lastName, companyName);
+      await register(email, password, firstName, lastName, companyName, referredByAccountId);
       navigate("/pricing");
     } catch (err: any) {
       const msg = err.message || "Something went wrong";

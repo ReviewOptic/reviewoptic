@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import {
   Plus, Search, Send, MoreHorizontal, Ban, Trash2, Users,
-  Upload, Download, X, CheckCircle2, Clock, Star, Eye, AlertCircle, Edit2, Sparkles, RefreshCw, Mic, Video, Archive, ArchiveRestore
+  Upload, Download, X, CheckCircle2, Clock, Star, Eye, AlertCircle, Edit2, Sparkles, RefreshCw, Mic, Video, Archive, ArchiveRestore, CalendarClock
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.R
   review_completed: { label: "Reviewed", color: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400", icon: <Star className="w-3 h-3" /> },
   no_response: { label: "No Response", color: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400", icon: <AlertCircle className="w-3 h-3" /> },
   do_not_contact: { label: "Do Not Contact", color: "bg-destructive/10 text-destructive", icon: <Ban className="w-3 h-3" /> },
+  scheduled: { label: "Scheduled", color: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400", icon: <CalendarClock className="w-3 h-3" /> },
 };
 
 function StatusBadge({ status, doNotContact }: { status: string; doNotContact: boolean }) {
@@ -59,15 +60,26 @@ function AddCustomerDialog({ open, onClose }: { open: boolean; onClose: () => vo
   const [form, setForm] = useState({
     name: "", email: "", phone: "", serviceDate: "", serviceType: "", notes: "", channel: "email"
   });
+  const [scheduleRequest, setScheduleRequest] = useState(false);
+  const [scheduledSendDate, setScheduledSendDate] = useState("");
+
   const mutation = useMutation({
-    mutationFn: async (data: typeof form) => apiRequest("POST", "/api/customers", data),
+    mutationFn: async (data: typeof form) => {
+      const res = await apiRequest("POST", "/api/customers", {
+        ...data,
+        ...(scheduleRequest && scheduledSendDate ? { scheduledSendDate } : {}),
+      });
+      return res.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activity"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
-      toast({ title: "Customer added successfully" });
+      toast({ title: scheduleRequest && scheduledSendDate ? `Review request scheduled for ${new Date(scheduledSendDate).toLocaleDateString("en-GB")}` : "Customer added successfully" });
       onClose();
       setForm({ name: "", email: "", phone: "", serviceDate: "", serviceType: "", notes: "", channel: "email" });
+      setScheduleRequest(false);
+      setScheduledSendDate("");
     },
     onError: () => toast({ title: "Failed to add customer", variant: "destructive" }),
   });
@@ -126,13 +138,32 @@ function AddCustomerDialog({ open, onClose }: { open: boolean; onClose: () => vo
             <Label htmlFor="notes" className="text-[12.5px]">Notes</Label>
             <Textarea id="notes" placeholder="Any notes about this customer or job..." className="resize-none h-16 text-[13px]" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} data-testid="input-notes" />
           </div>
+          {/* Schedule review request */}
+          <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-[12.5px] font-medium">Schedule review request</Label>
+                <p className="text-[11px] text-muted-foreground">Set a date to send automatically when the job is done.</p>
+              </div>
+              <Switch checked={scheduleRequest} onCheckedChange={setScheduleRequest} />
+            </div>
+            {scheduleRequest && (
+              <Input
+                type="date"
+                value={scheduledSendDate}
+                min={new Date().toISOString().split("T")[0]}
+                onChange={e => setScheduledSendDate(e.target.value)}
+                className="text-[13px]"
+              />
+            )}
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} size="sm">Cancel</Button>
           <Button
             size="sm"
             onClick={() => mutation.mutate(form)}
-            disabled={!form.name || (!form.email && !form.phone) || (!!form.email && !isValidEmail(form.email)) || (!!form.phone && !isValidPhone(form.phone)) || mutation.isPending}
+            disabled={!form.name || (!form.email && !form.phone) || (!!form.email && !isValidEmail(form.email)) || (!!form.phone && !isValidPhone(form.phone)) || (scheduleRequest && !scheduledSendDate) || mutation.isPending}
             data-testid="button-submit-customer"
           >
             {mutation.isPending ? "Adding..." : "Add Customer"}

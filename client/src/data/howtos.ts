@@ -165,4 +165,42 @@ export const HOWTOS: HowTo[] = [
       { text: "Once they accept, they will appear in your team list and can log in to ReviewOptic. They share your account but cannot change billing or account settings." },
     ],
   },
+  {
+    title: "How to schedule a review request for a future date",
+    steps: [
+      { text: "Go to the Customers page and click 'Add Customer'.", link: "/customers", linkText: "Customers page" },
+      { text: "Fill in the customer's name, email or phone, and channel." },
+      { text: "At the bottom of the form, toggle on 'Schedule review request'." },
+      { text: "Pick the date you want the request to send — for example, the day after the job is completed." },
+      { text: "Click 'Add Customer'. The customer is saved and the review request will fire automatically on that date. Their status shows as 'Scheduled' in the Customers list." },
+      { text: "ReviewOptic checks for scheduled requests hourly, so the message will go out within an hour of the scheduled date." },
+      { text: "Tip: if you already added a customer and want to send the request now, click the send icon next to their name and choose 'Send now'." },
+    ],
+  },
+  {
+    title: "How to connect a booking system using Zapier",
+    steps: [
+      { text: "Go to Settings → Integrations tab.", link: "/settings?tab=integrations", linkText: "Settings → Integrations" },
+      { text: "Copy your unique Webhook URL." },
+      { text: "Log in to Zapier (zapier.com) and create a new Zap. Choose your booking app (e.g. Acuity Scheduling, Calendly, Jobber) as the trigger — typically 'New Booking' or 'New Appointment'." },
+      { text: "Add an action: search for 'Webhooks by Zapier' and choose 'POST'." },
+      { text: "Paste your webhook URL into the URL field. Set Data Type to 'JSON'." },
+      { text: "Map the fields from your booking app: firstName, lastName, email, phone, and channel (email, sms, or whatsapp)." },
+      { text: "To schedule the review request for job completion, map the job end date to the scheduledSendDate field in ISO format (e.g. 2026-04-15T09:00:00). If you leave this blank, the customer is added but no request is sent until you trigger it manually." },
+      { text: "Test the Zap — a test customer should appear in your Customers list within seconds." },
+      { text: "Turn the Zap on. From now on, every new booking is automatically added to ReviewOptic." },
+    ],
+  },
+  {
+    title: "How to use your QR code",
+    steps: [
+      { text: "Go to Settings → Integrations tab.", link: "/settings?tab=integrations", linkText: "Settings → Integrations" },
+      { text: "You will see your unique QR code. Click 'Download QR (SVG)' to save it to your device." },
+      { text: "Print it on receipts, business cards, flyers, or display it on a counter or tablet at your premises." },
+      { text: "When a customer scans the QR code with their phone camera, they are taken to a simple star-rating page for your business." },
+      { text: "If they give 4 or 5 stars, they are shown buttons to leave a review on your connected platforms (Google, Trustpilot, etc.)." },
+      { text: "If they give 1–3 stars, they see a private feedback form. Their feedback goes directly to you in the Private Feedback section on your Dashboard — it is never posted publicly." },
+      { text: "QR code scans do not require the customer to give their name or contact details, making them ideal for walk-in or point-of-sale situations." },
+    ],
+  },
 ];

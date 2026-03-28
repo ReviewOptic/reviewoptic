@@ -31,12 +31,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data);
   };
 
-  const register = async (email: string, password: string, firstName: string, lastName: string, companyName: string) => {
+  const register = async (email: string, password: string, firstName: string, lastName: string, companyName: string, referredByAccountId?: string) => {
     const res = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ email, password, firstName, lastName, companyName }),
+      body: JSON.stringify({ email, password, firstName, lastName, companyName, referredByAccountId }),
     });
     if (!res.ok) {
       const data = await res.json();

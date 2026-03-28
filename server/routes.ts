@@ -9,6 +9,7 @@ import fs from "fs";
 import bcrypt from "bcryptjs";
 import { Resend } from "resend";
 import OpenAI from "openai";
+import QRCode from "qrcode";
 import { sendReviewEmail, sendVerificationEmail, sendPreScreenEmail, REVIEWOPTIC_FROM } from "./email";
 import { sendReviewSMS, sendWhatsAppMessage, sendPlainSMS } from "./sms";
 import { isCloudinaryConfigured, uploadToCloudinary, deleteFromCloudinary } from "./cloudinary";
@@ -242,7 +243,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // ── Auth routes (no requireAuth) ──────────────────────────────────────────
 
   app.post("/api/auth/register", async (req, res) => {
-    const { email, password, firstName, lastName, companyName } = req.body;
+    const { email, password, firstName, lastName, companyName, referredByAccountId } = req.body;
     if (!email || !password) return res.status(400).json({ message: "Email and password are required" });
     if (!firstName || !lastName) return res.status(400).json({ message: "First and last name are required" });
     if (!companyName) return res.status(400).json({ message: "Company name is required" });
@@ -279,6 +280,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       lastName,
       companyName,
     });
+    if (referredByAccountId) {
+      await pool.query(`UPDATE users SET referred_by_account_id = $1 WHERE id = $2`, [referredByAccountId, user.id]).catch(() => {});
+    }
 
     // Create default settings for the new account
     await storage.upsertSettings(account.id, {
@@ -880,6 +884,148 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ reviews: result, businessName: settings?.businessName || "My Business", layout });
   });
 
+  // ── QR Code — generate SVG for /scan/:accountId page ──
+  app.get("/api/public/qr/:accountId", async (req, res) => {
+    const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://reviewoptic.com");
+    const url = `${appUrl}/scan/${req.params.accountId}`;
+    try {
+      const svg = await QRCode.toString(url, { type: "svg", margin: 1, width: 256 });
+      res.setHeader("Content-Type", "image/svg+xml");
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      res.send(svg);
+    } catch {
+      res.status(500).json({ message: "Failed to generate QR code" });
+    }
+  });
+
+  // ── Scan page info — public, returns business name + platforms ──
+  app.get("/api/public/scan-info/:accountId", async (req, res) => {
+    const settings = await storage.getSettings(req.params.accountId);
+    if (!settings) return res.status(404).json({ message: "Not found" });
+    const platforms = [
+      { key: "google", name: "Google", url: settings.googleReviewLink },
+      { key: "facebook", name: "Facebook", url: settings.facebookReviewLink },
+      { key: "trustpilot", name: "Trustpilot", url: settings.trustpilotLink },
+      { key: "tripadvisor", name: "TripAdvisor", url: settings.tripadvisorLink },
+      { key: "checkatrade", name: "Checkatrade", url: settings.checkatradeLink },
+      { key: "mybuilder", name: "MyBuilder", url: settings.mybuilderLink },
+    ].filter(p => p.url);
+    res.json({ businessName: settings.businessName, platforms });
+  });
+
+  // ── Scan page feedback — public, saves low-rating feedback ──
+  app.post("/api/public/scan-feedback", async (req, res) => {
+    const { accountId, star, message } = req.body;
+    if (!accountId || !star) return res.status(400).json({ message: "Missing fields" });
+    if (star <= 3 && message?.trim()) {
+      await pool.query(
+        `INSERT INTO private_feedback (id, account_id, message, rating, source, created_at) VALUES ($1, $2, $3, $4, 'qr_scan', NOW())`,
+        [randomUUID(), accountId, message.trim(), star]
+      ).catch(() => {});
+    }
+    const settings = await storage.getSettings(accountId);
+    const platforms = [
+      { key: "google", name: "Google", url: settings?.googleReviewLink },
+      { key: "facebook", name: "Facebook", url: settings?.facebookReviewLink },
+      { key: "trustpilot", name: "Trustpilot", url: settings?.trustpilotLink },
+      { key: "tripadvisor", name: "TripAdvisor", url: settings?.tripadvisorLink },
+      { key: "checkatrade", name: "Checkatrade", url: settings?.checkatradeLink },
+      { key: "mybuilder", name: "MyBuilder", url: settings?.mybuilderLink },
+    ].filter(p => p.url);
+    res.json({ highRating: star >= 4, platforms });
+  });
+
+  // ── Zapier webhook — get/generate token ──
+  app.get("/api/settings/webhook-token", requireAuth, async (req, res) => {
+    const { rows } = await pool.query(`SELECT webhook_token FROM users WHERE id = $1`, [req.session.userId]);
+    let token = rows[0]?.webhook_token;
+    if (!token) {
+      token = randomUUID();
+      await pool.query(`UPDATE users SET webhook_token = $1 WHERE id = $2`, [token, req.session.userId]);
+    }
+    const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://reviewoptic.com");
+    res.json({ token, webhookUrl: `${appUrl}/api/public/webhook/${token}` });
+  });
+
+  app.post("/api/settings/webhook-token/regenerate", requireAuth, async (req, res) => {
+    const token = randomUUID();
+    await pool.query(`UPDATE users SET webhook_token = $1 WHERE id = $2`, [token, req.session.userId]);
+    const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://reviewoptic.com");
+    res.json({ token, webhookUrl: `${appUrl}/api/public/webhook/${token}` });
+  });
+
+  // ── Zapier webhook — receive customer data ──
+  app.post("/api/public/webhook/:token", async (req, res) => {
+    const { rows } = await pool.query(
+      `SELECT u.id, u.account_id FROM users u WHERE u.webhook_token = $1 AND u.role = 'owner'`,
+      [req.params.token]
+    );
+    if (rows.length === 0) return res.status(401).json({ message: "Invalid webhook token" });
+    const { account_id: accountId } = rows[0];
+
+    const { firstName, lastName, email, phone, channel, scheduledSendDate, serviceType, notes } = req.body;
+    if (!firstName) return res.status(400).json({ message: "firstName is required" });
+    if (!email && !phone) return res.status(400).json({ message: "email or phone is required" });
+
+    const customer = await storage.createCustomer({
+      id: randomUUID(),
+      accountId,
+      name: [firstName, lastName].filter(Boolean).join(" "),
+      email: email || "",
+      phone: phone || "",
+      channel: channel || (email ? "email" : "sms"),
+      serviceType: serviceType || "",
+      notes: notes || "",
+      status: scheduledSendDate ? "scheduled" : "pending_request",
+    });
+
+    if (scheduledSendDate) {
+      const sendAt = new Date(scheduledSendDate);
+      if (isNaN(sendAt.getTime())) return res.status(400).json({ message: "Invalid scheduledSendDate — use ISO 8601 format e.g. 2026-04-15T09:00:00" });
+
+      const rr = await storage.createReviewRequest({
+        id: randomUUID(),
+        accountId,
+        customerId: customer.id,
+        channel: customer.channel,
+        status: "scheduled",
+        sentAt: new Date(),
+        scheduledAt: sendAt,
+      });
+      await pool.query(
+        `UPDATE review_requests SET scheduled_send_at = $1, schedule_status = 'pending' WHERE id = $2`,
+        [sendAt, rr.id]
+      );
+      await storage.createActivity({
+        id: randomUUID(), accountId, type: "request_sent",
+        customerId: customer.id, customerName: customer.name,
+        message: `Customer added via Zapier — review request scheduled for ${sendAt.toLocaleDateString("en-GB")}`,
+        metadata: "{}",
+      });
+      return res.json({ ok: true, customerId: customer.id, reviewRequestId: rr.id, scheduledFor: sendAt.toISOString() });
+    }
+
+    res.json({ ok: true, customerId: customer.id, message: "Customer added. Send a review request manually from the dashboard." });
+  });
+
+  // ── Referral redirect — /referral/:slug → /register?ref={accountId} ──
+  app.get("/referral/:slug", async (req, res) => {
+    const slug = req.params.slug.toLowerCase();
+    // Match on account_id (first 8 chars) or business name slug
+    const { rows } = await pool.query(`
+      SELECT u.account_id, s.business_name FROM users u
+      JOIN settings s ON s.account_id = u.account_id
+      WHERE u.role = 'owner'
+        AND (
+          LOWER(REPLACE(REGEXP_REPLACE(s.business_name, '[^a-zA-Z0-9]+', '-', 'g'), '--', '-')) = $1
+          OR LEFT(u.account_id, 8) = $1
+        )
+      LIMIT 1
+    `, [slug]);
+    if (rows.length === 0) return res.redirect("/register");
+    res.redirect(`/register?ref=${rows[0].account_id}`);
+  });
+
   // Public branding endpoint — returns the admin account's logo for the login page
   app.get("/api/public/branding", async (_req, res) => {
     try {
@@ -1217,16 +1363,39 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/customers", requireAuth, async (req, res) => {
     if (!req.body.name) return res.status(400).json({ message: "Name is required" });
     if (!req.body.email && !req.body.phone) return res.status(400).json({ message: "Email or phone number is required" });
-    const c = await storage.createCustomer({ ...req.body, accountId: req.session.accountId });
+    const { scheduledSendDate, ...customerData } = req.body;
+    const scheduledSendAt = scheduledSendDate ? new Date(scheduledSendDate) : null;
+    const c = await storage.createCustomer({
+      ...customerData,
+      accountId: req.session.accountId,
+      status: scheduledSendAt ? "scheduled" : customerData.status,
+    });
     await storage.createActivity({
       id: randomUUID(),
       accountId: req.session.accountId!,
       type: "customer_added",
       customerId: c.id,
       customerName: c.name,
-      message: `${c.name} added as a customer`,
+      message: scheduledSendAt
+        ? `${c.name} added — review request scheduled for ${scheduledSendAt.toLocaleDateString("en-GB")}`
+        : `${c.name} added as a customer`,
       metadata: "{}",
     });
+    if (scheduledSendAt && !isNaN(scheduledSendAt.getTime())) {
+      const rr = await storage.createReviewRequest({
+        id: randomUUID(),
+        accountId: req.session.accountId!,
+        customerId: c.id,
+        channel: c.channel,
+        status: "scheduled",
+        sentAt: new Date(),
+        scheduledAt: scheduledSendAt,
+      });
+      await pool.query(
+        `UPDATE review_requests SET scheduled_send_at = $1, schedule_status = 'pending' WHERE id = $2`,
+        [scheduledSendAt, rr.id]
+      );
+    }
     res.json(c);
   });
   app.post("/api/customers/import", requireAuth, async (req, res) => {

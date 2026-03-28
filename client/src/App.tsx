@@ -30,6 +30,7 @@ import BillingSuccess from "@/pages/BillingSuccess";
 import Billing from "@/pages/Billing";
 import Tutorial from "@/pages/Tutorial";
 import FAQ from "@/pages/FAQ";
+import Scan from "@/pages/Scan";
 
 function PlanCancelled() {
   const [, navigate] = useLocation();
@@ -111,6 +112,7 @@ function Router() {
       <Route path="/pricing" component={Pricing} />
       <Route path="/features" component={Features} />
       <Route path="/faq" component={FAQ} />
+      <Route path="/scan/:accountId" component={Scan} />
       <Route path="/billing/success" component={BillingSuccess} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />

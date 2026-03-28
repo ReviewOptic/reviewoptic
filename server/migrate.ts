@@ -449,6 +449,19 @@ export async function runMigrations() {
     // Account deletion scheduling
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS scheduled_for_deletion_at TIMESTAMP`);
 
+    // Zapier webhook token (unique per account, generated on first use)
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS webhook_token TEXT`);
+
+    // Referral tracking
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by_account_id VARCHAR`);
+
+    // DB-backed scheduled sends (survives server restarts — used for job-completion scheduling and Zapier)
+    await pool.query(`ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS scheduled_send_at TIMESTAMP`);
+    await pool.query(`ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS schedule_status TEXT NOT NULL DEFAULT 'sent'`);
+
+    // QR scan feedback source tracking
+    await pool.query(`ALTER TABLE private_feedback ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'review_request'`);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();

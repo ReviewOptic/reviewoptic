@@ -11,7 +11,8 @@ import { seedDatabase } from "./seed";
 import { storage } from "./storage";
 import { runMigrations } from "./migrate";
 import { runMonthlyInsightEmails } from "./insightEmail";
-import { sendPlatformReviewRequest } from "./email";
+import { sendPlatformReviewRequest, sendPreScreenEmail } from "./email";
+import { sendReviewSMS, sendWhatsAppMessage } from "./sms";
 import { pool } from "./storage";
 import path from "path";
 import { execSync } from "child_process";
@@ -114,12 +115,52 @@ app.use((req, res, next) => {
   await seedDatabase().catch(console.error);
   await registerRoutes(httpServer, app);
 
-  // Automated follow-ups and no-response checks
+  // Automated follow-ups, no-response checks, and DB-scheduled sends
   const runScheduledChecks = async () => {
     const followUps = await storage.sendFollowUps().catch(console.error);
     if (followUps) log(`Sent ${followUps} automated follow-up(s)`);
     const noResponse = await storage.markNoResponse().catch(console.error);
     if (noResponse) log(`Marked ${noResponse} customer(s) as no_response`);
+
+    // Send any DB-scheduled review requests that are now due
+    try {
+      const { rows: dueRequests } = await pool.query(`
+        SELECT rr.*, c.name as customer_name, c.email as customer_email, c.phone as customer_phone,
+               c.channel as customer_channel
+        FROM review_requests rr
+        JOIN customers c ON c.id = rr.customer_id
+        WHERE rr.schedule_status = 'pending'
+          AND rr.scheduled_send_at <= NOW()
+      `);
+      for (const rr of dueRequests) {
+        try {
+          const settings = await storage.getSettings(rr.account_id);
+          if (!settings) continue;
+          const customer = { id: rr.customer_id, name: rr.customer_name, email: rr.customer_email, phone: rr.customer_phone, channel: rr.channel || rr.customer_channel } as any;
+          const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "");
+          const smsLink = `${appUrl}/r/${rr.id}`;
+          const firstName = customer.name.split(" ")[0];
+          if (customer.channel === "email") {
+            await sendPreScreenEmail(customer, settings, rr.id, appUrl);
+          } else if (customer.channel === "sms") {
+            const body = `Hi ${firstName}, thanks for choosing ${settings.businessName}! Tap the link below to rate your experience:\n${smsLink}`;
+            await sendReviewSMS(customer, settings, { subject: "", body } as any, []);
+          } else if (customer.channel === "whatsapp") {
+            const ratingLink = `${appUrl}/review?rid=${rr.id}`;
+            const body = `Hi ${firstName} 👋\n\nThank you for choosing ${settings.businessName}! We'd love to hear how we did.\n\nTap the link below to rate your experience:\n${ratingLink}`;
+            await sendWhatsAppMessage(customer.phone, body);
+          }
+          await pool.query(`UPDATE review_requests SET schedule_status = 'sent', status = 'sent', sent_at = NOW() WHERE id = $1`, [rr.id]);
+          await pool.query(`UPDATE customers SET status = 'request_sent' WHERE id = $1`, [customer.id]);
+          log(`Sent scheduled review request to ${customer.name} (${customer.channel})`);
+        } catch (err: any) {
+          log(`Failed to send scheduled request ${rr.id}: ${err.message}`);
+          await pool.query(`UPDATE review_requests SET schedule_status = 'failed' WHERE id = $1`, [rr.id]);
+        }
+      }
+    } catch (err: any) {
+      log(`Scheduled send runner error: ${err.message}`);
+    }
   };
   await runScheduledChecks();
   setInterval(runScheduledChecks, 60 * 60 * 1000);
