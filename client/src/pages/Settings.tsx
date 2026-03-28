@@ -220,17 +220,32 @@ export default function Settings() {
               <CardDescription className="text-[12.5px]">This info is used in your message templates</CardDescription>
             </CardHeader>
             <CardContent className="space-y-5 pb-5">
-              <div className="space-y-1.5">
-                <Label className="text-[12.5px]">
-                  Your Name <span className="text-muted-foreground font-normal">(at least one of name or company name required)</span>
-                </Label>
-                <Input
-                  value={form.ownerName}
-                  onChange={e => setForm(f => ({ ...f, ownerName: e.target.value }))}
-                  placeholder="e.g. Sarah"
-                  data-testid="input-owner-name"
-                  className={!form.ownerName.trim() && !form.businessName.trim() ? "border-destructive focus-visible:ring-destructive" : ""}
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-[12.5px]">
+                    Your Name <span className="text-muted-foreground font-normal">(at least one required)</span>
+                  </Label>
+                  <Input
+                    value={form.ownerName}
+                    onChange={e => setForm(f => ({ ...f, ownerName: e.target.value }))}
+                    placeholder="e.g. Sarah"
+                    data-testid="input-owner-name"
+                    className={!form.ownerName.trim() && !form.businessName.trim() ? "border-destructive focus-visible:ring-destructive" : ""}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[12.5px]">Company Name</Label>
+                  <Input
+                    value={form.businessName}
+                    onChange={e => setForm(f => ({ ...f, businessName: e.target.value }))}
+                    placeholder="Clean Pro Services"
+                    data-testid="input-business-name"
+                    className={!form.ownerName.trim() && !form.businessName.trim() ? "border-destructive focus-visible:ring-destructive" : ""}
+                  />
+                  {!form.ownerName.trim() && !form.businessName.trim() && (
+                    <p className="text-[11.5px] text-destructive">At least one is required</p>
+                  )}
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label className="text-[12.5px]">Company Logo</Label>
@@ -307,19 +322,6 @@ export default function Settings() {
                 )}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-[12.5px]">Company Name</Label>
-                  <Input
-                    value={form.businessName}
-                    onChange={e => setForm(f => ({ ...f, businessName: e.target.value }))}
-                    placeholder="Clean Pro Services"
-                    data-testid="input-business-name"
-                    className={!form.ownerName.trim() && !form.businessName.trim() ? "border-destructive focus-visible:ring-destructive" : ""}
-                  />
-                  {!form.ownerName.trim() && !form.businessName.trim() && (
-                    <p className="text-[11.5px] text-destructive">At least your name or company name is required</p>
-                  )}
-                </div>
                 <div className="space-y-1.5">
                   <Label className="text-[12.5px]">Business Email</Label>
                   <Input
