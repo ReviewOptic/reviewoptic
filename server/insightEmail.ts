@@ -38,7 +38,7 @@ async function getUserStats(accountId: string): Promise<UserStats | null> {
   ]);
 
   const settings = settingsRes.rows[0];
-  if (!settings?.business_email) return null;
+  if (!settings) return null;
 
   const totalReviews = parseInt(totalReviewsRes.rows[0].count) || 0;
   const avgRating = parseFloat(avgRatingRes.rows[0]?.avg) || 0;
@@ -56,7 +56,7 @@ async function getUserStats(accountId: string): Promise<UserStats | null> {
 
   return {
     businessName: settings.business_name || "Your Business",
-    email: settings.business_email,
+    email: settings.business_email || "",
     totalReviews, avgRating, reviewsThisMonth, reviewsLastMonth,
     avgRatingLastMonth, requestsSentThisMonth, conversionRate,
     bestChannel, totalCustomers, platformClicks,
@@ -167,7 +167,7 @@ export async function runMonthlyInsightEmails(): Promise<void> {
   const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000");
 
   const { rows: users } = await pool.query(`
-    SELECT id, account_id, insight_email_frequency FROM users
+    SELECT id, email, account_id, insight_email_frequency FROM users
     WHERE NOT is_admin
       AND email_verified = true
       AND plan_type NOT IN ('free', 'complimentary')
@@ -182,10 +182,17 @@ export async function runMonthlyInsightEmails(): Promise<void> {
       )
   `);
 
+  console.log(`[insight email] ${users.length} user(s) due for an insight email`);
+
   for (const user of users) {
     try {
       const stats = await getUserStats(user.account_id);
-      if (!stats) continue;
+      if (!stats) {
+        console.warn(`[insight email] Skipping user ${user.id} — no settings found`);
+        continue;
+      }
+      // Fall back to account email if business email not set in settings
+      if (!stats.email) stats.email = user.email;
       const insights = await generateInsights(stats);
       await sendInsightEmail(stats, insights, user.id, user.account_id, appUrl, user.insight_email_frequency);
       await pool.query(`UPDATE users SET last_insight_email_at = NOW() WHERE id = $1`, [user.id]);
