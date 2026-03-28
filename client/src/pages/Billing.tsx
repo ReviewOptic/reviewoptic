@@ -172,7 +172,7 @@ export default function Billing() {
         </div>
 
         {/* Plan switching */}
-        {(user?.planType === "lite" || user?.planType === "pro") && (sub?.status === "active" || sub?.status === "trialing") && !sub.cancelAtPeriodEnd && (
+        {(user?.planType === "lite" || user?.planType === "pro") && !sub?.cancelAtPeriodEnd && (
           <div className="pt-4 border-t border-gray-100 space-y-3">
             {user.planType === "lite" && (
               <div className="flex items-start justify-between gap-4">

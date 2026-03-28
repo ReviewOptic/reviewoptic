@@ -201,7 +201,9 @@ export default function Settings() {
             <TabsTrigger value="widget" className="text-[12.5px] whitespace-nowrap" data-testid="tab-widget">Widget</TabsTrigger>
             <TabsTrigger value="social" className="text-[12.5px] whitespace-nowrap" data-testid="tab-social">Social</TabsTrigger>
             <TabsTrigger value="notifications" className="text-[12.5px] whitespace-nowrap" data-testid="tab-notifications">Insight Emails</TabsTrigger>
-            <TabsTrigger value="team" className="text-[12.5px] whitespace-nowrap" data-testid="tab-team">Team</TabsTrigger>
+            <TabsTrigger value="team" className="text-[12.5px] whitespace-nowrap" data-testid="tab-team">
+              Team{user?.planType === "lite" && <span className="ml-1.5 text-[10px] font-semibold bg-muted text-muted-foreground px-1.5 py-0.5 rounded">Pro</span>}
+            </TabsTrigger>
             <TabsTrigger value="referral" className="text-[12.5px] whitespace-nowrap" data-testid="tab-referral">Referral</TabsTrigger>
             <TabsTrigger value="integrations" className="text-[12.5px] whitespace-nowrap" data-testid="tab-integrations">Integrations</TabsTrigger>
           </TabsList>
@@ -942,14 +944,19 @@ function TeamTab() {
   if (user?.planType === "lite") {
     return (
       <Card className="border-card-border">
-        <CardContent className="py-10 text-center space-y-3">
-          <p className="text-[14px] font-semibold">Team members are a Pro feature</p>
-          <p className="text-[12.5px] text-muted-foreground max-w-sm mx-auto">
-            Upgrade to Pro to invite team members and let your whole team log in and send review requests.
-          </p>
+        <CardContent className="py-12 text-center space-y-3">
+          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center mx-auto">
+            <UserPlus className="w-5 h-5 text-muted-foreground" />
+          </div>
+          <div>
+            <p className="text-[14px] font-semibold">Team members are a Pro feature</p>
+            <p className="text-[12.5px] text-muted-foreground mt-1 max-w-xs mx-auto">
+              Upgrade to Pro to invite your team and let them log in and send review requests.
+            </p>
+          </div>
           <button
-            onClick={() => window.location.href = "/pricing"}
-            className="inline-block mt-2 bg-primary text-primary-foreground text-[12.5px] font-semibold px-5 py-2 rounded-lg hover:opacity-90 transition-opacity"
+            onClick={() => window.location.href = "/billing"}
+            className="inline-block mt-1 bg-primary text-primary-foreground text-[12.5px] font-semibold px-5 py-2 rounded-lg hover:opacity-90 transition-opacity"
           >
             Upgrade to Pro
           </button>
