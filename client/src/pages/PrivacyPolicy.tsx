@@ -3,7 +3,6 @@ export default function PrivacyPolicy() {
     <div className="min-h-screen bg-background">
       <div className="max-w-3xl mx-auto px-6 py-16">
         <div className="mb-10">
-          <img src="/logo.png" alt="ReviewOptic" className="h-16 mb-8 object-contain" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
           <h1 className="text-3xl font-bold tracking-tight mb-2">Privacy Policy</h1>
           <p className="text-muted-foreground text-sm">Last updated: [DATE]</p>
         </div>
@@ -63,8 +62,9 @@ export default function PrivacyPolicy() {
             <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
               <li><strong className="text-foreground">Resend</strong> — used to send transactional and marketing emails on our behalf. Your email address is shared with Resend solely for this purpose. Resend is GDPR-compliant and we have a Data Processing Agreement in place with Resend.</li>
               <li><strong className="text-foreground">Stripe</strong> — used to process payments and manage subscriptions. Card and billing data is handled directly by Stripe and is never stored on our servers. Stripe is GDPR-compliant and we have a Data Processing Agreement in place with Stripe.</li>
-              <li><strong className="text-foreground">Neon (PostgreSQL)</strong> — secure data storage</li>
-              <li><strong className="text-foreground">Twilio</strong> — used to send SMS and WhatsApp messages on your behalf to your customers</li>
+              <li><strong className="text-foreground">Neon (PostgreSQL)</strong> — used to store all platform data securely. Neon is GDPR-compliant and we have a Data Processing Agreement in place with Neon.</li>
+              <li><strong className="text-foreground">Twilio</strong> — used to send SMS and WhatsApp messages on your behalf to your customers. Customer phone numbers are shared with Twilio solely for this purpose. Twilio is GDPR-compliant and we have a Data Processing Agreement in place with Twilio.</li>
+              <li><strong className="text-foreground">Sentry</strong> — used for error monitoring to help us identify and fix technical issues. Error data may include technical information such as IP addresses. Sentry is GDPR-compliant and we have a Data Processing Agreement in place with Sentry.</li>
               <li><strong className="text-foreground">Meta (Facebook/Instagram)</strong> — if you connect your social accounts</li>
               <li><strong className="text-foreground">LinkedIn</strong> — if you connect your LinkedIn account</li>
             </ul>

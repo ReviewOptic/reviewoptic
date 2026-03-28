@@ -381,3 +381,18 @@ Your job is to be the developer they would hire if they could afford a great one
 - **SEO meta tags**: `use-page-meta` hook ready, not yet applied to public pages
 - **UI polish**: deferred by user
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+
+### Session — 2026-03-28 (thirty-eighth session)
+
+**Tasks completed:**
+- **Privacy Policy DPA notes completed**: Added full GDPR-compliant + DPA language for Neon, Twilio, and Sentry. All five processors (Resend, Stripe, Neon, Twilio, Sentry) now have consistent DPA notes. Sentry added as a new entry (was missing entirely).
+- **Privacy Policy logo removed**: Logo image removed from the Privacy Policy page — cleaner, more document-like appearance.
+- **Terms & Conditions logo resized**: Logo increased from `h-16` to `h-28` to match the Dashboard logo size.
+
+**Notes for next session:**
+- **⚠️ TWILIO WEBHOOK NOT YET ACTIVATED** — must set `https://reviewoptic.com/api/webhooks/twilio-inbound` in Twilio console
+- **⚠️ STRIPE WEBHOOK NOT YET REGISTERED** — must register `https://reviewoptic.com/api/billing/webhook`, select BOTH `customer.subscription.deleted` AND `invoice.payment_succeeded`, add `STRIPE_WEBHOOK_SECRET`
+- **Referral programme**: needs completing (offer text, share link, `referred_by_account_id` on registration, admin view)
+- **SEO meta tags**: `use-page-meta` hook ready, not yet applied to public pages
+- **UI polish**: deferred by user
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
