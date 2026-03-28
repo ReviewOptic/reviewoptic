@@ -284,3 +284,38 @@ Your job is to be the developer they would hire if they could afford a great one
 - Instagram auto-posting still not built
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
 - **Next feature ideas**: QR code (quick win), Zapier webhook for auto-adding customers (high impact), re-engagement campaigns for past customers
+
+### Session — 2026-03-27 (thirty-fifth session)
+
+**Tasks completed:**
+- **Pricing plans replaced**: Standard/Agency → Lite (£29/mo or £319/yr, 10 requests/mo) and Pro (£49/mo or £539/yr, unlimited). Plan type union updated in auth-types.ts.
+- **Lite plan limit enforcement**: `POST /api/review-requests` checks monthly count (excluding follow-ups). Returns 403 with `code: "lite_limit_reached"` and `resetDate`. Frontend shows dialog with reset date and upgrade link.
+- **Billing tab updated**: Shows plan name, limit detail, trial badge. Plan switching (Lite↔Pro, monthly→annual) via new Stripe checkout session. Old subscription cancelled when switching.
+- **14-day free trial**: Added to checkout for new subscribers only (checked via `stripe_customer_id`). Billing tab shows trial end date.
+- **Register page rebuilt**: Standalone clean page (was a redirect stub). Logo, form, T&C checkbox, subtitle about trial. After registration → `/pricing`. Handles duplicate account gracefully.
+- **FAQ page created**: `/faq` with 5 sections, 22 questions. Linked from pricing, login, register pages.
+- **Cancelled plan behaviour updated**: Cancelled users can browse full app — only `POST /api/review-requests` is blocked at API level. `CancelledBanner` in Layout.tsx is amber, updated wording. App.tsx no longer locks cancelled users to analytics-only.
+- **Permanent account deletion**: `DELETE /api/account` endpoint cancels Stripe, sets `scheduled_for_deletion_at = NOW() + 30 days`, logs out. Two-step confirmation dialog in Billing.tsx. Daily runner in index.ts deletes accounts past their window. `scheduled_for_deletion_at` column added via migration.
+- **Plan rename migration**: `UPDATE users SET plan_type = 'pro' WHERE plan_type IN ('standard', 'agency')` added to migrate.ts.
+- **T&Cs updated**: Price guarantee (Section 5), free trial (Section 6), cancellation/deletion (Section 7) all written properly.
+- **Privacy Policy updated**: Neon/Stripe placeholders filled. Private feedback data collection documented.
+- **Features page updated**: Lite/Pro split noted. Instagram removed (not built).
+- **Template reset preserved**: Added `schema_migrations` table to migrate.ts. All one-time template UPDATE blocks now gated with `once()` helper — user customisations survive server restarts.
+- **Custom Templates section**: Now starts expanded by default so "Add template" button is immediately visible.
+- **ReviewLanding low-rating wording**: Footnote changed to *"This doesn't affect your right to leave a public review."*
+- **FAQ/Privacy/T&Cs updated**: All three reflect the exact footnote wording and service-recovery framing for the pre-screen.
+- **Billing upgrade buttons**: Fixed condition — now shows for `status === "trialing"` as well as `"active"`.
+
+**Architecture notes:**
+- `schema_migrations` table: `CREATE TABLE IF NOT EXISTS schema_migrations (name VARCHAR PRIMARY KEY, run_at TIMESTAMP DEFAULT NOW())`. Helper `once(name, fn)` checks before running, inserts after. Four migration names: `sentiment_prescreen_wording`, `response_template_defaults_v1`, `follow_up_subjects_v1`, `canonical_templates_v2`.
+- `DELETE /api/account`: cancels Stripe sub, sets `scheduled_for_deletion_at`, clears session. Daily runner deletes in dependency order: clicks → feedback → requests → activity → templates → recordings → customers → settings → chat_messages → users.
+- Lite limit query: `COUNT(*) FROM review_requests WHERE account_id = $1 AND (follow_up_count IS NULL OR follow_up_count = 0) AND DATE_TRUNC('month', sent_at) = DATE_TRUNC('month', NOW())`
+
+**Notes for next session:**
+- **⚠️ SERVER RESTART REQUIRED** for `schema_migrations` table and `scheduled_for_deletion_at` column to be created
+- **⚠️ TWILIO WEBHOOK NOT YET ACTIVATED** — must set `https://reviewoptic.com/api/webhooks/twilio-inbound` in Twilio console
+- **Referral programme**: still pending (see above)
+- `POST /api/reviews` endpoint still orphaned in routes.ts — safe to remove
+- Instagram auto-posting still not built
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+- **Next feature ideas**: QR code, Zapier webhook, re-engagement campaigns

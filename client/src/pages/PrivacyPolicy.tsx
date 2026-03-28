@@ -24,7 +24,8 @@ export default function PrivacyPolicy() {
             <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
               <li><strong className="text-foreground">Account data:</strong> your name, email address, and company name when you sign up</li>
               <li><strong className="text-foreground">Customer data:</strong> names, email addresses, and phone numbers of customers you add to the platform</li>
-              <li><strong className="text-foreground">Review data:</strong> reviews and feedback submitted by your customers through the platform</li>
+              <li><strong className="text-foreground">Review data:</strong> star ratings submitted by your customers through the platform</li>
+              <li><strong className="text-foreground">Private feedback:</strong> written feedback submitted by customers who give a low rating (1–3 stars), which is shared only with the business that sent the review request</li>
               <li><strong className="text-foreground">Usage data:</strong> how you interact with the app (e.g. pages visited, features used)</li>
               <li><strong className="text-foreground">Communication data:</strong> emails and messages sent through the platform</li>
             </ul>
@@ -73,11 +74,16 @@ export default function PrivacyPolicy() {
 
           <section>
             <h2 className="text-lg font-semibold mb-2">6. Your customers' data</h2>
-            <p className="text-muted-foreground leading-relaxed">
+            <p className="text-muted-foreground leading-relaxed mb-3">
               When you add your customers to ReviewOptic, you are the data controller for their personal information.
               ReviewOptic acts as a data processor on your behalf. You are responsible for ensuring you have a
               lawful basis to contact your customers and that doing so complies with applicable marketing laws
               (including UK PECR and GDPR). We will only use your customers' data to provide the service to you.
+            </p>
+            <p className="text-muted-foreground leading-relaxed">
+              Where a customer submits private feedback via the star rating pre-screen, that feedback is stored
+              securely and shared only with the business that sent the review request. Customers are informed
+              on the feedback form that this does not affect their right to leave a public review.
             </p>
           </section>
 

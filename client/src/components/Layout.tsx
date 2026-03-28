@@ -27,13 +27,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 }
 
 function LogoOrText() {
-  const { data: settings } = useQuery<{ logoUrl: string; businessName: string }>({ queryKey: ["/api/settings"] });
-  const [imgFailed, setImgFailed] = useState(false);
-
-  const logoSrc = settings?.logoUrl || "";
-
-  const src = (logoSrc && !imgFailed) ? logoSrc : "/logo.png";
-  return <img src={src} alt="logo" className="w-full max-w-[200px] h-auto object-contain" onError={() => setImgFailed(true)} />;
+  return <img src="/logo.png" alt="ReviewOptic" className="w-full max-w-[200px] h-auto object-contain" />;
 }
 
 const navItems = [
@@ -250,10 +244,10 @@ function CancelledBanner() {
   const [, navigate] = useLocation();
   if (user?.planType !== "cancelled") return null;
   return (
-    <div className="bg-red-600 text-white text-sm px-4 py-2.5 flex items-center justify-between flex-shrink-0 gap-4">
+    <div className="bg-amber-500 text-white text-sm px-4 py-2.5 flex items-center justify-between flex-shrink-0 gap-4">
       <div className="flex items-center gap-2">
         <AlertTriangle className="w-4 h-4 shrink-0" />
-        <span>Your subscription has ended. You can view analytics but all other features are locked.</span>
+        <span>Your subscription has ended — you can still view your account but cannot send new review requests.</span>
       </div>
       <button onClick={() => navigate("/billing")} className="underline font-semibold whitespace-nowrap hover:text-white/80">
         Reactivate

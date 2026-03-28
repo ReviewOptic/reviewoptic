@@ -14,15 +14,38 @@ function customerFrom(settings: Settings): string {
 const LOGO_URL = `${APP_URL}/logo.png`;
 const LOGO_HTML = `<div style="margin-bottom:28px;">
   <a href="https://reviewoptic.com" style="text-decoration:none;">
-    <img src="${LOGO_URL}" alt="ReviewOptic" style="height:36px;max-width:180px;object-fit:contain;display:block;" />
+    <img src="${LOGO_URL}" alt="ReviewOptic" style="width:100%;max-width:200px;height:auto;object-fit:contain;display:block;" />
   </a>
 </div>`;
+
+function customerLogoHtml(settings: Settings): string {
+  const baseUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://reviewoptic.com");
+  const logoSrc = settings.logoUrl?.startsWith("http") ? settings.logoUrl : settings.logoUrl ? `${baseUrl}${settings.logoUrl}` : "";
+  if (!logoSrc) return "";
+  const websiteHref = settings.websiteUrl ? (settings.websiteUrl.startsWith("http") ? settings.websiteUrl : `https://${settings.websiteUrl}`) : "";
+  const img = `<img src="${logoSrc}" alt="${settings.businessName}" style="width:100%;max-width:200px;height:auto;object-fit:contain;display:block;" />`;
+  const linked = websiteHref ? `<a href="${websiteHref}" target="_blank" style="text-decoration:none;">${img}</a>` : img;
+  return `<div style="margin-bottom:28px;">${linked}</div>`;
+}
 const POWERED_BY_FOOTER = `
   <div style="border-top:1px solid #e5e7eb;margin-top:32px;padding-top:16px;text-align:center;">
-    <a href="https://reviewoptic.com" style="text-decoration:none;">
-      <img src="${LOGO_URL}" alt="ReviewOptic" style="height:24px;max-width:120px;object-fit:contain;display:inline-block;vertical-align:middle;margin-right:6px;" />
-    </a>
-    <span style="font-size:11px;color:#9ca3af;vertical-align:middle;">Powered by <a href="https://reviewoptic.com" style="color:#9ca3af;">ReviewOptic</a></span>
+    <span style="font-size:11px;color:#9ca3af;">Powered by <a href="https://reviewoptic.com" style="color:#9ca3af;text-decoration:underline;">ReviewOptic</a></span>
+  </div>`;
+
+const PLATFORM_FOOTER = `
+  <div style="border-top:1px solid #e5e7eb;margin-top:32px;padding-top:24px;text-align:center;">
+    <p style="font-size:13px;color:#555;margin:0 0 12px;">Know someone who could benefit from ReviewOptic?</p>
+    <a href="https://reviewoptic.com/pricing" style="display:inline-block;background:#2563eb;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;">Refer a friend</a>
+    <div style="border-top:1px solid #e5e7eb;margin-top:24px;padding-top:16px;">
+      <span style="font-size:11px;color:#9ca3af;">Powered by <a href="https://reviewoptic.com" style="color:#9ca3af;text-decoration:underline;">ReviewOptic</a></span>
+      <div style="margin-top:8px;">
+        <a href="https://reviewoptic.com/privacy" style="font-size:11px;color:#9ca3af;text-decoration:underline;margin:0 8px;">Privacy Policy</a>
+        &nbsp;&middot;&nbsp;
+        <a href="https://reviewoptic.com/terms" style="font-size:11px;color:#9ca3af;text-decoration:underline;margin:0 8px;">Terms &amp; Conditions</a>
+        &nbsp;&middot;&nbsp;
+        <a href="https://reviewoptic.com/faq" style="font-size:11px;color:#9ca3af;text-decoration:underline;margin:0 8px;">FAQ</a>
+      </div>
+    </div>
   </div>`;
 
 export async function sendVerificationEmail(to: string, verifyUrl: string) {
@@ -51,7 +74,7 @@ export async function sendVerificationEmail(to: string, verifyUrl: string) {
         <p style="color:#999;font-size:12px;margin-top:32px;line-height:1.6;">
           If you didn't create a ReviewOptic account, you can safely ignore this email.
         </p>
-        ${POWERED_BY_FOOTER}
+        ${PLATFORM_FOOTER}
       </div>
     `,
   });
@@ -84,7 +107,7 @@ export async function sendTeamInviteEmail(to: string, inviterName: string, compa
         <p style="color:#999;font-size:12px;margin-top:32px;line-height:1.6;">
           If you weren't expecting this invitation, you can safely ignore this email.
         </p>
-        ${POWERED_BY_FOOTER}
+        ${PLATFORM_FOOTER}
       </div>
     `,
   });
@@ -152,21 +175,7 @@ export async function sendReviewEmail(
   const platforms = selectedPlatforms?.length ? selectedPlatforms : [];
   const primaryLink = platforms[0]?.url || "";
 
-  const logoAlign = settings.logoPosition === "center" ? "center" : settings.logoPosition === "right" ? "right" : "left";
-  const baseUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "");
-  const logoSrc = settings.logoUrl?.startsWith("http") ? settings.logoUrl : settings.logoUrl ? `${baseUrl}${settings.logoUrl}` : "";
-  const logoImg = logoSrc
-    ? `<img src="${logoSrc}" alt="${settings.businessName}" style="max-height:112px;max-width:300px;object-fit:contain;display:inline-block;" />`
-    : "";
-  const websiteHref = settings.websiteUrl
-    ? (settings.websiteUrl.startsWith("http") ? settings.websiteUrl : `https://${settings.websiteUrl}`)
-    : "";
-  const logoContent = logoImg && websiteHref
-    ? `<a href="${websiteHref}" target="_blank" style="text-decoration:none;">${logoImg}</a>`
-    : logoImg;
-  const logoHtml = logoContent
-    ? `<div style="text-align:${logoAlign};margin-bottom:24px;">${logoContent}</div>`
-    : "";
+  const logoHtml = customerLogoHtml(settings);
 
   const platformButtons = platforms.map(p =>
     `<a href="${p.url}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin:4px 4px 4px 0;">Review us on ${p.name}</a>`
@@ -226,13 +235,7 @@ export async function sendPreScreenEmail(
   }
 
   const firstName = customer.name.split(" ")[0];
-  const baseUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : appUrl);
-  const logoAlign = settings.logoPosition === "center" ? "center" : settings.logoPosition === "right" ? "right" : "left";
-  const logoSrc = settings.logoUrl?.startsWith("http") ? settings.logoUrl : settings.logoUrl ? `${baseUrl}${settings.logoUrl}` : "";
-  const logoImg = logoSrc ? `<img src="${logoSrc}" alt="${settings.businessName}" style="max-height:112px;max-width:300px;object-fit:contain;display:inline-block;" />` : "";
-  const websiteHref = settings.websiteUrl ? (settings.websiteUrl.startsWith("http") ? settings.websiteUrl : `https://${settings.websiteUrl}`) : "";
-  const logoContent = logoImg && websiteHref ? `<a href="${websiteHref}" target="_blank" style="text-decoration:none;">${logoImg}</a>` : logoImg;
-  const logoHtml = logoContent ? `<div style="text-align:${logoAlign};margin-bottom:24px;">${logoContent}</div>` : "";
+  const logoHtml = customerLogoHtml(settings);
 
   const stars = [1, 2, 3, 4, 5].map(n =>
     `<td style="padding:0 6px;text-align:center;">
@@ -282,13 +285,7 @@ export async function sendFollowUpEmail(
   }
 
   const firstName = customer.name.split(" ")[0];
-  const baseUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "");
-  const logoAlign = settings.logoPosition === "center" ? "center" : settings.logoPosition === "right" ? "right" : "left";
-  const logoSrc = settings.logoUrl?.startsWith("http") ? settings.logoUrl : settings.logoUrl ? `${baseUrl}${settings.logoUrl}` : "";
-  const logoImg = logoSrc ? `<img src="${logoSrc}" alt="${settings.businessName}" style="max-height:112px;max-width:300px;object-fit:contain;display:inline-block;" />` : "";
-  const websiteHref = settings.websiteUrl ? (settings.websiteUrl.startsWith("http") ? settings.websiteUrl : `https://${settings.websiteUrl}`) : "";
-  const logoContent = logoImg && websiteHref ? `<a href="${websiteHref}" target="_blank" style="text-decoration:none;">${logoImg}</a>` : logoImg;
-  const logoHtml = logoContent ? `<div style="text-align:${logoAlign};margin-bottom:24px;">${logoContent}</div>` : "";
+  const logoHtml = customerLogoHtml(settings);
 
   const ownerFirstName = (settings.ownerName || "").split(" ")[0];
   const resolve = (text: string) => text
@@ -344,13 +341,7 @@ export async function sendShareRatingEmail(
   }
 
   const firstName = customer.name.split(" ")[0];
-  const baseUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "");
-  const logoAlign = settings.logoPosition === "center" ? "center" : settings.logoPosition === "right" ? "right" : "left";
-  const logoSrc = settings.logoUrl?.startsWith("http") ? settings.logoUrl : settings.logoUrl ? `${baseUrl}${settings.logoUrl}` : "";
-  const logoImg = logoSrc ? `<img src="${logoSrc}" alt="${settings.businessName}" style="max-height:112px;max-width:300px;object-fit:contain;display:inline-block;" />` : "";
-  const websiteHref = settings.websiteUrl ? (settings.websiteUrl.startsWith("http") ? settings.websiteUrl : `https://${settings.websiteUrl}`) : "";
-  const logoContent = logoImg && websiteHref ? `<a href="${websiteHref}" target="_blank" style="text-decoration:none;">${logoImg}</a>` : logoImg;
-  const logoHtml = logoContent ? `<div style="text-align:${logoAlign};margin-bottom:24px;">${logoContent}</div>` : "";
+  const logoHtml = customerLogoHtml(settings);
 
   const ownerFirstName = (settings.ownerName || "").split(" ")[0];
   const resolve = (text: string) => text
@@ -452,7 +443,7 @@ export async function sendPlatformReviewRequest(user: { id: string; email: strin
         <p style="color:#999;font-size:12px;line-height:1.6;margin-top:32px;">
           You're receiving this because you have an account with ReviewOptic.
         </p>
-        ${POWERED_BY_FOOTER}
+        ${PLATFORM_FOOTER}
         ${platformUnsubscribeFooter(user.id)}
       </div>
     `,
@@ -490,7 +481,7 @@ export async function sendCancellationEmail(to: string, firstName: string, acces
           Thank you for being a ReviewOptic customer.
         </p>
         <p style="color:#999;font-size:12px;margin-top:32px;">The ReviewOptic team</p>
-        ${POWERED_BY_FOOTER}
+        ${PLATFORM_FOOTER}
       </div>
     `,
   });

@@ -197,6 +197,34 @@ app.use((req, res, next) => {
   await runPlatformReviewRequests().catch(console.error);
   setInterval(() => runPlatformReviewRequests().catch(console.error), 24 * 60 * 60 * 1000);
 
+  // Daily: permanently delete accounts that have passed their 30-day deletion window
+  const runAccountDeletions = async () => {
+    try {
+      const { rows } = await pool.query(
+        `SELECT account_id FROM users WHERE scheduled_for_deletion_at IS NOT NULL AND scheduled_for_deletion_at <= NOW() AND role = 'owner'`
+      );
+      for (const row of rows) {
+        const accountId = row.account_id;
+        // Delete all account data in dependency order
+        await pool.query(`DELETE FROM review_platform_clicks WHERE account_id = $1`, [accountId]).catch(() => {});
+        await pool.query(`DELETE FROM private_feedback WHERE account_id = $1`, [accountId]).catch(() => {});
+        await pool.query(`DELETE FROM review_requests WHERE account_id = $1`, [accountId]).catch(() => {});
+        await pool.query(`DELETE FROM activity_log WHERE account_id = $1`, [accountId]).catch(() => {});
+        await pool.query(`DELETE FROM templates WHERE account_id = $1`, [accountId]).catch(() => {});
+        await pool.query(`DELETE FROM recordings WHERE account_id = $1`, [accountId]).catch(() => {});
+        await pool.query(`DELETE FROM customers WHERE account_id = $1`, [accountId]).catch(() => {});
+        await pool.query(`DELETE FROM settings WHERE account_id = $1`, [accountId]).catch(() => {});
+        await pool.query(`DELETE FROM chat_messages WHERE user_id IN (SELECT id FROM users WHERE account_id = $1)`, [accountId]).catch(() => {});
+        await pool.query(`DELETE FROM users WHERE account_id = $1`, [accountId]);
+        console.log(`[account-deletion] Permanently deleted account ${accountId}`);
+      }
+    } catch (err: any) {
+      console.error("[account-deletion] Error:", err.message);
+    }
+  };
+  await runAccountDeletions().catch(console.error);
+  setInterval(() => runAccountDeletions().catch(console.error), 24 * 60 * 60 * 1000);
+
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";

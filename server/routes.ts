@@ -99,12 +99,11 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
       planQuery.then(({ rows }) => {
         const planType = rows[0]?.plan_type || "free";
         if (planType === "free") return res.status(402).json({ message: "Subscription required" });
-        // Cancelled plan — analytics read-only
+        // Cancelled plan — block only sending new review requests
         if (planType === "cancelled") {
-          const isAnalyticsRead = req.path === "/api/analytics" && req.method === "GET";
-          const isSettingsRead = req.path === "/api/settings" && req.method === "GET";
-          if (!isAnalyticsRead && !isSettingsRead) {
-            return res.status(402).json({ message: "Your subscription has ended. Please reactivate to regain access.", code: "subscription_ended" });
+          const isSendingRequest = req.path === "/api/review-requests" && req.method === "POST";
+          if (isSendingRequest) {
+            return res.status(402).json({ message: "Your subscription has ended. Please reactivate to send review requests.", code: "subscription_ended" });
           }
         }
         next();
@@ -289,7 +288,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     // Create default templates
     const posBody = `We hope you enjoyed your experience with {{business_name}} and our {{service_type}}! Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!\n\n{{owner_name}}\n{{business_name}}`;
-    const negBody = `We would appreciate your feedback on how we can improve for next time and will be in touch.\n\nMany thanks,\n{{owner_name}}\n{{business_name}}`;
+    const negBody = `We would appreciate your feedback on how we can improve for next time and will be in touch.`;
     const defaultTemplates = [
       { id: randomUUID(), accountId: account.id, name: "After 4–5★ Rating", templateType: "response_positive", channel: "email", isDefault: true, preferredPlatform: "", subject: "Thank you for your rating", body: posBody },
       { id: randomUUID(), accountId: account.id, name: "After 4–5★ Rating", templateType: "response_positive", channel: "sms", isDefault: true, preferredPlatform: "", subject: "", body: posBody },
@@ -434,6 +433,45 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     req.session.destroy(() => {
       res.json({ success: true });
     });
+  });
+
+  // Schedule account for permanent deletion (30 days from now)
+  app.delete("/api/account", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const accountId = req.session.accountId!;
+
+      // Only account owners can delete
+      const { rows } = await pool.query(`SELECT role FROM users WHERE id = $1`, [userId]);
+      if (rows[0]?.role !== "owner") {
+        return res.status(403).json({ message: "Only the account owner can delete the account." });
+      }
+
+      // Cancel Stripe subscription immediately if active
+      const { rows: subRows } = await pool.query(
+        `SELECT stripe_subscription_id FROM users WHERE id = $1`,
+        [userId]
+      );
+      const subId = subRows[0]?.stripe_subscription_id;
+      if (subId && process.env.STRIPE_SECRET_KEY) {
+        const Stripe = (await import("stripe")).default;
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+        await stripe.subscriptions.cancel(subId).catch(() => {});
+      }
+
+      // Mark all users on this account as scheduled for deletion in 30 days
+      await pool.query(
+        `UPDATE users SET scheduled_for_deletion_at = NOW() + INTERVAL '30 days', plan_type = 'cancelled' WHERE account_id = $1`,
+        [accountId]
+      );
+
+      // Log them out
+      req.session.destroy(() => {});
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("[delete account]", err.message);
+      res.status(500).json({ message: "Failed to schedule account deletion." });
+    }
   });
 
   app.post("/api/auth/forgot-password", async (req, res) => {
@@ -1394,6 +1432,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     const customer = await storage.getCustomer(req.body.customerId, req.session.accountId!);
     if (!customer) return res.status(404).json({ message: "Customer not found" });
+
+    // Validate contact info BEFORE creating DB record so we can return a real error
+    const channel = req.body.channel || customer.channel;
+    const settings = await storage.getSettings(req.session.accountId!);
+    if (!settings) return res.status(400).json({ message: "Account settings not found. Please complete your settings first." });
+    if (channel === "email" && !customer.email) {
+      return res.status(400).json({ message: "This customer has no email address. Update their record or switch to SMS/WhatsApp." });
+    }
+    if ((channel === "sms" || channel === "whatsapp") && !customer.phone) {
+      return res.status(400).json({ message: "This customer has no phone number. Update their record or switch to Email." });
+    }
+
     const rr = await storage.createReviewRequest({
       ...req.body,
       accountId: req.session.accountId,
@@ -1447,30 +1497,34 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       metadata: "{}",
     });
 
-    const channel = req.body.channel || customer.channel;
-    const settings = await storage.getSettings(req.session.accountId!);
     const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "");
     const ratingLink = `${appUrl}/review?rid=${rr.id}`;
     const smsLink = `${appUrl}/r/${rr.id}`;
     const firstName = customer.name.split(" ")[0];
 
-    // Schedule the actual send — fires immediately if sendDelay is 0
-    setTimeout(async () => {
-      if (!settings) return;
-      try {
-        if (channel === "email" && customer.email) {
-          await sendPreScreenEmail(customer, settings, rr.id, appUrl);
-        } else if (channel === "sms" && customer.phone) {
-          const body = `Hi ${firstName}, thanks for choosing ${settings.businessName}! Tap the link below to rate your experience — it only takes a second:\n${smsLink}`;
-          await sendReviewSMS(customer, settings, { subject: "", body } as any, []);
-        } else if (channel === "whatsapp" && customer.phone) {
-          const body = `Hi ${firstName} 👋\n\nThank you for choosing ${settings.businessName}! We'd love to hear how we did.\n\nTap the link below to rate your experience — it only takes a second:\n${ratingLink}`;
-          await sendWhatsAppMessage(customer.phone, body);
-        }
-      } catch (err: any) {
-        console.error(`[review request] Failed to send ${channel} to ${customer.name}:`, err.message);
+    const doSend = async () => {
+      if (channel === "email") {
+        await sendPreScreenEmail(customer, settings, rr.id, appUrl);
+      } else if (channel === "sms") {
+        const body = `Hi ${firstName}, thanks for choosing ${settings.businessName}! Tap the link below to rate your experience — it only takes a second:\n${smsLink}`;
+        await sendReviewSMS(customer, settings, { subject: "", body } as any, []);
+      } else if (channel === "whatsapp") {
+        const body = `Hi ${firstName} 👋\n\nThank you for choosing ${settings.businessName}! We'd love to hear how we did.\n\nTap the link below to rate your experience — it only takes a second:\n${ratingLink}`;
+        await sendWhatsAppMessage(customer.phone!, body);
       }
-    }, sendDelay);
+    };
+
+    if (isScheduled) {
+      // Fire-and-forget for scheduled sends — we can't await a future time before responding
+      setTimeout(async () => {
+        try { await doSend(); } catch (err: any) {
+          console.error(`[review request] Scheduled send failed for ${channel} to ${customer.name}:`, err.message);
+        }
+      }, sendDelay);
+    } else {
+      // Immediate send — await so any error surfaces to the frontend
+      await doSend();
+    }
 
     res.json({ ...rr, scheduledAt: scheduledAt.toISOString(), isScheduled });
     } catch (err: any) {
@@ -1574,21 +1628,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const defaults: Record<string, Record<string, { body: string; subject?: string }>> = {
       email: {
         response_positive: { body: "We hope you enjoyed your experience with {{business_name}} and our {{service_type}}! Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!\n\n{{owner_name}}\n{{business_name}}", subject: "Thank you for your rating" },
-        response_negative: { body: "We would appreciate your feedback on how we can improve for next time and will be in touch.\n\nMany thanks,\n{{owner_name}}\n{{business_name}}", subject: "We'd love to make this right" },
+        response_negative: { body: "We would appreciate your feedback on how we can improve for next time and will be in touch.", subject: "We'd love to make this right" },
         follow_up_1: { body: "Just a quick follow-up from {{business_name}} — we'd love to hear how we did!\n\nTap the link below to leave your rating.\n\nThanks,\n{{owner_name}}\n{{business_name}}", subject: "Just checking in" },
         follow_up_2: { body: "We know you're busy, but your feedback really means a lot to {{business_name}}!\n\nTap the link below whenever you're ready.\n\nThanks,\n{{owner_name}}\n{{business_name}}", subject: "A polite reminder" },
         follow_up_3: { body: "This is our last message, we promise! If you ever have a moment, we'd still love to hear from you.\n\nTap the link below.\n\nThanks,\n{{owner_name}}\n{{business_name}}", subject: "We'd still love to hear from you" },
       },
       sms: {
         response_positive: { body: "We hope you enjoyed your experience with {{business_name}} and our {{service_type}}! Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!\n\n{{owner_name}}\n{{business_name}}" },
-        response_negative: { body: "We would appreciate your feedback on how we can improve for next time and will be in touch.\n\nMany thanks,\n{{owner_name}}\n{{business_name}}" },
+        response_negative: { body: "We would appreciate your feedback on how we can improve for next time and will be in touch." },
         follow_up_1: { body: "Just a quick follow-up from {{business_name}} — we'd love to hear how we did!" },
         follow_up_2: { body: "Your feedback means a lot to us — tap below when you're ready!\n{{business_name}}" },
         follow_up_3: { body: "Last one from us! If you get a moment, we'd love your feedback.\n{{business_name}}" },
       },
       whatsapp: {
         response_positive: { body: "We hope you enjoyed your experience with {{business_name}} and our {{service_type}}! Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!\n\n{{owner_name}}\n{{business_name}}" },
-        response_negative: { body: "We would appreciate your feedback on how we can improve for next time and will be in touch.\n\nMany thanks,\n{{owner_name}}\n{{business_name}}" },
+        response_negative: { body: "We would appreciate your feedback on how we can improve for next time and will be in touch." },
         follow_up_1: { body: "😊 Just a quick follow-up from {{business_name}} — we'd love to hear how we did! Tap the link below when you get a moment 👇" },
         follow_up_2: { body: "💛 Your feedback really means a lot to us! Whenever you're ready, just tap the link below — we appreciate it 🙏\n\n{{business_name}}" },
         follow_up_3: { body: "🙏 Last message from us, we promise! If you ever get a moment, we'd genuinely love to hear from you.\n\n{{business_name}}" },

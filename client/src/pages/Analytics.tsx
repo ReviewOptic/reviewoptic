@@ -176,7 +176,7 @@ export default function Analytics() {
     },
   });
 
-  const { data: settings } = useQuery<{ businessName: string; ownerName: string }>({ queryKey: ["/api/settings"] });
+  const { data: settings } = useQuery<{ businessName: string; ownerName: string; logoUrl?: string; websiteUrl?: string }>({ queryKey: ["/api/settings"] });
   const businessName = settings?.businessName || "";
   const ownerDisplayName = settings?.ownerName || [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email?.split("@")[0] || "You";
 
@@ -219,31 +219,78 @@ export default function Analytics() {
   async function exportPDF() {
     if (!contentRef.current) return;
     setIsExportingPDF(true);
-    // Temporarily show the period label
     const label = contentRef.current.querySelector(".pdf-period-label") as HTMLElement | null;
     if (label) label.classList.remove("hidden");
     try {
+      const blobToDataUrl = (blob: Blob) => new Promise<string>(resolve => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(blob);
+      });
+
+      // Load ReviewOptic logo
+      const logoDataUrl = await fetch("/logo.png").then(r => r.blob()).then(blobToDataUrl);
+      const logoEl = new Image();
+      logoEl.src = "/logo.png";
+      await new Promise(r => { logoEl.onload = r; logoEl.onerror = r; });
+      const logoMaxW = 150;
+      const logoH = logoEl.width ? (logoEl.height / logoEl.width) * logoMaxW : 40;
+
+      // Load user logo if set
+      let userLogoDataUrl: string | null = null;
+      let userLogoH = logoH;
+      if (settings?.logoUrl) {
+        const userLogoSrc = settings.logoUrl.startsWith("http")
+          ? settings.logoUrl
+          : `${window.location.origin}${settings.logoUrl}`;
+        try {
+          userLogoDataUrl = await fetch(userLogoSrc).then(r => r.blob()).then(blobToDataUrl);
+          const userLogoEl = new Image();
+          userLogoEl.src = userLogoSrc;
+          await new Promise(r => { userLogoEl.onload = r; userLogoEl.onerror = r; });
+          userLogoH = userLogoEl.width ? (userLogoEl.height / userLogoEl.width) * logoMaxW : logoH;
+        } catch { userLogoDataUrl = null; }
+      }
+
       const canvas = await html2canvas(contentRef.current, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
       const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
       const margin = 24;
-      const titleFontSize = 16;
-      const subtitleFontSize = 11;
+      const footerH = 28;
       const periodLabel = period === "custom" ? `${from} – ${to}` : `Last ${period} days`;
 
-      // Add title header
+      // ReviewOptic logo at top left
+      pdf.addImage(logoDataUrl, "PNG", margin, margin, logoMaxW, logoH);
+
+      // User logo at top right (if available)
+      if (userLogoDataUrl) {
+        pdf.addImage(userLogoDataUrl, "PNG", pageWidth - margin - logoMaxW, margin, logoMaxW, userLogoH);
+      }
+
+      // Title and subtitle below whichever logo is taller
+      const headerH = Math.max(logoH, userLogoDataUrl ? userLogoH : 0);
+      const titleY = margin + headerH + 16;
       pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(titleFontSize);
-      pdf.text(businessName ? `${businessName} — Analytics Report` : "Analytics Report", margin, margin + titleFontSize);
+      pdf.setFontSize(16);
+      pdf.text(businessName ? `${businessName} — Analytics Report` : "Analytics Report", margin, titleY);
       pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(subtitleFontSize);
+      pdf.setFontSize(11);
       pdf.setTextColor(120, 120, 120);
-      pdf.text(periodLabel, margin, margin + titleFontSize + 14);
+      pdf.text(periodLabel, margin, titleY + 14);
       pdf.setTextColor(0, 0, 0);
 
-      const imgY = margin + titleFontSize + 30;
-      const pageHeight = pdf.internal.pageSize.getHeight();
+      const addFooter = () => {
+        const fy = pageHeight - 14;
+        pdf.setFontSize(8);
+        pdf.setTextColor(160, 160, 160);
+        pdf.text("Powered by ReviewOptic — reviewoptic.com   |   Privacy Policy: reviewoptic.com/privacy   |   Terms: reviewoptic.com/terms   |   FAQ: reviewoptic.com/faq", pageWidth / 2, fy, { align: "center" });
+        pdf.setTextColor(0, 0, 0);
+      };
+
+      const imgY = titleY + 30;
+      const usableH = pageHeight - footerH;
       const imgWidth = pageWidth - margin * 2;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
       let yOffset = 0;
@@ -254,7 +301,8 @@ export default function Analytics() {
         } else {
           pdf.addImage(imgData, "PNG", margin, imgY, imgWidth, imgHeight);
         }
-        yOffset += pageHeight - (yOffset === 0 ? imgY : margin);
+        addFooter();
+        yOffset += usableH - (yOffset === 0 ? imgY : margin);
       }
       const fileLabel = period === "custom" ? `${from}-to-${to}` : `last-${period}-days`;
       pdf.save(`analytics-${fileLabel}.pdf`);
@@ -297,6 +345,9 @@ export default function Analytics() {
     lines.push("Stage,Count");
     lines.push(`Sent,${fSent}`);
     lines.push(`Clicked,${clicked}`);
+    lines.push("");
+    lines.push("Powered by ReviewOptic — https://reviewoptic.com");
+    lines.push("Privacy Policy: https://reviewoptic.com/privacy | Terms & Conditions: https://reviewoptic.com/terms | FAQ: https://reviewoptic.com/faq");
 
     const blob = new Blob([lines.join("\n")], { type: "text/csv" });
     const url = URL.createObjectURL(blob);

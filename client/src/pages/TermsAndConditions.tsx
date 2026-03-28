@@ -90,14 +90,22 @@ export default function TermsAndConditions() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">7. Cancellation</h2>
-            <p className="text-muted-foreground leading-relaxed">
-              You may cancel your subscription at any time through your account settings or by contacting
+            <h2 className="text-lg font-semibold mb-2">7. Cancellation and account deletion</h2>
+            <p className="text-muted-foreground leading-relaxed mb-3">
+              You may cancel your subscription at any time through your Billing settings or by contacting
               us at hello@reviewoptic.com. Upon cancellation, you will retain full access to the service
-              until the end of your current billing period. We do not provide refunds for unused portions
-              of a billing period. After your access ends, your account data will be retained for 30 days,
-              after which it will be permanently deleted. You are responsible for exporting any data you
-              wish to keep before this period expires.
+              until the end of your current billing period. After that, you can still log in and view your
+              account, but you will not be able to send new review requests.
+            </p>
+            <p className="text-muted-foreground leading-relaxed mb-3">
+              If you wish to permanently delete your account, you may do so from your Billing settings.
+              You will be asked to confirm twice before deletion is scheduled. Once confirmed, your account
+              and all associated data — including customers, review requests, templates, analytics, and
+              recordings — will be permanently deleted after 30 days. This action cannot be undone.
+            </p>
+            <p className="text-muted-foreground leading-relaxed">
+              You are responsible for exporting any data you wish to keep before requesting deletion.
+              We do not provide refunds for unused portions of a billing period.
             </p>
           </section>
 
@@ -118,6 +126,7 @@ export default function TermsAndConditions() {
             </p>
             <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
               <li>Send unsolicited bulk messages (spam) to any person</li>
+              <li>Use the star rating pre-screen to suppress or discourage negative public reviews — the feature is intended solely for service recovery, and customers are informed on the feedback form that this does not affect their right to leave a public review</li>
               <li>Contact individuals without a lawful basis to do so under applicable marketing laws (including UK PECR and GDPR)</li>
               <li>Operate or promote an illegal business or activity</li>
               <li>Harass, threaten, or harm any person</li>

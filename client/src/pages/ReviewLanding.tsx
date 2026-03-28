@@ -378,10 +378,9 @@ export default function ReviewLanding() {
                     <Star key={s} className={cn("w-6 h-6", s <= ratedStar ? "fill-amber-400 text-amber-400" : "fill-none text-muted-foreground/30")} />
                   ))}
                 </div>
-                <DialogTitle className="text-center">We're sorry to hear that</DialogTitle>
+                <DialogTitle className="text-center">Sorry to hear you did not have the experience you expected</DialogTitle>
                 <DialogDescription className="text-center whitespace-pre-line">
-                  {templateOpening && <span className="block font-medium text-foreground">{templateOpening}</span>}
-                  <span className="block mt-1">{templateBody || "Would you take a couple of moments to share your experience and let us know how we can improve?"}</span>
+                  <span className="block mt-1">{templateBody || "We would appreciate your feedback on how we can improve for next time and will be in touch."}</span>
                 </DialogDescription>
               </DialogHeader>
 
@@ -401,6 +400,10 @@ export default function ReviewLanding() {
                   ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Sending...</>
                   : "Send Feedback"}
               </Button>
+
+              <p className="text-center text-[11px] text-muted-foreground/60">
+                This doesn't affect your right to leave a public review.
+              </p>
             </div>
           )}
 

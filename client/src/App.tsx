@@ -79,13 +79,8 @@ function ProtectedRoutes() {
     return null;
   }
 
-  // Cancelled plan — only /analytics and /billing are allowed
-  if (user.planType === "cancelled") {
-    const allowed = location === "/analytics" || location === "/billing";
-    if (!allowed) {
-      return <PlanCancelled />;
-    }
-  }
+  // Cancelled plan — full access to browse but the banner blocks sending
+  // (blocking at API level in requireAuth)
 
   return (
     <Layout>

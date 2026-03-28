@@ -329,11 +329,6 @@ export default function Dashboard() {
           </h1>
           <p className="text-[13.5px] text-muted-foreground mt-0.5 italic">{quote}</p>
         </div>
-        {!isReadOnly && (
-          <Button variant="outline" size="sm" className="gap-1.5 self-start" onClick={() => navigate("/customers")}>
-            <Plus className="w-3.5 h-3.5" />Add Customer
-          </Button>
-        )}
       </div>
 
       {/* Stats */}

@@ -308,7 +308,7 @@ function TemplateEditor({ template, onCancel, textOnly = false }: { template: Te
 
       {mode === "text" && (
         <>
-          {isResponseTemplate && template.channel !== "email" ? (
+          {template.templateType === "response_positive" && template.channel !== "email" ? (
             <div className="space-y-1.5">
               <Label className="text-[12.5px]">Opening line</Label>
               <Input value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g. Thank you so much for your rating!" className="text-[13px]" data-testid="input-template-subject" />
@@ -447,7 +447,7 @@ const TEMPLATE_SLOTS: {
     description: "Shown to customers who give a low rating. Appears as a message in the pop-up after they rate.",
     textOnly: true,
     defaultSubject: "We'd love to make this right",
-    defaultBody: "We would appreciate your feedback on how we can improve for next time and will be in touch.\n\nMany thanks,\n{{owner_name}}\n{{business_name}}",
+    defaultBody: "We would appreciate your feedback on how we can improve for next time and will be in touch.",
   },
   {
     type: "follow_up_1",
@@ -962,7 +962,7 @@ function CustomTemplatesSection({ templates, channel, isReadOnly }: {
   isReadOnly: boolean;
 }) {
   const { toast } = useToast();
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [creatingName, setCreatingName] = useState("");
   const [showCreate, setShowCreate] = useState(false);
