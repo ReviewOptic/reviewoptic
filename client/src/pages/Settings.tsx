@@ -193,21 +193,24 @@ export default function Settings() {
       </div>
 
       <Tabs defaultValue={new URLSearchParams(window.location.search).get("tab") || "business"}>
-        <div className="mb-6 overflow-x-auto">
-          <TabsList className="inline-flex w-max h-auto">
-            <TabsTrigger value="business" className="text-[12.5px] whitespace-nowrap" data-testid="tab-business">Business</TabsTrigger>
-            <TabsTrigger value="platforms" className="text-[12.5px] whitespace-nowrap" data-testid="tab-platforms">Review Platforms</TabsTrigger>
-            <TabsTrigger value="followup" className="text-[12.5px] whitespace-nowrap" data-testid="tab-followup">Follow-Ups</TabsTrigger>
-            <TabsTrigger value="widget" className="text-[12.5px] whitespace-nowrap" data-testid="tab-widget">Widget</TabsTrigger>
-            <TabsTrigger value="social" className="text-[12.5px] whitespace-nowrap" data-testid="tab-social">Social</TabsTrigger>
-            <TabsTrigger value="notifications" className="text-[12.5px] whitespace-nowrap" data-testid="tab-notifications">Insight Emails</TabsTrigger>
-            <TabsTrigger value="team" className="text-[12.5px] whitespace-nowrap" data-testid="tab-team">
-              Team{user?.planType === "lite" && <span className="ml-1.5 text-[10px] font-semibold bg-muted text-muted-foreground px-1.5 py-0.5 rounded">Pro</span>}
+        <div className="flex gap-6 items-start">
+          <TabsList className="flex flex-col h-auto w-44 shrink-0 bg-muted/50 rounded-xl p-1.5 gap-0.5">
+            <TabsTrigger value="business" className="w-full justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-business">Business</TabsTrigger>
+            <TabsTrigger value="platforms" className="w-full justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-platforms">Review Platforms</TabsTrigger>
+            <TabsTrigger value="followup" className="w-full justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-followup">Follow-Ups</TabsTrigger>
+            <TabsTrigger value="widget" className="w-full justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-widget">Widget</TabsTrigger>
+            <TabsTrigger value="social" className="w-full justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-social">Social</TabsTrigger>
+            <TabsTrigger value="notifications" className="w-full justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-notifications">Insight Emails</TabsTrigger>
+            <TabsTrigger value="team" className="w-full justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-team">
+              <span className="flex items-center gap-1.5 w-full">
+                Team
+                {user?.planType === "lite" && <span className="text-[10px] font-semibold bg-background text-muted-foreground px-1.5 py-0.5 rounded ml-auto">Pro</span>}
+              </span>
             </TabsTrigger>
-            <TabsTrigger value="referral" className="text-[12.5px] whitespace-nowrap" data-testid="tab-referral">Referral</TabsTrigger>
-            <TabsTrigger value="integrations" className="text-[12.5px] whitespace-nowrap" data-testid="tab-integrations">Integrations</TabsTrigger>
+            <TabsTrigger value="referral" className="w-full justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-referral">Referral</TabsTrigger>
+            <TabsTrigger value="integrations" className="w-full justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-integrations">Integrations</TabsTrigger>
           </TabsList>
-        </div>
+          <div className="flex-1 min-w-0">
 
         {/* Business Info */}
         <TabsContent value="business">
@@ -794,6 +797,8 @@ export default function Settings() {
           <IntegrationsTab />
         </TabsContent>
 
+          </div>{/* end flex-1 content column */}
+        </div>{/* end flex row */}
       </Tabs>
 
     </div>
