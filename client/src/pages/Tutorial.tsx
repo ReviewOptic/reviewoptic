@@ -273,7 +273,7 @@ function TipCard({ tip }: { tip: typeof TIPS[0] }) {
 }
 
 const TABS = [
-  { id: "videos", label: "Videos", icon: Play },
+  // { id: "videos", label: "Videos", icon: Play }, // hidden until video content is ready
   { id: "howtos", label: "How-to's", icon: BookOpen },
   { id: "tips", label: "Top Tips", icon: Lightbulb },
 ];
@@ -282,7 +282,7 @@ const WATCHED_KEY = "reviewoptic_watched_videos";
 
 export default function Tutorial() {
   const search = useSearch();
-  const initialTab = new URLSearchParams(search).get("tab") || "videos";
+  const initialTab = new URLSearchParams(search).get("tab") || "howtos";
   const [activeTab, setActiveTab] = useState(initialTab);
   const [watched, setWatched] = useState<Set<number>>(() => {
     try {
