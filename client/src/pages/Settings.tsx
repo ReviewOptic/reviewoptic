@@ -155,7 +155,7 @@ export default function Settings() {
 
   useEffect(() => {
     if (isFirstRender.current) { isFirstRender.current = false; return; }
-    if (!form.businessEmail) return;
+    if (!form.businessEmail) { toast({ title: "Business email is required", variant: "destructive" }); return; }
     if (!form.ownerName.trim() && !form.businessName.trim()) { toast({ title: "Please enter at least your name or company name", variant: "destructive" }); return; }
     if (!form.country && !user?.isAdmin) { toast({ title: "Please select your country before saving", variant: "destructive" }); return; }
     if (debounceTimer.current) clearTimeout(debounceTimer.current);

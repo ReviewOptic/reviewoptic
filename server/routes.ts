@@ -2057,6 +2057,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.patch("/api/settings", requireAuth, async (req, res) => {
     try {
       const body = { ...req.body };
+      if (body.businessEmail !== undefined && !body.businessEmail?.trim()) {
+        return res.status(400).json({ message: "Business email is required" });
+      }
       if (body.websiteUrl && !body.websiteUrl.startsWith("http")) {
         body.websiteUrl = `https://${body.websiteUrl}`;
       }
