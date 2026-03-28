@@ -11,6 +11,7 @@ function customerFrom(settings: Settings): string {
     : settings.businessName;
   return `${displayName} <noreply@reviewoptic.com>`;
 }
+
 const LOGO_URL = `${APP_URL}/logo.png`;
 const LOGO_HTML = `<div style="margin-bottom:28px;">
   <a href="https://reviewoptic.com" style="text-decoration:none;">
@@ -239,7 +240,7 @@ export async function sendPreScreenEmail(
 
   const stars = [1, 2, 3, 4, 5].map(n =>
     `<td style="padding:0 6px;text-align:center;">
-      <a href="${baseUrl}/review-landing?rid=${requestId}&rating=${n}"
+      <a href="${appUrl}/review-landing?rid=${requestId}&rating=${n}"
          style="display:inline-block;width:52px;height:52px;line-height:52px;text-align:center;font-size:42px;color:#f59e0b;text-decoration:none;font-family:Arial,sans-serif;">&#9733;</a>
       <div style="font-size:11px;color:#9ca3af;text-align:center;margin-top:2px;">${n}</div>
     </td>`
@@ -264,7 +265,7 @@ export async function sendPreScreenEmail(
         <p style="text-align:center;color:#9ca3af;font-size:12px;margin:0 0 32px;">Tap a star to submit your rating</p>
         ${POWERED_BY_FOOTER}
         ${customerUnsubscribeFooter(customer.id)}
-        <img src="${baseUrl}/api/track/${requestId}/open" width="1" height="1" alt="" style="display:block;border:0;width:1px;height:1px;" />
+        <img src="${appUrl}/api/track/${requestId}/open" width="1" height="1" alt="" style="display:block;border:0;width:1px;height:1px;" />
       </div>
     `,
   });
@@ -288,13 +289,20 @@ export async function sendFollowUpEmail(
   const logoHtml = customerLogoHtml(settings);
 
   const ownerFirstName = (settings.ownerName || "").split(" ")[0];
-  const resolve = (text: string) => text
-    .replace(/\{\{first_name\}\}/g, firstName)
-    .replace(/\{\{customer_name\}\}/g, customer.name)
-    .replace(/\{\{business_name\}\}/g, settings.businessName)
-    .replace(/\{\{owner_name\}\}/g, ownerFirstName)
-    .replace(/\{\{service_type\}\}/g, customer.serviceType || "")
-    .replace(/\{\{review_link\}\}/g, "");
+  const resolve = (text: string) => {
+    let out = text
+      .replace(/\{\{first_name\}\}/g, firstName)
+      .replace(/\{\{customer_name\}\}/g, customer.name)
+      .replace(/\{\{business_name\}\}/g, settings.businessName)
+      .replace(/\{\{owner_name\}\}/g, ownerFirstName)
+      .replace(/\{\{review_link\}\}/g, "");
+    if (!customer.serviceType) {
+      out = out.replace(/\s*and our \{\{service_type\}\}/gi, "").replace(/\{\{service_type\}\}/g, "");
+    } else {
+      out = out.replace(/\{\{service_type\}\}/g, customer.serviceType);
+    }
+    return out;
+  };
 
   const subject = template?.subject
     ? resolve(template.subject)
@@ -324,64 +332,6 @@ export async function sendFollowUpEmail(
     `,
   });
   console.log(`[follow-up email] sent to ${customer.email}`);
-}
-
-// Sent to customers who rated 4-5★ but haven't yet clicked a platform review link.
-// Uses the response_positive template if available, otherwise falls back to default text.
-export async function sendShareRatingEmail(
-  customer: Customer,
-  settings: Settings,
-  ratingLink: string,
-  template?: { subject: string; body: string } | null
-): Promise<void> {
-  if (!customer.email) return;
-  if (!process.env.RESEND_API_KEY) {
-    console.log(`[share-rating email] No RESEND_API_KEY. Would email ${customer.email}`);
-    return;
-  }
-
-  const firstName = customer.name.split(" ")[0];
-  const logoHtml = customerLogoHtml(settings);
-
-  const ownerFirstName = (settings.ownerName || "").split(" ")[0];
-  const resolve = (text: string) => text
-    .replace(/\{\{first_name\}\}/g, firstName)
-    .replace(/\{\{customer_name\}\}/g, customer.name)
-    .replace(/\{\{business_name\}\}/g, settings.businessName)
-    .replace(/\{\{owner_name\}\}/g, ownerFirstName)
-    .replace(/\{\{service_type\}\}/g, customer.serviceType || "")
-    .replace(/\{\{review_link\}\}/g, "");
-
-  const subject = template?.subject
-    ? resolve(template.subject)
-    : `Thank you for your rating — ${settings.businessName}`;
-  const opening = template?.subject ? resolve(template.subject) : `Thank you for your rating, ${firstName}!`;
-  const body = template?.body
-    ? resolve(template.body)
-    : `We really appreciate you taking the time to rate your experience with ${settings.businessName}. If you have a moment, we'd love it if you could share your experience on one of our review pages — it makes a huge difference to us.`;
-
-  const resend = new Resend(process.env.RESEND_API_KEY);
-  await resend.emails.send({
-    from: customerFrom(settings),
-    replyTo: settings.businessEmail || undefined,
-    to: customer.email,
-    subject,
-    html: `
-      <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#111;">
-        ${logoHtml}
-        <h2 style="font-size:20px;font-weight:700;margin:0 0 8px;">${opening}</h2>
-        <p style="color:#555;margin:0 0 28px;line-height:1.6;">${body.replace(/\n/g, "<br/>")}</p>
-        <div style="text-align:center;margin:0 0 32px;">
-          <a href="${ratingLink}" style="display:inline-block;background:#111;color:#fff;font-size:15px;font-weight:600;padding:14px 32px;border-radius:8px;text-decoration:none;">
-            Share your review &rarr;
-          </a>
-        </div>
-        ${POWERED_BY_FOOTER}
-        ${customerUnsubscribeFooter(customer.id)}
-      </div>
-    `,
-  });
-  console.log(`[share-rating email] sent to ${customer.email}`);
 }
 
 export async function sendPlatformReviewRequest(user: { id: string; email: string; firstName: string; companyName: string }, isFollowUp: boolean) {
@@ -479,6 +429,75 @@ export async function sendCancellationEmail(to: string, firstName: string, acces
         </p>
         <p style="color:#555;margin:0;line-height:1.6;">
           Thank you for being a ReviewOptic customer.
+        </p>
+        <p style="color:#999;font-size:12px;margin-top:32px;">The ReviewOptic team</p>
+        ${PLATFORM_FOOTER}
+      </div>
+    `,
+  });
+}
+
+export async function sendSubscriptionEndedEmail(to: string, firstName: string, reactivateUrl: string) {
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`[subscription-ended email] No RESEND_API_KEY. Would have sent to ${to}`);
+    return;
+  }
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  await resend.emails.send({
+    from: REVIEWOPTIC_FROM,
+    to,
+    subject: "Your ReviewOptic subscription has ended",
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
+        ${LOGO_HTML}
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Your subscription has ended${firstName ? `, ${firstName}` : ""}</h2>
+        <p style="color:#555;margin:0 0 16px;line-height:1.6;">
+          Your ReviewOptic subscription has now been cancelled and your billing has stopped. You will not be charged again.
+        </p>
+        <p style="color:#555;margin:0 0 16px;line-height:1.6;">
+          Your account data is safely stored and will remain available for 30 days. If you change your mind, you can reactivate at any time to pick up right where you left off.
+        </p>
+        <a href="${reactivateUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin-bottom:24px;">
+          Reactivate my subscription
+        </a>
+        <p style="color:#555;margin:0 0 8px;line-height:1.6;">
+          Thank you for being a ReviewOptic customer. If there's anything we could have done better, we'd genuinely love to hear it — just reply to this email.
+        </p>
+        <p style="color:#999;font-size:12px;margin-top:32px;">The ReviewOptic team</p>
+        ${PLATFORM_FOOTER}
+      </div>
+    `,
+  });
+}
+
+export async function sendTrialReminderEmail(to: string, firstName: string, trialEndDate: string, planName: string, price: string, billingUrl: string) {
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`[trial reminder] No RESEND_API_KEY. Would have sent to ${to}`);
+    return;
+  }
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  await resend.emails.send({
+    from: REVIEWOPTIC_FROM,
+    to,
+    subject: "Your free trial ends in 2 days",
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
+        ${LOGO_HTML}
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Your free trial ends in 2 days${firstName ? `, ${firstName}` : ""}</h2>
+        <p style="color:#555;margin:0 0 16px;line-height:1.6;">
+          Your 14-day free trial of ReviewOptic <strong>${planName}</strong> ends on <strong>${trialEndDate}</strong>.
+        </p>
+        <p style="color:#555;margin:0 0 16px;line-height:1.6;">
+          On that date, your subscription will automatically continue at <strong>${price}</strong> — no action needed if you'd like to keep using ReviewOptic.
+        </p>
+        <p style="color:#555;margin:0 0 24px;line-height:1.6;">
+          If you'd like to cancel before being charged, you can do so from your billing settings at any time before <strong>${trialEndDate}</strong>.
+        </p>
+        <a href="${billingUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin-bottom:24px;">
+          Manage my subscription
+        </a>
+        <p style="color:#555;margin:0 0 8px;line-height:1.6;">
+          If you have any questions, just reply to this email — we're happy to help.
         </p>
         <p style="color:#999;font-size:12px;margin-top:32px;">The ReviewOptic team</p>
         ${PLATFORM_FOOTER}

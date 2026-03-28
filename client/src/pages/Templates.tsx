@@ -439,7 +439,7 @@ const TEMPLATE_SLOTS: {
     description: "Shown to customers who give a high rating. Appears as a message in the pop-up after they rate.",
     textOnly: true,
     defaultSubject: "Thank you for your rating",
-    defaultBody: "We hope you enjoyed your experience with {{business_name}} and our {{service_type}}! Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!\n\n{{owner_name}}\n{{business_name}}",
+    defaultBody: "We hope you enjoyed your experience with {{business_name}} and our {{service_type}}! Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!\n\n{{business_name}}",
   },
   {
     type: "response_negative",
@@ -447,7 +447,7 @@ const TEMPLATE_SLOTS: {
     description: "Shown to customers who give a low rating. Appears as a message in the pop-up after they rate.",
     textOnly: true,
     defaultSubject: "We'd love to make this right",
-    defaultBody: "We would appreciate your feedback on how we can improve for next time and will be in touch.",
+    defaultBody: "We would appreciate your feedback on how we can improve for next time and will be in touch.\n\n{{business_name}}",
   },
   {
     type: "follow_up_1",

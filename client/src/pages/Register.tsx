@@ -38,7 +38,7 @@ export default function Register() {
     if (!/[^a-zA-Z0-9]/.test(password)) { setError("Password must contain at least one symbol"); return; }
     setLoading(true);
     try {
-      await register(email, password, firstName, lastName, companyName, referredByAccountId);
+      await register(email, password, firstName, lastName, companyName, referredByAccountId, agreedToTerms);
       navigate("/pricing");
     } catch (err: any) {
       const msg = err.message || "Something went wrong";

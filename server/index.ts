@@ -1,5 +1,8 @@
 import "dotenv/config";
+import * as Sentry from "@sentry/node";
 import express, { type Request, Response, NextFunction } from "express";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import pkg from "pg";
@@ -17,12 +20,22 @@ import { pool } from "./storage";
 import path from "path";
 import { execSync } from "child_process";
 
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || "development",
+    tracesSampleRate: 0.1,
+  });
+}
+
 process.on("uncaughtException", (err) => {
+  Sentry.captureException(err);
   console.error("UNCAUGHT EXCEPTION:", err);
   process.exit(1);
 });
 
 process.on("unhandledRejection", (reason) => {
+  Sentry.captureException(reason);
   console.error("UNHANDLED REJECTION:", reason);
   process.exit(1);
 });
@@ -45,6 +58,25 @@ declare module "http" {
 
 const app = express();
 const httpServer = createServer(app);
+
+// Security headers
+app.use(helmet({
+  contentSecurityPolicy: false, // disabled — Stripe embedded checkout requires relaxed CSP
+  crossOriginEmbedderPolicy: false,
+}));
+
+// Rate limiting on auth and sensitive endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many attempts — please try again in 15 minutes." },
+});
+app.use("/api/auth/login", authLimiter);
+app.use("/api/auth/register", authLimiter);
+app.use("/api/auth/forgot-password", authLimiter);
+app.use("/api/auth/reset-password", authLimiter);
 
 app.use(
   express.json({
@@ -69,8 +101,9 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: false, // set true if using HTTPS
+    secure: process.env.NODE_ENV === "production",
     httpOnly: true,
+    sameSite: "lax",
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
   },
 }));
@@ -147,7 +180,7 @@ app.use((req, res, next) => {
             await sendReviewSMS(customer, settings, { subject: "", body } as any, []);
           } else if (customer.channel === "whatsapp") {
             const ratingLink = `${appUrl}/review?rid=${rr.id}`;
-            const body = `Hi ${firstName} 👋\n\nThank you for choosing ${settings.businessName}! We'd love to hear how we did.\n\nTap the link below to rate your experience:\n${ratingLink}`;
+            const body = `Hi ${firstName} 👋\n\nThank you for choosing ${settings.businessName}! We'd love to hear how we did.\n\nTap the link below to rate your experience:\n${ratingLink}\n\nReply STOP to opt out.`;
             await sendWhatsAppMessage(customer.phone, body);
           }
           await pool.query(`UPDATE review_requests SET schedule_status = 'sent', status = 'sent', sent_at = NOW() WHERE id = $1`, [rr.id]);
@@ -238,6 +271,40 @@ app.use((req, res, next) => {
   await runPlatformReviewRequests().catch(console.error);
   setInterval(() => runPlatformReviewRequests().catch(console.error), 24 * 60 * 60 * 1000);
 
+  // Daily: send trial reminder emails to users whose trial ends in ~2 days
+  const runTrialReminders = async () => {
+    try {
+      const { rows } = await pool.query(`
+        SELECT id, email, first_name, plan_type, plan_period, trial_ends_at
+        FROM users
+        WHERE trial_ends_at IS NOT NULL
+          AND trial_reminder_sent = false
+          AND trial_ends_at BETWEEN NOW() + INTERVAL '1 day' AND NOW() + INTERVAL '3 days'
+          AND plan_type IN ('lite', 'pro')
+      `);
+      for (const u of rows) {
+        try {
+          const { sendTrialReminderEmail } = await import("./email");
+          const trialEndDate = new Date(u.trial_ends_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+          const planName = u.plan_type === "pro" ? "Pro" : "Lite";
+          const price = u.plan_type === "pro"
+            ? (u.plan_period === "annual" ? "£539/year" : "£49/month")
+            : (u.plan_period === "annual" ? "£319/year" : "£29/month");
+          const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://reviewoptic.com");
+          await sendTrialReminderEmail(u.email, u.first_name || "", trialEndDate, planName, price, `${appUrl}/billing`);
+          await pool.query(`UPDATE users SET trial_reminder_sent = true WHERE id = $1`, [u.id]);
+          console.log(`[trial-reminder] Sent reminder to ${u.email}, trial ends ${trialEndDate}`);
+        } catch (err: any) {
+          console.error(`[trial-reminder] Failed for ${u.email}:`, err.message);
+        }
+      }
+    } catch (err: any) {
+      console.error("[trial-reminder] Runner error:", err.message);
+    }
+  };
+  await runTrialReminders().catch(console.error);
+  setInterval(() => runTrialReminders().catch(console.error), 24 * 60 * 60 * 1000);
+
   // Daily: permanently delete accounts that have passed their 30-day deletion window
   const runAccountDeletions = async () => {
     try {
@@ -270,6 +337,7 @@ app.use((req, res, next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
     console.error("Internal Server Error:", err);
+    if (status >= 500) Sentry.captureException(err);
     if (res.headersSent) return next(err);
     return res.status(status).json({ message });
   });

@@ -240,9 +240,16 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
 
 
 
+  const voiceRecs = (recordings as any[]).filter((r: any) => r.type === "voice");
+  const videoRecs = (recordings as any[]).filter((r: any) => r.type === "video");
+  const recordingAvailable = emailRecordingType === "none"
+    || (emailRecordingType === "voice" && voiceRecs.length > 0)
+    || (emailRecordingType === "video" && videoRecs.length > 0);
+
   const canSend = !(delay === "custom" && !customTime)
     && (positiveTemplates.length === 0 || !!positiveTemplateId)
-    && (negativeTemplates.length === 0 || !!negativeTemplateId);
+    && (negativeTemplates.length === 0 || !!negativeTemplateId)
+    && recordingAvailable;
 
   const mutation = useMutation({
     mutationFn: async () => {

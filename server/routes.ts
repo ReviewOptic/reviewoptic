@@ -10,7 +10,7 @@ import bcrypt from "bcryptjs";
 import { Resend } from "resend";
 import OpenAI from "openai";
 import QRCode from "qrcode";
-import { sendReviewEmail, sendVerificationEmail, sendPreScreenEmail, REVIEWOPTIC_FROM } from "./email";
+import { sendVerificationEmail, sendPreScreenEmail, REVIEWOPTIC_FROM } from "./email";
 import { sendReviewSMS, sendWhatsAppMessage, sendPlainSMS } from "./sms";
 import { isCloudinaryConfigured, uploadToCloudinary, deleteFromCloudinary } from "./cloudinary";
 import { cloneVoice, deleteVoice, generateNameAudio, stitchNameToFront } from "./elevenlabs";
@@ -243,10 +243,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // ── Auth routes (no requireAuth) ──────────────────────────────────────────
 
   app.post("/api/auth/register", async (req, res) => {
-    const { email, password, firstName, lastName, companyName, referredByAccountId } = req.body;
+    const { email, password, firstName, lastName, companyName, referredByAccountId, termsAccepted } = req.body;
     if (!email || !password) return res.status(400).json({ message: "Email and password are required" });
     if (!firstName || !lastName) return res.status(400).json({ message: "First and last name are required" });
     if (!companyName) return res.status(400).json({ message: "Company name is required" });
+    if (!termsAccepted) return res.status(400).json({ message: "You must accept the Terms and Conditions to create an account." });
     if (password.length < 8) return res.status(400).json({ message: "Password must be at least 8 characters" });
     if (!/[0-9]/.test(password)) return res.status(400).json({ message: "Password must contain at least one number" });
     if (!/[^a-zA-Z0-9]/.test(password)) return res.status(400).json({ message: "Password must contain at least one symbol" });
@@ -283,6 +284,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (referredByAccountId) {
       await pool.query(`UPDATE users SET referred_by_account_id = $1 WHERE id = $2`, [referredByAccountId, user.id]).catch(() => {});
     }
+    await pool.query(`UPDATE users SET terms_accepted_at = NOW() WHERE id = $1`, [user.id]).catch(() => {});
 
     // Create default settings for the new account
     await storage.upsertSettings(account.id, {
@@ -291,8 +293,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     });
 
     // Create default templates
-    const posBody = `We hope you enjoyed your experience with {{business_name}} and our {{service_type}}! Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!\n\n{{owner_name}}\n{{business_name}}`;
-    const negBody = `We would appreciate your feedback on how we can improve for next time and will be in touch.`;
+    const posBody = `We hope you enjoyed your experience with {{business_name}} and our {{service_type}}! Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!\n\n{{business_name}}`;
+    const negBody = `We would appreciate your feedback on how we can improve for next time and will be in touch.\n\n{{business_name}}`;
     const defaultTemplates = [
       { id: randomUUID(), accountId: account.id, name: "After 4–5★ Rating", templateType: "response_positive", channel: "email", isDefault: true, preferredPlatform: "", subject: "Thank you for your rating", body: posBody },
       { id: randomUUID(), accountId: account.id, name: "After 4–5★ Rating", templateType: "response_positive", channel: "sms", isDefault: true, preferredPlatform: "", subject: "", body: posBody },
@@ -1601,6 +1603,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     const customer = await storage.getCustomer(req.body.customerId, req.session.accountId!);
     if (!customer) return res.status(404).json({ message: "Customer not found" });
+    if (customer.doNotContact) return res.status(400).json({ message: "This customer is marked as Do Not Contact and cannot be sent a review request." });
 
     // Validate contact info BEFORE creating DB record so we can return a real error
     const channel = req.body.channel || customer.channel;
@@ -1678,7 +1681,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const body = `Hi ${firstName}, thanks for choosing ${settings.businessName}! Tap the link below to rate your experience — it only takes a second:\n${smsLink}`;
         await sendReviewSMS(customer, settings, { subject: "", body } as any, []);
       } else if (channel === "whatsapp") {
-        const body = `Hi ${firstName} 👋\n\nThank you for choosing ${settings.businessName}! We'd love to hear how we did.\n\nTap the link below to rate your experience — it only takes a second:\n${ratingLink}`;
+        const body = `Hi ${firstName} 👋\n\nThank you for choosing ${settings.businessName}! We'd love to hear how we did.\n\nTap the link below to rate your experience — it only takes a second:\n${ratingLink}\n\nReply STOP to opt out.`;
         await sendWhatsAppMessage(customer.phone!, body);
       }
     };
@@ -1796,22 +1799,22 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const accountId = req.session.accountId!;
     const defaults: Record<string, Record<string, { body: string; subject?: string }>> = {
       email: {
-        response_positive: { body: "We hope you enjoyed your experience with {{business_name}} and our {{service_type}}! Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!\n\n{{owner_name}}\n{{business_name}}", subject: "Thank you for your rating" },
-        response_negative: { body: "We would appreciate your feedback on how we can improve for next time and will be in touch.", subject: "We'd love to make this right" },
+        response_positive: { body: "We hope you enjoyed your experience with {{business_name}} and our {{service_type}}! Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!\n\n{{business_name}}", subject: "Thank you for your rating" },
+        response_negative: { body: "We would appreciate your feedback on how we can improve for next time and will be in touch.\n\n{{business_name}}", subject: "We'd love to make this right" },
         follow_up_1: { body: "Just a quick follow-up from {{business_name}} — we'd love to hear how we did!\n\nTap the link below to leave your rating.\n\nThanks,\n{{owner_name}}\n{{business_name}}", subject: "Just checking in" },
         follow_up_2: { body: "We know you're busy, but your feedback really means a lot to {{business_name}}!\n\nTap the link below whenever you're ready.\n\nThanks,\n{{owner_name}}\n{{business_name}}", subject: "A polite reminder" },
         follow_up_3: { body: "This is our last message, we promise! If you ever have a moment, we'd still love to hear from you.\n\nTap the link below.\n\nThanks,\n{{owner_name}}\n{{business_name}}", subject: "We'd still love to hear from you" },
       },
       sms: {
-        response_positive: { body: "We hope you enjoyed your experience with {{business_name}} and our {{service_type}}! Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!\n\n{{owner_name}}\n{{business_name}}" },
-        response_negative: { body: "We would appreciate your feedback on how we can improve for next time and will be in touch." },
+        response_positive: { body: "We hope you enjoyed your experience with {{business_name}} and our {{service_type}}! Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!\n\n{{business_name}}" },
+        response_negative: { body: "We would appreciate your feedback on how we can improve for next time and will be in touch.\n\n{{business_name}}" },
         follow_up_1: { body: "Just a quick follow-up from {{business_name}} — we'd love to hear how we did!" },
         follow_up_2: { body: "Your feedback means a lot to us — tap below when you're ready!\n{{business_name}}" },
         follow_up_3: { body: "Last one from us! If you get a moment, we'd love your feedback.\n{{business_name}}" },
       },
       whatsapp: {
-        response_positive: { body: "We hope you enjoyed your experience with {{business_name}} and our {{service_type}}! Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!\n\n{{owner_name}}\n{{business_name}}" },
-        response_negative: { body: "We would appreciate your feedback on how we can improve for next time and will be in touch." },
+        response_positive: { body: "We hope you enjoyed your experience with {{business_name}} and our {{service_type}}! Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!\n\n{{business_name}}" },
+        response_negative: { body: "We would appreciate your feedback on how we can improve for next time and will be in touch.\n\n{{business_name}}" },
         follow_up_1: { body: "😊 Just a quick follow-up from {{business_name}} — we'd love to hear how we did! Tap the link below when you get a moment 👇" },
         follow_up_2: { body: "💛 Your feedback really means a lot to us! Whenever you're ready, just tap the link below — we appreciate it 🙏\n\n{{business_name}}" },
         follow_up_3: { body: "🙏 Last message from us, we promise! If you ever get a moment, we'd genuinely love to hear from you.\n\n{{business_name}}" },
@@ -2642,9 +2645,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       );
     }
 
+    // Fetch subscription to capture trial_end if present
+    let trialEndsAt: Date | null = null;
+    if (subscriptionId) {
+      const sub = await stripe.subscriptions.retrieve(subscriptionId).catch(() => null) as any;
+      if (sub?.trial_end) trialEndsAt = new Date(sub.trial_end * 1000);
+    }
+
     await pool.query(
-      `UPDATE users SET plan_type = $1, plan_period = $2, stripe_customer_id = $3, stripe_subscription_id = $4${wasCancelled ? ", reactivated_at = NOW()" : ""} WHERE id = $5`,
-      [plan, period, customerId, subscriptionId, userId]
+      `UPDATE users SET plan_type = $1, plan_period = $2, stripe_customer_id = $3, stripe_subscription_id = $4, trial_ends_at = $5, trial_reminder_sent = false${wasCancelled ? ", reactivated_at = NOW()" : ""} WHERE id = $6`,
+      [plan, period, customerId, subscriptionId, trialEndsAt, userId]
     );
 
     // Send verification email now that payment is confirmed
@@ -2826,10 +2836,22 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
 
     if (event.type === "customer.subscription.deleted") {
-      await pool.query(
-        `UPDATE users SET plan_type = 'cancelled', plan_period = 'monthly', cancelled_at = NOW() WHERE stripe_subscription_id = $1`,
-        [event.data.object.id]
+      const subId = event.data.object.id;
+      const { rows: userRows } = await pool.query(
+        `UPDATE users SET plan_type = 'cancelled', plan_period = 'monthly', cancelled_at = NOW()
+         WHERE stripe_subscription_id = $1
+         RETURNING email, first_name`,
+        [subId]
       );
+      // Send "your subscription has now ended" email
+      if (userRows[0]) {
+        const u = userRows[0];
+        const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://reviewoptic.com");
+        const { sendSubscriptionEndedEmail } = await import("./email");
+        sendSubscriptionEndedEmail(u.email, u.first_name || "", `${appUrl}/pricing`).catch(err =>
+          console.error("[stripe-webhook] Failed to send subscription-ended email:", err.message)
+        );
+      }
     }
 
     res.json({ received: true });

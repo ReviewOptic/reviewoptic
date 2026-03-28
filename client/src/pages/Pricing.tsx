@@ -14,7 +14,6 @@ const SHARED_FEATURES = [
   "Full analytics dashboard",
   "Private feedback capture",
   "Website review widget",
-  "Multiple users & team management",
   "Works with Google, Trustpilot, Facebook, Checkatrade & more",
   "No contracts — cancel anytime",
 ];
@@ -181,6 +180,22 @@ export default function Pricing() {
                     {f}
                   </li>
                 ))}
+                {plan.id === "pro" && (
+                  <>
+                    <li className="flex items-start gap-2 text-sm font-semibold text-blue-700">
+                      <Check className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+                      Multiple users &amp; team management
+                    </li>
+                  </>
+                )}
+                {plan.id === "lite" && (
+                  <>
+                    <li className="flex items-start gap-2 text-sm text-gray-400">
+                      <X className="w-4 h-4 text-gray-300 mt-0.5 shrink-0" />
+                      Multiple users &amp; team management
+                    </li>
+                  </>
+                )}
               </ul>
               <a
                 href="/features"

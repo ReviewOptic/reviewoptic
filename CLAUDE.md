@@ -319,3 +319,38 @@ Your job is to be the developer they would hire if they could afford a great one
 - Instagram auto-posting still not built
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
 - **Next feature ideas**: QR code, Zapier webhook, re-engagement campaigns
+
+### Session — 2026-03-28 (thirty-sixth session)
+
+**Tasks completed:**
+- **Two-track follow-up system finalised**: Unrated customers get 3 generic nudges encouraging them to click a star. Customers who rated 4–5★ but haven't clicked a platform link get personalised Follow-up 1/2/3 templates. 1–3★ customers never followed up. `howtos.ts` updated to describe both tracks accurately.
+- **WhatsApp opt-out text added**: Initial WhatsApp sends (routes.ts) and follow-up WhatsApp sends (storage.ts and index.ts scheduled runner) now append `\nReply STOP to opt out.` Twilio inbound webhook strips `whatsapp:` prefix to handle STOP replies for both SMS and WhatsApp.
+- **Critical DNC bug fixed**: `POST /api/review-requests` now checks `customer.doNotContact` before sending — returns 400 if true. Previously DNC customers could still be sent requests.
+- **Pricing page feature split**: "Multiple users & team management" removed from shared features. Lite shows it greyed out with ✗. Pro shows it highlighted with ✓. Team invite endpoint already had Lite guard server-side.
+- **Trial reminder email**: New `trial_ends_at` and `trial_reminder_sent` columns on users. `trial_ends_at` saved from Stripe on billing confirm. Daily runner sends reminder email 1–3 days before trial ends (once only). `sendTrialReminderEmail` added to email.ts.
+- **Subscription-ended email**: Stripe `customer.subscription.deleted` webhook now also sends `sendSubscriptionEndedEmail` — confirms billing has stopped, data retained 30 days, reactivate link.
+- **T&Cs acceptance recorded**: New `terms_accepted_at` column. Register route validates `termsAccepted: true` in body (returns 400 if missing). Timestamp saved on successful registration. AuthContext and auth-types updated to pass `termsAccepted`.
+- **Session cookie security**: `secure: process.env.NODE_ENV === "production"`, `sameSite: "lax"` added.
+- **Rate limiting**: `express-rate-limit` added — 20 req/15min on login, register, forgot-password, reset-password.
+- **Helmet security headers**: Added with CSP and COOP disabled (required for Stripe embedded checkout).
+- **Cookie consent banner**: `CookieConsent.tsx` component — appears on first visit, Accept/Decline, persists to localStorage, links to Privacy Policy. Added to App.tsx.
+- **Onboarding checklist**: `OnboardingChecklist.tsx` — shows on Dashboard for new owners. 4 steps: business details → review platform → add customer → send request. Each links to the right page. Auto-dismisses when all complete; X to dismiss early. Added to Dashboard above stats.
+- **FAQ fully updated**: New questions on scheduled sends, two-track follow-ups, QR code, Zapier, team members (Pro-only), trial cancellation (no charge), subscription-ended confirmation email. All existing answers reviewed and corrected.
+- **sendShareRatingEmail removed**: Was defined in email.ts but never called anywhere — deleted.
+- **Sentry error monitoring**: `@sentry/node` installed. Init with `SENTRY_DSN` env var (no-op if not set). Captures uncaughtException, unhandledRejection, and all 500 Express errors. User has added `SENTRY_DSN` secret.
+- **Resend domain verified**: `reviewoptic.com` confirmed Verified in Resend — emails will land in inboxes.
+- **use-page-meta hook created**: Ready for SEO meta tags (not yet applied to pages — user wants to do this later).
+
+**Architecture notes:**
+- Trial reminder window: `trial_ends_at BETWEEN NOW() + INTERVAL '1 day' AND NOW() + INTERVAL '3 days'` — catches it on the daily run regardless of exact timing
+- Cookie consent: stored in `localStorage` as `ro_cookie_consent` = `"accepted"` or `"declined"`
+- Onboarding dismissed key: `ro_onboarding_dismissed` in localStorage — permanent once set
+- Sentry only reports 500-level errors, not 4xx — avoids noise from validation errors
+
+**Notes for next session:**
+- **⚠️ TWILIO WEBHOOK NOT YET ACTIVATED** — must set `https://reviewoptic.com/api/webhooks/twilio-inbound` in Twilio console (SMS number + WhatsApp sender → "A message comes in")
+- **⚠️ STRIPE WEBHOOK NOT YET REGISTERED** — must register `https://reviewoptic.com/api/billing/webhook` in Stripe → Developers → Webhooks, event: `customer.subscription.deleted`, add signing secret as `STRIPE_WEBHOOK_SECRET`
+- **SEO meta tags**: `use-page-meta` hook is ready — user wants to apply to public pages (Pricing, FAQ, Features, Login, Register, Privacy, Terms) in a future session
+- **Referral programme**: route exists (`GET /referral/:slug`), Settings tab has placeholder UI — needs offer text and refer-a-friend share link completing
+- **UI polish**: user wants to perfect how the app looks — planned for a future session
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`

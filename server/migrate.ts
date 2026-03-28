@@ -319,12 +319,12 @@ export async function runMigrations() {
     await once("response_template_defaults_v1", async () => {
       const positiveBody = "We hope you enjoyed your experience with {{business_name}} and our {{service_type}}! Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!";
       const defaultResponseTemplates = [
-        { type: "response_positive", channel: "email",    subject: "", body: positiveBody },
+        { type: "response_positive", channel: "email",    subject: "Thank you for your rating", body: positiveBody },
         { type: "response_positive", channel: "sms",      subject: "", body: positiveBody },
         { type: "response_positive", channel: "whatsapp", subject: "", body: positiveBody },
-        { type: "response_negative", channel: "email",    subject: "We'd love to make this right", body: "We would appreciate your feedback on how we can improve for next time and will be in touch." },
-        { type: "response_negative", channel: "sms",      subject: "", body: "We would appreciate your feedback on how we can improve for next time and will be in touch." },
-        { type: "response_negative", channel: "whatsapp", subject: "", body: "We would appreciate your feedback on how we can improve for next time and will be in touch." },
+        { type: "response_negative", channel: "email",    subject: "We'd love to make this right", body: "We would appreciate your feedback on how we can improve for next time and will be in touch.\n\n{{business_name}}" },
+        { type: "response_negative", channel: "sms",      subject: "", body: "We would appreciate your feedback on how we can improve for next time and will be in touch.\n\n{{business_name}}" },
+        { type: "response_negative", channel: "whatsapp", subject: "", body: "We would appreciate your feedback on how we can improve for next time and will be in touch.\n\n{{business_name}}" },
       ];
       for (const t of defaultResponseTemplates) {
         await pool.query(
@@ -429,6 +429,14 @@ export async function runMigrations() {
       await pool.query(`UPDATE templates SET body = 'We would appreciate your feedback on how we can improve for next time and will be in touch.' WHERE template_type = 'response_negative'`);
     });
 
+    // ── Response template sign-off update — remove {{owner_name}}, just {{business_name}} ──
+    await once("response_templates_v4", async () => {
+      const posBody = `We hope you enjoyed your experience with {{business_name}} and our {{service_type}}! Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!\n\n{{business_name}}`;
+      const negBody = `We would appreciate your feedback on how we can improve for next time and will be in touch.\n\n{{business_name}}`;
+      await pool.query(`UPDATE templates SET body = $1 WHERE template_type = 'response_positive'`, [posBody]);
+      await pool.query(`UPDATE templates SET body = $1 WHERE template_type = 'response_negative'`, [negBody]);
+    });
+
     // Create email follow_up_1/2/3 for any accounts that still only have the old "follow_up" type
     for (const [type, name, subject, body] of [
       ["follow_up_1", "Follow-up 1", "Just checking in", "Just a quick follow-up from {{business_name}} — we'd love to hear how we did!\n\nTap the link below to leave your rating.\n\nThanks,\n{{owner_name}}\n{{business_name}}"],
@@ -461,6 +469,13 @@ export async function runMigrations() {
 
     // QR scan feedback source tracking
     await pool.query(`ALTER TABLE private_feedback ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'review_request'`);
+
+    // Trial tracking — store trial end date so we can send a reminder 2 days before
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMP`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_reminder_sent BOOLEAN NOT NULL DEFAULT false`);
+
+    // T&Cs acceptance — legal record of when user accepted terms
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMP`);
 
     console.log("[migrate] Migrations complete");
   } finally {

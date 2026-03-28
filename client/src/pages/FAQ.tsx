@@ -12,7 +12,7 @@ const FAQS = [
       },
       {
         q: "How does the free trial work?",
-        a: "Every new account gets a 14-day free trial with full access to all features on your chosen plan. You'll need to enter a payment method when you choose your plan, but you won't be charged anything until the 14 days are up. Cancel any time before then and you pay nothing.",
+        a: "Every new account gets a 14-day free trial with full access to all features on your chosen plan. You'll need to enter a payment method when you choose your plan, but you won't be charged anything until the 14 days are up. Cancel any time before then and you pay nothing. You'll receive a reminder email 2 days before your trial ends so you're never caught off guard.",
       },
       {
         q: "Do I need a credit card to sign up?",
@@ -20,7 +20,7 @@ const FAQS = [
       },
       {
         q: "How do I get started?",
-        a: "Create your account, choose a plan (Lite or Pro), and add your first customer. You can then send them a review request via email, SMS, or WhatsApp in a few clicks. ReviewOptic handles the follow-ups automatically.",
+        a: "Create your account, choose a plan (Lite or Pro), then follow the setup checklist on your dashboard: add your business details, connect a review platform, add your first customer, and send your first request. ReviewOptic handles the follow-ups automatically from there.",
       },
     ],
   },
@@ -29,7 +29,7 @@ const FAQS = [
     items: [
       {
         q: "What's the difference between Lite and Pro?",
-        a: "The only difference is the number of review requests you can send each month. Lite allows up to 10 review requests per month. Pro gives you unlimited review requests. Everything else — templates, analytics, follow-ups, the website widget, team members, AI tools, and more — is included on both plans.",
+        a: "Lite allows up to 10 review requests per month and is a single-user account. Pro gives you unlimited review requests and includes team member access — you can invite your team to log in and send requests. All other features (templates, analytics, follow-ups, AI tools, website widget, QR code, Zapier integration) are included on both plans.",
       },
       {
         q: "Do follow-ups count toward my monthly limit on the Lite plan?",
@@ -65,8 +65,12 @@ const FAQS = [
         a: "Email, SMS, and WhatsApp. You can set a preferred channel per customer or choose at send time.",
       },
       {
+        q: "Can I schedule a review request to send on a future date?",
+        a: "Yes. When adding a customer, toggle on 'Schedule review request' and pick the date you want it to go out — for example, the day after a job is completed. The request fires automatically on that date. This also works via Zapier so requests can be scheduled based on your booking system's job completion date.",
+      },
+      {
         q: "How do automatic follow-ups work?",
-        a: "If a customer doesn't respond to your initial request, ReviewOptic sends up to 3 follow-up messages automatically. You control the timing (e.g. 3 days, 7 days, 14 days after the original send) and the message content. You can turn follow-ups on or off in Settings.",
+        a: "ReviewOptic runs two follow-up tracks depending on what the customer has done. If a customer hasn't rated at all, they receive up to 3 short, friendly nudges encouraging them to click a star. Once they've given a 4 or 5 star rating, follow-ups switch to your personalised Follow-up 1, 2, and 3 templates — reminding them to share their rating on a public review platform. Customers who rated 1–3 stars are never followed up automatically; their feedback goes privately to your dashboard instead. You control the timing and can turn follow-ups off entirely in Settings.",
       },
       {
         q: "What is the star rating pre-screen?",
@@ -87,7 +91,7 @@ const FAQS = [
     items: [
       {
         q: "What analytics does ReviewOptic provide?",
-        a: "The analytics dashboard shows request sent, click rate, average star rating, best day to send, follow-up effectiveness, platform breakdown, per-channel performance, and more. You can export reports as PDF or CSV and filter by date range.",
+        a: "The analytics dashboard shows requests sent, click rate, average star rating, best day to send, follow-up effectiveness, platform breakdown, per-channel performance, and more. You can export reports as PDF or CSV and filter by date range.",
       },
       {
         q: "What is private feedback?",
@@ -98,8 +102,16 @@ const FAQS = [
         a: "A small snippet of code you can add to your website to display your recent reviews automatically. You control the minimum star rating shown, the number of reviews, and the layout (grid or carousel).",
       },
       {
+        q: "What is the QR code and how do I use it?",
+        a: "Every account has a unique QR code you can download from Settings → Integrations. Print it on receipts, business cards, or display it on a tablet at your premises. When a customer scans it, they're taken straight to your star-rating page — no name or contact details required. High ratings show your review platform buttons; low ratings show your private feedback form. It's ideal for walk-in or point-of-sale situations.",
+      },
+      {
+        q: "Can I connect my booking system to automatically add customers?",
+        a: "Yes, via Zapier. Go to Settings → Integrations to get your unique webhook URL, then create a Zap in Zapier connecting your booking app (Acuity, Calendly, Jobber, and many more) to ReviewOptic. Map your customer fields and optionally set a scheduled send date based on job completion. Once set up, every new booking is automatically added to ReviewOptic.",
+      },
+      {
         q: "Can I add team members to my account?",
-        a: "Yes. You can invite team members from Settings → Team. They can send review requests and view customers but cannot access billing or account settings.",
+        a: "Yes, on the Pro plan. You can invite team members from Settings → Team. They can send review requests and view customers but cannot access billing or account settings. Team members are not available on the Lite plan.",
       },
       {
         q: "What is the AI chat assistant?",
@@ -112,7 +124,15 @@ const FAQS = [
     items: [
       {
         q: "Can I cancel anytime?",
-        a: "Yes. Cancel from the Billing tab in your account settings at any time — no contracts, no notice period. You'll keep full access until the end of your current billing period.",
+        a: "Yes. Cancel from the Billing tab in your account settings at any time — no contracts, no notice period. You'll keep full access until the end of your current billing period (or until your trial ends, if you're still in the trial). You won't be charged again after cancelling.",
+      },
+      {
+        q: "If I cancel during my free trial, will I be charged?",
+        a: "No. If you cancel before your 14-day trial ends, your subscription ends immediately and you will not be charged anything. You'll receive a confirmation email as soon as you cancel.",
+      },
+      {
+        q: "What happens when my subscription ends?",
+        a: "You'll receive a confirmation email on the day your subscription ends confirming that billing has stopped. Your account data is retained for 30 days after that. After 30 days it is permanently deleted. We recommend exporting your customer list (CSV) before your access ends if you want to keep a copy.",
       },
       {
         q: "What happens to my data if I cancel?",

@@ -220,11 +220,20 @@ export default function Settings() {
               <CardDescription className="text-[12.5px]">This info is used in your message templates</CardDescription>
             </CardHeader>
             <CardContent className="space-y-5 pb-5">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-[12.5px]">
-                    Your Name <span className="text-muted-foreground font-normal">(at least one required)</span>
-                  </Label>
+              <div className="space-y-1">
+                <div className="grid grid-cols-2 gap-4">
+                  <Label className="text-[12.5px]">Company Name</Label>
+                  <Label className="text-[12.5px]">Your Name</Label>
+                </div>
+                <p className="text-[11.5px] text-muted-foreground">At least company name or your name is required</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    value={form.businessName}
+                    onChange={e => setForm(f => ({ ...f, businessName: e.target.value }))}
+                    placeholder="Clean Pro Services"
+                    data-testid="input-business-name"
+                    className={!form.ownerName.trim() && !form.businessName.trim() ? "border-destructive focus-visible:ring-destructive" : ""}
+                  />
                   <Input
                     value={form.ownerName}
                     onChange={e => setForm(f => ({ ...f, ownerName: e.target.value }))}
@@ -233,19 +242,9 @@ export default function Settings() {
                     className={!form.ownerName.trim() && !form.businessName.trim() ? "border-destructive focus-visible:ring-destructive" : ""}
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[12.5px]">Company Name</Label>
-                  <Input
-                    value={form.businessName}
-                    onChange={e => setForm(f => ({ ...f, businessName: e.target.value }))}
-                    placeholder="Clean Pro Services"
-                    data-testid="input-business-name"
-                    className={!form.ownerName.trim() && !form.businessName.trim() ? "border-destructive focus-visible:ring-destructive" : ""}
-                  />
-                  {!form.ownerName.trim() && !form.businessName.trim() && (
-                    <p className="text-[11.5px] text-destructive">At least one is required</p>
-                  )}
-                </div>
+                {!form.ownerName.trim() && !form.businessName.trim() && (
+                  <p className="text-[11.5px] text-destructive">At least company name or your name is required</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label className="text-[12.5px]">Company Logo</Label>
@@ -332,7 +331,7 @@ export default function Settings() {
                     className="bg-muted cursor-not-allowed"
                     data-testid="input-business-email"
                   />
-                  <p className="text-[11.5px] text-muted-foreground">This is set from your account email and cannot be changed here.</p>
+                  <p className="text-[11.5px] text-muted-foreground">This is set from your account email and cannot be changed.</p>
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[12.5px]">Password</Label>

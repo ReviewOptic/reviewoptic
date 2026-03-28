@@ -3,7 +3,7 @@ import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import pkg from "pg";
 const { Pool } = pkg;
 import { randomUUID } from "crypto";
-import { sendPreScreenEmail, sendShareRatingEmail, sendFollowUpEmail } from "./email";
+import { sendFollowUpEmail } from "./email";
 import { sendReviewSMS, sendWhatsAppMessage } from "./sms";
 import {
   accounts, customers, reviewRequests, reviews, privateFeedback, activityLog, templates, settings, users, passwordResetTokens, adminImpersonationLog,
@@ -384,7 +384,7 @@ export class DatabaseStorage implements IStorage {
         const hasLowRating = requests.some(r => r.rating !== null && r.rating <= 3);
         if (hasLowRating) continue;
 
-        // Customer has rated 4-5★ but hasn't clicked a platform link yet
+        // Track whether already rated 4-5★ (used to pre-set rating on new request)
         const hasHighRating = requests.some(r => r.rating !== null && r.rating >= 4);
 
         // If all follow-ups are exhausted, mark no_response and move on
@@ -411,12 +411,11 @@ export class DatabaseStorage implements IStorage {
 
         if (!shouldSend) continue;
 
-        // Unrated → use follow_up_1/2/3 template
         const templateType = `follow_up_${sentCount}`;
-        const allTemplates = await this.getTemplates(accountId);
+        const allTemplates = hasHighRating ? await this.getTemplates(accountId) : [];
 
-        // For already-rated 4-5★ customers: pre-set the rating on the new request so ReviewLanding
-        // skips the star step and goes straight to the platform buttons page
+        // Pre-set rating on the new request if already rated 4-5★ so ReviewLanding skips
+        // the star step and goes straight to the platform buttons page
         const existingRating = hasHighRating
           ? (requests.find(r => r.rating !== null && r.rating >= 4)?.rating ?? null)
           : null;
@@ -437,17 +436,13 @@ export class DatabaseStorage implements IStorage {
         // Update customer status
         await this.updateCustomer(customer.id, { status: nextStatus }, accountId);
 
-        // Activity log
-        const label = hasHighRating
-          ? `Rating reminder #${sentCount} sent to ${customer.name} via ${customer.channel}`
-          : `Follow-up #${sentCount} sent automatically to ${customer.name} via ${customer.channel}`;
         await this.createActivity({
           id: randomUUID(),
           accountId: customer.accountId,
           type: "request_sent",
           customerId: customer.id,
           customerName: customer.name,
-          message: label,
+          message: `Follow-up #${sentCount} sent automatically to ${customer.name} via ${customer.channel}`,
           metadata: "{}",
         });
 
@@ -457,60 +452,84 @@ export class DatabaseStorage implements IStorage {
         const firstName = customer.name.split(" ")[0];
 
         const ownerFirstName = (s.ownerName || "").split(" ")[0];
-        const resolveBody = (tmpl: any, link = ratingLink) => tmpl?.body
-          ? tmpl.body
-              .replace(/\{\{customer_name\}\}/g, customer.name)
-              .replace(/\{\{first_name\}\}/g, firstName)
-              .replace(/\{\{business_name\}\}/g, s.businessName)
-              .replace(/\{\{owner_name\}\}/g, ownerFirstName)
-              .replace(/\{\{service_type\}\}/g, customer.serviceType || "")
-              .replace(/\{\{review_link\}\}/g, "")
-              .trim() + `\n${link}`
-          : null;
+        const resolveBody = (tmpl: any, link = ratingLink) => {
+          if (!tmpl?.body) return null;
+          let out = tmpl.body
+            .replace(/\{\{customer_name\}\}/g, customer.name)
+            .replace(/\{\{first_name\}\}/g, firstName)
+            .replace(/\{\{business_name\}\}/g, s.businessName)
+            .replace(/\{\{owner_name\}\}/g, ownerFirstName)
+            .replace(/\{\{review_link\}\}/g, "");
+          if (!customer.serviceType) {
+            out = out.replace(/\s*and our \{\{service_type\}\}/gi, "").replace(/\{\{service_type\}\}/g, "");
+          } else {
+            out = out.replace(/\{\{service_type\}\}/g, customer.serviceType);
+          }
+          return out.trim() + `\n${link}`;
+        };
 
-        // All channels: link always goes to ReviewLanding.
-        // For 4-5★ customers the new request has existingRating pre-set, so ReviewLanding
-        // auto-skips the star step and opens the platform buttons page.
+        // Generic rating nudges for customers who haven't rated yet (3 different messages)
+        const genericEmailSubjects = [
+          `We'd love your feedback — ${s.businessName}`,
+          `Just a gentle reminder — ${s.businessName}`,
+          `Last reminder — we promise!`,
+        ];
+        const genericEmailBodies = [
+          `Hi ${firstName},\n\nWe'd love to hear how your experience with ${s.businessName} was! It only takes a second — tap the button below to leave your rating.`,
+          `Hi ${firstName},\n\nJust a gentle reminder that we'd really love to hear how we did! Your feedback means a lot to us — tap below whenever you're ready.`,
+          `Hi ${firstName},\n\nThis is our last message, we promise! If you have a moment, your feedback would mean the world to us. Tap below to leave your rating.`,
+        ];
+        const genericSmsTexts = [
+          `Hi ${firstName}, we'd love to hear how your experience was! Tap below to leave a quick rating:`,
+          `Hi ${firstName}, just a gentle reminder — we'd love your feedback! Tap below whenever you're ready:`,
+          `Hi ${firstName}, last one from us — we'd really appreciate your rating if you get a chance:`,
+        ];
+        const genericWaTexts = [
+          `Hi ${firstName} 😊 We'd love to hear how your experience with ${s.businessName} went! Tap the link below to leave a quick rating 👇`,
+          `Hi ${firstName}, just a gentle reminder — we'd really love to know how we did! Tap the link below whenever you're ready 🙏`,
+          `Hi ${firstName} 🙏 This is our last message, we promise! If you ever have a moment, we'd really love to hear from you.`,
+        ];
+        const idx = Math.min(sentCount - 1, 2); // 0, 1, or 2
+
         if (customer.channel === "email" && customer.email) {
           if (hasHighRating) {
-            // Already rated — send a "thanks, please share it" email with a ReviewLanding button
-            const responseTmpl = allTemplates.find(t => t.channel === "email" && t.templateType === "response_positive" && t.isDefault)
-              || allTemplates.find(t => t.channel === "email" && t.templateType === "response_positive")
-              || null;
-            sendShareRatingEmail(customer, s, ratingLink, responseTmpl).catch(err =>
-              console.error(`[follow-up] Failed to send share-rating email to ${customer.email}:`, err.message)
-            );
-          } else {
-            // Not yet rated — send follow-up email using the follow-up template body + "Rate your experience" button
+            // Rated 4-5★ but not clicked — use personalised Follow-up 1/2/3 template
             const fuTmpl = allTemplates.find(t => t.channel === "email" && t.templateType === templateType && t.isDefault)
               || allTemplates.find(t => t.channel === "email" && t.templateType === templateType)
               || null;
             sendFollowUpEmail(customer, s, ratingLink, fuTmpl).catch(err =>
               console.error(`[follow-up] Failed to send email to ${customer.email}:`, err.message)
             );
+          } else {
+            // Not yet rated — generic rating nudge
+            sendFollowUpEmail(customer, s, ratingLink, { subject: genericEmailSubjects[idx], body: genericEmailBodies[idx] }).catch(err =>
+              console.error(`[follow-up] Failed to send email to ${customer.email}:`, err.message)
+            );
           }
         } else if (customer.channel === "sms" && customer.phone) {
-          const tmplType = hasHighRating ? "response_positive" : templateType;
-          const tmpl = allTemplates.find(t => t.channel === "sms" && t.templateType === tmplType && t.isDefault)
-            || allTemplates.find(t => t.channel === "sms" && t.templateType === tmplType)
-            || null;
-          const smsBody = resolveBody(tmpl, smsLink)
-            || (hasHighRating
-              ? `Hi ${firstName}, thanks for your rating! Share your experience here:\n${smsLink}`
-              : `Hi ${firstName}, just following up — tap to leave a quick rating:\n${smsLink}`);
+          let smsBody: string;
+          if (hasHighRating) {
+            const tmpl = allTemplates.find(t => t.channel === "sms" && t.templateType === templateType && t.isDefault)
+              || allTemplates.find(t => t.channel === "sms" && t.templateType === templateType)
+              || null;
+            smsBody = resolveBody(tmpl, smsLink) || `Hi ${firstName}, just following up — tap to share your rating:\n${smsLink}`;
+          } else {
+            smsBody = `${genericSmsTexts[idx]}\n${smsLink}`;
+          }
           sendReviewSMS(customer, s, { subject: "", body: smsBody } as any, []).catch(err =>
             console.error(`[follow-up] Failed to send SMS to ${customer.phone}:`, err.message)
           );
         } else if (customer.channel === "whatsapp" && customer.phone) {
-          const tmplType = hasHighRating ? "response_positive" : templateType;
-          const tmpl = allTemplates.find(t => t.channel === "whatsapp" && t.templateType === tmplType && t.isDefault)
-            || allTemplates.find(t => t.channel === "whatsapp" && t.templateType === tmplType)
-            || null;
-          const waBody = resolveBody(tmpl)
-            || (hasHighRating
-              ? `Hi ${firstName} 😊 Thanks so much for your rating! If you have a moment, we'd really appreciate it if you could share your experience:\n${ratingLink}`
-              : `Hi ${firstName}, just following up — tap below to leave us a quick rating:\n${ratingLink}`);
-          sendWhatsAppMessage(customer.phone, waBody).catch(err =>
+          let waBody: string;
+          if (hasHighRating) {
+            const tmpl = allTemplates.find(t => t.channel === "whatsapp" && t.templateType === templateType && t.isDefault)
+              || allTemplates.find(t => t.channel === "whatsapp" && t.templateType === templateType)
+              || null;
+            waBody = resolveBody(tmpl) || `Hi ${firstName}, just following up — tap below to share your rating:\n${ratingLink}`;
+          } else {
+            waBody = `${genericWaTexts[idx]}\n${ratingLink}`;
+          }
+          sendWhatsAppMessage(customer.phone, waBody + "\n\nReply STOP to opt out.").catch(err =>
             console.error(`[follow-up] Failed to send WhatsApp to ${customer.phone}:`, err.message)
           );
         }

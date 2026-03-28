@@ -20,7 +20,7 @@ export interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, firstName: string, lastName: string, companyName: string, referredByAccountId?: string) => Promise<{ requiresVerification: boolean }>;
+  register: (email: string, password: string, firstName: string, lastName: string, companyName: string, referredByAccountId?: string, termsAccepted?: boolean) => Promise<{ requiresVerification: boolean }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }

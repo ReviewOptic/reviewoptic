@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import OnboardingChecklist from "@/components/OnboardingChecklist";
 import { useLocation } from "wouter";
 import {
   Send, Clock, CheckCircle2, ArrowRight, Plus, BarChart2,
@@ -330,6 +331,8 @@ export default function Dashboard() {
           <p className="text-[13.5px] text-muted-foreground mt-0.5 italic">{quote}</p>
         </div>
       </div>
+
+      <OnboardingChecklist />
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">

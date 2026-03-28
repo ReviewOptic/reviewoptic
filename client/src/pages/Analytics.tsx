@@ -228,32 +228,41 @@ export default function Analytics() {
         reader.readAsDataURL(blob);
       });
 
-      // Load ReviewOptic logo
-      const logoDataUrl = await fetch("/logo.png").then(r => r.blob()).then(blobToDataUrl);
-      const logoEl = new Image();
-      logoEl.src = "/logo.png";
-      await new Promise(r => { logoEl.onload = r; logoEl.onerror = r; });
+      // Load logos in parallel
       const logoMaxW = 150;
-      const logoH = logoEl.width ? (logoEl.height / logoEl.width) * logoMaxW : 40;
+      const [logoDataUrl, userLogoResult] = await Promise.all([
+        fetch("/logo.png").then(r => r.blob()).then(blobToDataUrl),
+        settings?.logoUrl ? (async () => {
+          const src = settings.logoUrl.startsWith("http") ? settings.logoUrl : `${window.location.origin}${settings.logoUrl}`;
+          try { return { url: await fetch(src).then(r => r.blob()).then(blobToDataUrl), src }; } catch { return null; }
+        })() : Promise.resolve(null),
+      ]);
 
-      // Load user logo if set
-      let userLogoDataUrl: string | null = null;
-      let userLogoH = logoH;
-      if (settings?.logoUrl) {
-        const userLogoSrc = settings.logoUrl.startsWith("http")
-          ? settings.logoUrl
-          : `${window.location.origin}${settings.logoUrl}`;
-        try {
-          userLogoDataUrl = await fetch(userLogoSrc).then(r => r.blob()).then(blobToDataUrl);
-          const userLogoEl = new Image();
-          userLogoEl.src = userLogoSrc;
-          await new Promise(r => { userLogoEl.onload = r; userLogoEl.onerror = r; });
-          userLogoH = userLogoEl.width ? (userLogoEl.height / userLogoEl.width) * logoMaxW : logoH;
-        } catch { userLogoDataUrl = null; }
-      }
+      const measureImg = (src: string): Promise<{ w: number; h: number }> =>
+        new Promise(resolve => {
+          const img = new Image();
+          img.onload = () => resolve({ w: img.width, h: img.height });
+          img.onerror = () => resolve({ w: 1, h: 1 });
+          img.src = src;
+        });
 
-      const canvas = await html2canvas(contentRef.current, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+      const [logoSize, userLogoSize] = await Promise.all([
+        measureImg("/logo.png"),
+        userLogoResult ? measureImg(userLogoResult.src) : Promise.resolve(null),
+      ]);
+
+      const logoH = logoSize.w ? (logoSize.h / logoSize.w) * logoMaxW : 40;
+      const userLogoDataUrl = userLogoResult?.url ?? null;
+      const userLogoH = userLogoSize && userLogoSize.w ? (userLogoSize.h / userLogoSize.w) * logoMaxW : logoH;
+
+      // Get section break positions BEFORE canvas capture (DOM positions are stable)
+      const containerRect = contentRef.current.getBoundingClientRect();
+      const sections = Array.from(contentRef.current.querySelectorAll(".pdf-section")) as HTMLElement[];
+
+      // Single canvas capture at scale 1.5 — much faster than multiple captures at scale 2
+      const canvas = await html2canvas(contentRef.current, { scale: 1.5, useCORS: true, backgroundColor: "#ffffff" });
       const imgData = canvas.toDataURL("image/png");
+
       const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
@@ -261,15 +270,10 @@ export default function Analytics() {
       const footerH = 28;
       const periodLabel = period === "custom" ? `${from} – ${to}` : `Last ${period} days`;
 
-      // ReviewOptic logo at top left
       pdf.addImage(logoDataUrl, "PNG", margin, margin, logoMaxW, logoH);
-
-      // User logo at top right (if available)
       if (userLogoDataUrl) {
         pdf.addImage(userLogoDataUrl, "PNG", pageWidth - margin - logoMaxW, margin, logoMaxW, userLogoH);
       }
-
-      // Title and subtitle below whichever logo is taller
       const headerH = Math.max(logoH, userLogoDataUrl ? userLogoH : 0);
       const titleY = margin + headerH + 16;
       pdf.setFont("helvetica", "bold");
@@ -285,25 +289,47 @@ export default function Analytics() {
         const fy = pageHeight - 14;
         pdf.setFontSize(8);
         pdf.setTextColor(160, 160, 160);
-        pdf.text("Powered by ReviewOptic — reviewoptic.com   |   Privacy Policy: reviewoptic.com/privacy   |   Terms: reviewoptic.com/terms   |   FAQ: reviewoptic.com/faq", pageWidth / 2, fy, { align: "center" });
+        pdf.textWithLink("Powered by ReviewOptic", pageWidth / 2 - pdf.getTextWidth("Powered by ReviewOptic") / 2, fy, { url: "https://www.reviewoptic.com" });
         pdf.setTextColor(0, 0, 0);
       };
 
-      const imgY = titleY + 30;
-      const usableH = pageHeight - footerH;
       const imgWidth = pageWidth - margin * 2;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      let yOffset = 0;
-      while (yOffset < imgHeight) {
-        if (yOffset > 0) {
-          pdf.addPage();
-          pdf.addImage(imgData, "PNG", margin, margin - yOffset, imgWidth, imgHeight);
-        } else {
-          pdf.addImage(imgData, "PNG", margin, imgY, imgWidth, imgHeight);
+      const totalImgHeight = (canvas.height * imgWidth) / canvas.width;
+      const usableBottom = pageHeight - footerH;
+
+      // Section top positions in PDF points — used as safe page-break candidates
+      const breakPoints = sections.map(s => {
+        const cssY = s.getBoundingClientRect().top - containerRect.top;
+        return cssY * (imgWidth / containerRect.width);
+      }).filter(y => y > 0);
+      breakPoints.push(totalImgHeight);
+
+      const imgY = titleY + 30;
+      let imgOffset = 0;
+      let isFirstPage = true;
+
+      while (imgOffset < totalImgHeight - 1) {
+        const contentStart = isFirstPage ? imgY : margin;
+        const pageContentH = usableBottom - contentStart;
+
+        if (!isFirstPage) pdf.addPage();
+
+        // Find the largest section break that fits on this page
+        let breakAt = imgOffset + pageContentH;
+        for (const bp of breakPoints) {
+          if (bp > imgOffset && bp <= imgOffset + pageContentH) breakAt = bp;
         }
+        // Clamp to total image height
+        if (breakAt > totalImgHeight) breakAt = totalImgHeight;
+
+        // Draw full image offset so only the current slice is visible within page bounds
+        pdf.addImage(imgData, "PNG", margin, contentStart - imgOffset, imgWidth, totalImgHeight);
         addFooter();
-        yOffset += usableH - (yOffset === 0 ? imgY : margin);
+
+        imgOffset = breakAt;
+        isFirstPage = false;
       }
+
       const fileLabel = period === "custom" ? `${from}-to-${to}` : `last-${period}-days`;
       pdf.save(`analytics-${fileLabel}.pdf`);
     } finally {
@@ -346,8 +372,7 @@ export default function Analytics() {
     lines.push(`Sent,${fSent}`);
     lines.push(`Clicked,${clicked}`);
     lines.push("");
-    lines.push("Powered by ReviewOptic — https://reviewoptic.com");
-    lines.push("Privacy Policy: https://reviewoptic.com/privacy | Terms & Conditions: https://reviewoptic.com/terms | FAQ: https://reviewoptic.com/faq");
+    lines.push("Powered by ReviewOptic — https://www.reviewoptic.com");
 
     const blob = new Blob([lines.join("\n")], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -519,7 +544,7 @@ export default function Analytics() {
       </p>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 pdf-section">
         {summaryCards.map(c => (
           <Card key={c.label} className="border-card-border">
             <CardContent className="p-4">
@@ -939,7 +964,7 @@ export default function Analytics() {
         return order.filter(id => !hidden.has(id)).map(id => {
           const chart = renderChart(id);
           if (!chart) return null;
-          return <div key={id}>{chart}</div>;
+          return <div key={id} className="pdf-section">{chart}</div>;
         });
       })()}
 
