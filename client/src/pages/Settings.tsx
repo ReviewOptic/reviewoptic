@@ -939,6 +939,25 @@ function TeamTab() {
     );
   }
 
+  if (user?.planType === "lite") {
+    return (
+      <Card className="border-card-border">
+        <CardContent className="py-10 text-center space-y-3">
+          <p className="text-[14px] font-semibold">Team members are a Pro feature</p>
+          <p className="text-[12.5px] text-muted-foreground max-w-sm mx-auto">
+            Upgrade to Pro to invite team members and let your whole team log in and send review requests.
+          </p>
+          <button
+            onClick={() => window.location.href = "/pricing"}
+            className="inline-block mt-2 bg-primary text-primary-foreground text-[12.5px] font-semibold px-5 py-2 rounded-lg hover:opacity-90 transition-opacity"
+          >
+            Upgrade to Pro
+          </button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Invite form */}

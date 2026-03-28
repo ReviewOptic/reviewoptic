@@ -3014,6 +3014,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (req.session.userRole === "member") {
       return res.status(403).json({ message: "Only the account owner can invite team members." });
     }
+    const { rows: planRows } = await pool.query(`SELECT plan_type FROM users WHERE id = $1`, [req.session.userId]);
+    if (planRows[0]?.plan_type === "lite") {
+      return res.status(403).json({ message: "Team members are a Pro feature. Upgrade to Pro to invite your team." });
+    }
     const { email, firstName, lastName } = req.body;
     if (!email || !firstName) return res.status(400).json({ message: "Email and first name are required" });
 
