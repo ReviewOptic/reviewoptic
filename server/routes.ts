@@ -2835,6 +2835,40 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       event = typeof rawBody === "string" ? JSON.parse(rawBody) : rawBody;
     }
 
+    if (event.type === "invoice.payment_succeeded") {
+      const invoice = event.data.object as any;
+      // Only send confirmation on the very first payment (amount > 0, not a setup invoice)
+      if (invoice.amount_paid > 0 && invoice.billing_reason !== "subscription_create") {
+        const subId = typeof invoice.subscription === "string" ? invoice.subscription : invoice.subscription?.id;
+        if (subId) {
+          // Use subscription_confirmation_sent flag to ensure we send exactly once per subscription
+          const { rows: userRows } = await pool.query(
+            `UPDATE users SET subscription_confirmation_sent = true
+             WHERE stripe_subscription_id = $1
+               AND (subscription_confirmation_sent IS NULL OR subscription_confirmation_sent = false)
+             RETURNING email, first_name, plan_type, plan_period`,
+            [subId]
+          );
+          if (userRows[0]) {
+            const u = userRows[0];
+            const sub = await stripe.subscriptions.retrieve(subId).catch(() => null) as any;
+            const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://reviewoptic.com");
+            const planName = u.plan_type === "pro" ? "Pro" : "Lite";
+            const amountPaid = `£${(invoice.amount_paid / 100).toFixed(2)}`;
+            const billingPeriod = u.plan_period === "annual" ? "annual" : "monthly";
+            const nextBillingDate = sub?.current_period_end
+              ? new Date(sub.current_period_end * 1000).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
+              : "";
+            const invoiceUrl = invoice.hosted_invoice_url || "";
+            const { sendSubscriptionConfirmationEmail } = await import("./email");
+            sendSubscriptionConfirmationEmail(u.email, u.first_name || "", planName, billingPeriod, amountPaid, nextBillingDate, invoiceUrl, `${appUrl}/billing`).catch(err =>
+              console.error("[stripe-webhook] Failed to send subscription confirmation email:", err.message)
+            );
+          }
+        }
+      }
+    }
+
     if (event.type === "customer.subscription.deleted") {
       const subId = event.data.object.id;
       const { rows: userRows } = await pool.query(

@@ -272,39 +272,6 @@ app.use((req, res, next) => {
   setInterval(() => runPlatformReviewRequests().catch(console.error), 24 * 60 * 60 * 1000);
 
   // Daily: send trial reminder emails to users whose trial ends in ~2 days
-  const runTrialReminders = async () => {
-    try {
-      const { rows } = await pool.query(`
-        SELECT id, email, first_name, plan_type, plan_period, trial_ends_at
-        FROM users
-        WHERE trial_ends_at IS NOT NULL
-          AND trial_reminder_sent = false
-          AND trial_ends_at BETWEEN NOW() + INTERVAL '1 day' AND NOW() + INTERVAL '3 days'
-          AND plan_type IN ('lite', 'pro')
-      `);
-      for (const u of rows) {
-        try {
-          const { sendTrialReminderEmail } = await import("./email");
-          const trialEndDate = new Date(u.trial_ends_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
-          const planName = u.plan_type === "pro" ? "Pro" : "Lite";
-          const price = u.plan_type === "pro"
-            ? (u.plan_period === "annual" ? "£539/year" : "£49/month")
-            : (u.plan_period === "annual" ? "£319/year" : "£29/month");
-          const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://reviewoptic.com");
-          await sendTrialReminderEmail(u.email, u.first_name || "", trialEndDate, planName, price, `${appUrl}/billing`);
-          await pool.query(`UPDATE users SET trial_reminder_sent = true WHERE id = $1`, [u.id]);
-          console.log(`[trial-reminder] Sent reminder to ${u.email}, trial ends ${trialEndDate}`);
-        } catch (err: any) {
-          console.error(`[trial-reminder] Failed for ${u.email}:`, err.message);
-        }
-      }
-    } catch (err: any) {
-      console.error("[trial-reminder] Runner error:", err.message);
-    }
-  };
-  await runTrialReminders().catch(console.error);
-  setInterval(() => runTrialReminders().catch(console.error), 24 * 60 * 60 * 1000);
-
   // Daily: permanently delete accounts that have passed their 30-day deletion window
   const runAccountDeletions = async () => {
     try {

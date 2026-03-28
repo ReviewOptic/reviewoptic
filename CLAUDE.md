@@ -354,3 +354,30 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Referral programme**: route exists (`GET /referral/:slug`), Settings tab has placeholder UI — needs offer text and refer-a-friend share link completing
 - **UI polish**: user wants to perfect how the app looks — planned for a future session
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+
+### Session — 2026-03-28 (thirty-seventh session)
+
+**Tasks completed:**
+- **Subscription confirmation email**: Replaced trial reminder email entirely. New `sendSubscriptionConfirmationEmail` function fires when trial converts to paid (`invoice.payment_succeeded` webhook). Uses `subscription_confirmation_sent` DB flag (migration added) to ensure exactly one email per subscription. Warm encouraging tone: "Welcome to the team! 🎉", receipt box with plan/billing/amount/next date, "View receipt →" and "Manage billing" buttons.
+- **Trial reminder runner removed**: `runTrialReminders` function and interval completely removed from index.ts. `sendTrialReminderEmail` removed from email.ts. `trial_reminder_sent` column kept in DB (no harm, just unused).
+- **All platform emails rewritten for warm/friendly tone**:
+  - Verification: "Welcome — you're one step away! 👋", mentions 14-day free trial, CTA updated to "Verify email & start free trial"
+  - Team invite: "You're in — welcome to the team! 🎉", brief description of ReviewOptic, CTA "Accept invitation & get started"
+  - Cancellation: "We're sad to see you go 💙", warmer copy, sign-off changed from "The ReviewOptic team" to "Alicia & Rob — ReviewOptic"
+  - Subscription-ended: Billing-stopped confirmation tick ✅, hopeful reactivation message, personal sign-off
+  - Subscription confirmation: Already warm from previous session — sign-off updated to match
+- **Confirmed QR code and Zapier webhook are fully built** — both exist in routes.ts and Settings.tsx. Session notes from previous sessions were incorrect to list these as pending.
+- **Confirmed `POST /api/reviews` orphan already removed** — only a GET exists, which is legitimate.
+
+**Architecture notes:**
+- `invoice.payment_succeeded` event: only sends confirmation when `amount_paid > 0` AND `billing_reason !== "subscription_create"` — avoids firing on the initial subscription setup invoice
+- `subscription_confirmation_sent` flag: uses `UPDATE ... WHERE ... RETURNING` as an atomic check-and-set — prevents double-sends even if webhook fires twice
+- Stripe webhook now handles TWO events: `customer.subscription.deleted` (cancellation email) + `invoice.payment_succeeded` (confirmation email)
+
+**Notes for next session:**
+- **⚠️ TWILIO WEBHOOK NOT YET ACTIVATED** — must set `https://reviewoptic.com/api/webhooks/twilio-inbound` in Twilio console
+- **⚠️ STRIPE WEBHOOK NOT YET REGISTERED** — must register `https://reviewoptic.com/api/billing/webhook`, select BOTH `customer.subscription.deleted` AND `invoice.payment_succeeded`, add `STRIPE_WEBHOOK_SECRET`
+- **Referral programme**: needs completing (offer text, share link, `referred_by_account_id` on registration, admin view)
+- **SEO meta tags**: `use-page-meta` hook ready, not yet applied to public pages
+- **UI polish**: deferred by user
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`

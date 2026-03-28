@@ -477,6 +477,9 @@ export async function runMigrations() {
     // T&Cs acceptance — legal record of when user accepted terms
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMP`);
 
+    // Subscription confirmation email — sent exactly once on first real payment
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_confirmation_sent BOOLEAN NOT NULL DEFAULT false`);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();

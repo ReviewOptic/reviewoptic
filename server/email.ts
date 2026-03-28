@@ -62,15 +62,15 @@ export async function sendVerificationEmail(to: string, verifyUrl: string) {
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
         ${LOGO_HTML}
-        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">You're almost there!</h2>
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Welcome — you're one step away! 👋</h2>
         <p style="color:#555;margin:0 0 8px;line-height:1.6;">
-          Thanks for signing up! Click the button below to verify your email and choose your plan to get started.
+          We're really happy to have you here. Just verify your email below to unlock your free trial and start building the reviews your business deserves.
         </p>
         <p style="color:#555;margin:0 0 24px;line-height:1.6;">
-          It only takes a minute to get set up.
+          It takes less than a minute — and your first 14 days are completely free.
         </p>
         <a href="${verifyUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
-          Verify email &amp; select plan
+          Verify email &amp; start free trial
         </a>
         <p style="color:#999;font-size:12px;margin-top:32px;line-height:1.6;">
           If you didn't create a ReviewOptic account, you can safely ignore this email.
@@ -95,15 +95,15 @@ export async function sendTeamInviteEmail(to: string, inviterName: string, compa
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
         ${LOGO_HTML}
-        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">You've been invited!</h2>
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">You're in — welcome to the team! 🎉</h2>
         <p style="color:#555;margin:0 0 8px;line-height:1.6;">
-          ${inviterName} has invited you to join <strong>${companyName}</strong> on ReviewOptic.
+          <strong>${inviterName}</strong> has invited you to join <strong>${companyName}</strong> on ReviewOptic — the platform that helps businesses collect more genuine reviews and grow their reputation online.
         </p>
         <p style="color:#555;margin:0 0 24px;line-height:1.6;">
-          Click the button below to set your password and get started.
+          Click below to set your password and get started. We think you're going to love it.
         </p>
         <a href="${acceptUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
-          Accept invitation
+          Accept invitation &amp; get started
         </a>
         <p style="color:#999;font-size:12px;margin-top:32px;line-height:1.6;">
           If you weren't expecting this invitation, you can safely ignore this email.
@@ -414,23 +414,23 @@ export async function sendCancellationEmail(to: string, firstName: string, acces
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
         ${LOGO_HTML}
-        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">We're sorry to see you go${firstName ? `, ${firstName}` : ""}</h2>
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">We're sad to see you go${firstName ? `, ${firstName}` : ""} 💙</h2>
         <p style="color:#555;margin:0 0 16px;line-height:1.6;">
-          Your subscription has been cancelled. You'll continue to have full access to your account until <strong>${accessEndsDate}</strong> — after that, your account will be locked.
+          Your cancellation is confirmed. You'll still have full access to everything until <strong>${accessEndsDate}</strong> — so keep making the most of it until then.
         </p>
         <p style="color:#555;margin:0 0 16px;line-height:1.6;">
-          Your data is safe and will be waiting for you if you ever decide to come back. We'd love to have you.
+          Your account and all your data will be kept safe. If you ever want to pick up where you left off, you're always welcome back — one click is all it takes.
         </p>
         <a href="${reactivateUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin-bottom:24px;">
           Reactivate my subscription
         </a>
         <p style="color:#555;margin:0 0 8px;line-height:1.6;">
-          If you have any feedback on how we could improve, or if there's anything we could have done differently, we'd genuinely love to hear it — just reply to this email.
+          We're always looking to improve — if there's anything we could have done better, or if something didn't work the way you hoped, we'd genuinely love to hear it. Just hit reply.
         </p>
         <p style="color:#555;margin:0;line-height:1.6;">
-          Thank you for being a ReviewOptic customer.
+          Thank you for trusting us with your business. It's meant a lot to us. 🙏
         </p>
-        <p style="color:#999;font-size:12px;margin-top:32px;">The ReviewOptic team</p>
+        <p style="color:#999;font-size:12px;margin-top:32px;">Alicia &amp; Rob — ReviewOptic</p>
         ${PLATFORM_FOOTER}
       </div>
     `,
@@ -450,56 +450,76 @@ export async function sendSubscriptionEndedEmail(to: string, firstName: string, 
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
         ${LOGO_HTML}
-        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Your subscription has ended${firstName ? `, ${firstName}` : ""}</h2>
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Your subscription has now ended${firstName ? `, ${firstName}` : ""}</h2>
         <p style="color:#555;margin:0 0 16px;line-height:1.6;">
-          Your ReviewOptic subscription has now been cancelled and your billing has stopped. You will not be charged again.
+          Your ReviewOptic subscription has ended and billing has stopped. You won't be charged again. ✅
         </p>
         <p style="color:#555;margin:0 0 16px;line-height:1.6;">
-          Your account data is safely stored and will remain available for 30 days. If you change your mind, you can reactivate at any time to pick up right where you left off.
+          Your account and all your data will be kept safe for 30 days. Whenever you're ready to come back, everything will be waiting exactly as you left it — just pick up where you left off.
         </p>
         <a href="${reactivateUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin-bottom:24px;">
-          Reactivate my subscription
+          Reactivate my account
         </a>
         <p style="color:#555;margin:0 0 8px;line-height:1.6;">
-          Thank you for being a ReviewOptic customer. If there's anything we could have done better, we'd genuinely love to hear it — just reply to this email.
+          We hope ReviewOptic made a difference while you were with us. If there's anything we could have done better, we'd genuinely love to know — just hit reply.
         </p>
-        <p style="color:#999;font-size:12px;margin-top:32px;">The ReviewOptic team</p>
+        <p style="color:#555;margin:0;line-height:1.6;">
+          Thank you for being part of ReviewOptic. The door is always open. 🙏
+        </p>
+        <p style="color:#999;font-size:12px;margin-top:32px;">Alicia &amp; Rob — ReviewOptic</p>
         ${PLATFORM_FOOTER}
       </div>
     `,
   });
 }
 
-export async function sendTrialReminderEmail(to: string, firstName: string, trialEndDate: string, planName: string, price: string, billingUrl: string) {
+export async function sendSubscriptionConfirmationEmail(
+  to: string,
+  firstName: string,
+  planName: string,
+  billingPeriod: string,
+  amountPaid: string,
+  nextBillingDate: string,
+  invoiceUrl: string,
+  billingUrl: string
+) {
   if (!process.env.RESEND_API_KEY) {
-    console.log(`[trial reminder] No RESEND_API_KEY. Would have sent to ${to}`);
+    console.log(`[subscription confirmation] No RESEND_API_KEY. Would have sent to ${to}`);
     return;
   }
   const resend = new Resend(process.env.RESEND_API_KEY);
   await resend.emails.send({
     from: REVIEWOPTIC_FROM,
     to,
-    subject: "Your free trial ends in 2 days",
+    subject: "Your ReviewOptic subscription is now active",
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
         ${LOGO_HTML}
-        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Your free trial ends in 2 days${firstName ? `, ${firstName}` : ""}</h2>
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Welcome to the team${firstName ? `, ${firstName}` : ""}! 🎉</h2>
         <p style="color:#555;margin:0 0 16px;line-height:1.6;">
-          Your 14-day free trial of ReviewOptic <strong>${planName}</strong> ends on <strong>${trialEndDate}</strong>.
-        </p>
-        <p style="color:#555;margin:0 0 16px;line-height:1.6;">
-          On that date, your subscription will automatically continue at <strong>${price}</strong> — no action needed if you'd like to keep using ReviewOptic.
+          We're so glad you enjoyed your free trial — and we're even more excited to see what you'll achieve from here.
         </p>
         <p style="color:#555;margin:0 0 24px;line-height:1.6;">
-          If you'd like to cancel before being charged, you can do so from your billing settings at any time before <strong>${trialEndDate}</strong>.
+          Your ReviewOptic subscription is now active. This is just the start — businesses that stay consistent with review requests typically see their ratings grow within the first 30 days. Keep sending, keep following up, and let ReviewOptic do the heavy lifting.
+        </p>
+        <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:20px;margin-bottom:24px;">
+          <p style="margin:0 0 4px;font-size:12px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;">Your subscription</p>
+          <p style="margin:0 0 8px;font-size:13px;color:#555;"><strong style="color:#111;">Plan:</strong> ReviewOptic ${planName}</p>
+          <p style="margin:0 0 8px;font-size:13px;color:#555;"><strong style="color:#111;">Billing:</strong> ${billingPeriod === "annual" ? "Annual" : "Monthly"}</p>
+          <p style="margin:0 0 8px;font-size:13px;color:#555;"><strong style="color:#111;">Amount charged:</strong> ${amountPaid}</p>
+          ${nextBillingDate ? `<p style="margin:0;font-size:13px;color:#555;"><strong style="color:#111;">Next billing date:</strong> ${nextBillingDate}</p>` : ""}
+        </div>
+        ${invoiceUrl ? `<a href="${invoiceUrl}" style="display:inline-block;background:#f3f4f6;color:#111;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;margin-bottom:24px;border:1px solid #e5e7eb;">View receipt →</a>` : ""}
+        <p style="color:#555;margin:0 0 16px;line-height:1.6;">
+          You can manage your subscription, switch plans, or cancel at any time from your billing settings.
         </p>
         <a href="${billingUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin-bottom:24px;">
-          Manage my subscription
+          Manage billing
         </a>
         <p style="color:#555;margin:0 0 8px;line-height:1.6;">
-          If you have any questions, just reply to this email — we're happy to help.
+          If you have any questions, just reply to this email — we're always happy to help.
         </p>
-        <p style="color:#999;font-size:12px;margin-top:32px;">The ReviewOptic team</p>
+        <p style="color:#999;font-size:12px;margin-top:32px;">Alicia &amp; Rob — ReviewOptic</p>
         ${PLATFORM_FOOTER}
       </div>
     `,
