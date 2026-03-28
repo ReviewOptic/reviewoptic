@@ -61,14 +61,15 @@ export default function PrivacyPolicy() {
               We do not sell your data. We share it only with trusted third-party services required to operate the platform:
             </p>
             <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
-              <li><strong className="text-foreground">Resend</strong> — email delivery service</li>
+              <li><strong className="text-foreground">Resend</strong> — used to send transactional and marketing emails on our behalf. Your email address is shared with Resend solely for this purpose. Resend is GDPR-compliant and we have a Data Processing Agreement in place with Resend.</li>
+              <li><strong className="text-foreground">Stripe</strong> — used to process payments and manage subscriptions. Card and billing data is handled directly by Stripe and is never stored on our servers. Stripe is GDPR-compliant and we have a Data Processing Agreement in place with Stripe.</li>
               <li><strong className="text-foreground">Neon (PostgreSQL)</strong> — secure data storage</li>
+              <li><strong className="text-foreground">Twilio</strong> — used to send SMS and WhatsApp messages on your behalf to your customers</li>
               <li><strong className="text-foreground">Meta (Facebook/Instagram)</strong> — if you connect your social accounts</li>
               <li><strong className="text-foreground">LinkedIn</strong> — if you connect your LinkedIn account</li>
-              <li><strong className="text-foreground">Stripe</strong> — for billing and subscription management</li>
             </ul>
             <p className="text-muted-foreground leading-relaxed mt-3">
-              All third-party providers are required to handle your data securely and in accordance with applicable law.
+              All third-party providers are required to handle your data securely and in accordance with applicable data protection law.
             </p>
           </section>
 
