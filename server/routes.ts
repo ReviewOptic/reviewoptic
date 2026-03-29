@@ -414,6 +414,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     (req.session as any).userRole = role;
     delete req.session.originalUserId;
     delete req.session.originalAccountId;
+    await new Promise<void>((resolve, reject) => req.session.save((err) => {
+      if (err) { console.error("[login] Session save failed:", err); reject(err); }
+      else resolve();
+    }));
     logUserSession(req, user.id, user.accountId);
     res.json({
       id: user.id,
@@ -439,6 +443,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!user) return res.status(400).json({ message: "Invalid or already used verification link." });
     req.session.userId = user.id;
     req.session.accountId = user.accountId;
+    await new Promise<void>((resolve) => req.session.save((err) => {
+      if (err) console.error("[verify-email] Session save failed:", err);
+      resolve();
+    }));
     res.json({ success: true });
   });
 
