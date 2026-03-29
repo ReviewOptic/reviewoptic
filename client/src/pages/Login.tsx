@@ -47,6 +47,7 @@ function ReviewCards({ reviews }: { reviews: TrustpilotReview[] }) {
 }
 
 const FEATURES = [
+  { icon: "📈", title: "Every review grows your business", desc: "A one-star improvement in your Google rating can increase revenue by up to 9%. Every new 5-star review makes you more visible in local search." },
   { icon: "⚡", title: "Send review requests in seconds", desc: "Email, SMS, or WhatsApp — reach customers on the channel they actually use." },
   { icon: "🎙️", title: "Personal voice & video messages", desc: "Record a short voice note or video from you personally — customers respond far more to a human touch than a plain text message." },
   { icon: "🔄", title: "Automatic follow-ups", desc: "If a customer doesn't respond, ReviewOptic follows up for you — so no opportunity is ever missed." },
