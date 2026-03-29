@@ -13,6 +13,15 @@ const FEATURES = [
     ],
   },
   {
+    category: "Voice & Video Messages",
+    items: [
+      "Record a personal voice note or video message from you",
+      "Embed your recording directly into email review requests",
+      "Customers hear or see you personally asking — dramatically increases response rates",
+      "Record once, reuse across all your requests",
+    ],
+  },
+  {
     category: "Templates & AI",
     items: [
       "Multiple named message templates per channel (email, SMS, WhatsApp)",
