@@ -82,7 +82,7 @@ const FAQS = [
       },
       {
         q: "Can I import my existing customer list?",
-        a: "Yes. You can import customers via CSV from the Customers page. You can also export your customer list at any time.",
+        a: "Yes. You can import customers via CSV from the Customers page. You can also connect ReviewOptic to your booking system via Zapier so new customers are added automatically — no manual importing needed. You can export your customer list at any time.",
       },
     ],
   },
