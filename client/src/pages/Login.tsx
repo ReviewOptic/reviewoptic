@@ -53,6 +53,7 @@ const FEATURES = [
   { icon: "🔄", title: "Automatic follow-ups", desc: "If a customer doesn't respond, ReviewOptic follows up for you — so no opportunity is ever missed." },
   { icon: "📊", title: "Track everything in one place", desc: "See your conversion rate, average star rating, and best-performing channels at a glance." },
   { icon: "🤖", title: "AI-powered insights", desc: "Get a personalised weekly report with actionable tips to improve your review performance." },
+  { icon: "🛡️", title: "Turn unhappy customers into loyal ones", desc: "Low ratings go to a private feedback form — so you can make it right before it becomes a public complaint." },
   { icon: "🌟", title: "Works with all major platforms", desc: "Google, Trustpilot, Facebook, Checkatrade, TripAdvisor, and more." },
 ];
 
