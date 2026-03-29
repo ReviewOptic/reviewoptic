@@ -73,8 +73,8 @@ const FAQS = [
         a: "ReviewOptic runs two follow-up tracks depending on what the customer has done. If a customer hasn't rated at all, they receive up to 3 short, friendly nudges encouraging them to click a star. Once they've given a 4 or 5 star rating, follow-ups switch to your personalised Follow-up 1, 2, and 3 templates — reminding them to share their rating on a public review platform. Customers who rated 1–3 stars are never followed up automatically; their feedback goes privately to your dashboard instead. You control the timing and can turn follow-ups off entirely in Settings.",
       },
       {
-        q: "What is the star rating pre-screen?",
-        a: "When a customer clicks your review link, they first select a star rating. If they give 4 or 5 stars, they're shown your review platform links. If they give 1–3 stars, they're shown a private feedback form so you can resolve any issues directly. The form includes a note confirming this doesn't affect their right to leave a public review. The pre-screen is designed for service recovery, not to filter out negative reviews.",
+        q: "How does service recovery work?",
+        a: "When a customer clicks your review link, they first select a star rating. If they're happy (4 or 5 stars), they're shown your review platform links to share their experience publicly. If they're unhappy (1–3 stars), instead of sending them straight to Google to vent, they're shown a private feedback form — giving you the chance to understand what went wrong and make it right before it becomes a public complaint. The form makes clear this doesn't affect their right to leave a public review if they choose to.",
       },
       {
         q: "Can I send to multiple customers at once?",
@@ -95,7 +95,7 @@ const FAQS = [
       },
       {
         q: "What is private feedback?",
-        a: "When a customer gives a low rating (1–3 stars), they're shown a private feedback form so you can understand what went wrong and reach out to make it right. The form includes a note confirming this doesn't affect their right to leave a public review. Any feedback submitted comes directly to you in your dashboard so you can respond promptly.",
+        a: "Private feedback is how ReviewOptic helps you recover unhappy customers before they leave a negative public review. When someone rates 1–3 stars, they're directed to a private form where they can tell you what went wrong. That feedback comes straight to your dashboard so you can reach out, apologise, and put things right. Many businesses find this turns a frustrated customer into a loyal one — and avoids a damaging public review in the process.",
       },
       {
         q: "What is the website review widget?",
