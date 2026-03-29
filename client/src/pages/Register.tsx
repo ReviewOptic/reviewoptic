@@ -38,8 +38,13 @@ export default function Register() {
     if (!/[^a-zA-Z0-9]/.test(password)) { setError("Password must contain at least one symbol"); return; }
     setLoading(true);
     try {
-      await register(email, password, firstName, lastName, companyName, referredByAccountId, agreedToTerms);
-      navigate("/pricing");
+      const data = await register(email, password, firstName, lastName, companyName, referredByAccountId, agreedToTerms);
+      if (data?.requiresVerification) {
+        setError("This email is already registered but not yet verified. We've resent the activation link — check your inbox.");
+        setAccountExists(true);
+      } else {
+        navigate("/pricing");
+      }
     } catch (err: any) {
       const msg = err.message || "Something went wrong";
       setError(msg);

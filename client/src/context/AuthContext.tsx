@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const data = await res.json();
     queryClient.clear();
-    setUser(data);
+    if (!data.requiresVerification) setUser(data);
     return data;
   };
 
