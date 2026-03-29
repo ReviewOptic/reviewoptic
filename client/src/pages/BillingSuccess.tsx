@@ -8,6 +8,7 @@ export default function BillingSuccess() {
   const [, navigate] = useLocation();
   const { refreshUser, user } = useAuth();
   const [status, setStatus] = useState<"confirming" | "done" | "error">("confirming");
+  const [errorMsg, setErrorMsg] = useState("");
   const [plan, setPlan] = useState("");
   const [period, setPeriod] = useState("");
   const [resendDone, setResendDone] = useState(false);
@@ -18,18 +19,19 @@ export default function BillingSuccess() {
     if (!sessionId) { setStatus("error"); return; }
 
     fetch(`/api/billing/confirm?session_id=${sessionId}`, { credentials: "include" })
-      .then((r) => r.json())
-      .then(async (data) => {
+      .then(async (r) => {
+        const data = await r.json();
         if (data.success) {
           setPlan(data.plan);
           setPeriod(data.period);
           await refreshUser();
           setStatus("done");
         } else {
+          setErrorMsg(data.message || "Unknown error");
           setStatus("error");
         }
       })
-      .catch(() => setStatus("error"));
+      .catch((err) => { setErrorMsg(err?.message || "Network error"); setStatus("error"); });
   }, []);
 
   if (status === "confirming") {
@@ -45,6 +47,7 @@ export default function BillingSuccess() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4 text-center">
         <p className="text-red-600 font-semibold mb-2">Something went wrong confirming your payment.</p>
+        {errorMsg && <p className="text-xs text-red-400 mb-2 font-mono">{errorMsg}</p>}
         <p className="text-gray-500 text-sm mb-6">
           If your card was charged, contact us and we'll sort it out right away.
         </p>
