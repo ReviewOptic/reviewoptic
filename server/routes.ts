@@ -2655,26 +2655,27 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ clientSecret: session.client_secret });
   });
 
-  app.get("/api/billing/confirm", requireAuth, async (req, res) => {
+  app.get("/api/billing/confirm", async (req, res) => {
     const sessionId = String(req.query.session_id || "");
     if (!sessionId) return res.status(400).json({ message: "Missing session_id" });
     if (!process.env.STRIPE_SECRET_KEY) return res.status(500).json({ message: "Stripe not configured" });
 
+    try {
     const Stripe = (await import("stripe")).default;
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
     const session = await stripe.checkout.sessions.retrieve(sessionId, { expand: ["subscription"] });
+    console.log("[billing/confirm] status:", session.status, "payment_status:", session.payment_status, "metadata:", session.metadata);
 
-    if (session.payment_status !== "paid" && session.status !== "complete") {
+    if (session.status !== "complete") {
+      console.log("[billing/confirm] Not complete — aborting");
       return res.status(400).json({ message: "Payment not completed" });
     }
 
     const { plan, period, userId } = session.metadata || {};
-    if (!plan || !period || !PRICES[`${plan}_${period}`]) {
+    if (!plan || !period || !userId || !PRICES[`${plan}_${period}`]) {
+      console.log("[billing/confirm] Invalid metadata:", { plan, period, userId });
       return res.status(400).json({ message: "Invalid session metadata" });
-    }
-    if (userId !== req.session.userId) {
-      return res.status(403).json({ message: "Session does not belong to this user" });
     }
 
     const customerId = typeof session.customer === "string" ? session.customer : (session.customer as any)?.id ?? "";
@@ -2715,6 +2716,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
 
     res.json({ success: true, plan, period });
+    } catch (err: any) {
+      console.error("[billing/confirm] Error:", err?.message, err?.type, err?.code);
+      res.status(500).json({ message: err?.message || "Failed to confirm payment" });
+    }
   });
 
   app.get("/api/billing/status", requireAuth, async (req, res) => {
