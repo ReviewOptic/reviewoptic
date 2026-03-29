@@ -20,6 +20,7 @@ export default function Register() {
   const [lastName, setLastName] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [email, setEmail] = useState("");
+  const [confirmEmail, setConfirmEmail] = useState("");
   const [password, setPassword] = useState("");
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [error, setError] = useState("");
@@ -32,6 +33,7 @@ export default function Register() {
     setError("");
     if (!firstName || !lastName) { setError("Please enter your first and last name"); return; }
     if (!companyName) { setError("Please enter your company name"); return; }
+    if (email.toLowerCase() !== confirmEmail.toLowerCase()) { setError("Email addresses do not match — please check and try again"); return; }
     if (!agreedToTerms) { setError("You must agree to the Terms and Conditions to continue"); return; }
     if (password.length < 8) { setError("Password must be at least 8 characters"); return; }
     if (!/[0-9]/.test(password)) { setError("Password must contain at least one number"); return; }
@@ -85,6 +87,11 @@ export default function Register() {
             <div className="space-y-1.5">
               <label className="block text-sm font-medium text-gray-700">Email address</label>
               <Input type="email" placeholder="you@example.com" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} required />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium text-gray-700">Confirm email address</label>
+              <Input type="email" placeholder="you@example.com" autoComplete="off" value={confirmEmail} onChange={e => setConfirmEmail(e.target.value)} required />
             </div>
 
             <div className="space-y-1.5">
