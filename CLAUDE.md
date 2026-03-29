@@ -277,8 +277,8 @@ Your job is to be the developer they would hire if they could afford a great one
 - Billing confirm is now auth-free — security relies on Stripe's `session_id` being unguessable + `userId` coming from server-stored Stripe metadata, not client input
 - All session-setting routes (register, login, verify-email, accept-invite) now explicitly await `req.session.save()` before responding
 
-**Notes for next session:**
-- **⚠️ CHECKOUT NOT FULLY TESTED END-TO-END** — the DB column fix should unblock it, but needs a clean test run (register → pricing → checkout → billing/success) to confirm it works completely
+**Notes for next session (carried forward):**
+- **✅ CHECKOUT CONFIRMED WORKING** — tested end-to-end in session 40 — the DB column fix should unblock it, but needs a clean test run (register → pricing → checkout → billing/success) to confirm it works completely
 - **⚠️ Remove or gate the session debug logging in requireAuth** before going to production (or leave it — it only fires on 401s)
 - **⚠️ TWILIO WEBHOOK NOT YET ACTIVATED** — must set `https://reviewoptic.com/api/webhooks/twilio-inbound` in Twilio console
 - **⚠️ STRIPE WEBHOOK NOT YET REGISTERED** — must register `https://reviewoptic.com/api/billing/webhook`, select BOTH `customer.subscription.deleted` AND `invoice.payment_succeeded`, add `STRIPE_WEBHOOK_SECRET`
@@ -287,3 +287,35 @@ Your job is to be the developer they would hire if they could afford a great one
 - **UI polish**: deferred by user
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
 - To delete a test account: use the node script pattern from this session (select by email, delete by account_id in dependency order)
+
+### Session — 2026-03-29 (fortieth session)
+
+**Tasks completed:**
+- **Checkout confirmed working** — clean end-to-end test passed: register → pricing → Stripe test card → billing/success → dashboard
+- **Intro video modal disabled** — commented out the trigger in Dashboard.tsx. All code kept; uncomment + add `INTRO_VIDEO_URL` to re-enable when ready
+- **Login page copy updated** — tagline now says "automatically collect more reviews" instead of "without any manual effort"; platform list expanded to "and more"
+- **Voice & video USP added to login page** — second feature card: "Personal voice & video messages"
+- **Revenue impact stat added to login page** — top feature card: "A one-star improvement in your Google rating can increase revenue by up to 9%"
+- **Service recovery feature added to login page** — "Turn unhappy customers into loyal ones" feature card
+- **Social auto-posting added to login page** — "Auto-post reviews to Instagram, Facebook, and LinkedIn" (live when feature is ready)
+- **Features page logo enlarged** — h-20 → h-28
+- **Features page: Voice & Video category added** — new section with 4 bullet points
+- **Features page: Standard plan label updated** — "Lite plan" → "Standard plan"
+- **Pricing page: both Get Started buttons now blue** — was outline/default depending on highlight; now both `variant="default"`
+- **FAQ: service recovery reframe** — "star rating pre-screen" renamed to "How does service recovery work?"; both that answer and private feedback answer rewritten to lead with catching unhappy customers before they post publicly
+- **FAQ: monthly reset corrected** — "1st of each calendar month" → "beginning of each billing cycle"
+- **FAQ: customer import mentions Zapier** — added note that Zapier auto-adds customers from booking systems
+- **FAQ: CTA banner added at bottom** — blue banner linking to /register: "Ready to start collecting more reviews? Start your 14-day free trial today"
+- **Lite plan renamed to Standard everywhere** — display labels updated across Pricing, Billing, FAQ, Features, T&Cs, CustomerDetail, Customers, Admin. Internal DB value `"lite"` and all code comparisons unchanged
+- **Confirm email field added to Register page** — catches typos (e.g. gmaail.com); both fields must match before submission; error: "Email addresses do not match — please check and try again"
+
+**Notes for next session:**
+- **⚠️ TWILIO WEBHOOK NOT YET ACTIVATED** — must set `https://reviewoptic.com/api/webhooks/twilio-inbound` in Twilio console
+- **⚠️ STRIPE WEBHOOK NOT YET REGISTERED** — must register `https://reviewoptic.com/api/billing/webhook`, select BOTH `customer.subscription.deleted` AND `invoice.payment_succeeded`, add `STRIPE_WEBHOOK_SECRET`
+- **Referral programme** — needs completing
+- **SEO meta tags** — `use-page-meta` hook ready, not yet applied to public pages
+- **UI polish** — deferred by user
+- **Intro video** — add YouTube URL to `INTRO_VIDEO_URL` (line 74, Dashboard.tsx) and uncomment the useEffect body to re-enable
+- **Social auto-posting** — feature card is live on login page; needs the actual feature built before going live
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+- To delete a test account: use the node script pattern (select by email, delete by account_id in dependency order)
