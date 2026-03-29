@@ -59,6 +59,9 @@ declare module "http" {
 const app = express();
 const httpServer = createServer(app);
 
+// Trust proxy — required for secure cookies behind Cloudflare/Nginx
+app.set("trust proxy", 1);
+
 // Security headers
 app.use(helmet({
   contentSecurityPolicy: false, // disabled — Stripe embedded checkout requires relaxed CSP
@@ -101,7 +104,7 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === "production",
+    secure: "auto",
     httpOnly: true,
     sameSite: "lax",
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days

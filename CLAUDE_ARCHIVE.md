@@ -484,3 +484,59 @@ Older session logs moved here to keep CLAUDE.md under 30k chars.
 - `templateOpening` + `templateBody` returned from rating endpoint and displayed in ReviewLanding
 - `{{service_type}}` strip: regex removes " and our {{service_type}}" if empty
 - Follow-up link = `${appUrl}/review?rid=${newRequestId}` auto-appended after template body
+
+### Session — 2026-03-26 (thirty-first session)
+
+**Tasks completed:**
+- **Unsubscribe for platform emails**: New `email_unsubscribed` boolean on `users`. `GET /api/unsubscribe/platform?uid=X` sets flag, returns confirmation HTML. Unsubscribed users filtered out of platform review requests and monthly insight emails.
+- **Unsubscribe for customer emails**: `GET /api/unsubscribe/customer?cid=X` sets `do_not_contact = true`. Real unsubscribe link in `sendPreScreenEmail` and `sendReviewEmail` footers.
+- **Admin panel**: `/api/admin/users` returns `emailUnsubscribed`. Admin Users tab shows orange "Unsub" badge + count.
+
+**Architecture notes:**
+- `customerUnsubscribeFooter(customerId)` and `platformUnsubscribeFooter(userId)` helpers in email.ts
+- Customer unsubscribe reuses existing `do_not_contact` flag
+- Platform unsubscribe NOT added to transactional emails (verification, password reset, cancellation)
+
+### Session — 2026-03-26 (thirty-second session)
+
+**Tasks completed:**
+- **Follow-up email subject lines fixed**: Follow-up 1 "Just checking in", Follow-up 2 "A polite reminder", Follow-up 3 "We'd still love to hear from you". `{{business_name}}` removed from all follow-up subjects.
+
+### Session — 2026-03-26 (thirty-third session)
+
+**Tasks completed:**
+- **SMS character limit**: 86 chars for follow-up body (160 − short link ~62 − `\nReply STOP` 11). Char counter shows `(max 86)`.
+- **Greyed link placeholder** shown below SMS/WA template textarea.
+- **SMS opt-out**: `\nReply STOP` appended to all outgoing SMS in `sendReviewSMS`.
+- **Short URL `/r/:id`**: Express redirect to `/review?rid=:id`. Used in all SMS sends.
+- **Greetings removed** from SMS/WA follow-up templates.
+- **Twilio STOP webhook**: `POST /api/webhooks/twilio-inbound` sets `do_not_contact = true` on matching customer. Webhook URL: `https://reviewoptic.com/api/webhooks/twilio-inbound`
+- **Test send button** on every template slot. Email → account email. SMS/WA → prompts for phone, sends with `[TEST]`.
+- **CSV export** on Customers page.
+- **Platform clicks in insight emails** — per-platform click counts section.
+- All TS errors fixed.
+
+### Session — 2026-03-26 (thirty-fourth session)
+
+**Tasks completed:**
+- **Template reset-defaults bug fixed**: `created_at` column removed from INSERT. Try-catch added.
+- **Private feedback auto-refresh**: `refetchInterval: 15000` on dashboard queries.
+- **Response template subjects fixed**: `{{business_name}}` removed. New defaults: "Thank you for your rating" / "We'd love to make this right".
+- **`{{owner_name}}` merge tag added**: Resolves to first name from Settings. Added everywhere.
+- **Email follow-up templates**: New `sendFollowUpEmail` function — sends template body + "Rate your experience →" CTA.
+- **Private feedback ignore button**: `PATCH /api/private-feedback/:id/ignore` sets `responded=true`. X button on Dashboard.
+- **Canonical defaults enforced** across new account seeding, migrate.ts, and reset-defaults endpoint.
+
+### Session — 2026-03-27 (thirty-fifth session)
+
+**Tasks completed:**
+- **Pricing plans**: Standard/Agency → Lite (£29/mo or £319/yr, 10 req/mo) and Pro (£49/mo or £539/yr, unlimited).
+- **Lite plan limit**: 403 with `code: "lite_limit_reached"` and `resetDate`. Frontend shows dialog.
+- **14-day free trial**: Added to Stripe checkout for new subscribers only. Billing tab shows trial end date.
+- **Register page rebuilt**: Standalone clean page, T&C checkbox. After registration → `/pricing`.
+- **FAQ page**: `/faq` with 5 sections, 22 questions.
+- **Cancelled plan behaviour**: Can browse full app — only `POST /api/review-requests` blocked.
+- **Account deletion**: `DELETE /api/account` sets `scheduled_for_deletion_at = NOW() + 30 days`. Daily runner hard-deletes past window.
+- **T&Cs/Privacy/Features pages updated**.
+- **`schema_migrations` table + `once()` helper**: One-time UPDATE blocks gated — user customisations survive restarts.
+- **ReviewLanding low-rating footnote**: "This doesn't affect your right to leave a public review."

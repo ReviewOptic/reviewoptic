@@ -339,10 +339,35 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     // Auto-login so user can proceed to billing immediately
     req.session.userId = user.id;
     req.session.accountId = user.accountId;
-    await new Promise<void>((resolve) => req.session.save(() => resolve()));
+    await new Promise<void>((resolve, reject) => req.session.save((err) => {
+      if (err) { console.error("[register] Session save failed:", err); reject(err); }
+      else resolve();
+    }));
+    console.log("[register] Session saved, userId:", req.session.userId, "sessionID:", req.sessionID);
 
-    // Verification email is sent AFTER payment, not here
-    res.json({ requiresVerification: true, email: user.email });
+    // Send verification email immediately on registration
+    const appUrlReg = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000");
+    const verifyUrl = `${appUrlReg}/verify-email?token=${verificationToken}`;
+    await sendVerificationEmail(email.toLowerCase(), verifyUrl).catch(err =>
+      console.error("[register] Failed to send verification email:", err.message)
+    );
+
+    // Return full user object so the client can set user state directly (no second round-trip)
+    res.json({
+      id: user.id,
+      email: user.email,
+      accountId: user.accountId,
+      isAdmin: false,
+      isImpersonating: false,
+      planType: "free",
+      planPeriod: "monthly",
+      requiresPayment: true,
+      emailVerified: false,
+      role: "owner",
+      firstName,
+      lastName,
+      companyName,
+    });
   });
 
   app.post("/api/auth/login", async (req, res) => {
@@ -356,7 +381,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!valid) return res.status(401).json({ message: "Invalid email or password" });
 
     if (!user.emailVerified) {
-      return res.status(403).json({ message: "Please verify your email before signing in. Check your inbox for the verification link." });
+      // Allow unverified users to log in — they need to be able to reach the payment page
+      // Email verification is enforced after payment via the billing/confirm flow
     }
 
     if (!user.isAdmin) {
@@ -374,7 +400,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           return res.status(403).json({ message: "The account owner hasn't set up a subscription yet." });
         }
       } else if (planType === "free") {
-        return res.status(403).json({ message: "Please complete your subscription before signing in." });
+        // Allow free plan users to log in — they'll be redirected to /pricing by requiresPayment
       }
     }
 
@@ -2587,24 +2613,30 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const appUrl = process.env.APP_URL || `https://${process.env.REPLIT_DEV_DOMAIN}` || "http://localhost:5000";
     const price = PRICES[key];
 
-    const session = await stripe.checkout.sessions.create({
-      mode: "subscription",
-      payment_method_types: ["card"],
-      customer_email: user.email,
-      ui_mode: "embedded",
-      line_items: [{
-        price_data: {
-          currency: "gbp",
-          unit_amount: price.unit_amount,
-          recurring: { interval: price.interval },
-          product_data: { name: price.name },
-        },
-        quantity: 1,
-      }],
-      ...(isNewSubscriber ? { subscription_data: { trial_period_days: 14 } } : {}),
-      return_url: `${appUrl}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
-      metadata: { userId: user.id, plan, period },
-    });
+    let session;
+    try {
+      session = await stripe.checkout.sessions.create({
+        mode: "subscription",
+        payment_method_types: ["card"],
+        customer_email: user.email,
+        ui_mode: "embedded",
+        line_items: [{
+          price_data: {
+            currency: "gbp",
+            unit_amount: price.unit_amount,
+            recurring: { interval: price.interval },
+            product_data: { name: price.name },
+          },
+          quantity: 1,
+        }],
+        ...(isNewSubscriber ? { subscription_data: { trial_period_days: 14 } } : {}),
+        return_url: `${appUrl}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+        metadata: { userId: user.id, plan, period },
+      });
+    } catch (err: any) {
+      console.error("[billing] Stripe session creation failed:", err?.message, err?.type, err?.code);
+      return res.status(500).json({ message: err?.message || "Failed to create checkout session" });
+    }
 
     res.json({ clientSecret: session.client_secret });
   });

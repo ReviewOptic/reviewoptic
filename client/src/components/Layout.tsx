@@ -9,6 +9,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import type { PrivateFeedback } from "@shared/schema";
 import ChatWidget from "@/components/ChatWidget";
+import ThemeSwitcher from "@/components/ThemeSwitcher";
 import { useToast } from "@/hooks/use-toast";
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -89,6 +90,9 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
           );
         })}
       </nav>
+      <div className="border-t border-sidebar-border pt-2">
+        <ThemeSwitcher />
+      </div>
       <div className="px-4 py-3 border-t border-sidebar-border">
         <div className="text-[11px] text-muted-foreground/70 truncate mb-2">{user?.email}</div>
         {!user?.isAdmin && user?.role !== "member" && (
@@ -313,7 +317,6 @@ function BackToTutorial() {
       className="fixed z-50 w-72 bg-background border border-border rounded-xl shadow-lg overflow-hidden"
       style={{ left: pos.x, top: pos.y }}
     >
-      {/* Drag handle / title bar */}
       <div
         onMouseDown={onMouseDown}
         className="flex items-center justify-between px-3 py-2.5 bg-muted/60 cursor-grab active:cursor-grabbing select-none"
@@ -348,55 +351,59 @@ function BackToTutorial() {
   );
 }
 
-export default function Layout({ children }: { children: ReactNode }) {
+// Mobile overlay (shared across all layouts)
+function MobileOverlay({ open, onClose }: { open: boolean; onClose: () => void }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-40 md:hidden" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/50" />
+      <aside
+        className="absolute left-0 top-0 bottom-0 w-64 bg-sidebar border-r border-sidebar-border z-50 flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="absolute top-3 right-3">
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
+        <SidebarContent onNavClick={onClose} />
+      </aside>
+    </div>
+  );
+}
+
+// ─── CLASSIC LAYOUT ──────────────────────────────────────────────────────────
+// Left sidebar 240px, current design
+function ClassicLayout({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user } = useAuth();
-
   return (
     <ErrorBoundary>
-    <div className="flex h-screen bg-background overflow-hidden">
-      {/* Sidebar desktop */}
-      <aside className="hidden md:flex flex-col w-60 bg-sidebar border-r border-sidebar-border flex-shrink-0">
-        <SidebarContent />
-      </aside>
-
-      {/* Mobile overlay */}
-      {mobileOpen && (
-        <div className="fixed inset-0 z-40 md:hidden" onClick={() => setMobileOpen(false)}>
-          <div className="absolute inset-0 bg-black/50" />
-          <aside
-            className="absolute left-0 top-0 bottom-0 w-64 bg-sidebar border-r border-sidebar-border z-50 flex flex-col"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="absolute top-3 right-3">
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setMobileOpen(false)}>
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-            <SidebarContent onNavClick={() => setMobileOpen(false)} />
-          </aside>
+      <div className="flex h-screen bg-background overflow-hidden">
+        <aside className="hidden md:flex flex-col w-60 bg-sidebar border-r border-sidebar-border flex-shrink-0">
+          <SidebarContent />
+        </aside>
+        <MobileOverlay open={mobileOpen} onClose={() => setMobileOpen(false)} />
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <ImpersonationBanner />
+          <CancelledBanner />
+          <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-background flex-shrink-0">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMobileOpen(true)}>
+              <Menu className="w-5 h-5" />
+            </Button>
+            <LogoOrText />
+            <div className="w-8" />
+          </header>
+          <main className="flex-1 overflow-y-auto">{children}</main>
         </div>
-      )}
-
-      {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <ImpersonationBanner />
-        <CancelledBanner />
-        {/* Mobile header */}
-        <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-background flex-shrink-0">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMobileOpen(true)}>
-            <Menu className="w-5 h-5" />
-          </Button>
-          <LogoOrText />
-          <div className="w-8" />
-        </header>
-        <main className="flex-1 overflow-y-auto">
-          {children}
-        </main>
+        {!user?.isImpersonating && <ChatWidget />}
+        <BackToTutorial />
       </div>
-      {!user?.isImpersonating && <ChatWidget />}
-      <BackToTutorial />
-    </div>
     </ErrorBoundary>
   );
+}
+
+// ─── LAYOUT ──────────────────────────────────────────────────────────────────
+export default function Layout({ children }: { children: ReactNode }) {
+  return <ClassicLayout>{children}</ClassicLayout>;
 }
