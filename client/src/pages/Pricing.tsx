@@ -221,7 +221,7 @@ export default function Pricing() {
               ) : user?.planType && user.planType !== "free" && user.planType !== "cancelled" && user.planType !== plan.id ? (
                 <Button
                   className="w-full"
-                  variant={plan.highlight ? "default" : "outline"}
+                  variant="default"
                   onClick={() => openCheckout(plan.id)}
                 >
                   {plan.id === "pro" ? "Upgrade to Pro" : "Switch to Lite"}
@@ -229,7 +229,7 @@ export default function Pricing() {
               ) : (
                 <Button
                   className="w-full"
-                  variant={plan.highlight ? "default" : "outline"}
+                  variant="default"
                   onClick={() => openCheckout(plan.id)}
                 >
                   Get started
