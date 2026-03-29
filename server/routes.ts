@@ -64,6 +64,12 @@ if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 // Auth middleware
 function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (!req.session.userId || !req.session.accountId) {
+    console.log("[requireAuth] 401", req.method, req.path, {
+      sessionID: req.sessionID,
+      hasCookie: !!req.headers.cookie,
+      userId: req.session.userId,
+      accountId: req.session.accountId,
+    });
     return res.status(401).json({ message: "Not authenticated" });
   }
   // Block all writes while impersonating — read-only mode
