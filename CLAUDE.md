@@ -262,3 +262,28 @@ Your job is to be the developer they would hire if they could afford a great one
 - **SEO meta tags**: `use-page-meta` hook ready, not yet applied to public pages
 - **UI polish**: deferred by user
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+
+### Session — 2026-03-29 (thirty-ninth session)
+
+**Tasks completed:**
+- **Checkout 401 — login session not explicitly saved**: The login route set session data but relied on express-session's automatic save. If the PostgreSQL write hadn't finished before the client's next request (checkout), the session wasn't found → 401. Fixed: added explicit `await req.session.save()` to login and verify-email routes, matching what register already did.
+- **Checkout 401 — requiresVerification flow navigating to /pricing**: When a previously-registered-but-unverified email tried to register again, the server returned `{requiresVerification: true}` with NO session. The client was ignoring this and navigating to /pricing anyway, with a fake user object → checkout 401. Fixed: `AuthContext.register()` no longer calls `setUser()` for requiresVerification responses; `Register.tsx` now shows "check your inbox" message instead of navigating.
+- **Billing confirm crashing — missing DB columns**: `trial_ends_at`, `trial_reminder_sent`, and `subscription_confirmation_sent` columns were defined in migrate.ts but had never been applied to the live database. The billing confirm route was trying to write to `trial_ends_at` → SQL error → payment confirm failed. Fixed: ran the three `ALTER TABLE` statements directly against the database.
+- **Billing confirm behind requireAuth**: After Stripe redirects back to `/billing/success`, the session cookie might not be present in the browser context in time, causing confirm to return 401. Fixed: removed `requireAuth` from the confirm route — the Stripe `session_id` itself is cryptographic proof of payment, and the `userId` comes from Stripe-stored metadata (server-controlled). Added full try-catch with logging.
+- **Session debug logging added**: `requireAuth` now logs `sessionID`, `hasCookie`, `userId`, `accountId` when returning 401 — makes future session issues easy to diagnose.
+- **BillingSuccess shows real error message**: Error state now captures and displays the actual server error message, not just a generic string — critical for diagnosing payment issues.
+
+**Architecture notes:**
+- Billing confirm is now auth-free — security relies on Stripe's `session_id` being unguessable + `userId` coming from server-stored Stripe metadata, not client input
+- All session-setting routes (register, login, verify-email, accept-invite) now explicitly await `req.session.save()` before responding
+
+**Notes for next session:**
+- **⚠️ CHECKOUT NOT FULLY TESTED END-TO-END** — the DB column fix should unblock it, but needs a clean test run (register → pricing → checkout → billing/success) to confirm it works completely
+- **⚠️ Remove or gate the session debug logging in requireAuth** before going to production (or leave it — it only fires on 401s)
+- **⚠️ TWILIO WEBHOOK NOT YET ACTIVATED** — must set `https://reviewoptic.com/api/webhooks/twilio-inbound` in Twilio console
+- **⚠️ STRIPE WEBHOOK NOT YET REGISTERED** — must register `https://reviewoptic.com/api/billing/webhook`, select BOTH `customer.subscription.deleted` AND `invoice.payment_succeeded`, add `STRIPE_WEBHOOK_SECRET`
+- **Referral programme**: needs completing
+- **SEO meta tags**: `use-page-meta` hook ready, not yet applied to public pages
+- **UI polish**: deferred by user
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+- To delete a test account: use the node script pattern from this session (select by email, delete by account_id in dependency order)
