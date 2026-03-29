@@ -224,11 +224,12 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!user?.id) return;
-    const key = `hasSeenIntro_v2_${user.id}`;
-    if (!localStorage.getItem(key)) {
-      setShowIntro(true);
-      setVideoWatched(!INTRO_VIDEO_URL);
-    }
+    // Intro disabled until video is ready — uncomment below to re-enable
+    // const key = `hasSeenIntro_v2_${user.id}`;
+    // if (!localStorage.getItem(key)) {
+    //   setShowIntro(true);
+    //   setVideoWatched(!INTRO_VIDEO_URL);
+    // }
   }, [user?.id]);
 
   useEffect(() => {
