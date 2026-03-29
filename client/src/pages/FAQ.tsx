@@ -8,7 +8,7 @@ const FAQS = [
     items: [
       {
         q: "What is ReviewOptic?",
-        a: "ReviewOptic is a review management platform for local service businesses. It lets you send review requests to customers via email, SMS, or WhatsApp, automatically follows up if they don't respond, and helps you grow your reputation on Google, Trustpilot, Facebook, and more — without any manual effort.",
+        a: "ReviewOptic is a review management platform for local service businesses. It lets you send review requests to customers via email, SMS, or WhatsApp, automatically follows up if they don't respond, and and automatically helps you grow your reputation on Google, Trustpilot, Facebook, and more.",
       },
       {
         q: "How does the free trial work?",

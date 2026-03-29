@@ -233,7 +233,7 @@ export default function Login() {
       <div className="md:w-1/2 bg-background text-foreground flex flex-col justify-between p-8 md:p-12 md:min-h-screen border-r border-border">
         <div>
           <h1 className="text-3xl md:text-4xl font-bold leading-tight mb-4">Turn happy customers<br />into 5-star reviews — on autopilot.</h1>
-          <p className="text-muted-foreground text-base mb-10 leading-relaxed">ReviewOptic helps local businesses collect more Google, Trustpilot, and Facebook reviews without any manual effort.</p>
+          <p className="text-muted-foreground text-base mb-10 leading-relaxed">ReviewOptic helps local businesses automatically collect more reviews on Google, Trustpilot, Facebook, and more.</p>
           <div className="space-y-6">
             {FEATURES.map(item => (
               <div key={item.title} className="flex items-start gap-4">
