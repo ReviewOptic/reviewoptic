@@ -207,7 +207,7 @@ export default function FAQ() {
 
         <div className="mt-12 bg-blue-600 rounded-2xl p-8 text-center">
           <h2 className="text-xl font-bold text-white mb-2">Ready to start collecting more reviews?</h2>
-          <p className="text-blue-100 text-sm mb-6">Join businesses already growing their reputation with ReviewOptic. 14-day free trial — no card needed to get started.</p>
+          <p className="text-blue-100 text-sm mb-6">Join businesses already growing their reputation with ReviewOptic. Start your 14-day free trial today.</p>
           <button
             onClick={() => navigate("/register")}
             className="inline-block bg-white text-blue-600 font-semibold px-6 py-2.5 rounded-lg hover:bg-blue-50 transition-colors text-sm"
