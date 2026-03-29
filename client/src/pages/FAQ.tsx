@@ -37,7 +37,7 @@ const FAQS = [
       },
       {
         q: "When does my monthly allowance reset on the Lite plan?",
-        a: "Your allowance resets on the 1st of each calendar month.",
+        a: "Your allowance resets at the beginning of each billing cycle — on the same date each month as when you first subscribed.",
       },
       {
         q: "Can I switch between Lite and Pro?",
