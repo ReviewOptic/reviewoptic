@@ -302,7 +302,7 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Monthly limit reached</DialogTitle>
-            <DialogDescription>You've used all 10 review requests for this month on your Lite plan.</DialogDescription>
+            <DialogDescription>You've used all 10 review requests for this month on your Standard plan.</DialogDescription>
           </DialogHeader>
           <div className="py-2 space-y-3">
             <p className="text-sm text-gray-600">

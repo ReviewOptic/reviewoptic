@@ -120,7 +120,7 @@ export default function Billing() {
     }
   }
 
-  const planLabel = user?.planType === "pro" ? "Pro Plan" : user?.planType === "lite" ? "Lite Plan" : "Plan";
+  const planLabel = user?.planType === "pro" ? "Pro Plan" : user?.planType === "lite" ? "Standard Plan" : "Plan";
   const periodLabel = user?.planPeriod === "annual" ? "Annual" : "Monthly";
   const annualSaving = user?.planType === "lite" ? "Save £29 — equivalent to 1 month free" : "Save £49 — equivalent to 1 month free";
 
@@ -189,7 +189,7 @@ export default function Billing() {
             {user.planType === "pro" && (
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm font-semibold text-gray-800">Switch to Lite</p>
+                  <p className="text-sm font-semibold text-gray-800">Switch to Standard</p>
                   <p className="text-xs text-gray-500 mt-0.5">£29/month — up to 10 review requests per month</p>
                 </div>
                 <Button size="sm" variant="outline" className="shrink-0" onClick={() => openUpgradeCheckout("lite", user.planPeriod)}>

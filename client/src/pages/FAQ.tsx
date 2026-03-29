@@ -20,7 +20,7 @@ const FAQS = [
       },
       {
         q: "How do I get started?",
-        a: "Create your account, choose a plan (Lite or Pro), then follow the setup checklist on your dashboard: add your business details, connect a review platform, add your first customer, and send your first request. ReviewOptic handles the follow-ups automatically from there.",
+        a: "Create your account, choose a plan (Standard or Pro), then follow the setup checklist on your dashboard: add your business details, connect a review platform, add your first customer, and send your first request. ReviewOptic handles the follow-ups automatically from there.",
       },
     ],
   },
@@ -28,24 +28,24 @@ const FAQS = [
     category: "Plans and pricing",
     items: [
       {
-        q: "What's the difference between Lite and Pro?",
-        a: "Lite allows up to 10 review requests per month and is a single-user account. Pro gives you unlimited review requests and includes team member access — you can invite your team to log in and send requests. All other features (templates, analytics, follow-ups, AI tools, website widget, QR code, Zapier integration) are included on both plans.",
+        q: "What's the difference between Standard and Pro?",
+        a: "Standard allows up to 10 review requests per month and is a single-user account. Pro gives you unlimited review requests and includes team member access — you can invite your team to log in and send requests. All other features (templates, analytics, follow-ups, AI tools, website widget, QR code, Zapier integration) are included on both plans.",
       },
       {
-        q: "Do follow-ups count toward my monthly limit on the Lite plan?",
+        q: "Do follow-ups count toward my monthly limit on the Standard plan?",
         a: "No. Only the initial review request counts toward your 10 per month. Automatic follow-ups (up to 3 per customer) are sent on top of that at no extra cost.",
       },
       {
-        q: "When does my monthly allowance reset on the Lite plan?",
+        q: "When does my monthly allowance reset on the Standard plan?",
         a: "Your allowance resets at the beginning of each billing cycle — on the same date each month as when you first subscribed.",
       },
       {
-        q: "Can I switch between Lite and Pro?",
+        q: "Can I switch between Standard and Pro?",
         a: "Yes, at any time from the Billing tab in your account settings. Upgrading or downgrading takes effect immediately via a new subscription at the current price.",
       },
       {
         q: "Can I switch from monthly to annual billing?",
-        a: "Yes. You can switch to annual billing from the Billing tab. Paying annually gives you the equivalent of 1 month free — £319/year for Lite (vs £348 monthly) and £539/year for Pro (vs £588 monthly).",
+        a: "Yes. You can switch to annual billing from the Billing tab. Paying annually gives you the equivalent of 1 month free — £319/year for Standard (vs £348 monthly) and £539/year for Pro (vs £588 monthly).",
       },
       {
         q: "Will my price ever go up?",
@@ -111,7 +111,7 @@ const FAQS = [
       },
       {
         q: "Can I add team members to my account?",
-        a: "Yes, on the Pro plan. You can invite team members from Settings → Team. They can send review requests and view customers but cannot access billing or account settings. Team members are not available on the Lite plan.",
+        a: "Yes, on the Pro plan. You can invite team members from Settings → Team. They can send review requests and view customers but cannot access billing or account settings. Team members are not available on the Standard plan.",
       },
       {
         q: "What is the AI chat assistant?",

@@ -69,7 +69,7 @@ export default function TermsAndConditions() {
             </p>
             <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
               <li>Your locked-in price applies to the plan and billing period you are currently on</li>
-              <li>Switching to a different plan (e.g. from Lite to Pro, or from monthly to annual) will apply the price current at the time of switching</li>
+              <li>Switching to a different plan (e.g. from Standard to Pro, or from monthly to annual) will apply the price current at the time of switching</li>
               <li>If you cancel your subscription and later re-subscribe, the price current at the time of re-subscribing will apply</li>
               <li>This guarantee does not apply where pricing changes are required by law (e.g. changes in VAT rates)</li>
             </ul>

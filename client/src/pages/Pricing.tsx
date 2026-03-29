@@ -21,7 +21,7 @@ const SHARED_FEATURES = [
 const PLANS = [
   {
     id: "lite",
-    name: "Lite",
+    name: "Standard",
     description: "Perfect for getting started",
     monthly: { display: "£29", per: "/month" },
     annual:  { display: "£319", per: "/year", saving: "Save £29 — 1 month free" },
@@ -224,7 +224,7 @@ export default function Pricing() {
                   variant="default"
                   onClick={() => openCheckout(plan.id)}
                 >
-                  {plan.id === "pro" ? "Upgrade to Pro" : "Switch to Lite"}
+                  {plan.id === "pro" ? "Upgrade to Pro" : "Switch to Standard"}
                 </Button>
               ) : (
                 <Button

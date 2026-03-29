@@ -5,7 +5,7 @@ const FEATURES = [
     category: "Review Requests",
     items: [
       "Review requests via email, SMS & WhatsApp",
-      "Lite plan: up to 10 requests per month · Pro plan: unlimited",
+      "Standard plan: up to 10 requests per month · Pro plan: unlimited",
       "Send to individual customers or in bulk",
       "Works with Google, Trustpilot, Facebook, Checkatrade, TripAdvisor, MyBuilder & more",
       "Choose which review platforms to send each customer",
