@@ -544,9 +544,9 @@ export default function Analytics() {
       </p>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 pdf-section">
+      <div className="flex gap-3 overflow-x-auto -mx-6 px-6 pb-2 sm:pb-0 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-4 lg:grid-cols-7 snap-x snap-mandatory sm:snap-none pdf-section">
         {summaryCards.map(c => (
-          <Card key={c.label} className="border-card-border">
+          <Card key={c.label} className="border-card-border flex-shrink-0 w-36 sm:w-auto">
             <CardContent className="p-4">
               <div className={`flex items-center gap-1.5 mb-1 ${c.color}`}>{c.icon}<span className="text-[11.5px] font-medium text-muted-foreground">{c.label}</span></div>
               <div className="text-2xl font-bold">{isLoading ? <Skeleton className="h-7 w-12" /> : c.value}</div>
