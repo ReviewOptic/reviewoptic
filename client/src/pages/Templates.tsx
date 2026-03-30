@@ -287,19 +287,19 @@ function TemplateEditor({ template, onCancel, textOnly = false }: { template: Te
         <div className="flex gap-2">
           <button
             onClick={() => setMode("text")}
-            className={cn("flex-1 py-1.5 rounded-lg text-[12.5px] font-medium border transition-colors", mode === "text" ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted")}
+            className={cn("flex-1 py-1.5 rounded-lg text-[12.5px] font-medium border transition-colors", mode === "text" ? "bg-selected text-selected-foreground border-selected" : "border-border text-muted-foreground hover:bg-muted")}
           >
             Text
           </button>
           <button
             onClick={() => setMode("video")}
-            className={cn("flex-1 py-1.5 rounded-lg text-[12.5px] font-medium border transition-colors flex items-center justify-center gap-1.5", mode === "video" ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted")}
+            className={cn("flex-1 py-1.5 rounded-lg text-[12.5px] font-medium border transition-colors flex items-center justify-center gap-1.5", mode === "video" ? "bg-selected text-selected-foreground border-selected" : "border-border text-muted-foreground hover:bg-muted")}
           >
             <Video className="w-3.5 h-3.5" /> Video
           </button>
           <button
             onClick={() => setMode("audio")}
-            className={cn("flex-1 py-1.5 rounded-lg text-[12.5px] font-medium border transition-colors flex items-center justify-center gap-1.5", mode === "audio" ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted")}
+            className={cn("flex-1 py-1.5 rounded-lg text-[12.5px] font-medium border transition-colors flex items-center justify-center gap-1.5", mode === "audio" ? "bg-selected text-selected-foreground border-selected" : "border-border text-muted-foreground hover:bg-muted")}
           >
             <Mic className="w-3.5 h-3.5" /> Voice Note
           </button>
@@ -330,7 +330,7 @@ function TemplateEditor({ template, onCancel, textOnly = false }: { template: Te
                         key={opt.value}
                         type="button"
                         onClick={() => { setLogoPosition(opt.value); logoPosMutation.mutate(opt.value); }}
-                        className={`px-3 py-1 rounded-lg border text-[12px] font-medium transition-colors ${logoPosition === opt.value ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground"}`}
+                        className={`px-3 py-1 rounded-lg border text-[12px] font-medium transition-colors ${logoPosition === opt.value ? "bg-selected text-selected-foreground border-selected" : "border-border text-muted-foreground hover:text-foreground"}`}
                       >
                         {opt.label}
                       </button>
@@ -1112,7 +1112,7 @@ export default function Templates() {
 
   return (
     <div className="px-6 py-7 max-w-4xl mx-auto">
-      <div className="mb-6">
+      <div className="-mx-6 -mt-7 px-6 py-5 mb-6 bg-primary/[0.07] border-b border-primary/10">
         <h1 className="text-2xl font-bold tracking-tight">Message Templates</h1>
         <p className="text-[13.5px] text-muted-foreground mt-0.5">
           Customise the messages sent to your customers at each stage of the review journey.

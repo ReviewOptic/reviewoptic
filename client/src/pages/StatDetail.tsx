@@ -106,7 +106,7 @@ function RequestsView({ customers = [], reviewRequests = [], privateFeedback = [
         </div>
         <div className="flex gap-1.5 flex-wrap">
           {(["this_month", "last_month", "all_time", "custom"] as PeriodKey[]).map(p => (
-            <button key={p} onClick={() => setPeriod(p)} className={cn("px-3 py-1 rounded-full text-[12px] font-medium border transition-colors", period === p ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-accent")}>
+            <button key={p} onClick={() => setPeriod(p)} className={cn("px-3 py-1 rounded-full text-[12px] font-medium border transition-colors", period === p ? "bg-selected text-selected-foreground border-selected" : "border-border text-muted-foreground hover:bg-accent")}>
               {periodLabel(p)}
             </button>
           ))}
@@ -211,7 +211,7 @@ function PendingView({ customers = [] }: { customers: Customer[] }) {
         </div>
         <div className="flex gap-1.5 flex-wrap">
           {(["all_time", "this_month", "last_month", "custom"] as PeriodKey[]).map(p => (
-            <button key={p} onClick={() => setPeriod(p)} className={cn("px-3 py-1 rounded-full text-[12px] font-medium border transition-colors", period === p ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-accent")}>
+            <button key={p} onClick={() => setPeriod(p)} className={cn("px-3 py-1 rounded-full text-[12px] font-medium border transition-colors", period === p ? "bg-selected text-selected-foreground border-selected" : "border-border text-muted-foreground hover:bg-accent")}>
               {periodLabel(p)}
             </button>
           ))}
@@ -327,7 +327,7 @@ function ReviewsView({ reviews = [], customers = [] }: { reviews: Review[]; cust
         </div>
         <div className="flex flex-wrap gap-1.5">
           {(["this_month", "last_month", "all_time", "custom"] as PeriodKey[]).map(p => (
-            <button key={p} onClick={() => setPeriod(p)} className={cn("px-3 py-1 rounded-full text-[12px] font-medium border transition-colors", period === p ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-accent")}>
+            <button key={p} onClick={() => setPeriod(p)} className={cn("px-3 py-1 rounded-full text-[12px] font-medium border transition-colors", period === p ? "bg-selected text-selected-foreground border-selected" : "border-border text-muted-foreground hover:bg-accent")}>
               {periodLabel(p)}
             </button>
           ))}
@@ -415,7 +415,7 @@ function ResponseRateView({ customers = [], reviews = [] }: { customers: Custome
       <div className="space-y-2">
         <div className="flex gap-1.5 flex-wrap">
           {(["this_month", "last_month", "all_time", "custom"] as PeriodKey[]).map(p => (
-            <button key={p} onClick={() => setPeriod(p)} className={cn("px-3 py-1 rounded-full text-[12px] font-medium border transition-colors", period === p ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-accent")}>
+            <button key={p} onClick={() => setPeriod(p)} className={cn("px-3 py-1 rounded-full text-[12px] font-medium border transition-colors", period === p ? "bg-selected text-selected-foreground border-selected" : "border-border text-muted-foreground hover:bg-accent")}>
               {periodLabel(p)}
             </button>
           ))}
@@ -491,7 +491,7 @@ function AvgRatingView({ reviews = [], customers = [] }: { reviews: Review[]; cu
       <div className="space-y-2">
         <div className="flex flex-wrap gap-1.5">
           {(["this_month", "last_month", "all_time", "custom"] as PeriodKey[]).map(p => (
-            <button key={p} onClick={() => setPeriod(p)} className={cn("px-3 py-1 rounded-full text-[12px] font-medium border transition-colors", period === p ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-accent")}>
+            <button key={p} onClick={() => setPeriod(p)} className={cn("px-3 py-1 rounded-full text-[12px] font-medium border transition-colors", period === p ? "bg-selected text-selected-foreground border-selected" : "border-border text-muted-foreground hover:bg-accent")}>
               {periodLabel(p)}
             </button>
           ))}

@@ -668,7 +668,7 @@ export default function Admin() {
               <div className="flex gap-1">
                 {["all", "lite", "pro", "complimentary", "cancelled"].map(p => (
                   <button key={p} onClick={() => setPlanFilter(p)}
-                    className={`text-xs px-3 py-1 rounded-full font-medium transition-colors capitalize ${planFilter === p ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
+                    className={`text-xs px-3 py-1 rounded-full font-medium transition-colors capitalize ${planFilter === p ? "bg-selected text-selected-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
                     {p === "all" ? "All" : p === "lite" ? "Standard" : p}
                   </button>
                 ))}

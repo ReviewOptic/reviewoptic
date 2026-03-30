@@ -208,7 +208,7 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer; op
                     onClick={() => togglePlatform(p.key)}
                     className={`px-3 py-1.5 rounded-lg border text-[12.5px] font-medium transition-colors ${
                       selectedPlatforms.includes(p.key)
-                        ? "bg-primary text-primary-foreground border-primary"
+                        ? "bg-selected text-selected-foreground border-selected"
                         : "bg-background border-border text-muted-foreground hover:text-foreground"
                     }`}
                   >

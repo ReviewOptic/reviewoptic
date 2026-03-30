@@ -850,7 +850,7 @@ export default function Customers() {
 
   return (
     <div className="px-6 py-7 max-w-7xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 -mx-6 -mt-7 px-6 py-5 mb-6 bg-primary/[0.07] border-b border-primary/10">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Customers</h1>
           <p className="text-[13.5px] text-muted-foreground mt-0.5">
@@ -1174,7 +1174,7 @@ export default function Customers() {
                   onClick={() => setBulkChannel(ch)}
                   className={cn(
                     "flex-1 py-2 rounded-lg text-[12.5px] font-medium border transition-colors",
-                    bulkChannel === ch ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted"
+                    bulkChannel === ch ? "bg-selected text-selected-foreground border-selected" : "border-border text-muted-foreground hover:bg-muted"
                   )}
                 >
                   {ch === "email" ? "Email" : ch === "sms" ? "SMS" : "WhatsApp"}

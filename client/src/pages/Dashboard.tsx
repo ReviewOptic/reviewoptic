@@ -157,7 +157,7 @@ function RespondDialog({ feedback, onClose }: { feedback: any; onClose: () => vo
                   onClick={() => setReplyChannel(ch)}
                   className={cn(
                     "flex-1 py-1.5 rounded-lg text-[12px] font-medium border transition-colors flex items-center justify-center gap-1.5",
-                    replyChannel === ch ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted",
+                    replyChannel === ch ? "bg-selected text-selected-foreground border-selected" : "border-border text-muted-foreground hover:bg-muted",
                     !channelAvailable(ch) && "opacity-40 cursor-not-allowed"
                   )}
                 >
@@ -283,7 +283,7 @@ export default function Dashboard() {
     .map(r => ({ ...r, customerName: customerMap[r.customerId] || "Customer" }));
 
   return (
-    <div className="px-6 py-7 max-w-6xl mx-auto space-y-7">
+    <div className="max-w-6xl mx-auto">
 
       {/* Intro welcome popup */}
       <Dialog open={showIntro}>
@@ -323,83 +323,83 @@ export default function Dashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">
-            {getGreeting()}{settings?.ownerName ? `, ${settings.ownerName.trim().split(" ")[0]}` : ""}!
-          </h1>
-          <p className="text-[13.5px] text-muted-foreground mt-0.5 italic">{quote}</p>
-        </div>
+      {/* Page header band */}
+      <div className="bg-primary/[0.07] border-b border-primary/10 px-6 pt-7 pb-5">
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">
+          {getGreeting()}{settings?.ownerName ? `, ${settings.ownerName.trim().split(" ")[0]}` : ""}!
+        </h1>
+        <p className="text-[13.5px] text-muted-foreground mt-0.5 italic">{quote}</p>
       </div>
+
+      <div className="px-6 py-6 space-y-6">
 
       <OnboardingChecklist />
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        <div className="flex items-center gap-3 bg-muted/40 rounded-xl px-4 py-4">
-          {statsLoading ? <Skeleton className="h-12 w-full" /> : (
+        <div className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4">
+          {statsLoading ? <Skeleton className="h-12 w-full opacity-30" /> : (
             <>
-              <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-primary/10">
-                <Send className="w-5 h-5 text-primary" />
+              <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-white/20">
+                <Send className="w-5 h-5 text-white" />
               </div>
               <div>
-                <div className="text-xl font-bold text-foreground leading-none">{stats?.requestsThisMonth ?? 0}</div>
-                <div className="text-[11.5px] text-muted-foreground mt-1 leading-tight">Requests Sent</div>
+                <div className="text-xl font-bold text-white leading-none">{stats?.requestsThisMonth ?? 0}</div>
+                <div className="text-[11.5px] text-white/70 mt-1 leading-tight">Requests Sent</div>
               </div>
             </>
           )}
         </div>
-        <div className="flex items-center gap-3 bg-muted/40 rounded-xl px-4 py-4">
-          {statsLoading ? <Skeleton className="h-12 w-full" /> : (
+        <div className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4">
+          {statsLoading ? <Skeleton className="h-12 w-full opacity-30" /> : (
             <>
-              <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/20">
-                <Eye className="w-5 h-5 text-purple-600" />
+              <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-white/20">
+                <Eye className="w-5 h-5 text-white" />
               </div>
               <div>
-                <div className="text-xl font-bold text-foreground leading-none">{stats?.clicksThisMonth ?? 0}</div>
-                <div className="text-[11.5px] text-muted-foreground mt-1 leading-tight">Links Clicked</div>
+                <div className="text-xl font-bold text-white leading-none">{stats?.clicksThisMonth ?? 0}</div>
+                <div className="text-[11.5px] text-white/70 mt-1 leading-tight">Links Clicked</div>
               </div>
             </>
           )}
         </div>
-        <div className="flex items-center gap-3 bg-muted/40 rounded-xl px-4 py-4">
-          {statsLoading ? <Skeleton className="h-12 w-full" /> : (
+        <div className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4">
+          {statsLoading ? <Skeleton className="h-12 w-full opacity-30" /> : (
             <>
-              <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/20">
-                <BarChart2 className="w-5 h-5 text-green-600" />
+              <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-white/20">
+                <BarChart2 className="w-5 h-5 text-white" />
               </div>
               <div>
-                <div className="text-xl font-bold text-foreground leading-none">{stats?.clickRate ?? 0}%</div>
-                <div className="text-[11.5px] text-muted-foreground mt-1 leading-tight">Click Rate</div>
+                <div className="text-xl font-bold text-white leading-none">{stats?.clickRate ?? 0}%</div>
+                <div className="text-[11.5px] text-white/70 mt-1 leading-tight">Click Rate</div>
               </div>
             </>
           )}
         </div>
-        <div className="flex items-center gap-3 bg-muted/40 rounded-xl px-4 py-4">
-          {statsLoading ? <Skeleton className="h-12 w-full" /> : (
+        <div className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4">
+          {statsLoading ? <Skeleton className="h-12 w-full opacity-30" /> : (
             <>
-              <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/20">
-                <MessageSquare className="w-5 h-5 text-amber-600" />
+              <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-white/20">
+                <MessageSquare className="w-5 h-5 text-white" />
               </div>
               <div>
-                <div className="text-xl font-bold text-foreground leading-none">{unrespondedFeedback.length}</div>
-                <div className="text-[11.5px] text-muted-foreground mt-1 leading-tight">Unread Feedback</div>
+                <div className="text-xl font-bold text-white leading-none">{unrespondedFeedback.length}</div>
+                <div className="text-[11.5px] text-white/70 mt-1 leading-tight">Unread Feedback</div>
               </div>
             </>
           )}
         </div>
-        <div className="flex items-center gap-3 bg-muted/40 rounded-xl px-4 py-4">
-          {statsLoading ? <Skeleton className="h-12 w-full" /> : (
+        <div className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4">
+          {statsLoading ? <Skeleton className="h-12 w-full opacity-30" /> : (
             <>
-              <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/20">
-                <Star className="w-5 h-5 text-amber-500" />
+              <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-white/20">
+                <Star className="w-5 h-5 text-white" />
               </div>
               <div>
-                <div className="text-xl font-bold text-foreground leading-none">
+                <div className="text-xl font-bold text-white leading-none">
                   {stats?.averageRating != null ? stats.averageRating.toFixed(1) : "—"}
                 </div>
-                <div className="text-[11.5px] text-muted-foreground mt-1 leading-tight">Avg. Star Rating</div>
+                <div className="text-[11.5px] text-white/70 mt-1 leading-tight">Avg. Star Rating</div>
               </div>
             </>
           )}
@@ -619,6 +619,7 @@ export default function Dashboard() {
 
       {respondingTo && <RespondDialog feedback={respondingTo} onClose={() => setRespondingTo(null)} />}
 
+      </div>{/* end px-6 py-6 content area */}
     </div>
   );
 }

@@ -125,7 +125,7 @@ function ChannelToggle({ active, onChange }: { active: Channel[]; onChange: (c: 
     <div className="flex gap-1">
       {CHANNELS.map(ch => (
         <button key={ch} onClick={() => toggle(ch)}
-          className={`px-2 py-0.5 rounded text-[11px] font-medium border transition-colors ${active.includes(ch) || active.length === 0 ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground"}`}>
+          className={`px-2 py-0.5 rounded text-[11px] font-medium border transition-colors ${active.includes(ch) || active.length === 0 ? "bg-selected text-selected-foreground border-selected" : "border-border text-muted-foreground hover:text-foreground"}`}>
           {labels[ch]}
         </button>
       ))}
@@ -405,7 +405,7 @@ export default function Analytics() {
   return (
     <div className="px-6 py-7 max-w-6xl mx-auto space-y-5">
       {/* Header */}
-      <div>
+      <div className="-mx-6 -mt-7 px-6 py-5 mb-1 bg-primary/[0.07] border-b border-primary/10">
         <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
         {businessName && <p className="text-[14px] font-medium mt-0.5">{businessName}</p>}
         <p className="text-[13px] text-muted-foreground mt-0.5">Track your review request performance</p>
@@ -419,7 +419,7 @@ export default function Analytics() {
             <button
               key={d}
               onClick={() => setPeriod(d)}
-              className={`px-2 py-1 rounded-md text-[11px] font-medium border transition-colors whitespace-nowrap shrink-0 ${period === d ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground"}`}
+              className={`px-2 py-1 rounded-md text-[11px] font-medium border transition-colors whitespace-nowrap shrink-0 ${period === d ? "bg-selected text-selected-foreground border-selected" : "border-border text-muted-foreground hover:text-foreground"}`}
             >
               {d === "custom" ? "Custom" : `${d}d`}
             </button>
@@ -456,10 +456,10 @@ export default function Analytics() {
           <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 px-2" onClick={exportPDF} disabled={isLoading || !data || isExportingPDF}>
             <FileText className="w-3 h-3" />{isExportingPDF ? "…" : "PDF"}
           </Button>
-          <Button variant="outline" size="sm" className={`h-7 text-[11px] gap-1 px-2 ${showColorPanel ? "bg-primary text-primary-foreground border-primary" : ""}`} onClick={() => setShowColorPanel(v => !v)}>
+          <Button variant="outline" size="sm" className={`h-7 text-[11px] gap-1 px-2 ${showColorPanel ? "bg-selected text-selected-foreground border-selected" : ""}`} onClick={() => setShowColorPanel(v => !v)}>
             <Palette className="w-3 h-3" />Colours
           </Button>
-          <Button variant="outline" size="sm" className={`h-7 text-[11px] gap-1 px-2 ${customising ? "bg-primary text-primary-foreground border-primary" : ""}`} onClick={() => setCustomising(v => !v)}>
+          <Button variant="outline" size="sm" className={`h-7 text-[11px] gap-1 px-2 ${customising ? "bg-selected text-selected-foreground border-selected" : ""}`} onClick={() => setCustomising(v => !v)}>
             <LayoutGrid className="w-3 h-3" />Layout
           </Button>
         </div>
