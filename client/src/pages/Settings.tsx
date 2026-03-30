@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
+import { useLocation } from "wouter";
 import { useState, useEffect, useCallback, useRef } from "react";
 import Cropper from "react-easy-crop";
 import { Save, ExternalLink, Copy, Check, Globe, Bell, FileCode, Star, Share2, Upload, X, Trash2, UserPlus, Mic, Video, Gift, Zap, QrCode, Download, RefreshCw } from "lucide-react";
@@ -32,6 +33,10 @@ function SettingSection({ title, description, children }: { title: string; descr
 export default function Settings() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const [, navigate] = useLocation();
+  const [activeTab, setActiveTab] = useState(
+    new URLSearchParams(window.location.search).get("tab") || "business"
+  );
   const { data: settings, isLoading } = useQuery<SettingsType>({ queryKey: ["/api/settings"] });
   const [copied, setCopied] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
@@ -190,7 +195,7 @@ export default function Settings() {
         </div>
       </div>
 
-      <Tabs defaultValue={new URLSearchParams(window.location.search).get("tab") || "business"}>
+      <Tabs value={activeTab} onValueChange={tab => { setActiveTab(tab); navigate(`/settings?tab=${tab}`, { replace: true }); }}>
         <div className="flex flex-col gap-4 md:flex-row md:gap-6 md:items-start">
           <TabsList className="flex flex-row flex-wrap h-auto md:flex-col md:w-44 md:shrink-0 bg-muted/50 rounded-xl p-1.5 gap-0.5">
             <TabsTrigger value="business" className="whitespace-nowrap md:w-full md:justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-business">Business</TabsTrigger>
@@ -509,7 +514,7 @@ export default function Settings() {
                 <p className="text-[12.5px] font-medium mb-0.5">Follow-up message templates</p>
                 <p className="text-[12px] text-muted-foreground">
                   Customise what each follow-up says in the{" "}
-                  <a href="/?tab=templates" className="text-primary underline underline-offset-2 hover:text-primary/80">Templates tab</a>.
+                  <a href="/templates" className="text-primary underline underline-offset-2 hover:text-primary/80">Templates tab</a>.
                   Each channel (Email, SMS, WhatsApp) has its own Follow-up 1, 2 &amp; 3 templates.
                 </p>
               </div>

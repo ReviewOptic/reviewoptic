@@ -731,7 +731,9 @@ function ImportCsvDialog({ open, onClose }: { open: boolean; onClose: () => void
 
 export default function Customers() {
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState(
+    new URLSearchParams(window.location.search).get("status") || "all"
+  );
   const [showArchived, setShowArchived] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
@@ -951,7 +953,10 @@ export default function Customers() {
                 variant={statusFilter === f.value ? "default" : "outline"}
                 size="sm"
                 className="h-9 text-[12.5px] px-3"
-                onClick={() => setStatusFilter(f.value)}
+                onClick={() => {
+                  setStatusFilter(f.value);
+                  navigate(f.value === "all" ? "/customers" : `/customers?status=${f.value}`, { replace: true });
+                }}
                 data-testid={`filter-${f.value}`}
               >
                 {f.label}
