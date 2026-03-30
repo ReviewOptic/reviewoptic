@@ -57,15 +57,16 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
-        <div className="flex justify-center mb-8">
-          <img src={branding?.logoUrl || "/logo.png"} alt="ReviewOptic" className="h-20 object-contain" />
+        <div className="rounded-t-2xl px-8 py-7 text-center" style={{ backgroundColor: "#0E679D" }}>
+          <img src={branding?.logoUrl || "/logo.png"} alt="ReviewOptic" className="h-16 object-contain mx-auto mb-4 brightness-0 invert" />
+          <h1 className="text-xl font-bold text-white mb-1">Create your account</h1>
+          <p className="text-sm text-white/75">Start your 14-day free trial. Cancel within 14 days and pay nothing.</p>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">Create your account</h1>
-          <p className="text-sm text-gray-500 mb-6">Start your 14-day free trial. Cancel within 14 days and pay nothing.</p>
+        <div className="bg-card rounded-b-2xl border border-t-0 border-border shadow-sm p-8">
+          <h2 className="sr-only">Registration form</h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="flex gap-3">
