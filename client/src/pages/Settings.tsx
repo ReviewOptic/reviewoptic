@@ -1263,13 +1263,13 @@ function IntegrationsTab() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 pb-6">
-          <div className="flex gap-6 items-start">
+          <div className="flex flex-col sm:flex-row gap-6 sm:items-start">
             {qrUrl && (
               <div className="shrink-0 w-36 h-36 border border-border rounded-xl overflow-hidden bg-white p-2">
                 <img src={qrUrl} alt="QR code" className="w-full h-full" />
               </div>
             )}
-            <div className="flex-1 space-y-3">
+            <div className="flex-1 min-w-0 space-y-3">
               <div className="space-y-1.5">
                 <label className="text-[12.5px] font-medium">Scan link</label>
                 <div className="flex gap-2">
