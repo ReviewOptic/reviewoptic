@@ -5,7 +5,7 @@ import { useLocation } from "wouter";
 import {
   Send, Clock, CheckCircle2, ArrowRight, Plus, BarChart2,
   Eye, Users, Star, MessageSquare, Play, AlertCircle, Mail,
-  FileText, Settings as SettingsIcon, X, CreditCard, BookOpen
+  FileText, Settings as SettingsIcon, X, CreditCard, BookOpen, Lightbulb
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -397,7 +397,7 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
       {(() => {
         const links = [
           { label: "Customers", icon: Users, path: "/customers" },
-          { label: "Templates", icon: FileText, path: "/templates" },
+          { label: "Top Tips", icon: Lightbulb, path: "/tutorial?tab=tips" },
           { label: "Analytics", icon: BarChart2, path: "/analytics" },
           { label: "Settings", icon: SettingsIcon, path: "/settings" },
           { label: "Tutorial", icon: BookOpen, path: "/tutorial" },
