@@ -343,7 +343,7 @@ export default function Billing() {
             </DialogTitle>
             <DialogDescription asChild>
               <div className="text-sm text-gray-600 space-y-2 pt-1">
-                <p><strong className="text-gray-800">You'll keep full access to all features</strong> until <strong className="text-gray-800">{sub?.currentPeriodEnd ? formatDate(sub.currentPeriodEnd) : "the end of your billing period"}</strong>.</p>
+                <p>You'll keep full access to all features until {sub?.currentPeriodEnd ? formatDate(sub.currentPeriodEnd) : "the end of your billing period"}.</p>
                 <p>After that, you can still log in and view your analytics — but you won't be able to add new customers or send review requests.</p>
               </div>
             </DialogDescription>
