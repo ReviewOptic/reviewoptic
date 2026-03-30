@@ -328,3 +328,25 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Intro video** — add YouTube URL to `INTRO_VIDEO_URL` (line 74, Dashboard.tsx) and uncomment the useEffect body to re-enable
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
 - To delete a test account: use the node script pattern (select by email, delete by account_id in dependency order)
+
+### Session — 2026-03-30 (forty-sixth session)
+
+**Tasks completed:**
+- **Settings tab navigation bug fixed**: Converted `<Tabs>` from uncontrolled (`defaultValue`) to controlled (`value` + `onValueChange`). Tab clicks now update `activeTab` state AND sync the URL via `navigate("/settings?tab=X", { replace: true })`. This eliminates any edge-case where the uncontrolled component could get out of sync.
+- **Settings broken link fixed**: `<a href="/?tab=templates">` in Follow-Ups tab was navigating to Dashboard (the `/` route). Fixed to `<a href="/templates">`.
+- **Customers URL filter sync fixed**: `statusFilter` state now initialised from `window.location.search` (`?status=X` param) and filter button clicks update the URL with `navigate("/customers?status=X", { replace: true })`. URL now always matches the active filter.
+- **Admin metrics reset**: Truncated `activity_log`, `user_sessions`, and cleared orphaned customer records. DB is now fully clean and ready for real users.
+
+**Architecture notes:**
+- Settings tab: `activeTab` state + `onValueChange` → `navigate("/settings?tab=X", { replace: true })`. Route still matches `/settings` since wouter matches on path, not search params. No remount on tab change.
+- Customers filter: initialised from `window.location.search` at mount time. Filter click updates state + URL.
+
+**Notes for next session:**
+- **⚠️ TWILIO UPGRADE NEEDED** — alphanumeric sender ID "ReviewOptic" for SMS, WhatsApp Business setup (remind every session)
+- **⚠️ STRIPE WEBHOOK** — verify `invoice.paid` and `customer.subscription.deleted` are both active and `STRIPE_WEBHOOK_SECRET` env var is set
+- **APP_URL env var** — add `APP_URL=https://reviewoptic.com` to Replit env vars (required for Facebook/LinkedIn OAuth callbacks to work)
+- **Facebook/LinkedIn OAuth redirect URIs** — register `https://reviewoptic.com/auth/facebook/callback` and `https://reviewoptic.com/auth/linkedin/callback` in Meta and LinkedIn developer portals
+- **Referral programme** — needs completing
+- **SEO meta tags** — `use-page-meta` hook ready, not yet applied to public pages
+- **Intro video** — add YouTube URL to `INTRO_VIDEO_URL` (line 74, Dashboard.tsx) and uncomment the useEffect body to re-enable
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
