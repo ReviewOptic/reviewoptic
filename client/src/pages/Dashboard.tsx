@@ -455,7 +455,7 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         {/* Activity Feed */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 order-2 lg:order-1">
           <Card className="border-card-border">
             <CardHeader className="pb-2 pt-4">
               <CardTitle className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">Recent Activity</CardTitle>
@@ -490,7 +490,7 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-4">
+        <div className="space-y-4 order-1 lg:order-2">
 
           {/* Private Feedback */}
           <Card className={unrespondedFeedback.length > 0 ? "border-card-border border-amber-300 dark:border-amber-700" : "border-card-border border-green-200 dark:border-green-800"}>
