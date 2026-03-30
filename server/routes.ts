@@ -109,8 +109,9 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
         // Cancelled plan — block only sending new review requests
         if (planType === "cancelled") {
           const isSendingRequest = req.path === "/api/review-requests" && req.method === "POST";
-          if (isSendingRequest) {
-            return res.status(402).json({ message: "Your subscription has ended. Please reactivate to send review requests.", code: "subscription_ended" });
+          const isAddingCustomer = req.path === "/api/customers" && req.method === "POST";
+          if (isSendingRequest || isAddingCustomer) {
+            return res.status(402).json({ message: "Your subscription has ended. Please reactivate to continue.", code: "subscription_ended" });
           }
         }
         next();
@@ -299,7 +300,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     });
 
     // Create default templates
-    const posBody = `We hope you enjoyed your experience with {{business_name}} and our {{service_type}}! Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!\n\n{{business_name}}`;
+    const posBody = `Thank you for your rating. Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!\n\n{{business_name}}`;
     const negBody = `We would appreciate your feedback on how we can improve for next time and will be in touch.\n\n{{business_name}}`;
     const defaultTemplates = [
       { id: randomUUID(), accountId: account.id, name: "After 4–5★ Rating", templateType: "response_positive", channel: "email", isDefault: true, preferredPlatform: "", subject: "Thank you for your rating", body: posBody },
@@ -488,10 +489,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const accountId = req.session.accountId!;
 
       // Only account owners can delete
-      const { rows } = await pool.query(`SELECT role FROM users WHERE id = $1`, [userId]);
+      const { rows } = await pool.query(`SELECT role, password FROM users WHERE id = $1`, [userId]);
       if (rows[0]?.role !== "owner") {
         return res.status(403).json({ message: "Only the account owner can delete the account." });
       }
+
+      // Verify password
+      const { password } = req.body;
+      if (!password) return res.status(400).json({ message: "Password is required to confirm deletion." });
+      const passwordMatch = await bcrypt.compare(password, rows[0].password);
+      if (!passwordMatch) return res.status(401).json({ message: "Incorrect password — please try again." });
 
       // Cancel Stripe subscription immediately if active
       const { rows: subRows } = await pool.query(
@@ -506,10 +513,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
 
       // Mark all users on this account as scheduled for deletion in 30 days
+      const purgeDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
       await pool.query(
         `UPDATE users SET scheduled_for_deletion_at = NOW() + INTERVAL '30 days', plan_type = 'cancelled' WHERE account_id = $1`,
         [accountId]
       );
+
+      // Send deletion confirmation email
+      const { rows: emailRows } = await pool.query(`SELECT email, first_name FROM users WHERE id = $1`, [userId]);
+      if (emailRows[0]) {
+        const { sendAccountDeletionEmail } = await import("./email");
+        sendAccountDeletionEmail(emailRows[0].email, emailRows[0].first_name || "", purgeDate).catch(err =>
+          console.error("[delete account] Failed to send deletion email:", err.message)
+        );
+      }
 
       // Log them out
       req.session.destroy(() => {});
@@ -662,6 +679,30 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.get("/api/admin/impersonation-log", requireAdmin, async (req, res) => {
     res.json(await storage.getImpersonationLog());
+  });
+
+  // Cancelled subscriptions — full details for reactivation outreach
+  app.get("/api/admin/cancelled-accounts", requireAdmin, async (req, res) => {
+    const { rows } = await pool.query(
+      `SELECT u.email, u.first_name, u.last_name, u.company_name, u.plan_type, u.plan_period, u.cancelled_at,
+              (SELECT COUNT(*) FROM customers c WHERE c.account_id = u.account_id)::int AS customer_count,
+              (SELECT COUNT(*) FROM review_requests rr WHERE rr.account_id = u.account_id)::int AS request_count
+       FROM users u
+       WHERE u.plan_type = 'cancelled' AND u.role = 'owner' AND u.scheduled_for_deletion_at IS NULL
+       ORDER BY u.cancelled_at DESC NULLS LAST`
+    );
+    res.json(rows);
+  });
+
+  // Deleted accounts log — anonymised, for audit trail only
+  app.get("/api/admin/deleted-accounts", requireAdmin, async (req, res) => {
+    const { rows } = await pool.query(
+      `SELECT scheduled_for_deletion_at AS deletion_scheduled_at, cancelled_at
+       FROM users
+       WHERE scheduled_for_deletion_at IS NOT NULL AND role = 'owner'
+       ORDER BY scheduled_for_deletion_at DESC`
+    );
+    res.json(rows);
   });
 
   app.post("/api/admin/impersonate/:userId", requireAdmin, async (req, res) => {
@@ -1839,21 +1880,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const accountId = req.session.accountId!;
     const defaults: Record<string, Record<string, { body: string; subject?: string }>> = {
       email: {
-        response_positive: { body: "We hope you enjoyed your experience with {{business_name}} and our {{service_type}}! Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!\n\n{{business_name}}", subject: "Thank you for your rating" },
+        response_positive: { body: "Thank you for your rating. Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!\n\n{{business_name}}", subject: "Thank you for your rating" },
         response_negative: { body: "We would appreciate your feedback on how we can improve for next time and will be in touch.\n\n{{business_name}}", subject: "We'd love to make this right" },
         follow_up_1: { body: "Just a quick follow-up from {{business_name}} — we'd love to hear how we did!\n\nTap the link below to leave your rating.\n\nThanks,\n{{owner_name}}\n{{business_name}}", subject: "Just checking in" },
         follow_up_2: { body: "We know you're busy, but your feedback really means a lot to {{business_name}}!\n\nTap the link below whenever you're ready.\n\nThanks,\n{{owner_name}}\n{{business_name}}", subject: "A polite reminder" },
         follow_up_3: { body: "This is our last message, we promise! If you ever have a moment, we'd still love to hear from you.\n\nTap the link below.\n\nThanks,\n{{owner_name}}\n{{business_name}}", subject: "We'd still love to hear from you" },
       },
       sms: {
-        response_positive: { body: "We hope you enjoyed your experience with {{business_name}} and our {{service_type}}! Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!\n\n{{business_name}}" },
+        response_positive: { body: "Thank you for your rating. Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!\n\n{{business_name}}" },
         response_negative: { body: "We would appreciate your feedback on how we can improve for next time and will be in touch.\n\n{{business_name}}" },
         follow_up_1: { body: "Just a quick follow-up from {{business_name}} — we'd love to hear how we did!" },
         follow_up_2: { body: "Your feedback means a lot to us — tap below when you're ready!\n{{business_name}}" },
         follow_up_3: { body: "Last one from us! If you get a moment, we'd love your feedback.\n{{business_name}}" },
       },
       whatsapp: {
-        response_positive: { body: "We hope you enjoyed your experience with {{business_name}} and our {{service_type}}! Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!\n\n{{business_name}}" },
+        response_positive: { body: "Thank you for your rating. Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!\n\n{{business_name}}" },
         response_negative: { body: "We would appreciate your feedback on how we can improve for next time and will be in touch.\n\n{{business_name}}" },
         follow_up_1: { body: "😊 Just a quick follow-up from {{business_name}} — we'd love to hear how we did! Tap the link below when you get a moment 👇" },
         follow_up_2: { body: "💛 Your feedback really means a lot to us! Whenever you're ready, just tap the link below — we appreciate it 🙏\n\n{{business_name}}" },
@@ -2820,6 +2861,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/billing/cancel", requireAuth, async (req, res) => {
     try {
       if (!process.env.STRIPE_SECRET_KEY) return res.status(500).json({ message: "Stripe not configured" });
+
+      // Verify password before cancelling
+      const { password } = req.body;
+      if (!password) return res.status(400).json({ message: "Password is required to confirm cancellation." });
+      const { rows: pwRows } = await pool.query(`SELECT password FROM users WHERE id = $1`, [req.session.userId]);
+      const passwordMatch = await bcrypt.compare(password, pwRows[0]?.password);
+      if (!passwordMatch) return res.status(401).json({ message: "Incorrect password — please try again." });
+
       const { rows } = await pool.query(`SELECT stripe_subscription_id FROM users WHERE id = $1`, [req.session.userId]);
       const subscriptionId = rows[0]?.stripe_subscription_id;
       if (!subscriptionId) return res.status(400).json({ message: "No active subscription found" });
@@ -2932,8 +2981,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (userRows[0]) {
         const u = userRows[0];
         const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://reviewoptic.com");
+        const stripeEndDate = (event.data.object as any).current_period_end;
+        const accessEndedDate = stripeEndDate
+          ? new Date(stripeEndDate * 1000).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
+          : undefined;
         const { sendSubscriptionEndedEmail } = await import("./email");
-        sendSubscriptionEndedEmail(u.email, u.first_name || "", `${appUrl}/pricing`).catch(err =>
+        sendSubscriptionEndedEmail(u.email, u.first_name || "", `${appUrl}/pricing`, accessEndedDate).catch(err =>
           console.error("[stripe-webhook] Failed to send subscription-ended email:", err.message)
         );
       }

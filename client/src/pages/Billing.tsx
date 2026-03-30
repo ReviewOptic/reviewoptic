@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CreditCard, Download, ArrowUpCircle, ExternalLink, Loader2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { loadStripe } from "@stripe/stripe-js";
@@ -22,8 +23,10 @@ export default function Billing() {
   const [portalLoading, setPortalLoading] = useState(false);
   const [upgradeClientSecret, setUpgradeClientSecret] = useState<string | null>(null);
   const [cancelStep, setCancelStep] = useState<"idle" | "confirm">("idle");
+  const [cancelPassword, setCancelPassword] = useState("");
   const [deleteStep, setDeleteStep] = useState<"idle" | "confirm" | "final">("idle");
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
   const [cancelLoading, setCancelLoading] = useState(false);
   const [reactivateLoading, setReactivateLoading] = useState(false);
   const [stripePromise] = useState(() =>
@@ -59,11 +62,17 @@ export default function Billing() {
   async function cancelSubscription() {
     setCancelLoading(true);
     try {
-      const res = await fetch("/api/billing/cancel", { method: "POST", credentials: "include" });
+      const res = await fetch("/api/billing/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ password: cancelPassword }),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to cancel");
       qc.invalidateQueries({ queryKey: ["/api/billing/subscription"] });
       setCancelStep("idle");
+      setCancelPassword("");
       toast({
         title: "Subscription cancelled",
         description: `You'll still have full access until ${formatDate(data.currentPeriodEnd)}. After that, your account will be locked.`,
@@ -79,7 +88,12 @@ export default function Billing() {
   async function deleteAccount() {
     setDeleteLoading(true);
     try {
-      const res = await fetch("/api/account", { method: "DELETE", credentials: "include" });
+      const res = await fetch("/api/account", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ password: deletePassword }),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to delete account");
       window.location.href = "/login";
@@ -261,120 +275,163 @@ export default function Billing() {
         </Button>
       </div>
 
-      {/* Cancel / reactivate — always show for non-cancelled owners */}
-      {user?.role !== "member" && user?.planType !== "cancelled" && (
+      {/* Cancel / reactivate + delete — buttons only; modals handle the flows */}
+      {user?.role !== "member" && (
         <div>
-          {sub?.cancelAtPeriodEnd ? (
+          {user?.planType !== "cancelled" && (
+            <>
+              {sub?.cancelAtPeriodEnd ? (
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                    <p className="text-sm text-amber-700">
+                      Your subscription is scheduled to cancel on <strong>{sub?.currentPeriodEnd ? formatDate(sub.currentPeriodEnd) : "the end of your billing period"}</strong>. You'll have full access until then — after that you can still view your analytics but won't be able to add new customers or send requests.
+                    </p>
+                  </div>
+                  <Button variant="outline" onClick={reactivateSubscription} disabled={reactivateLoading} className="gap-2">
+                    {reactivateLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                    Keep my subscription
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <Button variant="ghost" size="sm" className="text-gray-400 hover:text-red-600 text-xs" onClick={() => setCancelStep("confirm")}>
+                    Cancel subscription
+                  </Button>
+                  <Button variant="ghost" size="sm" className="text-gray-400 hover:text-red-600 text-xs" onClick={() => setDeleteStep("confirm")}>
+                    Delete account permanently
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Fully cancelled — subscription ended */}
+          {user?.planType === "cancelled" && !sub && (
             <div className="space-y-3">
-              <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg p-4">
-                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                <p className="text-sm text-amber-700">
-                  Your subscription is scheduled to cancel on <strong>{sub?.currentPeriodEnd ? formatDate(sub.currentPeriodEnd) : "the end of your billing period"}</strong>. You'll have full access until then — after that you can still view your account but won't be able to send new review requests.
-                </p>
+              <div className="bg-white rounded-xl border border-red-200 p-6">
+                <div className="flex items-start gap-3 mb-4">
+                  <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                  <div>
+                    <h2 className="text-sm font-semibold text-red-700">Your subscription has ended</h2>
+                    <p className="text-sm text-gray-500 mt-1">
+                      You can still log in and view your analytics. To send new review requests, reactivate your subscription.
+                    </p>
+                  </div>
+                </div>
+                <Button onClick={() => window.location.href = "/pricing"} className="gap-2">
+                  Reactivate subscription
+                </Button>
               </div>
-              <Button variant="outline" onClick={reactivateSubscription} disabled={reactivateLoading} className="gap-2">
-                {reactivateLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+              <div className="flex justify-end">
+                <Button variant="ghost" size="sm" className="text-gray-400 hover:text-red-600 text-xs" onClick={() => setDeleteStep("confirm")}>
+                  Delete account permanently
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Cancel subscription modal ── */}
+      <Dialog open={cancelStep === "confirm"} onOpenChange={open => { if (!open) { setCancelStep("idle"); setCancelPassword(""); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              Cancel your subscription?
+            </DialogTitle>
+            <DialogDescription asChild>
+              <div className="text-sm text-gray-600 space-y-2 pt-1">
+                <p><strong className="text-gray-800">You'll keep full access to all features</strong> until <strong className="text-gray-800">{sub?.currentPeriodEnd ? formatDate(sub.currentPeriodEnd) : "the end of your billing period"}</strong>.</p>
+                <p>After that, you can still log in and view your analytics — but you won't be able to add new customers or send review requests.</p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium text-gray-700">Enter your password to confirm</label>
+              <input
+                type="password"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                placeholder="Your current password"
+                value={cancelPassword}
+                onChange={e => setCancelPassword(e.target.value)}
+                autoComplete="current-password"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="destructive" onClick={cancelSubscription} disabled={cancelLoading || !cancelPassword} className="gap-2">
+                {cancelLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                Yes, cancel my subscription
+              </Button>
+              <Button variant="ghost" onClick={() => { setCancelStep("idle"); setCancelPassword(""); }} disabled={cancelLoading}>
                 Keep my subscription
               </Button>
             </div>
-          ) : cancelStep === "confirm" ? (
-            <div className="space-y-3">
-              <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-lg p-4">
-                <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-                <p className="text-sm text-red-700">
-                  You'll keep full access until <strong>{sub?.currentPeriodEnd ? formatDate(sub.currentPeriodEnd) : "the end of your current billing period"}</strong>. After that you can still view your account but won't be able to send new review requests.
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="destructive" onClick={cancelSubscription} disabled={cancelLoading} className="gap-2">
-                  {cancelLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                  Yes, cancel my subscription
-                </Button>
-                <Button variant="ghost" onClick={() => setCancelStep("idle")} disabled={cancelLoading}>
-                  Never mind
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <Button variant="ghost" size="sm" className="text-gray-400 hover:text-red-600 text-xs" onClick={() => setCancelStep("confirm")}>
-              Cancel subscription
-            </Button>
-          )}
-        </div>
-      )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
-      {/* Fully cancelled — subscription ended */}
-      {user?.planType === "cancelled" && !sub && (
-        <div className="bg-white rounded-xl border border-red-200 p-6">
-          <div className="flex items-start gap-3 mb-4">
-            <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-            <div>
-              <h2 className="text-sm font-semibold text-red-700">Your subscription has ended</h2>
-                      <p className="text-sm text-gray-500 mt-1">
-                You can still view your account and all your data. To send new review requests, reactivate your subscription.
-              </p>
+      {/* ── Delete account modal — step 1: warning ── */}
+      <Dialog open={deleteStep === "confirm"} onOpenChange={open => { if (!open) setDeleteStep("idle"); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-500" />
+              Delete your account permanently?
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-600 pt-1">
+              All your data — customers, review requests, templates, analytics, and team members — will be permanently deleted after 30 days. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 pt-2">
+            <Button variant="destructive" onClick={() => setDeleteStep("final")}>
+              Yes, I understand — continue
+            </Button>
+            <Button variant="ghost" onClick={() => setDeleteStep("idle")}>
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete account modal — step 2: password ── */}
+      <Dialog open={deleteStep === "final"} onOpenChange={open => { if (!open) { setDeleteStep("idle"); setDeletePassword(""); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-500" />
+              Confirm deletion with your password
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-600 pt-1">
+              Enter your password to permanently delete your account. You will be logged out immediately.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium text-gray-700">Password</label>
+              <input
+                type="password"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                placeholder="Your current password"
+                value={deletePassword}
+                onChange={e => setDeletePassword(e.target.value)}
+                autoComplete="current-password"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="destructive" onClick={deleteAccount} disabled={deleteLoading || !deletePassword} className="gap-2">
+                {deleteLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                Delete my account permanently
+              </Button>
+              <Button variant="ghost" onClick={() => { setDeleteStep("idle"); setDeletePassword(""); }} disabled={deleteLoading}>
+                Keep my account
+              </Button>
             </div>
           </div>
-          <Button onClick={() => window.location.href = "/pricing"} className="gap-2">
-            Reactivate subscription
-          </Button>
-        </div>
-      )}
-
-
-      {/* Delete account permanently — owners only */}
-      {user?.role !== "member" && (
-        <div className="pt-2">
-          {deleteStep === "idle" && (
-            <Button variant="ghost" size="sm" className="text-gray-400 hover:text-red-600 text-xs" onClick={() => setDeleteStep("confirm")}>
-              Delete account permanently
-            </Button>
-          )}
-          {deleteStep === "confirm" && (
-            <div className="bg-white rounded-xl border border-red-200 p-6 space-y-4">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-                <div>
-                  <h2 className="text-sm font-semibold text-red-700">Delete your account permanently?</h2>
-                  <p className="text-sm text-gray-600 mt-1">
-                    All your data — customers, review requests, templates, analytics, and recordings — will be permanently deleted after 30 days. This cannot be undone.
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="destructive" onClick={() => setDeleteStep("final")}>
-                  Yes, I understand — continue
-                </Button>
-                <Button variant="ghost" onClick={() => setDeleteStep("idle")}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          )}
-          {deleteStep === "final" && (
-            <div className="bg-white rounded-xl border border-red-200 p-6 space-y-4">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-                <div>
-                  <h2 className="text-sm font-semibold text-red-700">Final confirmation</h2>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Your account will be cancelled and scheduled for permanent deletion in 30 days. You will be logged out immediately. Are you absolutely sure?
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="destructive" onClick={deleteAccount} disabled={deleteLoading} className="gap-2">
-                  {deleteLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                  Delete my account permanently
-                </Button>
-                <Button variant="ghost" onClick={() => setDeleteStep("idle")} disabled={deleteLoading}>
-                  Keep my account
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
       {/* Upgrade to annual modal */}
       {upgradeClientSecret && (

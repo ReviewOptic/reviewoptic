@@ -95,7 +95,7 @@ export default function Admin() {
   const [, navigate] = useLocation();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
-  const [tab, setTab] = useState<"metrics" | "users" | "log">("metrics");
+  const [tab, setTab] = useState<"metrics" | "users" | "cancelled" | "deleted">("metrics");
   const [planFilter, setPlanFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [metricsLoading, setMetricsLoading] = useState(true);
@@ -106,11 +106,15 @@ export default function Admin() {
   const [toDate, setToDate] = useState("");
   const [log, setLog] = useState<{ id: string; adminEmail: string; targetEmail: string; createdAt: string }[]>([]);
   const [insightStats, setInsightStats] = useState<{ totalSent: number; totalOpened: number; openRate: number; optOuts: number; recentEmails: any[] } | null>(null);
+  const [cancelledAccounts, setCancelledAccounts] = useState<any[]>([]);
+  const [deletedAccounts, setDeletedAccounts] = useState<any[]>([]);
 
   const loadInsightStats = () => fetch("/api/admin/insight-stats", { credentials: "include" })
     .then(r => r.ok ? r.json().catch(() => null) : null)
     .then(d => { if (d) setInsightStats(d); })
     .catch(() => {});
+  const loadCancelledAccounts = () => fetch("/api/admin/cancelled-accounts", { credentials: "include" }).then(r => r.ok ? r.json() : []).then(setCancelledAccounts).catch(() => {});
+  const loadDeletedAccounts = () => fetch("/api/admin/deleted-accounts", { credentials: "include" }).then(r => r.ok ? r.json() : []).then(setDeletedAccounts).catch(() => {});
   const loadUsers = () => fetch("/api/admin/users", { credentials: "include" }).then(r => r.ok ? r.json() : []).then(setUsers);
   const loadLog = () => fetch("/api/admin/impersonation-log", { credentials: "include" }).then(r => r.ok ? r.json() : []).then(setLog);
   const loadMetrics = useCallback(() => {
@@ -133,6 +137,8 @@ export default function Admin() {
     if (!user?.isAdmin) { navigate("/"); return; }
     loadUsers().finally(() => setLoading(false));
     loadInsightStats();
+    loadCancelledAccounts();
+    loadDeletedAccounts();
   }, [user]);
 
   useEffect(() => {
@@ -160,6 +166,8 @@ export default function Admin() {
   const tabs = [
     { id: "metrics", label: "Metrics", icon: BarChart3 },
     { id: "users", label: "Users", icon: Users },
+    { id: "cancelled", label: "Cancelled", icon: AlertTriangle },
+    { id: "deleted", label: "Deleted", icon: Trash2 },
   ] as const;
 
   const alertIcon = (s: string) => s === "green" ? <CheckCircle className="w-4 h-4 text-green-500" /> : s === "red" ? <AlertCircle className="w-4 h-4 text-red-500" /> : <AlertTriangle className="w-4 h-4 text-yellow-500" />;
@@ -651,6 +659,95 @@ export default function Admin() {
             </div>
           </div>
 
+        </div>
+      )}
+
+      {/* ── CANCELLED TAB ── */}
+      {tab === "cancelled" && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-sm font-semibold">{cancelledAccounts.length} cancelled account{cancelledAccounts.length !== 1 ? "s" : ""}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">These users have cancelled their subscription. Contact them to reactivate.</p>
+            </div>
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => exportCSV(cancelledAccounts, "cancelled-accounts.csv")}>
+              <Download className="w-3.5 h-3.5" />Export CSV
+            </Button>
+          </div>
+          {cancelledAccounts.length === 0 ? (
+            <div className="border border-dashed border-border rounded-xl p-8 text-center">
+              <p className="text-sm text-muted-foreground">No cancelled accounts yet.</p>
+            </div>
+          ) : (
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-muted/50">
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Email</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Name</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Company</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Plan</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Customers</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Requests</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Cancelled</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cancelledAccounts.map((a, i) => (
+                    <tr key={i} className="border-b border-border last:border-0">
+                      <td className="px-4 py-3 font-medium text-[12.5px]">{a.email}</td>
+                      <td className="px-4 py-3 text-[12.5px] text-muted-foreground">{[a.first_name, a.last_name].filter(Boolean).join(" ") || "—"}</td>
+                      <td className="px-4 py-3 text-[12.5px] text-muted-foreground">{a.company_name || "—"}</td>
+                      <td className="px-4 py-3 text-[12.5px]">
+                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground capitalize">
+                          {a.plan_type === "lite" ? "Standard" : a.plan_type} — {a.plan_period}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-[12.5px] text-muted-foreground">{a.customer_count}</td>
+                      <td className="px-4 py-3 text-[12.5px] text-muted-foreground">{a.request_count}</td>
+                      <td className="px-4 py-3 text-[12.5px] text-muted-foreground">{a.cancelled_at ? fmtDate(a.cancelled_at) : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── DELETED TAB ── */}
+      {tab === "deleted" && (
+        <div>
+          <div className="mb-4">
+            <p className="text-sm font-semibold">{deletedAccounts.length} account{deletedAccounts.length !== 1 ? "s" : ""} scheduled for deletion</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Personal details are not shown. These accounts will be fully purged 30 days after deletion was requested.</p>
+          </div>
+          {deletedAccounts.length === 0 ? (
+            <div className="border border-dashed border-border rounded-xl p-8 text-center">
+              <p className="text-sm text-muted-foreground">No deleted accounts on record.</p>
+            </div>
+          ) : (
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-muted/50">
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">#</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Deletion Requested</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Scheduled Purge Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {deletedAccounts.map((a, i) => (
+                    <tr key={i} className="border-b border-border last:border-0">
+                      <td className="px-4 py-3 text-[12.5px] text-muted-foreground">{i + 1}</td>
+                      <td className="px-4 py-3 text-[12.5px] text-muted-foreground">{a.cancelled_at ? fmtDate(a.cancelled_at) : "—"}</td>
+                      <td className="px-4 py-3 text-[12.5px] text-muted-foreground">{a.deletion_scheduled_at ? fmtDate(a.deletion_scheduled_at) : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
