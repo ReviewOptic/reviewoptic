@@ -193,8 +193,8 @@ export default function Settings() {
       </div>
 
       <Tabs defaultValue={new URLSearchParams(window.location.search).get("tab") || "business"}>
-        <div className="flex flex-col md:flex-row md:gap-6 md:items-start">
-          <TabsList className="flex flex-row flex-wrap md:flex-col md:h-auto md:w-44 md:shrink-0 bg-muted/50 rounded-xl p-1.5 gap-0.5">
+        <div className="flex flex-col gap-4 md:flex-row md:gap-6 md:items-start">
+          <TabsList className="flex flex-row flex-wrap h-auto md:flex-col md:w-44 md:shrink-0 bg-muted/50 rounded-xl p-1.5 gap-0.5">
             <TabsTrigger value="business" className="whitespace-nowrap md:w-full md:justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-business">Business</TabsTrigger>
             <TabsTrigger value="platforms" className="whitespace-nowrap md:w-full md:justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-platforms">Review Platforms</TabsTrigger>
             <TabsTrigger value="followup" className="whitespace-nowrap md:w-full md:justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-followup">Follow-Ups</TabsTrigger>
@@ -210,7 +210,7 @@ export default function Settings() {
             <TabsTrigger value="referral" className="whitespace-nowrap md:w-full md:justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-referral">Referral</TabsTrigger>
             <TabsTrigger value="integrations" className="whitespace-nowrap md:w-full md:justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-integrations">Integrations</TabsTrigger>
           </TabsList>
-          <div className="flex-1 min-w-0 mt-4 md:mt-0">
+          <div className="flex-1 min-w-0">
 
         {/* Business Info */}
         <TabsContent value="business">
