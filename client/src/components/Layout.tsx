@@ -244,12 +244,12 @@ function CancelledBanner() {
   const [, navigate] = useLocation();
   if (user?.planType !== "cancelled") return null;
   return (
-    <div className="bg-amber-500 text-white text-sm px-4 py-2.5 flex items-center justify-between flex-shrink-0 gap-4">
+    <div className="bg-amber-500 text-white text-sm px-4 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between flex-shrink-0 gap-2 sm:gap-4">
       <div className="flex items-center gap-2">
         <AlertTriangle className="w-4 h-4 shrink-0" />
         <span>Your subscription has ended — you can still view your account but cannot send new review requests.</span>
       </div>
-      <button onClick={() => navigate("/billing")} className="underline font-semibold whitespace-nowrap hover:text-white/80">
+      <button onClick={() => navigate("/billing")} className="underline font-semibold whitespace-nowrap hover:text-white/80 self-start sm:self-auto">
         Reactivate
       </button>
     </div>

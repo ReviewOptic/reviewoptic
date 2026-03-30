@@ -289,7 +289,7 @@ export default function Dashboard() {
       <Dialog open={showIntro}>
         <DialogContent className="max-w-xl p-0 overflow-hidden [&>button]:hidden" aria-describedby={undefined}>
           <div className="px-7 pt-7 pb-2 text-center">
-            <img src="/logo.png" alt="ReviewOptic" className="h-28 object-contain mx-auto mb-5" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+            <img src="/logo.png" alt="ReviewOptic" className="h-28 object-contain mx-auto mb-5" loading="lazy" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
             <h2 className="text-2xl font-bold mb-1">Welcome to ReviewOptic</h2>
             <p className="text-muted-foreground text-sm mb-5">Your review growth starts here.</p>
           </div>
@@ -407,7 +407,7 @@ export default function Dashboard() {
       </div>
 
       {/* Quick links */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: "Customers", icon: Users, path: "/customers" },
           { label: "Templates", icon: FileText, path: "/templates" },

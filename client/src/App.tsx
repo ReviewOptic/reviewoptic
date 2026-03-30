@@ -1,5 +1,5 @@
 import { Switch, Route, useLocation } from "wouter";
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -7,32 +7,41 @@ import CookieConsent from "@/components/CookieConsent";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/context/AuthContext";
 import { useAuth } from "@/hooks/use-auth";
-import NotFound from "@/pages/not-found";
 import Layout from "@/components/Layout";
 import { ThemeProvider } from "@/context/ThemeContext";
-import Dashboard from "@/pages/Dashboard";
-import Customers from "@/pages/Customers";
-import CustomerDetail from "@/pages/CustomerDetail";
-import Templates from "@/pages/Templates";
-import Analytics from "@/pages/Analytics";
-import SettingsPage from "@/pages/Settings";
-import ReviewLanding from "@/pages/ReviewLanding";
-import StatDetail from "@/pages/StatDetail";
-import Login from "@/pages/Login";
-import Register from "@/pages/Register";
-import ResetPassword from "@/pages/ResetPassword";
-import VerifyEmail from "@/pages/VerifyEmail";
-import Admin from "@/pages/Admin";
-import PrivacyPolicy from "@/pages/PrivacyPolicy";
-import TermsAndConditions from "@/pages/TermsAndConditions";
-import Pricing from "@/pages/Pricing";
-import Features from "@/pages/Features";
-import AcceptInvite from "@/pages/AcceptInvite";
-import BillingSuccess from "@/pages/BillingSuccess";
-import Billing from "@/pages/Billing";
-import Tutorial from "@/pages/Tutorial";
-import FAQ from "@/pages/FAQ";
-import Scan from "@/pages/Scan";
+
+const NotFound = lazy(() => import("@/pages/not-found"));
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const Customers = lazy(() => import("@/pages/Customers"));
+const CustomerDetail = lazy(() => import("@/pages/CustomerDetail"));
+const Templates = lazy(() => import("@/pages/Templates"));
+const Analytics = lazy(() => import("@/pages/Analytics"));
+const SettingsPage = lazy(() => import("@/pages/Settings"));
+const ReviewLanding = lazy(() => import("@/pages/ReviewLanding"));
+const StatDetail = lazy(() => import("@/pages/StatDetail"));
+const Login = lazy(() => import("@/pages/Login"));
+const Register = lazy(() => import("@/pages/Register"));
+const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
+const VerifyEmail = lazy(() => import("@/pages/VerifyEmail"));
+const Admin = lazy(() => import("@/pages/Admin"));
+const PrivacyPolicy = lazy(() => import("@/pages/PrivacyPolicy"));
+const TermsAndConditions = lazy(() => import("@/pages/TermsAndConditions"));
+const Pricing = lazy(() => import("@/pages/Pricing"));
+const Features = lazy(() => import("@/pages/Features"));
+const AcceptInvite = lazy(() => import("@/pages/AcceptInvite"));
+const BillingSuccess = lazy(() => import("@/pages/BillingSuccess"));
+const Billing = lazy(() => import("@/pages/Billing"));
+const Tutorial = lazy(() => import("@/pages/Tutorial"));
+const FAQ = lazy(() => import("@/pages/FAQ"));
+const Scan = lazy(() => import("@/pages/Scan"));
+
+function PageLoader() {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-muted-foreground text-sm">Loading…</div>
+    </div>
+  );
+}
 
 function PlanCancelled() {
   const [, navigate] = useLocation();
@@ -134,7 +143,9 @@ function App() {
           <AuthProvider>
             <Toaster />
             <CookieConsent />
-            <Router />
+            <Suspense fallback={<PageLoader />}>
+              <Router />
+            </Suspense>
           </AuthProvider>
         </ThemeProvider>
       </TooltipProvider>

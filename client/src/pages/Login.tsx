@@ -234,7 +234,19 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
-      <div className="md:w-1/2 bg-primary text-white flex flex-col justify-between p-8 md:p-12 md:min-h-screen">
+      {/* Form panel — first in DOM so it's on top on mobile */}
+      <div className="md:w-1/2 flex flex-col items-center justify-start p-8 md:p-12 md:order-2">
+        <div className="w-full max-w-sm">
+          <div className="flex justify-center mb-6">
+            <img src={logoUrl} alt="ReviewOptic" className="h-28 object-contain" />
+          </div>
+          {formCard}
+          {footerLinks}
+          {reviews?.length ? <ReviewCards reviews={reviews} /> : null}
+        </div>
+      </div>
+      {/* Features panel — shown below form on mobile, left side on desktop */}
+      <div className="md:w-1/2 bg-primary text-white flex flex-col justify-between p-8 md:p-12 md:min-h-screen md:order-1">
         <div>
           <h1 className="text-3xl md:text-4xl font-bold leading-tight mb-4 text-white">Turn happy customers<br />into 5-star reviews — on autopilot.</h1>
           <p className="text-white/75 text-base mb-10 leading-relaxed">ReviewOptic helps local businesses automatically collect more reviews on Google, Trustpilot, Facebook, and more.</p>
@@ -249,16 +261,6 @@ export default function Login() {
               </div>
             ))}
           </div>
-        </div>
-      </div>
-      <div className="md:w-1/2 flex flex-col items-center justify-start p-8 md:p-12">
-        <div className="w-full max-w-sm">
-          <div className="flex justify-center mb-6">
-            <img src={logoUrl} alt="ReviewOptic" className="h-28 object-contain" />
-          </div>
-          {formCard}
-          {footerLinks}
-          {reviews?.length ? <ReviewCards reviews={reviews} /> : null}
         </div>
       </div>
     </div>

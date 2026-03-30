@@ -30,6 +30,17 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "vendor-react": ["react", "react-dom"],
+          "vendor-charts": ["recharts"],
+          "vendor-motion": ["framer-motion"],
+          "vendor-stripe": ["@stripe/stripe-js", "@stripe/react-stripe-js"],
+          "vendor-dates": ["date-fns"],
+        },
+      },
+    },
   },
   server: {
     fs: {
