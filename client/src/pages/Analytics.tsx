@@ -410,10 +410,10 @@ export default function Analytics() {
         <p className="text-[13px] text-muted-foreground mt-0.5">Track your review request performance</p>
       </div>
 
-      {/* Controls bar: filters scroll left, buttons stay fixed right */}
-      <div className="flex items-center gap-2">
-        {/* Left: period pills + optional date inputs + team filter — scrolls if needed */}
-        <div className="flex items-center gap-1.5 overflow-x-auto flex-nowrap min-w-0 flex-1">
+      {/* Controls bar */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Left: period pills + optional date inputs + team filter */}
+        <div className="flex flex-wrap items-center gap-1.5 min-w-0 flex-1">
           {(["7", "30", "60", "custom"] as const).map(d => (
             <button
               key={d}
@@ -467,8 +467,11 @@ export default function Analytics() {
       {/* Colour customiser panel */}
       {showColorPanel && (
         <div className="rounded-xl border border-border bg-card p-4 space-y-4">
-          <div className="space-y-2">
+          <div className="flex items-center justify-between">
             <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wide">Themes</p>
+            <button onClick={() => setShowColorPanel(false)} className="text-[12px] font-semibold text-primary hover:underline">Done</button>
+          </div>
+          <div className="space-y-2">
             <div className="flex flex-wrap gap-2">
               {Object.entries(COLOR_THEMES).map(([key, theme]) => (
                 <button key={key} onClick={() => applyTheme(key)}
