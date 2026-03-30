@@ -265,8 +265,7 @@ export default function Dashboard() {
   const { data: allRequests = [] } = useQuery<ReviewRequest[]>({ queryKey: ["/api/review-requests"] });
 
   const pendingFollowUp = customers?.filter(c => c.status === "request_sent" && !c.doNotContact) || [];
-  const reviewsCompleted = customers?.filter(c => c.status === "review_completed").length ?? 0;
-  const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
+const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
   const noResponseCustomers = customers?.filter(c => c.status === "no_response" && !c.doNotContact) || [];
   const stalePendingCustomers = customers?.filter(c => {
     if (c.doNotContact || c.status !== "request_sent") return false;
@@ -337,7 +336,7 @@ export default function Dashboard() {
       <OnboardingChecklist />
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4">
           {statsLoading ? <Skeleton className="h-12 w-full opacity-30" /> : (
             <>
@@ -347,19 +346,6 @@ export default function Dashboard() {
               <div>
                 <div className="text-xl font-bold text-white leading-none">{stats?.requestsThisMonth ?? 0}</div>
                 <div className="text-[11.5px] text-white/70 mt-1 leading-tight">Requests Sent</div>
-              </div>
-            </>
-          )}
-        </div>
-        <div className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4">
-          {statsLoading ? <Skeleton className="h-12 w-full opacity-30" /> : (
-            <>
-              <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-white/20">
-                <Eye className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <div className="text-xl font-bold text-white leading-none">{stats?.clicksThisMonth ?? 0}</div>
-                <div className="text-[11.5px] text-white/70 mt-1 leading-tight">Links Clicked</div>
               </div>
             </>
           )}
@@ -401,19 +387,6 @@ export default function Dashboard() {
                   {stats?.averageRating != null ? stats.averageRating.toFixed(1) : "—"}
                 </div>
                 <div className="text-[11.5px] text-white/70 mt-1 leading-tight">Avg. Star Rating</div>
-              </div>
-            </>
-          )}
-        </div>
-        <div className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4">
-          {statsLoading ? <Skeleton className="h-12 w-full opacity-30" /> : (
-            <>
-              <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-white/20">
-                <CheckCircle2 className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <div className="text-xl font-bold text-white leading-none">{reviewsCompleted}</div>
-                <div className="text-[11.5px] text-white/70 mt-1 leading-tight">Reviews Completed</div>
               </div>
             </>
           )}
