@@ -336,8 +336,8 @@ export default function Dashboard() {
       <OnboardingChecklist />
 
       {/* Stats */}
-      <div className="flex gap-3 overflow-x-auto -mx-6 px-6 pb-2 sm:pb-0 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-5 snap-x snap-mandatory sm:snap-none">
-        <div className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4 flex-shrink-0 w-40 sm:w-auto snap-start">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4">
           {statsLoading ? <Skeleton className="h-12 w-full opacity-30" /> : (
             <>
               <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-white/20">
@@ -350,7 +350,7 @@ export default function Dashboard() {
             </>
           )}
         </div>
-        <div className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4 flex-shrink-0 w-40 sm:w-auto snap-start">
+        <div className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4">
           {statsLoading ? <Skeleton className="h-12 w-full opacity-30" /> : (
             <>
               <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-white/20">
@@ -363,7 +363,7 @@ export default function Dashboard() {
             </>
           )}
         </div>
-        <div className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4 flex-shrink-0 w-40 sm:w-auto snap-start">
+        <div className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4">
           {statsLoading ? <Skeleton className="h-12 w-full opacity-30" /> : (
             <>
               <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-white/20">
@@ -376,7 +376,7 @@ export default function Dashboard() {
             </>
           )}
         </div>
-        <div className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4 flex-shrink-0 w-40 sm:w-auto snap-start">
+        <div className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4">
           {statsLoading ? <Skeleton className="h-12 w-full opacity-30" /> : (
             <>
               <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-white/20">
@@ -389,7 +389,7 @@ export default function Dashboard() {
             </>
           )}
         </div>
-        <div className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4 flex-shrink-0 w-40 sm:w-auto snap-start">
+        <div className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4">
           {statsLoading ? <Skeleton className="h-12 w-full opacity-30" /> : (
             <>
               <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-white/20">
@@ -416,12 +416,12 @@ export default function Dashboard() {
           ...(!user?.isAdmin && user?.role !== "member" ? [{ label: "Billing", icon: CreditCard, path: "/billing" }] : []),
         ];
         return (
-          <div className="flex gap-3 overflow-x-auto sm:hidden -mx-6 px-6 pb-2 snap-x snap-mandatory">
+          <div className={`grid sm:hidden gap-3 ${links.length === 5 ? "grid-cols-3" : "grid-cols-2"}`}>
             {links.map(link => (
               <button
                 key={link.path}
                 onClick={() => navigate(link.path)}
-                className="flex flex-col items-center gap-2 py-4 px-4 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors flex-shrink-0 w-24 snap-start"
+                className="flex flex-col items-center gap-2 py-4 px-2 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors"
               >
                 <link.icon className="w-5 h-5 text-primary" />
                 <span className="text-[12px] font-medium">{link.label}</span>
