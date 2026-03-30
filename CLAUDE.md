@@ -351,3 +351,23 @@ Your job is to be the developer they would hire if they could afford a great one
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
 - To delete a test account: use the node script pattern (select by email, delete by account_id in dependency order)
 
+### Session — 2026-03-30 (forty-second session)
+
+**Tasks completed:**
+- **Deletion email reactivation link**: `sendAccountDeletionEmail` now accepts a `reactivateUrl` parameter (passes `/pricing`). Email clearly states: account deleted now, data permanently removed on [purge date], blue "Reactivate my account" button, note that after that date data cannot be recovered.
+- **Reactivation actually clears deletion flag**: `billing/confirm` route now includes `scheduled_for_deletion_at = NULL` in the UPDATE. If a user clicks the reactivation link, logs in, and completes payment, the deletion is cancelled and their account is fully restored. Subscription confirmation email fires via existing Stripe webhook.
+- **Cancellation email flow confirmed correct**:
+  - Email 1 (immediate): fires from `POST /api/billing/cancel` — confirms cancellation, states access end date, has reactivation button.
+  - Email 2 (end of period): fires from `customer.subscription.deleted` Stripe webhook — confirms billing stopped, includes the period end date.
+  - ⚠️ Email 2 requires the Stripe webhook to be registered (still pending).
+
+**Notes for next session:**
+- **⚠️ TWILIO WEBHOOK NOT YET ACTIVATED** — must set `https://reviewoptic.com/api/webhooks/twilio-inbound` in Twilio console
+- **⚠️ STRIPE WEBHOOK NOT YET REGISTERED** — must register `https://reviewoptic.com/api/billing/webhook`, select BOTH `customer.subscription.deleted` AND `invoice.payment_succeeded`, add `STRIPE_WEBHOOK_SECRET` — without this, end-of-period cancellation email and subscription confirmation email will NOT fire
+- **Referral programme** — needs completing
+- **SEO meta tags** — `use-page-meta` hook ready, not yet applied to public pages
+- **Social auto-posting** — feature card is live on login page; needs the actual feature built before going live
+- **Intro video** — add YouTube URL to `INTRO_VIDEO_URL` (line 74, Dashboard.tsx) and uncomment the useEffect body to re-enable
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+- To delete a test account: use the node script pattern (select by email, delete by account_id in dependency order)
+
