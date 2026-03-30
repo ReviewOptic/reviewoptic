@@ -294,3 +294,37 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Intro video** — add YouTube URL to `INTRO_VIDEO_URL` (line 74, Dashboard.tsx) and uncomment the useEffect body to re-enable
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
 - To delete a test account: use the node script pattern (select by email, delete by account_id in dependency order)
+
+### Session — 2026-03-30 (forty-fifth session)
+
+**Tasks completed:**
+- **Performance fix — Dashboard stat cards**: `transition-all` replaced with `transition-[filter]` on all 4 stat card hover effects — reduces repaints, improves desktop rendering smoothness.
+- **Settings page width fix**: Container changed from `max-w-3xl` to `max-w-5xl` to match other pages — was appearing narrower/shrunk on desktop.
+- **Business logo in Dashboard header**: Logo from user's settings now shows top-right of Dashboard header (hidden on mobile with `hidden sm:block`, `max-w-[160px]`, `loading="lazy"`). Only renders if `settings.logoUrl` is set.
+- **hello@reviewoptic.com — undeletable**: Server-side 403 guard added to `DELETE /api/account` — admin account can never be accidentally deleted.
+- **Deleted all test accounts**: All non-admin accounts removed from DB. Only `hello@reviewoptic.com` remains.
+- **Admin panel — removed hello@reviewoptic.com from Users list**: Filter applied client-side so admin account is invisible in Users tab and excluded from counts.
+- **Admin panel — Users table overflow fix**: Table wrapped in `overflow-x-auto` div, `min-w-[700px]` on table, column headers shortened ("Customers"→"Custs", "Requests"→"Reqs", "Verified"→"Ver."), padding reduced.
+- **Soft-delete for customers**: Deleting a customer now sets `deleted_at` timestamp instead of hard-deleting. Purge cron runs hourly, removes records older than 30 days. Customer stats/ratings preserved throughout.
+- **Deleted customers view**: New "Deleted" button in Customers header. Deleted view shows customers with purge date and a "Reactivate" button. Back button returns to All Customers. Empty states customised for deleted view.
+- **Schema + migration**: `deleted_at TIMESTAMP` column added to customers table. `font_family TEXT DEFAULT 'Inter'` added to settings.
+- **Removed Instagram auto-posting**: All IG posting code removed from server. Settings.tsx, Login.tsx, PrivacyPolicy.tsx all updated. Facebook auto-posting retained.
+- **Stripe webhook event fix**: Server now handles both `invoice.paid` and `invoice.payment_succeeded`.
+- **App font changed to Lexend**: `--font-sans` CSS variable updated. Google Fonts link updated to load only Lexend. Per-user font picker removed from Settings.
+- **Dashboard mobile quick links**: All 5 links fit in single row using `gridTemplateColumns: repeat(N, 1fr)` — smaller icons, smaller text, tighter padding.
+
+**Architecture notes:**
+- Soft-delete: `getCustomers` and `getArchivedCustomers` both filter `deleted_at IS NULL`. `getDeletedCustomers` returns `deleted_at IS NOT NULL`. `deleteCustomer` sets timestamp; `reactivateCustomer` sets null.
+- Admin guard: `hello@reviewoptic.com` blocked at server (403) and excluded client-side in Admin.tsx.
+- Font: CSS var `--font-sans: "Lexend", sans-serif` in index.css. Google Fonts loads `family=Lexend:wght@100..900`.
+
+**Notes for next session:**
+- **⚠️ TWILIO UPGRADE NEEDED** — alphanumeric sender ID "ReviewOptic" for SMS, WhatsApp Business setup (remind every session)
+- **⚠️ STRIPE WEBHOOK** — was walked through setup; verify `invoice.paid` and `customer.subscription.deleted` are both active and `STRIPE_WEBHOOK_SECRET` env var is set
+- **APP_URL env var** — add `APP_URL=https://reviewoptic.com` to Replit env vars (required for Facebook/LinkedIn OAuth callbacks to work)
+- **Facebook/LinkedIn OAuth redirect URIs** — register `https://reviewoptic.com/auth/facebook/callback` and `https://reviewoptic.com/auth/linkedin/callback` in Meta and LinkedIn developer portals
+- **Referral programme** — needs completing
+- **SEO meta tags** — `use-page-meta` hook ready, not yet applied to public pages
+- **Intro video** — add YouTube URL to `INTRO_VIDEO_URL` (line 74, Dashboard.tsx) and uncomment the useEffect body to re-enable
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+- To delete a test account: use the node script pattern (select by email, delete by account_id in dependency order)

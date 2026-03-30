@@ -27,10 +27,12 @@ export interface IStorage {
   // Customers
   getCustomers(accountId: string): Promise<Customer[]>;
   getArchivedCustomers(accountId: string): Promise<Customer[]>;
+  getDeletedCustomers(accountId: string): Promise<Customer[]>;
   getCustomer(id: string, accountId: string): Promise<Customer | undefined>;
   createCustomer(data: InsertCustomer): Promise<Customer>;
   updateCustomer(id: string, data: Partial<InsertCustomer>, accountId: string): Promise<Customer | undefined>;
   deleteCustomer(id: string, accountId: string): Promise<void>;
+  reactivateCustomer(id: string, accountId: string): Promise<void>;
   // Review Requests
   getReviewRequests(accountId: string): Promise<ReviewRequest[]>;
   getReviewRequest(id: string): Promise<ReviewRequest | undefined>;
@@ -94,10 +96,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCustomers(accountId: string): Promise<Customer[]> {
-    return db.select().from(customers).where(and(eq(customers.accountId, accountId), eq(customers.archived, false))).orderBy(desc(customers.createdAt));
+    return db.select().from(customers).where(and(eq(customers.accountId, accountId), eq(customers.archived, false), sql`${customers.deletedAt} IS NULL`)).orderBy(desc(customers.createdAt));
   }
   async getArchivedCustomers(accountId: string): Promise<Customer[]> {
-    return db.select().from(customers).where(and(eq(customers.accountId, accountId), eq(customers.archived, true))).orderBy(desc(customers.createdAt));
+    return db.select().from(customers).where(and(eq(customers.accountId, accountId), eq(customers.archived, true), sql`${customers.deletedAt} IS NULL`)).orderBy(desc(customers.createdAt));
+  }
+  async getDeletedCustomers(accountId: string): Promise<Customer[]> {
+    return db.select().from(customers).where(and(eq(customers.accountId, accountId), sql`${customers.deletedAt} IS NOT NULL`)).orderBy(desc(customers.deletedAt));
   }
   async getCustomer(id: string, accountId: string): Promise<Customer | undefined> {
     const [c] = await db.select().from(customers).where(and(eq(customers.id, id), eq(customers.accountId, accountId)));
@@ -113,7 +118,11 @@ export class DatabaseStorage implements IStorage {
     return c;
   }
   async deleteCustomer(id: string, accountId: string): Promise<void> {
-    await db.delete(customers).where(and(eq(customers.id, id), eq(customers.accountId, accountId)));
+    // Soft-delete: permanently purged after 30 days, ratings/requests kept for stats
+    await db.update(customers).set({ deletedAt: new Date() }).where(and(eq(customers.id, id), eq(customers.accountId, accountId)));
+  }
+  async reactivateCustomer(id: string, accountId: string): Promise<void> {
+    await db.update(customers).set({ deletedAt: null }).where(and(eq(customers.id, id), eq(customers.accountId, accountId)));
   }
 
   async getReviewRequests(accountId: string): Promise<ReviewRequest[]> {

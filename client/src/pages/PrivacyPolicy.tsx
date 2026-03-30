@@ -65,7 +65,7 @@ export default function PrivacyPolicy() {
               <li><strong className="text-foreground">Neon (PostgreSQL)</strong> — used to store all platform data securely. Neon is GDPR-compliant and we have a Data Processing Agreement in place with Neon.</li>
               <li><strong className="text-foreground">Twilio</strong> — used to send SMS and WhatsApp messages on your behalf to your customers. Customer phone numbers are shared with Twilio solely for this purpose. Twilio is GDPR-compliant and we have a Data Processing Agreement in place with Twilio.</li>
               <li><strong className="text-foreground">Sentry</strong> — used for error monitoring to help us identify and fix technical issues. Error data may include technical information such as IP addresses. Sentry is GDPR-compliant and we have a Data Processing Agreement in place with Sentry.</li>
-              <li><strong className="text-foreground">Meta (Facebook/Instagram)</strong> — if you connect your social accounts</li>
+              <li><strong className="text-foreground">Meta (Facebook)</strong> — if you connect your Facebook Page for auto-posting</li>
               <li><strong className="text-foreground">LinkedIn</strong> — if you connect your LinkedIn account</li>
             </ul>
             <p className="text-muted-foreground leading-relaxed mt-3">

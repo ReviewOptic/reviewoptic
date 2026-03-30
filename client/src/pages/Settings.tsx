@@ -80,7 +80,6 @@ export default function Settings() {
     logoUrl: "",
     logoPosition: "left",
     facebookProfileUrl: "",
-    instagramUrl: "",
     xUrl: "",
     linkedinUrl: "",
     googleReviewLink: "",
@@ -114,7 +113,6 @@ export default function Settings() {
         logoUrl: settings.logoUrl || "",
         logoPosition: settings.logoPosition || "left",
         facebookProfileUrl: settings.facebookProfileUrl || "",
-        instagramUrl: settings.instagramUrl || "",
         xUrl: settings.xUrl || "",
         linkedinUrl: settings.linkedinUrl || "",
         googleReviewLink: settings.googleReviewLink || "",
@@ -174,13 +172,13 @@ export default function Settings() {
   };
 
   if (isLoading) return (
-    <div className="px-6 py-7 max-w-3xl mx-auto space-y-4">
+    <div className="px-6 py-7 max-w-5xl mx-auto space-y-4">
       {[1,2,3].map(i => <Skeleton key={i} className="h-40 w-full" />)}
     </div>
   );
 
   return (
-    <div className="px-6 py-7 max-w-3xl mx-auto">
+    <div className="px-6 py-7 max-w-5xl mx-auto">
       <div className="flex items-center justify-between -mx-6 -mt-7 px-6 py-5 mb-6 bg-primary/[0.07] border-b border-primary/10">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
@@ -614,7 +612,6 @@ export default function Settings() {
               <CardContent className="space-y-3 pb-5">
                 {[
                   { label: "Facebook", key: "facebookProfileUrl", placeholder: "https://www.facebook.com/yourbusiness" },
-                  { label: "Instagram", key: "instagramUrl", placeholder: "https://www.instagram.com/yourbusiness" },
                   { label: "LinkedIn", key: "linkedinUrl", placeholder: "https://www.linkedin.com/company/yourbusiness" },
                 ].map(({ label, key, placeholder }) => (
                   <div key={key} className="flex items-center gap-2">
@@ -640,7 +637,7 @@ export default function Settings() {
               <CardHeader>
                 <CardTitle className="text-[15px]">Connected Accounts</CardTitle>
                 <CardDescription className="text-[12.5px]">
-                  Connect your Facebook Page and LinkedIn Company Page to auto-post when a 4 or 5 star review is received.
+                  Connect your Facebook Page to auto-post when a 4 or 5 star review is received.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5 pb-5">
@@ -682,25 +679,6 @@ export default function Settings() {
                         Connect Facebook
                       </Button>
                     )}
-                  </div>
-                </div>
-
-                <div className="border-t border-border" />
-
-                {/* Instagram row */}
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 flex items-center justify-center flex-shrink-0">
-                      <Share2 className="w-4 h-4 text-white" />
-                    </div>
-                    <div>
-                      <p className="text-[13.5px] font-medium">Instagram</p>
-                      {settings?.facebookPageAccessToken ? (
-                        <p className="text-[12px] text-green-600 font-medium">Connected via Facebook</p>
-                      ) : (
-                        <p className="text-[12px] text-muted-foreground">Connects automatically with Facebook</p>
-                      )}
-                    </div>
                   </div>
                 </div>
 

@@ -480,6 +480,12 @@ export async function runMigrations() {
     // Subscription confirmation email — sent exactly once on first real payment
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_confirmation_sent BOOLEAN NOT NULL DEFAULT false`);
 
+    // Soft-delete customers — permanently purged after 30 days, ratings/requests preserved in stats
+    await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`);
+
+    // Per-account font family selection
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS font_family TEXT NOT NULL DEFAULT 'Inter'`);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();

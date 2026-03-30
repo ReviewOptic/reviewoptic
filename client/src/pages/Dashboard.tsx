@@ -324,11 +324,16 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
       </Dialog>
 
       {/* Page header band */}
-      <div className="bg-primary/[0.07] border-b border-primary/10 px-6 pt-7 pb-5">
-        <h1 className="text-2xl font-bold text-foreground tracking-tight">
-          {getGreeting()}{settings?.ownerName ? `, ${settings.ownerName.trim().split(" ")[0]}` : ""}!
-        </h1>
-        <p className="text-[13.5px] text-muted-foreground mt-0.5 italic">{quote}</p>
+      <div className="bg-primary/[0.07] border-b border-primary/10 px-6 pt-7 pb-5 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">
+            {getGreeting()}{settings?.ownerName ? `, ${settings.ownerName.trim().split(" ")[0]}` : ""}!
+          </h1>
+          <p className="text-[13.5px] text-muted-foreground mt-0.5 italic">{quote}</p>
+        </div>
+        {settings?.logoUrl && (
+          <img src={settings.logoUrl} alt="Business logo" className="hidden sm:block h-auto object-contain flex-shrink-0 max-w-[160px]" loading="lazy" />
+        )}
       </div>
 
       <div className="px-6 py-6 space-y-6">
@@ -337,7 +342,7 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <button onClick={() => navigate("/customers")} className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4 hover:brightness-110 transition-all text-left w-full">
+        <button onClick={() => navigate("/customers")} className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4 hover:brightness-110 transition-[filter] text-left w-full">
           {statsLoading ? <Skeleton className="h-12 w-full opacity-30" /> : (
             <>
               <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-white/20">
@@ -350,7 +355,7 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
             </>
           )}
         </button>
-        <button onClick={() => navigate("/customers?status=clicked")} className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4 hover:brightness-110 transition-all text-left w-full">
+        <button onClick={() => navigate("/customers?status=clicked")} className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4 hover:brightness-110 transition-[filter] text-left w-full">
           {statsLoading ? <Skeleton className="h-12 w-full opacity-30" /> : (
             <>
               <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-white/20">
@@ -363,7 +368,7 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
             </>
           )}
         </button>
-        <button onClick={() => document.getElementById("private-feedback")?.scrollIntoView({ behavior: "smooth", block: "start" })} className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4 hover:brightness-110 transition-all text-left w-full">
+        <button onClick={() => document.getElementById("private-feedback")?.scrollIntoView({ behavior: "smooth", block: "start" })} className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4 hover:brightness-110 transition-[filter] text-left w-full">
           {statsLoading ? <Skeleton className="h-12 w-full opacity-30" /> : (
             <>
               <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-white/20">
@@ -376,7 +381,7 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
             </>
           )}
         </button>
-        <button onClick={() => navigate("/stat/avg-rating")} className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4 hover:brightness-110 transition-all text-left w-full">
+        <button onClick={() => navigate("/stat/avg-rating")} className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4 hover:brightness-110 transition-[filter] text-left w-full">
           {statsLoading ? <Skeleton className="h-12 w-full opacity-30" /> : (
             <>
               <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-white/20">
@@ -404,15 +409,15 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
           ...(!user?.isAdmin && user?.role !== "member" ? [{ label: "Billing", icon: CreditCard, path: "/billing" }] : []),
         ];
         return (
-          <div className="grid grid-cols-3 sm:hidden gap-3">
+          <div className="grid sm:hidden gap-1.5" style={{ gridTemplateColumns: `repeat(${links.length}, 1fr)` }}>
             {links.map(link => (
               <button
                 key={link.path}
                 onClick={() => navigate(link.path)}
-                className="flex flex-col items-center gap-2 py-4 px-2 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors"
+                className="flex flex-col items-center gap-1.5 py-2.5 px-1 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors"
               >
-                <link.icon className="w-5 h-5 text-primary" />
-                <span className="text-[12px] font-medium">{link.label}</span>
+                <link.icon className="w-4 h-4 text-primary" />
+                <span className="text-[10px] font-medium leading-tight text-center">{link.label}</span>
               </button>
             ))}
           </div>

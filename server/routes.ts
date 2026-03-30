@@ -165,28 +165,6 @@ async function postReviewToSocial(review: Review, customer: Customer, settings: 
     }
   }
 
-  // Instagram — requires Meta App Review approval + instagramUserId stored in settings
-  if ((settings as any).instagramAccessToken && (settings as any).instagramUserId) {
-    try {
-      // Step 1: create media container
-      const containerRes = await fetch(`https://graph.facebook.com/v18.0/${(settings as any).instagramUserId}/media`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ caption: message, media_type: "REELS", access_token: (settings as any).instagramAccessToken }),
-      });
-      const container = await containerRes.json();
-      if (container.id) {
-        // Step 2: publish
-        await fetch(`https://graph.facebook.com/v18.0/${(settings as any).instagramUserId}/media_publish`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ creation_id: container.id, access_token: (settings as any).instagramAccessToken }),
-        });
-      }
-    } catch (err) {
-      console.error("Instagram post error:", err);
-    }
-  }
 }
 
 const logoUpload = multer({
@@ -244,6 +222,14 @@ setInterval(() => {
     }
   }
 }, 5 * 60 * 1000);
+
+// Permanently purge soft-deleted customers after 30 days (ratings/requests kept for stats)
+setInterval(async () => {
+  try {
+    const result = await pool.query(`DELETE FROM customers WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '30 days'`);
+    if (result.rowCount && result.rowCount > 0) console.log(`[purge] Permanently deleted ${result.rowCount} customer(s) past 30-day grace period`);
+  } catch (err: any) { console.error("[purge] Customer purge error:", err.message); }
+}, 60 * 60 * 1000); // runs hourly
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
 
@@ -489,9 +475,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const accountId = req.session.accountId!;
 
       // Only account owners can delete
-      const { rows } = await pool.query(`SELECT role, password FROM users WHERE id = $1`, [userId]);
+      const { rows } = await pool.query(`SELECT role, password, email FROM users WHERE id = $1`, [userId]);
       if (rows[0]?.role !== "owner") {
         return res.status(403).json({ message: "Only the account owner can delete the account." });
+      }
+
+      // Admin account is permanently protected
+      if (rows[0]?.email === "hello@reviewoptic.com") {
+        return res.status(403).json({ message: "This account cannot be deleted." });
       }
 
       // Verify password
@@ -1518,6 +1509,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
   app.delete("/api/customers/:id", requireAuth, async (req, res) => {
     await storage.deleteCustomer(String(req.params.id), req.session.accountId!);
+    res.json({ success: true });
+  });
+
+  app.get("/api/customers/deleted", requireAuth, async (req, res) => {
+    const deleted = await storage.getDeletedCustomers(req.session.accountId!);
+    res.json(deleted);
+  });
+
+  app.post("/api/customers/:id/reactivate", requireAuth, async (req, res) => {
+    await storage.reactivateCustomer(String(req.params.id), req.session.accountId!);
     res.json({ success: true });
   });
 
@@ -2939,7 +2940,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       event = typeof rawBody === "string" ? JSON.parse(rawBody) : rawBody;
     }
 
-    if (event.type === "invoice.payment_succeeded") {
+    if (event.type === "invoice.paid" || event.type === "invoice.payment_succeeded") {
       const invoice = event.data.object as any;
       // Only send confirmation on the very first payment (amount > 0, not a setup invoice)
       if (invoice.amount_paid > 0 && invoice.billing_reason !== "subscription_create") {

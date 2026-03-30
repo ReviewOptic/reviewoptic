@@ -756,7 +756,7 @@ export default function Admin() {
         <div>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <p className="text-sm text-muted-foreground">{users.filter(u => planFilter === "all" || u.planType === planFilter).length} user{users.filter(u => planFilter === "all" || u.planType === planFilter).length !== 1 ? "s" : ""}</p>
+              <p className="text-sm text-muted-foreground">{users.filter(u => u.email !== "hello@reviewoptic.com" && (planFilter === "all" || u.planType === planFilter)).length} user{users.filter(u => u.email !== "hello@reviewoptic.com" && (planFilter === "all" || u.planType === planFilter)).length !== 1 ? "s" : ""}</p>
               {users.some(u => u.emailUnsubscribed) && (
                 <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
                   {users.filter(u => u.emailUnsubscribed).length} unsubscribed
@@ -776,24 +776,25 @@ export default function Admin() {
             </Button>
           </div>
           <div className="bg-card border border-border rounded-xl overflow-hidden">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[700px]">
               <thead>
                 <tr className="border-b border-border bg-muted/50">
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Email</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Plan</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Customers</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Requests</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Last Active</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Verified</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Role</th>
-                  <th className="px-4 py-3" />
+                  <th className="text-left px-3 py-3 font-medium text-muted-foreground">Email</th>
+                  <th className="text-left px-3 py-3 font-medium text-muted-foreground">Plan</th>
+                  <th className="text-left px-3 py-3 font-medium text-muted-foreground">Custs</th>
+                  <th className="text-left px-3 py-3 font-medium text-muted-foreground">Reqs</th>
+                  <th className="text-left px-3 py-3 font-medium text-muted-foreground">Last Active</th>
+                  <th className="text-left px-3 py-3 font-medium text-muted-foreground">Ver.</th>
+                  <th className="text-left px-3 py-3 font-medium text-muted-foreground">Role</th>
+                  <th className="px-3 py-3" />
                 </tr>
               </thead>
               <tbody>
-                {users.filter(u => planFilter === "all" || u.planType === planFilter).map(u => (
+                {users.filter(u => u.email !== "hello@reviewoptic.com" && (planFilter === "all" || u.planType === planFilter)).map(u => (
                   <tr key={u.id} className="border-b border-border last:border-0">
-                    <td className="px-4 py-3 font-medium">{u.email}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3 font-medium">{u.email}</td>
+                    <td className="px-3 py-3">
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${
                         u.planType === "pro" ? "bg-blue-100 text-blue-700" :
                         u.planType === "lite" ? "bg-indigo-100 text-indigo-700" :
@@ -802,15 +803,15 @@ export default function Admin() {
                         "bg-muted text-muted-foreground"
                       }`}>{u.planType === "lite" ? "standard" : u.planType}</span>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{u.customerCount}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{u.reviewRequestCount}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{fmtDate(u.lastActive)}</td>
-                    <td className="px-4 py-3">{u.emailVerified ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <XCircle className="w-4 h-4 text-muted-foreground" />}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3 text-muted-foreground">{u.customerCount}</td>
+                    <td className="px-3 py-3 text-muted-foreground">{u.reviewRequestCount}</td>
+                    <td className="px-3 py-3 text-muted-foreground">{fmtDate(u.lastActive)}</td>
+                    <td className="px-3 py-3">{u.emailVerified ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <XCircle className="w-4 h-4 text-muted-foreground" />}</td>
+                    <td className="px-3 py-3">
                       {u.isAdmin ? <span className="text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">Admin</span> : <span className="text-xs text-muted-foreground">User</span>}
                       {u.emailUnsubscribed && <span className="ml-1.5 text-xs font-medium px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">Unsub</span>}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3">
                       <div className="flex items-center gap-1.5 justify-end">
                         {!u.emailVerified && <Button size="sm" variant="outline" onClick={() => verifyUser(u.id)} title="Verify email"><CheckCircle2 className="w-3.5 h-3.5" /></Button>}
                         {u.id !== user?.id && <Button size="sm" variant="outline" onClick={() => toggleAdmin(u.id)} title={u.isAdmin ? "Remove admin" : "Make admin"}>{u.isAdmin ? <ShieldOff className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}</Button>}
@@ -829,6 +830,7 @@ export default function Admin() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}

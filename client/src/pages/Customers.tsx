@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import {
   Plus, Search, Send, MoreHorizontal, Ban, Trash2, Users,
-  Upload, Download, X, CheckCircle2, Clock, Star, Eye, AlertCircle, Edit2, Sparkles, RefreshCw, Mic, Video, Archive, ArchiveRestore, CalendarClock
+  Upload, Download, X, CheckCircle2, Clock, Star, Eye, AlertCircle, Edit2, Sparkles, RefreshCw, Mic, Video, Archive, ArchiveRestore, CalendarClock, ArrowLeft
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -733,6 +733,7 @@ export default function Customers() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [showArchived, setShowArchived] = useState(false);
+  const [showDeleted, setShowDeleted] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [sendTo, setSendTo] = useState<Customer | null>(null);
@@ -767,6 +768,7 @@ export default function Customers() {
 
   const { data: customers, isLoading } = useQuery<Customer[]>({ queryKey: ["/api/customers"] });
   const { data: archivedCustomers, isLoading: isLoadingArchived } = useQuery<Customer[]>({ queryKey: ["/api/customers/archived"], enabled: showArchived });
+  const { data: deletedCustomers, isLoading: isLoadingDeleted } = useQuery<Customer[]>({ queryKey: ["/api/customers/deleted"], enabled: showDeleted });
   const { data: allRequests = [] } = useQuery<ReviewRequest[]>({ queryKey: ["/api/review-requests"] });
 
   const toggleDncMutation = useMutation({
@@ -800,8 +802,18 @@ export default function Customers() {
     mutationFn: async (id: string) => apiRequest("DELETE", `/api/customers/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
-      toast({ title: "Customer deleted" });
+      queryClient.invalidateQueries({ queryKey: ["/api/customers/archived"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/customers/deleted"] });
+      toast({ title: "Customer deleted", description: "Will be permanently removed in 30 days. You can reactivate them from the Deleted view." });
+    },
+  });
+
+  const reactivateMutation = useMutation({
+    mutationFn: async (id: string) => apiRequest("POST", `/api/customers/${id}/reactivate`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/customers/deleted"] });
+      toast({ title: "Customer reactivated" });
     },
   });
 
@@ -815,8 +827,12 @@ export default function Customers() {
     !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.email.toLowerCase().includes(search.toLowerCase())
   ) || [];
 
-  const displayList = showArchived ? filteredArchived : filtered;
-  const displayLoading = showArchived ? isLoadingArchived : isLoading;
+  const filteredDeleted = deletedCustomers?.filter(c =>
+    !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.email.toLowerCase().includes(search.toLowerCase())
+  ) || [];
+
+  const displayList = showDeleted ? filteredDeleted : showArchived ? filteredArchived : filtered;
+  const displayLoading = showDeleted ? isLoadingDeleted : showArchived ? isLoadingArchived : isLoading;
 
   const statusFilters = [
     { value: "all", label: "All" },
@@ -852,22 +868,39 @@ export default function Customers() {
     <div className="px-6 py-7 max-w-7xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 -mx-6 -mt-7 px-6 py-5 mb-6 bg-primary/[0.07] border-b border-primary/10">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Customers</h1>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {showDeleted ? "Deleted Customers" : "Customers"}
+          </h1>
           <p className="text-[13.5px] text-muted-foreground mt-0.5">
-            {customers?.length || 0} total customers
+            {showDeleted ? `${filteredDeleted.length} deleted` : `${customers?.length || 0} total customers`}
           </p>
         </div>
         <div className="flex flex-wrap items-start gap-2">
+          {showDeleted && (
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowDeleted(false)}>
+              <ArrowLeft className="w-3.5 h-3.5" />
+              All Customers
+            </Button>
+          )}
           <Button
             variant={showArchived ? "default" : "outline"}
             size="sm"
             className="gap-1.5"
-            onClick={() => setShowArchived(v => !v)}
+            onClick={() => { setShowArchived(v => !v); setShowDeleted(false); }}
           >
             <Archive className="w-3.5 h-3.5" />
             Archived
           </Button>
-          {!isReadOnly && !showArchived && (
+          <Button
+            variant={showDeleted ? "default" : "outline"}
+            size="sm"
+            className="gap-1.5"
+            onClick={() => { setShowDeleted(v => !v); setShowArchived(false); }}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Deleted
+          </Button>
+          {!isReadOnly && !showArchived && !showDeleted && (
             <>
               <div className="flex flex-col items-center gap-1">
                 <div className="flex gap-1.5 w-full">
@@ -910,7 +943,7 @@ export default function Customers() {
             </button>
           )}
         </div>
-        {!showArchived && (
+        {!showArchived && !showDeleted && (
           <div className="flex gap-1.5 flex-wrap">
             {statusFilters.map(f => (
               <Button
@@ -934,7 +967,7 @@ export default function Customers() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-muted/40">
-                {!showArchived && !isReadOnly && (
+                {!showArchived && !showDeleted && !isReadOnly && (
                   <th className="pl-4 pr-2 py-3 w-8">
                     <input
                       type="checkbox"
@@ -971,11 +1004,13 @@ export default function Customers() {
                   <td colSpan={7} className="px-4 py-16 text-center text-muted-foreground">
                     <Users className="w-8 h-8 mx-auto mb-2 opacity-40" />
                     <p className="text-[13px]">
-                      {showArchived
-                        ? (search ? "No archived customers match your search" : "No archived customers")
-                        : (search || statusFilter !== "all" ? "No customers match your filters" : "No customers yet. Add your first customer!")}
+                      {showDeleted
+                        ? (search ? "No deleted customers match your search" : "No deleted customers")
+                        : showArchived
+                          ? (search ? "No archived customers match your search" : "No archived customers")
+                          : (search || statusFilter !== "all" ? "No customers match your filters" : "No customers yet. Add your first customer!")}
                     </p>
-                    {!showArchived && !search && statusFilter === "all" && !isReadOnly && (
+                    {!showArchived && !showDeleted && !search && statusFilter === "all" && !isReadOnly && (
                       <Button size="sm" className="mt-3 gap-1.5" onClick={() => setShowAdd(true)}>
                         <Plus className="w-3.5 h-3.5" /> Add Customer
                       </Button>
@@ -989,7 +1024,7 @@ export default function Customers() {
                     className="border-b border-border/50 hover:bg-muted/30 transition-colors"
                     data-testid={`customer-row-${customer.id}`}
                   >
-                    {!showArchived && !isReadOnly && (
+                    {!showArchived && !showDeleted && !isReadOnly && (
                       <td className="pl-4 pr-2 py-3 w-8">
                         <input
                           type="checkbox"
@@ -1058,8 +1093,23 @@ export default function Customers() {
                             <MoreHorizontal className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-44">
-                          {showArchived ? (
+                        <DropdownMenuContent align="end" className="w-48">
+                          {showDeleted ? (
+                            // Deleted view: reactivate only
+                            <>
+                              {customer.deletedAt && (
+                                <div className="px-3 py-1.5 text-[11px] text-muted-foreground">
+                                  Purges {new Date(new Date(customer.deletedAt).getTime() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                                </div>
+                              )}
+                              {!isReadOnly && (
+                                <DropdownMenuItem onClick={() => reactivateMutation.mutate(customer.id)}>
+                                  <ArchiveRestore className="w-3.5 h-3.5 mr-2 text-green-600" />
+                                  Reactivate
+                                </DropdownMenuItem>
+                              )}
+                            </>
+                          ) : showArchived ? (
                             // Archived view: only show unarchive + delete
                             <>
                               <DropdownMenuItem onClick={() => navigate(`/customers/${customer.id}`)}>
