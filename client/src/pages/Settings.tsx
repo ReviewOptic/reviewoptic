@@ -193,24 +193,24 @@ export default function Settings() {
       </div>
 
       <Tabs defaultValue={new URLSearchParams(window.location.search).get("tab") || "business"}>
-        <div className="flex gap-6 items-start">
-          <TabsList className="flex flex-col h-auto w-44 shrink-0 bg-muted/50 rounded-xl p-1.5 gap-0.5">
-            <TabsTrigger value="business" className="w-full justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-business">Business</TabsTrigger>
-            <TabsTrigger value="platforms" className="w-full justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-platforms">Review Platforms</TabsTrigger>
-            <TabsTrigger value="followup" className="w-full justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-followup">Follow-Ups</TabsTrigger>
-            <TabsTrigger value="widget" className="w-full justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-widget">Widget</TabsTrigger>
-            <TabsTrigger value="social" className="w-full justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-social">Social</TabsTrigger>
-            <TabsTrigger value="notifications" className="w-full justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-notifications">Insight Emails</TabsTrigger>
-            <TabsTrigger value="team" className="w-full justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-team">
-              <span className="flex items-center gap-1.5 w-full">
+        <div className="flex flex-col md:flex-row md:gap-6 md:items-start">
+          <TabsList className="flex flex-row overflow-x-auto md:flex-col md:h-auto md:w-44 md:shrink-0 md:overflow-x-visible bg-muted/50 rounded-xl p-1.5 gap-0.5">
+            <TabsTrigger value="business" className="whitespace-nowrap md:w-full md:justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-business">Business</TabsTrigger>
+            <TabsTrigger value="platforms" className="whitespace-nowrap md:w-full md:justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-platforms">Review Platforms</TabsTrigger>
+            <TabsTrigger value="followup" className="whitespace-nowrap md:w-full md:justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-followup">Follow-Ups</TabsTrigger>
+            <TabsTrigger value="widget" className="whitespace-nowrap md:w-full md:justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-widget">Widget</TabsTrigger>
+            <TabsTrigger value="social" className="whitespace-nowrap md:w-full md:justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-social">Social</TabsTrigger>
+            <TabsTrigger value="notifications" className="whitespace-nowrap md:w-full md:justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-notifications">Insight Emails</TabsTrigger>
+            <TabsTrigger value="team" className="whitespace-nowrap md:w-full md:justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-team">
+              <span className="flex items-center gap-1.5">
                 Team
-                {user?.planType === "lite" && <span className="text-[10px] font-semibold bg-background text-muted-foreground px-1.5 py-0.5 rounded ml-auto">Pro</span>}
+                {user?.planType === "lite" && <span className="text-[10px] font-semibold bg-background text-muted-foreground px-1.5 py-0.5 rounded">Pro</span>}
               </span>
             </TabsTrigger>
-            <TabsTrigger value="referral" className="w-full justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-referral">Referral</TabsTrigger>
-            <TabsTrigger value="integrations" className="w-full justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-integrations">Integrations</TabsTrigger>
+            <TabsTrigger value="referral" className="whitespace-nowrap md:w-full md:justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-referral">Referral</TabsTrigger>
+            <TabsTrigger value="integrations" className="whitespace-nowrap md:w-full md:justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-integrations">Integrations</TabsTrigger>
           </TabsList>
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 mt-4 md:mt-0">
 
         {/* Business Info */}
         <TabsContent value="business">
