@@ -476,7 +476,7 @@ export async function sendSubscriptionEndedEmail(to: string, firstName: string, 
   });
 }
 
-export async function sendAccountDeletionEmail(to: string, firstName: string, purgeDate: string) {
+export async function sendAccountDeletionEmail(to: string, firstName: string, purgeDate: string, reactivateUrl: string) {
   if (!process.env.RESEND_API_KEY) {
     console.log(`[account deletion email] No RESEND_API_KEY. Would have sent to ${to}`);
     return;
@@ -485,19 +485,25 @@ export async function sendAccountDeletionEmail(to: string, firstName: string, pu
   await resend.emails.send({
     from: REVIEWOPTIC_FROM,
     to,
-    subject: "Your ReviewOptic account has been scheduled for deletion",
+    subject: "Your ReviewOptic account has been deleted",
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
         ${LOGO_HTML}
-        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Account deletion confirmed${firstName ? `, ${firstName}` : ""}</h2>
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Your account has been deleted${firstName ? `, ${firstName}` : ""}</h2>
         <p style="color:#555;margin:0 0 16px;line-height:1.6;">
-          As requested, your ReviewOptic account has been scheduled for permanent deletion. All your data — customers, review requests, templates, and analytics — will be permanently removed on <strong>${purgeDate}</strong>.
+          As requested, your ReviewOptic account has been deleted. All your data — customers, review requests, templates, analytics, and team members — will be permanently and irreversibly removed on <strong>${purgeDate}</strong>.
         </p>
-        <p style="color:#555;margin:0 0 16px;line-height:1.6;">
-          If this was a mistake, please contact us immediately by replying to this email and we'll do our best to help.
+        <p style="color:#555;margin:0 0 20px;line-height:1.6;">
+          Changed your mind? You can reactivate your account at any time before ${purgeDate} and everything will be restored exactly as you left it.
+        </p>
+        <a href="${reactivateUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin-bottom:24px;">
+          Reactivate my account
+        </a>
+        <p style="color:#555;margin:0 0 8px;line-height:1.6;">
+          After ${purgeDate} your data cannot be recovered. If you have any questions, just hit reply.
         </p>
         <p style="color:#555;margin:0;line-height:1.6;">
-          Thank you for using ReviewOptic. We wish you all the best. 🙏
+          Thank you for using ReviewOptic. We hope to see you again. 🙏
         </p>
         <p style="color:#999;font-size:12px;margin-top:32px;">Alicia &amp; Rob — ReviewOptic</p>
         ${PLATFORM_FOOTER}

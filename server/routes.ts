@@ -519,11 +519,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         [accountId]
       );
 
-      // Send deletion confirmation email
+      // Send deletion confirmation email with reactivation link
       const { rows: emailRows } = await pool.query(`SELECT email, first_name FROM users WHERE id = $1`, [userId]);
       if (emailRows[0]) {
+        const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://reviewoptic.com");
         const { sendAccountDeletionEmail } = await import("./email");
-        sendAccountDeletionEmail(emailRows[0].email, emailRows[0].first_name || "", purgeDate).catch(err =>
+        sendAccountDeletionEmail(emailRows[0].email, emailRows[0].first_name || "", purgeDate, `${appUrl}/pricing`).catch(err =>
           console.error("[delete account] Failed to send deletion email:", err.message)
         );
       }
@@ -2741,7 +2742,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
 
     await pool.query(
-      `UPDATE users SET plan_type = $1, plan_period = $2, stripe_customer_id = $3, stripe_subscription_id = $4, trial_ends_at = $5, trial_reminder_sent = false${wasCancelled ? ", reactivated_at = NOW()" : ""} WHERE id = $6`,
+      `UPDATE users SET plan_type = $1, plan_period = $2, stripe_customer_id = $3, stripe_subscription_id = $4, trial_ends_at = $5, trial_reminder_sent = false, scheduled_for_deletion_at = NULL${wasCancelled ? ", reactivated_at = NOW()" : ""} WHERE id = $6`,
       [plan, period, customerId, subscriptionId, trialEndsAt, userId]
     );
 
