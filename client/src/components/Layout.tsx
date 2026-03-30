@@ -9,7 +9,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import type { PrivateFeedback } from "@shared/schema";
 import ChatWidget from "@/components/ChatWidget";
-import ThemeSwitcher from "@/components/ThemeSwitcher";
 import { useToast } from "@/hooks/use-toast";
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -90,9 +89,6 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
           );
         })}
       </nav>
-      <div className="border-t border-sidebar-border pt-2">
-        <ThemeSwitcher />
-      </div>
       <div className="px-4 py-3 border-t border-sidebar-border">
         <div className="text-[11px] text-muted-foreground/70 truncate mb-2">{user?.email}</div>
         {!user?.isAdmin && user?.role !== "member" && (

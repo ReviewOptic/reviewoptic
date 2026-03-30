@@ -325,11 +325,12 @@ html[data-theme="bold"] {
   --sidebar: 214 72% 18%;
   --sidebar-foreground: 210 30% 92%;
   --sidebar-border: 214 72% 13%;
-  --sidebar-primary: 42 100% 56%;
-  --sidebar-primary-foreground: 214 72% 13%;
+  --sidebar-primary: 40 71% 54%;
+  --sidebar-primary-foreground: 203 40% 12%;
   --sidebar-accent: 214 60% 26%;
   --sidebar-accent-foreground: 210 30% 92%;
-  --sidebar-ring: 42 100% 56%;
+  --sidebar-ring: 40 71% 54%;
+  --primary: 202.7 83.6% 33.5%;
   --background: 210 14% 97%;
   --card: 0 0% 100%;
 }
