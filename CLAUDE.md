@@ -371,3 +371,28 @@ Your job is to be the developer they would hire if they could afford a great one
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
 - To delete a test account: use the node script pattern (select by email, delete by account_id in dependency order)
 
+### Session — 2026-03-30 (forty-third session)
+
+**Tasks completed:**
+- **Analytics active state colours**: Period pills (7d/30d/60d/All time/Custom), channel toggles, Colours button, and Layout button now all use the user's chosen chart colour scheme (`colors.requests`) instead of hardcoded gold/amber. `activeStyle` inline style derived from `useChartColors()`. Works on mobile and desktop.
+- **Analytics: All time filter added**: New `"all"` period option passes `days=all` to backend; server uses `cutoff = new Date("2000-01-01")` to return all data.
+- **Customers mobile scroll fixed**: Status badge column hidden on mobile (`hidden sm:table-cell`); status badge now shown under the customer name (same pattern as email). Table fits on 375px without horizontal scroll.
+- **Templates tab restructure**: Split into 5 tabs — Ratings | Email | SMS | WhatsApp | Recordings. Ratings tab shows `response_positive` (4-5★) and `response_negative` (1-3★) once (channel-agnostic, uses email channel data). Email/SMS/WhatsApp tabs show follow-ups only + custom templates. Tab bar replaced with plain inline buttons (no full-width highlighted background), sits flush left with a bottom border separator.
+- **Email templates: no character limit**: Char counter hidden for email channel — only shown for SMS (with max chars) and WhatsApp.
+- **Recordings: Upload file button added**: Both Voice Notes and Video Messages now show Record + Upload file buttons in idle state. File input accepts `audio/*` / `video/*` and goes through the same save flow.
+- **Recordings: iOS Safari fix**: Removed hardcoded `audio/webm` and `video/webm` MIME types from `MediaRecorder` — browser now picks its own supported format (`audio/mp4` on iOS). Blob type uses `mr.mimeType` fallback. Filename extension derived from actual MIME type.
+
+**Architecture notes:**
+- `TEMPLATE_SLOTS` split into `RATING_SLOTS` and `FOLLOWUP_SLOTS` — Ratings tab uses `RATING_SLOTS` with `channel="email"`, follow-up tabs use `FOLLOWUP_SLOTS` per channel.
+- `activeStyle: CSSProperties = { backgroundColor: colors.requests, borderColor: colors.requests, color: "#fff" }` — defined in Analytics component body, passed as inline style to all active states.
+
+**Notes for next session:**
+- **⚠️ TWILIO WEBHOOK NOT YET ACTIVATED** — must set `https://reviewoptic.com/api/webhooks/twilio-inbound` in Twilio console
+- **⚠️ STRIPE WEBHOOK NOT YET REGISTERED** — must register `https://reviewoptic.com/api/billing/webhook`, select BOTH `customer.subscription.deleted` AND `invoice.payment_succeeded`, add `STRIPE_WEBHOOK_SECRET`
+- **Referral programme** — needs completing
+- **SEO meta tags** — `use-page-meta` hook ready, not yet applied to public pages
+- **Social auto-posting** — feature card is live on login page; needs the actual feature built before going live
+- **Intro video** — add YouTube URL to `INTRO_VIDEO_URL` (line 74, Dashboard.tsx) and uncomment the useEffect body to re-enable
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+- To delete a test account: use the node script pattern (select by email, delete by account_id in dependency order)
+
