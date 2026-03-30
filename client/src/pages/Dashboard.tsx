@@ -406,8 +406,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Quick links */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {/* Quick links — mobile only */}
+      <div className="grid grid-cols-2 sm:hidden gap-3">
         {[
           { label: "Customers", icon: Users, path: "/customers" },
           { label: "Templates", icon: FileText, path: "/templates" },
