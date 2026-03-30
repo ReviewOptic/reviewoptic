@@ -322,13 +322,13 @@ html[data-theme="slate"] .shadcn-card {
    Inspired by Facebook Workplace, B2B SaaS tools.
    ─────────────────────────────────────────────────── */
 html[data-theme="bold"] {
-  --sidebar: 214 72% 18%;
-  --sidebar-foreground: 210 30% 92%;
-  --sidebar-border: 214 72% 13%;
+  --sidebar: 73 10% 93%;
+  --sidebar-foreground: 203 40% 12%;
+  --sidebar-border: 73 12% 88%;
   --sidebar-primary: 40 71% 54%;
   --sidebar-primary-foreground: 203 40% 12%;
-  --sidebar-accent: 214 60% 26%;
-  --sidebar-accent-foreground: 210 30% 92%;
+  --sidebar-accent: 73 10% 88%;
+  --sidebar-accent-foreground: 203 40% 12%;
   --sidebar-ring: 40 71% 54%;
   --primary: 202.7 83.6% 33.5%;
   --background: 210 14% 97%;
