@@ -319,3 +319,35 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Social auto-posting** — feature card is live on login page; needs the actual feature built before going live
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
 - To delete a test account: use the node script pattern (select by email, delete by account_id in dependency order)
+
+### Session — 2026-03-30 (forty-first session)
+
+**Tasks completed:**
+- **Cancel subscription — modal dialog**: Cancel now opens as a pop-up modal (not inline). Shows clear copy: full access until billing period end, then analytics-only (no new customers, no sending requests). Requires password to confirm.
+- **Delete account — modal dialogs**: Two-step modal flow. Step 1: warning about permanent deletion. Step 2: password entry. Password verified via bcrypt server-side before proceeding.
+- **Delete account — confirmation email**: `sendAccountDeletionEmail` added to email.ts. Fires immediately on deletion with the 30-day purge date.
+- **Cancellation email updated**: Now explicitly states what access remains after billing period ends (analytics OK, no new customers/requests).
+- **Subscription-ended email updated**: Now includes the billing period end date (passed from Stripe webhook `current_period_end`).
+- **Access enforcement tightened**: Cancelled accounts now also blocked from `POST /api/customers` (adding new customers), not just sending requests. Team members inherit parent account restrictions via the existing owner-plan check.
+- **Admin panel — Cancelled tab**: New tab showing full list of cancelled accounts (email, name, company, plan, customers, requests, cancel date) for reactivation outreach. CSV export included.
+- **Admin panel — Deleted tab**: New tab showing anonymised audit log of accounts scheduled for deletion (dates only, no personal details).
+- **Server endpoints**: `GET /api/admin/cancelled-accounts` and `GET /api/admin/deleted-accounts` added.
+- **4–5★ template default text updated**: New text: "Thank you for your rating. Your feedback means a lot to us and helps us continue to improve. If you could take a moment to share your thoughts by leaving us a review, we would greatly appreciate it! Thank you for being a valued customer!\n\n{{business_name}}" — applied to new account creation and reset-to-defaults endpoint.
+- **Cancel/delete button layout**: Both buttons sit on the same row (Cancel left, Delete right) in the billing page idle state.
+
+**Architecture notes:**
+- Cancel flow: `cancelStep` state (`"idle" | "confirm"`) drives the Dialog open state. Password sent with `POST /api/billing/cancel`, verified via bcrypt before Stripe call.
+- Delete flow: `deleteStep` state (`"idle" | "confirm" | "final"`) drives two sequential dialogs. Password sent with `DELETE /api/account`, verified via bcrypt before proceeding.
+- Cancelled tab query: `WHERE plan_type = 'cancelled' AND role = 'owner' AND scheduled_for_deletion_at IS NULL` — excludes accounts that have requested deletion.
+- Deleted tab query: `WHERE scheduled_for_deletion_at IS NOT NULL AND role = 'owner'` — returns dates only.
+
+**Notes for next session:**
+- **⚠️ TWILIO WEBHOOK NOT YET ACTIVATED** — must set `https://reviewoptic.com/api/webhooks/twilio-inbound` in Twilio console
+- **⚠️ STRIPE WEBHOOK NOT YET REGISTERED** — must register `https://reviewoptic.com/api/billing/webhook`, select BOTH `customer.subscription.deleted` AND `invoice.payment_succeeded`, add `STRIPE_WEBHOOK_SECRET`
+- **Referral programme** — needs completing
+- **SEO meta tags** — `use-page-meta` hook ready, not yet applied to public pages
+- **Social auto-posting** — feature card is live on login page; needs the actual feature built before going live
+- **Intro video** — add YouTube URL to `INTRO_VIDEO_URL` (line 74, Dashboard.tsx) and uncomment the useEffect body to re-enable
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+- To delete a test account: use the node script pattern (select by email, delete by account_id in dependency order)
+
