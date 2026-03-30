@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { CheckCircle2, Circle, X, ChevronRight } from "lucide-react";
+import { CheckCircle2, Circle, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useState, useEffect } from "react";
@@ -60,16 +60,10 @@ export default function OnboardingChecklist() {
 
   if (dismissed) return null;
 
+  function dismiss() { localStorage.setItem(DISMISSED_KEY, "1"); setDismissed(true); }
+
   return (
     <div className="bg-white border border-blue-200 rounded-xl p-5 mb-6 relative shadow-sm">
-      <button
-        onClick={() => { localStorage.setItem(DISMISSED_KEY, "1"); setDismissed(true); }}
-        className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
-        aria-label="Dismiss"
-      >
-        <X className="w-4 h-4" />
-      </button>
-
       <div className="flex items-center gap-3 mb-4">
         <div>
           <h2 className="text-base font-semibold text-gray-900">Get started with ReviewOptic</h2>
@@ -105,6 +99,9 @@ export default function OnboardingChecklist() {
           </button>
         ))}
       </div>
+      <button onClick={dismiss} className="mt-3 text-xs text-gray-400 hover:text-gray-600 w-full text-center">
+        Dismiss
+      </button>
     </div>
   );
 }

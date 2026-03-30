@@ -260,13 +260,7 @@ export default function Analytics() {
       const userLogoDataUrl = userLogoResult?.url ?? null;
       const userLogoH = userLogoSize && userLogoSize.w ? (userLogoSize.h / userLogoSize.w) * logoMaxW : logoH;
 
-      // Get section break positions BEFORE canvas capture (DOM positions are stable)
-      const containerRect = contentRef.current.getBoundingClientRect();
       const sections = Array.from(contentRef.current.querySelectorAll(".pdf-section")) as HTMLElement[];
-
-      // Single canvas capture at scale 1.5 — much faster than multiple captures at scale 2
-      const canvas = await html2canvas(contentRef.current, { scale: 1.5, useCORS: true, backgroundColor: "#ffffff" });
-      const imgData = canvas.toDataURL("image/png");
 
       const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
       const pageWidth = pdf.internal.pageSize.getWidth();
@@ -299,41 +293,30 @@ export default function Analytics() {
       };
 
       const imgWidth = pageWidth - margin * 2;
-      const totalImgHeight = (canvas.height * imgWidth) / canvas.width;
       const usableBottom = pageHeight - footerH;
+      const sectionGap = 10;
 
-      // Section top positions in PDF points — used as safe page-break candidates
-      const breakPoints = sections.map(s => {
-        const cssY = s.getBoundingClientRect().top - containerRect.top;
-        return cssY * (imgWidth / containerRect.width);
-      }).filter(y => y > 0);
-      breakPoints.push(totalImgHeight);
-
+      // Capture each section individually — prevents charts ever being split across pages
       const imgY = titleY + 30;
-      let imgOffset = 0;
-      let isFirstPage = true;
+      let cursorY = imgY;
 
-      while (imgOffset < totalImgHeight - 1) {
-        const contentStart = isFirstPage ? imgY : margin;
-        const pageContentH = usableBottom - contentStart;
+      for (const section of sections) {
+        const sCanvas = await html2canvas(section, { scale: 1.5, useCORS: true, backgroundColor: "#ffffff" });
+        const sImgData = sCanvas.toDataURL("image/png");
+        const sH = (sCanvas.height * imgWidth) / sCanvas.width;
 
-        if (!isFirstPage) pdf.addPage();
-
-        // Find the largest section break that fits on this page
-        let breakAt = imgOffset + pageContentH;
-        for (const bp of breakPoints) {
-          if (bp > imgOffset && bp <= imgOffset + pageContentH) breakAt = bp;
+        // Start a new page if section doesn't fit in remaining space
+        if (cursorY + sH > usableBottom) {
+          addFooter();
+          pdf.addPage();
+          cursorY = margin;
         }
-        // Clamp to total image height
-        if (breakAt > totalImgHeight) breakAt = totalImgHeight;
 
-        // Draw full image offset so only the current slice is visible within page bounds
-        pdf.addImage(imgData, "PNG", margin, contentStart - imgOffset, imgWidth, totalImgHeight);
-        addFooter();
-
-        imgOffset = breakAt;
-        isFirstPage = false;
+        pdf.addImage(sImgData, "PNG", margin, cursorY, imgWidth, sH);
+        cursorY += sH + sectionGap;
       }
+
+      addFooter();
 
       const fileLabel = period === "custom" ? `${from}-to-${to}` : `last-${period}-days`;
       pdf.save(`analytics-${fileLabel}.pdf`);
@@ -416,45 +399,9 @@ export default function Analytics() {
       </div>
 
       {/* Controls bar */}
-      <div className="flex flex-wrap items-center gap-2">
-        {/* Left: period pills + optional date inputs + team filter */}
-        <div className="flex flex-wrap items-center gap-1.5 min-w-0 flex-1">
-          {(["7", "30", "60", "all", "custom"] as const).map(d => (
-            <button
-              key={d}
-              onClick={() => setPeriod(d)}
-              className={`px-2 py-1 rounded-md text-[11px] font-medium border transition-colors whitespace-nowrap shrink-0 ${period === d ? "border-transparent text-white" : "border-border text-muted-foreground hover:text-foreground"}`}
-              style={period === d ? activeStyle : {}}
-            >
-              {d === "custom" ? "Custom" : d === "all" ? "All time" : `${d}d`}
-            </button>
-          ))}
-          {period === "custom" && (
-            <>
-              <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="h-7 text-[11px] w-30 shrink-0" />
-              <span className="text-[11px] text-muted-foreground shrink-0">–</span>
-              <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="h-7 text-[11px] w-30 shrink-0" />
-            </>
-          )}
-          {isOwner && (
-            <Select value={userFilter} onValueChange={setUserFilter}>
-              <SelectTrigger className="h-7 w-32 text-[11px] shrink-0">
-                <SelectValue placeholder="All members" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All members</SelectItem>
-                {user && <SelectItem value={user.id}>{ownerDisplayName} (you)</SelectItem>}
-                {teamData?.map(m => (
-                  <SelectItem key={m.id} value={m.id}>
-                    {[m.first_name, m.last_name].filter(Boolean).join(" ") || m.email.split("@")[0]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </div>
-        {/* Right: action buttons — always visible */}
-        <div className="flex items-center gap-1 shrink-0">
+      <div className="space-y-2">
+        {/* Row 1: action buttons */}
+        <div className="flex items-center gap-1">
           <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 px-2" onClick={exportCSV} disabled={isLoading || !data}>
             <Download className="w-3 h-3" />CSV
           </Button>
@@ -468,6 +415,43 @@ export default function Analytics() {
             <LayoutGrid className="w-3 h-3" />Layout
           </Button>
         </div>
+        {/* Row 2: period pills + team filter */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
+          {(["7", "30", "60", "all", "custom"] as const).map(d => (
+            <button
+              key={d}
+              onClick={() => setPeriod(d)}
+              className={`px-2 py-1 rounded-md text-[11px] font-medium border transition-colors whitespace-nowrap shrink-0 ${period === d ? "border-transparent text-white" : "border-border text-muted-foreground hover:text-foreground"}`}
+              style={period === d ? activeStyle : {}}
+            >
+              {d === "custom" ? "Custom" : d === "all" ? "All time" : `${d}d`}
+            </button>
+          ))}
+          {isOwner && (
+            <Select value={userFilter} onValueChange={setUserFilter}>
+              <SelectTrigger className="h-7 w-28 text-[11px] shrink-0">
+                <SelectValue placeholder="Whole team" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Whole team</SelectItem>
+                {user && <SelectItem value={user.id}>{ownerDisplayName} (you)</SelectItem>}
+                {teamData?.map(m => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {[m.first_name, m.last_name].filter(Boolean).join(" ") || m.email.split("@")[0]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+        {/* Row 3: custom date inputs */}
+        {period === "custom" && (
+          <div className="flex items-center gap-2">
+            <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="h-7 text-[11px] w-36 shrink-0" />
+            <span className="text-[11px] text-muted-foreground shrink-0">–</span>
+            <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="h-7 text-[11px] w-36 shrink-0" />
+          </div>
+        )}
       </div>
 
       {/* Colour customiser panel */}

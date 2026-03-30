@@ -337,7 +337,7 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4">
+        <button onClick={() => navigate("/customers")} className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4 hover:brightness-110 transition-all text-left w-full">
           {statsLoading ? <Skeleton className="h-12 w-full opacity-30" /> : (
             <>
               <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-white/20">
@@ -349,8 +349,8 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
               </div>
             </>
           )}
-        </div>
-        <div className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4">
+        </button>
+        <button onClick={() => navigate("/customers?status=clicked")} className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4 hover:brightness-110 transition-all text-left w-full">
           {statsLoading ? <Skeleton className="h-12 w-full opacity-30" /> : (
             <>
               <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-white/20">
@@ -362,8 +362,8 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
               </div>
             </>
           )}
-        </div>
-        <div className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4">
+        </button>
+        <button onClick={() => document.getElementById("private-feedback")?.scrollIntoView({ behavior: "smooth", block: "start" })} className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4 hover:brightness-110 transition-all text-left w-full">
           {statsLoading ? <Skeleton className="h-12 w-full opacity-30" /> : (
             <>
               <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-white/20">
@@ -375,8 +375,8 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
               </div>
             </>
           )}
-        </div>
-        <div className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4">
+        </button>
+        <button onClick={() => navigate("/stat/avg-rating")} className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4 hover:brightness-110 transition-all text-left w-full">
           {statsLoading ? <Skeleton className="h-12 w-full opacity-30" /> : (
             <>
               <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-white/20">
@@ -390,7 +390,7 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
               </div>
             </>
           )}
-        </div>
+        </button>
       </div>
 
       {/* Quick links — mobile only */}
@@ -493,7 +493,7 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
         <div className="space-y-4 order-1 lg:order-2">
 
           {/* Private Feedback */}
-          <Card className={unrespondedFeedback.length > 0 ? "border-card-border border-amber-300 dark:border-amber-700" : "border-card-border border-green-200 dark:border-green-800"}>
+          <Card id="private-feedback" className={unrespondedFeedback.length > 0 ? "border-card-border border-amber-300 dark:border-amber-700" : "border-card-border border-green-200 dark:border-green-800"}>
             <CardHeader className="pb-3 pt-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-[14px] font-semibold flex items-center gap-1.5">

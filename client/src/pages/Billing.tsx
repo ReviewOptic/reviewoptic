@@ -139,11 +139,11 @@ export default function Billing() {
   const annualSaving = user?.planType === "lite" ? "Save £29 — equivalent to 1 month free" : "Save £49 — equivalent to 1 month free";
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-10 space-y-8">
-      <h1 className="text-2xl font-bold text-gray-900">Billing</h1>
+    <div className="max-w-2xl mx-auto px-4 py-5 space-y-4">
+      <h1 className="text-xl font-bold text-gray-900">Billing</h1>
 
       {/* Current plan */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-4">
         <div>
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Current plan</h2>
           {subLoading ? (
@@ -229,9 +229,9 @@ export default function Billing() {
       </div>
 
       {/* Payment details */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Payment details</h2>
-        <p className="text-sm text-gray-500 mb-4">
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Payment details</h2>
+        <p className="text-sm text-gray-500 mb-3">
           Update your card details or billing address via the secure Stripe portal.
         </p>
         <Button variant="outline" className="gap-2" onClick={openPortal} disabled={portalLoading}>
@@ -241,8 +241,8 @@ export default function Billing() {
       </div>
 
       {/* Invoices */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Invoices</h2>
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Invoices</h2>
         {invoicesLoading ? (
           <div className="flex items-center gap-2 text-gray-400"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</div>
         ) : invoices.length === 0 ? (

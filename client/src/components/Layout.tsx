@@ -1,6 +1,6 @@
 import { Link, useLocation, useSearch } from "wouter";
 import { HOWTOS } from "@/data/howtos";
-import { LayoutDashboard, Users, FileText, BarChart3, Settings, Menu, X, LogOut, Shield, CreditCard, AlertTriangle, MessageSquarePlus, BookOpen, ArrowLeft, ChevronDown, ChevronUp } from "lucide-react";
+import { LayoutDashboard, Users, FileText, BarChart3, Settings, Menu, X, LogOut, Shield, CreditCard, AlertTriangle, MessageSquarePlus, BookOpen, ArrowLeft, Home, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useRef, useEffect, Component, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -373,6 +373,8 @@ function MobileOverlay({ open, onClose }: { open: boolean; onClose: () => void }
 function ClassicLayout({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user } = useAuth();
+  const [location, navigate] = useLocation();
+  const isHome = location === "/";
   return (
     <ErrorBoundary>
       <div className="flex h-screen bg-background overflow-hidden">
@@ -384,11 +386,24 @@ function ClassicLayout({ children }: { children: ReactNode }) {
           <ImpersonationBanner />
           <CancelledBanner />
           <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-background flex-shrink-0">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMobileOpen(true)}>
-              <Menu className="w-5 h-5" />
-            </Button>
+            <div className="flex items-center gap-1">
+              {isHome ? (
+                <button className="h-12 w-12 flex items-center justify-center rounded-md hover:bg-accent" onClick={() => setMobileOpen(true)}>
+                  <Menu className="w-7 h-7" />
+                </button>
+              ) : (
+                <>
+                  <button onClick={() => navigate("/")} className="h-12 w-12 flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground" aria-label="Go to dashboard">
+                    <Home className="w-6 h-6" />
+                  </button>
+                  <button onClick={() => window.history.back()} className="h-10 w-10 flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground" aria-label="Go back">
+                    <ArrowLeft className="w-5 h-5" />
+                  </button>
+                </>
+              )}
+            </div>
             <LogoOrText />
-            <div className="w-8" />
+            <div className="w-12" />
           </header>
           <main className="flex-1 overflow-y-auto">{children}</main>
         </div>
