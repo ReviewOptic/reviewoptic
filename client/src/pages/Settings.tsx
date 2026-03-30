@@ -194,7 +194,7 @@ export default function Settings() {
 
       <Tabs defaultValue={new URLSearchParams(window.location.search).get("tab") || "business"}>
         <div className="flex flex-col md:flex-row md:gap-6 md:items-start">
-          <TabsList className="flex flex-row overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex-col md:h-auto md:w-44 md:shrink-0 md:overflow-x-visible bg-muted/50 rounded-xl p-1.5 gap-0.5">
+          <TabsList className="flex flex-row flex-wrap md:flex-col md:h-auto md:w-44 md:shrink-0 bg-muted/50 rounded-xl p-1.5 gap-0.5">
             <TabsTrigger value="business" className="whitespace-nowrap md:w-full md:justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-business">Business</TabsTrigger>
             <TabsTrigger value="platforms" className="whitespace-nowrap md:w-full md:justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-platforms">Review Platforms</TabsTrigger>
             <TabsTrigger value="followup" className="whitespace-nowrap md:w-full md:justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-followup">Follow-Ups</TabsTrigger>
