@@ -102,6 +102,10 @@ const VIDEOS = [
 
 const TIPS = [
   {
+    tip: "Use ReviewOptic as an app on your phone",
+    detail: "You don't need to download anything from the App Store. Open ReviewOptic in Safari (iPhone) or Chrome (Android), tap the Share or menu button, and choose 'Add to Home Screen'. It'll appear as an app icon on your home screen and open full screen — no browser bar, no faffing. It's the quickest way to add customers and send requests while you're on the go.",
+  },
+  {
     tip: "Make it a daily habit",
     detail: "Add new customers every day, even just one or two. Consistency is what separates businesses with 10 reviews from those with 500. The platform works best when you work it.",
   },

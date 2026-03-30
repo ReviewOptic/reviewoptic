@@ -74,6 +74,16 @@ const FEATURES = [
     ],
   },
   {
+    category: "Mobile & Access",
+    items: [
+      "Fully optimised for mobile — works beautifully on any phone or tablet",
+      "Add customers, send requests, and check analytics from anywhere",
+      "Save ReviewOptic to your home screen as an app — no App Store download needed",
+      "Works on iPhone (Safari) and Android (Chrome) via Add to Home Screen",
+      "Opens full screen, just like a native app",
+    ],
+  },
+  {
     category: "Team & Account",
     items: [
       "Invite team members to your account",

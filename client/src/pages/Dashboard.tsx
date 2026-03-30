@@ -423,27 +423,27 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
       {(noResponseCustomers.length > 0 || stalePendingCustomers.length > 0) && (
         <div className="space-y-2">
           {noResponseCustomers.length > 0 && (
-            <div className="flex items-center justify-between gap-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3">
               <div className="flex items-center gap-2.5">
                 <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
                 <p className="text-[13px] text-amber-800 dark:text-amber-200">
                   <span className="font-semibold">{noResponseCustomers.length} customer{noResponseCustomers.length !== 1 ? "s" : ""}</span> got no response — consider sending a new request for a recent job.
                 </p>
               </div>
-              <Button size="sm" variant="outline" className="shrink-0 text-[12px] h-7 border-amber-300 hover:bg-amber-100" onClick={() => navigate("/customers?status=no_response")}>
+              <Button size="sm" variant="outline" className="shrink-0 self-start sm:self-auto text-[12px] h-7 border-amber-300 hover:bg-amber-100" onClick={() => navigate("/customers?status=no_response")}>
                 View
               </Button>
             </div>
           )}
           {stalePendingCustomers.length > 0 && (
-            <div className="flex items-center justify-between gap-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl px-4 py-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl px-4 py-3">
               <div className="flex items-center gap-2.5">
                 <Clock className="w-4 h-4 text-blue-600 shrink-0" />
                 <p className="text-[13px] text-blue-800 dark:text-blue-200">
                   <span className="font-semibold">{stalePendingCustomers.length} customer{stalePendingCustomers.length !== 1 ? "s" : ""}</span> have been waiting over 14 days with no response.
                 </p>
               </div>
-              <Button size="sm" variant="outline" className="shrink-0 text-[12px] h-7 border-blue-300 hover:bg-blue-100" onClick={() => navigate("/customers")}>
+              <Button size="sm" variant="outline" className="shrink-0 self-start sm:self-auto text-[12px] h-7 border-blue-300 hover:bg-blue-100" onClick={() => navigate("/customers")}>
                 View
               </Button>
             </div>

@@ -281,7 +281,7 @@ function BackToTutorial() {
   const search = useSearch();
   const [, navigate] = useLocation();
   const [collapsed, setCollapsed] = useState(false);
-  const [pos, setPos] = useState({ x: window.innerWidth - 340, y: window.innerHeight - 400 });
+  const [pos, setPos] = useState({ x: Math.max(8, window.innerWidth - 304), y: Math.max(8, window.innerHeight - 280) });
   const dragging = useRef(false);
   const dragOffset = useRef({ x: 0, y: 0 });
 

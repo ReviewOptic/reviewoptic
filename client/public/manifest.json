@@ -1,0 +1,17 @@
+{
+  "name": "ReviewOptic",
+  "short_name": "ReviewOptic",
+  "description": "Grow your reviews on autopilot",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0E679D",
+  "icons": [
+    {
+      "src": "/reviewoptic icon only - square - app.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

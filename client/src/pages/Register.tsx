@@ -69,7 +69,7 @@ export default function Register() {
           <h2 className="sr-only">Registration form</h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <div className="space-y-1.5 flex-1">
                 <label className="block text-sm font-medium text-gray-700">First name</label>
                 <Input type="text" placeholder="Jane" value={firstName} onChange={e => setFirstName(e.target.value)} required />

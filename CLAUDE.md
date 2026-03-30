@@ -184,141 +184,7 @@ Your job is to be the developer they would hire if they could afford a great one
 
 ## SESSION LOGS
 
-*(Sessions 18–35 archived to CLAUDE_ARCHIVE.md)*
-
-### Session — 2026-03-28 (thirty-sixth session)
-
-**Tasks completed:**
-- **Two-track follow-up system finalised**: Unrated customers get 3 generic nudges encouraging them to click a star. Customers who rated 4–5★ but haven't clicked a platform link get personalised Follow-up 1/2/3 templates. 1–3★ customers never followed up. `howtos.ts` updated to describe both tracks accurately.
-- **WhatsApp opt-out text added**: Initial WhatsApp sends (routes.ts) and follow-up WhatsApp sends (storage.ts and index.ts scheduled runner) now append `\nReply STOP to opt out.` Twilio inbound webhook strips `whatsapp:` prefix to handle STOP replies for both SMS and WhatsApp.
-- **Critical DNC bug fixed**: `POST /api/review-requests` now checks `customer.doNotContact` before sending — returns 400 if true. Previously DNC customers could still be sent requests.
-- **Pricing page feature split**: "Multiple users & team management" removed from shared features. Lite shows it greyed out with ✗. Pro shows it highlighted with ✓. Team invite endpoint already had Lite guard server-side.
-- **Trial reminder email**: New `trial_ends_at` and `trial_reminder_sent` columns on users. `trial_ends_at` saved from Stripe on billing confirm. Daily runner sends reminder email 1–3 days before trial ends (once only). `sendTrialReminderEmail` added to email.ts.
-- **Subscription-ended email**: Stripe `customer.subscription.deleted` webhook now also sends `sendSubscriptionEndedEmail` — confirms billing has stopped, data retained 30 days, reactivate link.
-- **T&Cs acceptance recorded**: New `terms_accepted_at` column. Register route validates `termsAccepted: true` in body (returns 400 if missing). Timestamp saved on successful registration. AuthContext and auth-types updated to pass `termsAccepted`.
-- **Session cookie security**: `secure: process.env.NODE_ENV === "production"`, `sameSite: "lax"` added.
-- **Rate limiting**: `express-rate-limit` added — 20 req/15min on login, register, forgot-password, reset-password.
-- **Helmet security headers**: Added with CSP and COOP disabled (required for Stripe embedded checkout).
-- **Cookie consent banner**: `CookieConsent.tsx` component — appears on first visit, Accept/Decline, persists to localStorage, links to Privacy Policy. Added to App.tsx.
-- **Onboarding checklist**: `OnboardingChecklist.tsx` — shows on Dashboard for new owners. 4 steps: business details → review platform → add customer → send request. Each links to the right page. Auto-dismisses when all complete; X to dismiss early. Added to Dashboard above stats.
-- **FAQ fully updated**: New questions on scheduled sends, two-track follow-ups, QR code, Zapier, team members (Pro-only), trial cancellation (no charge), subscription-ended confirmation email. All existing answers reviewed and corrected.
-- **sendShareRatingEmail removed**: Was defined in email.ts but never called anywhere — deleted.
-- **Sentry error monitoring**: `@sentry/node` installed. Init with `SENTRY_DSN` env var (no-op if not set). Captures uncaughtException, unhandledRejection, and all 500 Express errors. User has added `SENTRY_DSN` secret.
-- **Resend domain verified**: `reviewoptic.com` confirmed Verified in Resend — emails will land in inboxes.
-- **use-page-meta hook created**: Ready for SEO meta tags (not yet applied to pages — user wants to do this later).
-
-**Architecture notes:**
-- Trial reminder window: `trial_ends_at BETWEEN NOW() + INTERVAL '1 day' AND NOW() + INTERVAL '3 days'` — catches it on the daily run regardless of exact timing
-- Cookie consent: stored in `localStorage` as `ro_cookie_consent` = `"accepted"` or `"declined"`
-- Onboarding dismissed key: `ro_onboarding_dismissed` in localStorage — permanent once set
-- Sentry only reports 500-level errors, not 4xx — avoids noise from validation errors
-
-**Notes for next session:**
-- **⚠️ TWILIO WEBHOOK NOT YET ACTIVATED** — must set `https://reviewoptic.com/api/webhooks/twilio-inbound` in Twilio console (SMS number + WhatsApp sender → "A message comes in")
-- **⚠️ STRIPE WEBHOOK NOT YET REGISTERED** — must register `https://reviewoptic.com/api/billing/webhook` in Stripe → Developers → Webhooks, event: `customer.subscription.deleted`, add signing secret as `STRIPE_WEBHOOK_SECRET`
-- **SEO meta tags**: `use-page-meta` hook is ready — user wants to apply to public pages (Pricing, FAQ, Features, Login, Register, Privacy, Terms) in a future session
-- **Referral programme**: route exists (`GET /referral/:slug`), Settings tab has placeholder UI — needs offer text and refer-a-friend share link completing
-- **UI polish**: user wants to perfect how the app looks — planned for a future session
-- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
-
-### Session — 2026-03-28 (thirty-seventh session)
-
-**Tasks completed:**
-- **Subscription confirmation email**: Replaced trial reminder email entirely. New `sendSubscriptionConfirmationEmail` function fires when trial converts to paid (`invoice.payment_succeeded` webhook). Uses `subscription_confirmation_sent` DB flag (migration added) to ensure exactly one email per subscription. Warm encouraging tone: "Welcome to the team! 🎉", receipt box with plan/billing/amount/next date, "View receipt →" and "Manage billing" buttons.
-- **Trial reminder runner removed**: `runTrialReminders` function and interval completely removed from index.ts. `sendTrialReminderEmail` removed from email.ts. `trial_reminder_sent` column kept in DB (no harm, just unused).
-- **All platform emails rewritten for warm/friendly tone**:
-  - Verification: "Welcome — you're one step away! 👋", mentions 14-day free trial, CTA updated to "Verify email & start free trial"
-  - Team invite: "You're in — welcome to the team! 🎉", brief description of ReviewOptic, CTA "Accept invitation & get started"
-  - Cancellation: "We're sad to see you go 💙", warmer copy, sign-off changed from "The ReviewOptic team" to "Alicia & Rob — ReviewOptic"
-  - Subscription-ended: Billing-stopped confirmation tick ✅, hopeful reactivation message, personal sign-off
-  - Subscription confirmation: Already warm from previous session — sign-off updated to match
-- **Confirmed QR code and Zapier webhook are fully built** — both exist in routes.ts and Settings.tsx. Session notes from previous sessions were incorrect to list these as pending.
-- **Confirmed `POST /api/reviews` orphan already removed** — only a GET exists, which is legitimate.
-
-**Architecture notes:**
-- `invoice.payment_succeeded` event: only sends confirmation when `amount_paid > 0` AND `billing_reason !== "subscription_create"` — avoids firing on the initial subscription setup invoice
-- `subscription_confirmation_sent` flag: uses `UPDATE ... WHERE ... RETURNING` as an atomic check-and-set — prevents double-sends even if webhook fires twice
-- Stripe webhook now handles TWO events: `customer.subscription.deleted` (cancellation email) + `invoice.payment_succeeded` (confirmation email)
-
-**Notes for next session:**
-- **⚠️ TWILIO WEBHOOK NOT YET ACTIVATED** — must set `https://reviewoptic.com/api/webhooks/twilio-inbound` in Twilio console
-- **⚠️ STRIPE WEBHOOK NOT YET REGISTERED** — must register `https://reviewoptic.com/api/billing/webhook`, select BOTH `customer.subscription.deleted` AND `invoice.payment_succeeded`, add `STRIPE_WEBHOOK_SECRET`
-- **Referral programme**: needs completing (offer text, share link, `referred_by_account_id` on registration, admin view)
-- **SEO meta tags**: `use-page-meta` hook ready, not yet applied to public pages
-- **UI polish**: deferred by user
-- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
-
-### Session — 2026-03-28 (thirty-eighth session)
-
-**Tasks completed:**
-- **Privacy Policy DPA notes completed**: Added full GDPR-compliant + DPA language for Neon, Twilio, and Sentry. All five processors (Resend, Stripe, Neon, Twilio, Sentry) now have consistent DPA notes. Sentry added as a new entry (was missing entirely).
-- **Privacy Policy logo removed**: Logo image removed from the Privacy Policy page — cleaner, more document-like appearance.
-- **Terms & Conditions logo resized**: Logo increased from `h-16` to `h-28` to match the Dashboard logo size.
-
-**Notes for next session:**
-- **⚠️ TWILIO WEBHOOK NOT YET ACTIVATED** — must set `https://reviewoptic.com/api/webhooks/twilio-inbound` in Twilio console
-- **⚠️ STRIPE WEBHOOK NOT YET REGISTERED** — must register `https://reviewoptic.com/api/billing/webhook`, select BOTH `customer.subscription.deleted` AND `invoice.payment_succeeded`, add `STRIPE_WEBHOOK_SECRET`
-- **Referral programme**: needs completing (offer text, share link, `referred_by_account_id` on registration, admin view)
-- **SEO meta tags**: `use-page-meta` hook ready, not yet applied to public pages
-- **UI polish**: deferred by user
-- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
-
-### Session — 2026-03-29 (thirty-ninth session)
-
-**Tasks completed:**
-- **Checkout 401 — login session not explicitly saved**: The login route set session data but relied on express-session's automatic save. If the PostgreSQL write hadn't finished before the client's next request (checkout), the session wasn't found → 401. Fixed: added explicit `await req.session.save()` to login and verify-email routes, matching what register already did.
-- **Checkout 401 — requiresVerification flow navigating to /pricing**: When a previously-registered-but-unverified email tried to register again, the server returned `{requiresVerification: true}` with NO session. The client was ignoring this and navigating to /pricing anyway, with a fake user object → checkout 401. Fixed: `AuthContext.register()` no longer calls `setUser()` for requiresVerification responses; `Register.tsx` now shows "check your inbox" message instead of navigating.
-- **Billing confirm crashing — missing DB columns**: `trial_ends_at`, `trial_reminder_sent`, and `subscription_confirmation_sent` columns were defined in migrate.ts but had never been applied to the live database. The billing confirm route was trying to write to `trial_ends_at` → SQL error → payment confirm failed. Fixed: ran the three `ALTER TABLE` statements directly against the database.
-- **Billing confirm behind requireAuth**: After Stripe redirects back to `/billing/success`, the session cookie might not be present in the browser context in time, causing confirm to return 401. Fixed: removed `requireAuth` from the confirm route — the Stripe `session_id` itself is cryptographic proof of payment, and the `userId` comes from Stripe-stored metadata (server-controlled). Added full try-catch with logging.
-- **Session debug logging added**: `requireAuth` now logs `sessionID`, `hasCookie`, `userId`, `accountId` when returning 401 — makes future session issues easy to diagnose.
-- **BillingSuccess shows real error message**: Error state now captures and displays the actual server error message, not just a generic string — critical for diagnosing payment issues.
-
-**Architecture notes:**
-- Billing confirm is now auth-free — security relies on Stripe's `session_id` being unguessable + `userId` coming from server-stored Stripe metadata, not client input
-- All session-setting routes (register, login, verify-email, accept-invite) now explicitly await `req.session.save()` before responding
-
-**Notes for next session (carried forward):**
-- **✅ CHECKOUT CONFIRMED WORKING** — tested end-to-end in session 40 — the DB column fix should unblock it, but needs a clean test run (register → pricing → checkout → billing/success) to confirm it works completely
-- **⚠️ Remove or gate the session debug logging in requireAuth** before going to production (or leave it — it only fires on 401s)
-- **⚠️ TWILIO WEBHOOK NOT YET ACTIVATED** — must set `https://reviewoptic.com/api/webhooks/twilio-inbound` in Twilio console
-- **⚠️ STRIPE WEBHOOK NOT YET REGISTERED** — must register `https://reviewoptic.com/api/billing/webhook`, select BOTH `customer.subscription.deleted` AND `invoice.payment_succeeded`, add `STRIPE_WEBHOOK_SECRET`
-- **Referral programme**: needs completing
-- **SEO meta tags**: `use-page-meta` hook ready, not yet applied to public pages
-- **UI polish**: deferred by user
-- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
-- To delete a test account: use the node script pattern from this session (select by email, delete by account_id in dependency order)
-
-### Session — 2026-03-29 (fortieth session)
-
-**Tasks completed:**
-- **Checkout confirmed working** — clean end-to-end test passed: register → pricing → Stripe test card → billing/success → dashboard
-- **Intro video modal disabled** — commented out the trigger in Dashboard.tsx. All code kept; uncomment + add `INTRO_VIDEO_URL` to re-enable when ready
-- **Login page copy updated** — tagline now says "automatically collect more reviews" instead of "without any manual effort"; platform list expanded to "and more"
-- **Voice & video USP added to login page** — second feature card: "Personal voice & video messages"
-- **Revenue impact stat added to login page** — top feature card: "A one-star improvement in your Google rating can increase revenue by up to 9%"
-- **Service recovery feature added to login page** — "Turn unhappy customers into loyal ones" feature card
-- **Social auto-posting added to login page** — "Auto-post reviews to Instagram, Facebook, and LinkedIn" (live when feature is ready)
-- **Features page logo enlarged** — h-20 → h-28
-- **Features page: Voice & Video category added** — new section with 4 bullet points
-- **Features page: Standard plan label updated** — "Lite plan" → "Standard plan"
-- **Pricing page: both Get Started buttons now blue** — was outline/default depending on highlight; now both `variant="default"`
-- **FAQ: service recovery reframe** — "star rating pre-screen" renamed to "How does service recovery work?"; both that answer and private feedback answer rewritten to lead with catching unhappy customers before they post publicly
-- **FAQ: monthly reset corrected** — "1st of each calendar month" → "beginning of each billing cycle"
-- **FAQ: customer import mentions Zapier** — added note that Zapier auto-adds customers from booking systems
-- **FAQ: CTA banner added at bottom** — blue banner linking to /register: "Ready to start collecting more reviews? Start your 14-day free trial today"
-- **Lite plan renamed to Standard everywhere** — display labels updated across Pricing, Billing, FAQ, Features, T&Cs, CustomerDetail, Customers, Admin. Internal DB value `"lite"` and all code comparisons unchanged
-- **Confirm email field added to Register page** — catches typos (e.g. gmaail.com); both fields must match before submission; error: "Email addresses do not match — please check and try again"
-
-**Notes for next session:**
-- **⚠️ TWILIO WEBHOOK NOT YET ACTIVATED** — must set `https://reviewoptic.com/api/webhooks/twilio-inbound` in Twilio console
-- **⚠️ STRIPE WEBHOOK NOT YET REGISTERED** — must register `https://reviewoptic.com/api/billing/webhook`, select BOTH `customer.subscription.deleted` AND `invoice.payment_succeeded`, add `STRIPE_WEBHOOK_SECRET`
-- **Referral programme** — needs completing
-- **SEO meta tags** — `use-page-meta` hook ready, not yet applied to public pages
-- **UI polish** — deferred by user
-- **Intro video** — add YouTube URL to `INTRO_VIDEO_URL` (line 74, Dashboard.tsx) and uncomment the useEffect body to re-enable
-- **Social auto-posting** — feature card is live on login page; needs the actual feature built before going live
-- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
-- To delete a test account: use the node script pattern (select by email, delete by account_id in dependency order)
+*(Sessions 18–40 archived to CLAUDE_ARCHIVE.md)*
 
 ### Session — 2026-03-30 (forty-first session)
 
@@ -396,3 +262,35 @@ Your job is to be the developer they would hire if they could afford a great one
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
 - To delete a test account: use the node script pattern (select by email, delete by account_id in dependency order)
 
+
+### Session — 2026-03-30 (forty-fourth session)
+
+**Tasks completed:**
+- **Add to Home Screen / PWA setup**: `manifest.json` created in `client/public/` — sets app name, theme colour (`#0E679D`), and square icon. `apple-touch-icon` and `<link rel="manifest">` added to `index.html`. App now shows ReviewOptic icon when saved to home screen on iPhone (Safari) and Android (Chrome). Opens full screen with no browser bar.
+- **Square app icon**: `reviewoptic icon only - square - app.png` uploaded to `client/public/` — icon-only version (no wordmark), fills the square well. Both `manifest.json` and `index.html` point to it.
+- **Tutorials → How-to's**: New entry "How to save ReviewOptic to your phone as an app" — step-by-step for iPhone (Safari) and Android (Chrome).
+- **Tutorials → Top Tips**: New tip "Use ReviewOptic as an app on your phone" — added at top of tips list.
+- **Features page**: New "Mobile & Access" category — 5 bullet points covering mobile optimisation and Add to Home Screen.
+- **Login page**: New feature card "Fully optimised for mobile" with Add to Home Screen mention.
+- **Full mobile audit + fixes**:
+  - **Register.tsx**: First/last name row stacks to single column on mobile (`flex-col sm:flex-row`)
+  - **Settings.tsx**: Company Name / Your Name fields restructured — label stays above its own input when stacked; cropper height `h-40 sm:h-56`; logo upload section stacks vertically on mobile
+  - **Dashboard.tsx**: Alert nudge cards stack text above View button on mobile
+  - **Billing.tsx**: Cancel and Delete modal button rows stack vertically on mobile (`flex-col sm:flex-row`)
+  - **Layout.tsx**: Floating tutorial panel initial position clamped to always be on-screen on small devices
+
+**Architecture notes:**
+- PWA: `client/public/manifest.json` with `display: standalone` — no browser bar when opened from home screen
+- `apple-touch-icon` → iOS; `manifest.json` → Android/Chrome
+- App icon: `client/public/reviewoptic icon only - square - app.png`
+
+**Notes for next session:**
+- **⚠️ TWILIO WEBHOOK NOT YET ACTIVATED** — must set `https://reviewoptic.com/api/webhooks/twilio-inbound` in Twilio console
+- **⚠️ STRIPE WEBHOOK NOT YET REGISTERED** — must register `https://reviewoptic.com/api/billing/webhook`, select BOTH `customer.subscription.deleted` AND `invoice.payment_succeeded`, add `STRIPE_WEBHOOK_SECRET`
+- **Mobile test** — user to test on real phone and report any remaining issues
+- **Referral programme** — needs completing
+- **SEO meta tags** — `use-page-meta` hook ready, not yet applied to public pages
+- **Social auto-posting** — feature card is live on login page; needs the actual feature built before going live
+- **Intro video** — add YouTube URL to `INTRO_VIDEO_URL` (line 74, Dashboard.tsx) and uncomment the useEffect body to re-enable
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+- To delete a test account: use the node script pattern (select by email, delete by account_id in dependency order)

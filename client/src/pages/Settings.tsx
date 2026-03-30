@@ -221,26 +221,28 @@ export default function Settings() {
             </CardHeader>
             <CardContent className="space-y-5 pb-5">
               <div className="space-y-1">
-                <div className="grid grid-cols-2 gap-4">
-                  <Label className="text-[12.5px]">Company Name</Label>
-                  <Label className="text-[12.5px]">Your Name</Label>
-                </div>
                 <p className="text-[11.5px] text-muted-foreground">At least company name or your name is required</p>
-                <div className="grid grid-cols-2 gap-4">
-                  <Input
-                    value={form.businessName}
-                    onChange={e => setForm(f => ({ ...f, businessName: e.target.value }))}
-                    placeholder="Clean Pro Services"
-                    data-testid="input-business-name"
-                    className={!form.ownerName.trim() && !form.businessName.trim() ? "border-destructive focus-visible:ring-destructive" : ""}
-                  />
-                  <Input
-                    value={form.ownerName}
-                    onChange={e => setForm(f => ({ ...f, ownerName: e.target.value }))}
-                    placeholder="e.g. Sarah"
-                    data-testid="input-owner-name"
-                    className={!form.ownerName.trim() && !form.businessName.trim() ? "border-destructive focus-visible:ring-destructive" : ""}
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-[12.5px]">Company Name</Label>
+                    <Input
+                      value={form.businessName}
+                      onChange={e => setForm(f => ({ ...f, businessName: e.target.value }))}
+                      placeholder="Clean Pro Services"
+                      data-testid="input-business-name"
+                      className={!form.ownerName.trim() && !form.businessName.trim() ? "border-destructive focus-visible:ring-destructive" : ""}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[12.5px]">Your Name</Label>
+                    <Input
+                      value={form.ownerName}
+                      onChange={e => setForm(f => ({ ...f, ownerName: e.target.value }))}
+                      placeholder="e.g. Sarah"
+                      data-testid="input-owner-name"
+                      className={!form.ownerName.trim() && !form.businessName.trim() ? "border-destructive focus-visible:ring-destructive" : ""}
+                    />
+                  </div>
                 </div>
                 {!form.ownerName.trim() && !form.businessName.trim() && (
                   <p className="text-[11.5px] text-destructive">At least company name or your name is required</p>
@@ -262,7 +264,7 @@ export default function Settings() {
                         </button>
                       ))}
                     </div>
-                    <div className="relative h-56 rounded-lg overflow-hidden border border-border bg-muted/30">
+                    <div className="relative h-40 sm:h-56 rounded-lg overflow-hidden border border-border bg-muted/30">
                       <Cropper
                         image={cropSrc}
                         crop={crop}
@@ -282,7 +284,7 @@ export default function Settings() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                     {form.logoUrl && (
                       <div className="relative">
                         <img src={form.logoUrl} alt="Logo" className="h-16 w-auto max-w-[120px] object-contain" />

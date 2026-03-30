@@ -200,6 +200,16 @@ export const HOWTOS: HowTo[] = [
     ],
   },
   {
+    title: "How to save ReviewOptic to your phone as an app",
+    steps: [
+      { text: "ReviewOptic works as a full app from your phone's home screen — no App Store download needed. Here's how to set it up:" },
+      { text: "On iPhone (Safari): Open ReviewOptic in Safari. Tap the Share button (the square with an arrow pointing up) at the bottom of the screen. Scroll down and tap 'Add to Home Screen'. Give it a name (e.g. ReviewOptic) and tap 'Add'. The app icon will appear on your home screen — tap it to open ReviewOptic instantly, full screen, just like a native app." },
+      { text: "On Android (Chrome): Open ReviewOptic in Chrome. Tap the three-dot menu (⋮) in the top-right corner. Tap 'Add to Home Screen' or 'Install App'. Tap 'Add' or 'Install' to confirm. The ReviewOptic icon will appear on your home screen." },
+      { text: "Once saved, the app opens full screen without the browser address bar — it looks and feels just like a downloaded app." },
+      { text: "Tip: you can also share the home screen shortcut with team members so they have quick access too." },
+    ],
+  },
+  {
     title: "How to use your QR code",
     steps: [
       { text: "Go to Settings → Integrations tab.", link: "/settings?tab=integrations", linkText: "Settings → Integrations" },

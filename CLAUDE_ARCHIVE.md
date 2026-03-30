@@ -540,3 +540,74 @@ Older session logs moved here to keep CLAUDE.md under 30k chars.
 - **T&Cs/Privacy/Features pages updated**.
 - **`schema_migrations` table + `once()` helper**: One-time UPDATE blocks gated — user customisations survive restarts.
 - **ReviewLanding low-rating footnote**: "This doesn't affect your right to leave a public review."
+
+---
+
+### Session — 2026-03-28 (thirty-sixth session)
+
+**Tasks completed:**
+- **Two-track follow-up system finalised**: Unrated customers get 3 generic nudges encouraging them to click a star. Customers who rated 4–5★ but haven't clicked a platform link get personalised Follow-up 1/2/3 templates. 1–3★ customers never followed up.
+- **WhatsApp opt-out text added**: Initial WhatsApp sends and follow-up WhatsApp sends now append `\nReply STOP to opt out.` Twilio inbound webhook strips `whatsapp:` prefix to handle STOP replies for both SMS and WhatsApp.
+- **Critical DNC bug fixed**: `POST /api/review-requests` now checks `customer.doNotContact` before sending — returns 400 if true.
+- **Trial reminder email**: New `trial_ends_at` and `trial_reminder_sent` columns on users.
+- **Subscription-ended email**: Stripe `customer.subscription.deleted` webhook sends `sendSubscriptionEndedEmail`.
+- **T&Cs acceptance recorded**: New `terms_accepted_at` column. Register route validates `termsAccepted: true`.
+- **Session cookie security**: `secure: process.env.NODE_ENV === "production"`, `sameSite: "lax"` added.
+- **Rate limiting**: `express-rate-limit` — 20 req/15min on auth routes.
+- **Helmet security headers**: Added with CSP and COOP disabled (required for Stripe embedded checkout).
+- **Cookie consent banner**: `CookieConsent.tsx` — localStorage `ro_cookie_consent`.
+- **Onboarding checklist**: `OnboardingChecklist.tsx` — 4 steps for new owners.
+- **Sentry error monitoring**: `@sentry/node` — captures 500 errors. `SENTRY_DSN` env var.
+- **Resend domain verified**: `reviewoptic.com` confirmed Verified.
+- **use-page-meta hook created**: Ready for SEO meta tags.
+
+---
+
+### Session — 2026-03-28 (thirty-seventh session)
+
+**Tasks completed:**
+- **Subscription confirmation email**: `sendSubscriptionConfirmationEmail` fires on `invoice.payment_succeeded`. `subscription_confirmation_sent` DB flag prevents double-sends.
+- **Trial reminder runner removed**: Removed from index.ts and email.ts.
+- **All platform emails rewritten** for warm/friendly tone (verification, team invite, cancellation, subscription-ended, subscription confirmation).
+- **Sign-off**: "Alicia & Rob — ReviewOptic" on all emails.
+
+**Architecture notes:**
+- Stripe webhook handles: `customer.subscription.deleted` (cancellation email) + `invoice.payment_succeeded` (confirmation email)
+
+---
+
+### Session — 2026-03-28 (thirty-eighth session)
+
+**Tasks completed:**
+- **Privacy Policy DPA notes completed**: Full GDPR language for all 5 processors (Resend, Stripe, Neon, Twilio, Sentry).
+- **Privacy Policy logo removed**.
+- **Terms & Conditions logo resized**: `h-28`.
+
+---
+
+### Session — 2026-03-29 (thirty-ninth session)
+
+**Tasks completed:**
+- **Checkout 401 — session save**: Added explicit `await req.session.save()` to login and verify-email routes.
+- **Checkout 401 — requiresVerification flow**: `AuthContext.register()` no longer calls `setUser()` for requiresVerification responses.
+- **Billing confirm crashing — missing DB columns**: Ran ALTER TABLE for `trial_ends_at`, `trial_reminder_sent`, `subscription_confirmation_sent`.
+- **Billing confirm auth-free**: Removed `requireAuth` — security relies on Stripe `session_id`.
+- **Session debug logging**: `requireAuth` logs session info on 401.
+- **BillingSuccess shows real error message**.
+
+**Architecture notes:**
+- Billing confirm is auth-free — `userId` comes from Stripe-stored metadata, not client input.
+
+---
+
+### Session — 2026-03-29 (fortieth session)
+
+**Tasks completed:**
+- **Checkout confirmed working** — clean end-to-end test passed.
+- **Intro video modal disabled** — commented out in Dashboard.tsx; uncomment + add `INTRO_VIDEO_URL` to re-enable.
+- **Login page copy updated** — tagline, platform list, 4 new feature cards (voice/video, revenue stat, service recovery, social auto-posting).
+- **Features page**: logo enlarged, Voice & Video category added, Standard plan label.
+- **Pricing page**: both Get Started buttons blue.
+- **FAQ**: service recovery reframe, billing cycle reset, Zapier import note, CTA banner.
+- **Lite plan renamed to Standard** everywhere (display labels only; DB value `"lite"` unchanged).
+- **Confirm email field added to Register page**.

@@ -360,7 +360,7 @@ export default function Billing() {
                 autoComplete="current-password"
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Button variant="destructive" onClick={cancelSubscription} disabled={cancelLoading || !cancelPassword} className="gap-2">
                 {cancelLoading && <Loader2 className="w-4 h-4 animate-spin" />}
                 Yes, cancel my subscription
@@ -385,7 +385,7 @@ export default function Billing() {
               All your data — customers, review requests, templates, analytics, and team members — will be permanently deleted after 30 days. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex gap-2 pt-2">
+          <div className="flex flex-col sm:flex-row gap-2 pt-2">
             <Button variant="destructive" onClick={() => setDeleteStep("final")}>
               Yes, I understand — continue
             </Button>
@@ -420,7 +420,7 @@ export default function Billing() {
                 autoComplete="current-password"
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Button variant="destructive" onClick={deleteAccount} disabled={deleteLoading || !deletePassword} className="gap-2">
                 {deleteLoading && <Loader2 className="w-4 h-4 animate-spin" />}
                 Delete my account permanently

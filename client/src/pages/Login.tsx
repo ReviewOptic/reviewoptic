@@ -56,6 +56,7 @@ const FEATURES = [
   { icon: "🛡️", title: "Turn unhappy customers into loyal ones", desc: "Low ratings go to a private feedback form — so you can make it right before it becomes a public complaint." },
   { icon: "📱", title: "Auto-post reviews to social media", desc: "Automatically share your best reviews to Instagram, Facebook, and LinkedIn. Your reputation, amplified." },
   { icon: "🌟", title: "Works with all major platforms", desc: "Google, Trustpilot, Facebook, Checkatrade, TripAdvisor, and more." },
+  { icon: "📲", title: "Fully optimised for mobile", desc: "Manage customers, send requests, and track your reviews from your phone. Save ReviewOptic to your home screen for instant access — no App Store download needed." },
 ];
 
 export default function Login() {
