@@ -857,7 +857,7 @@ export default function Customers() {
             {customers?.length || 0} total customers
           </p>
         </div>
-        <div className="flex items-start gap-2">
+        <div className="flex flex-wrap items-start gap-2">
           <Button
             variant={showArchived ? "default" : "outline"}
             size="sm"
