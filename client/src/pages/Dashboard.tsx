@@ -5,7 +5,7 @@ import { useLocation } from "wouter";
 import {
   Send, Clock, CheckCircle2, ArrowRight, Plus, BarChart2,
   Eye, Users, Star, MessageSquare, Play, AlertCircle, Mail,
-  FileText, Settings as SettingsIcon, X
+  FileText, Settings as SettingsIcon, X, CreditCard
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -407,23 +407,29 @@ export default function Dashboard() {
       </div>
 
       {/* Quick links — mobile only */}
-      <div className="grid grid-cols-2 sm:hidden gap-3">
-        {[
+      {(() => {
+        const links = [
           { label: "Customers", icon: Users, path: "/customers" },
           { label: "Templates", icon: FileText, path: "/templates" },
           { label: "Analytics", icon: BarChart2, path: "/analytics" },
           { label: "Settings", icon: SettingsIcon, path: "/settings" },
-        ].map(link => (
-          <button
-            key={link.path}
-            onClick={() => navigate(link.path)}
-            className="flex flex-col items-center gap-2 py-4 px-2 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors"
-          >
-            <link.icon className="w-5 h-5 text-primary" />
-            <span className="text-[12px] font-medium">{link.label}</span>
-          </button>
-        ))}
-      </div>
+          ...(!user?.isAdmin && user?.role !== "member" ? [{ label: "Billing", icon: CreditCard, path: "/billing" }] : []),
+        ];
+        return (
+          <div className={`grid sm:hidden gap-3 ${links.length === 5 ? "grid-cols-3" : "grid-cols-2"}`}>
+            {links.map(link => (
+              <button
+                key={link.path}
+                onClick={() => navigate(link.path)}
+                className="flex flex-col items-center gap-2 py-4 px-2 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors"
+              >
+                <link.icon className="w-5 h-5 text-primary" />
+                <span className="text-[12px] font-medium">{link.label}</span>
+              </button>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* To-do nudges */}
       {(noResponseCustomers.length > 0 || stalePendingCustomers.length > 0) && (
