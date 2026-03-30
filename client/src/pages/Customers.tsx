@@ -947,7 +947,7 @@ export default function Customers() {
                 <th className="text-left px-4 py-3 text-[11.5px] font-semibold text-muted-foreground uppercase tracking-wider">Name</th>
                 <th className="text-left px-4 py-3 text-[11.5px] font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Email</th>
                 <th className="text-left px-4 py-3 text-[11.5px] font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Service</th>
-                <th className="text-left px-4 py-3 text-[11.5px] font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                <th className="text-left px-4 py-3 text-[11.5px] font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Status</th>
                 <th className="text-left px-4 py-3 text-[11.5px] font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Requests</th>
                 <th className="text-left px-4 py-3 text-[11.5px] font-semibold text-muted-foreground uppercase tracking-wider hidden lg:table-cell">Added</th>
                 <th className="px-4 py-3 w-12"></th>
@@ -960,7 +960,7 @@ export default function Customers() {
                     <td className="px-4 py-3"><Skeleton className="h-9 w-32" /></td>
                     <td className="px-4 py-3 hidden sm:table-cell"><Skeleton className="h-4 w-40" /></td>
                     <td className="px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-28" /></td>
-                    <td className="px-4 py-3"><Skeleton className="h-5 w-20" /></td>
+                    <td className="px-4 py-3 hidden sm:table-cell"><Skeleton className="h-5 w-20" /></td>
                     <td className="px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-8" /></td>
                     <td className="px-4 py-3 hidden lg:table-cell"><Skeleton className="h-4 w-24" /></td>
                     <td className="px-4 py-3"><Skeleton className="h-7 w-7" /></td>
@@ -1014,6 +1014,9 @@ export default function Customers() {
                           {customer.name}
                         </button>
                         <p className="text-[11.5px] text-muted-foreground sm:hidden truncate">{customer.email}</p>
+                        <div className="mt-1 sm:hidden">
+                          <StatusBadge status={customer.status} doNotContact={customer.doNotContact} />
+                        </div>
                       </div>
                     </td>
                     <td className="px-4 py-3 hidden sm:table-cell">
@@ -1022,7 +1025,7 @@ export default function Customers() {
                     <td className="px-4 py-3 hidden md:table-cell">
                       <span className="text-[13px] text-muted-foreground">{customer.serviceType || "—"}</span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 hidden sm:table-cell">
                       <div className="space-y-1">
                         <StatusBadge status={customer.status} doNotContact={customer.doNotContact} />
                         {(() => {

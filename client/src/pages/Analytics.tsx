@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, CSSProperties } from "react";
 import { Send, Eye, EyeOff, TrendingUp, BarChart2, Download, FileText, Palette, Star, MessageSquare, Clock, GripVertical, LayoutGrid } from "lucide-react";
 import { Reorder } from "framer-motion";
 import { useAuth } from "@/hooks/use-auth";
@@ -116,19 +116,23 @@ interface AnalyticsData {
 const CHANNELS = ["email", "sms", "whatsapp"] as const;
 type Channel = typeof CHANNELS[number];
 
-function ChannelToggle({ active, onChange }: { active: Channel[]; onChange: (c: Channel[]) => void }) {
+function ChannelToggle({ active, onChange, activeStyle }: { active: Channel[]; onChange: (c: Channel[]) => void; activeStyle: CSSProperties }) {
   const labels: Record<Channel, string> = { email: "Email", sms: "SMS", whatsapp: "WhatsApp" };
   const toggle = (ch: Channel) => {
     onChange(active.includes(ch) ? active.filter(c => c !== ch) : [...active, ch]);
   };
   return (
     <div className="flex gap-1">
-      {CHANNELS.map(ch => (
-        <button key={ch} onClick={() => toggle(ch)}
-          className={`px-2 py-0.5 rounded text-[11px] font-medium border transition-colors ${active.includes(ch) || active.length === 0 ? "bg-selected text-selected-foreground border-selected" : "border-border text-muted-foreground hover:text-foreground"}`}>
-          {labels[ch]}
-        </button>
-      ))}
+      {CHANNELS.map(ch => {
+        const isActive = active.includes(ch) || active.length === 0;
+        return (
+          <button key={ch} onClick={() => toggle(ch)}
+            className={`px-2 py-0.5 rounded text-[11px] font-medium border transition-colors ${isActive ? "border-transparent text-white" : "border-border text-muted-foreground hover:text-foreground"}`}
+            style={isActive ? activeStyle : {}}>
+            {labels[ch]}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -145,6 +149,7 @@ export default function Analytics() {
   const { user } = useAuth();
   const isOwner = user?.role !== "member";
   const { colors, applyTheme, updateColor } = useChartColors();
+  const activeStyle: CSSProperties = { backgroundColor: colors.requests, borderColor: colors.requests, color: "#fff" };
   const [showColorPanel, setShowColorPanel] = useState(false);
   const [customising, setCustomising] = useState(false);
   const { order, hidden, updateOrder, toggleHidden, resetLayout } = useChartLayout();
@@ -418,7 +423,8 @@ export default function Analytics() {
             <button
               key={d}
               onClick={() => setPeriod(d)}
-              className={`px-2 py-1 rounded-md text-[11px] font-medium border transition-colors whitespace-nowrap shrink-0 ${period === d ? "bg-selected text-selected-foreground border-selected" : "border-border text-muted-foreground hover:text-foreground"}`}
+              className={`px-2 py-1 rounded-md text-[11px] font-medium border transition-colors whitespace-nowrap shrink-0 ${period === d ? "border-transparent text-white" : "border-border text-muted-foreground hover:text-foreground"}`}
+              style={period === d ? activeStyle : {}}
             >
               {d === "custom" ? "Custom" : d === "all" ? "All time" : `${d}d`}
             </button>
@@ -455,10 +461,10 @@ export default function Analytics() {
           <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 px-2" onClick={exportPDF} disabled={isLoading || !data || isExportingPDF}>
             <FileText className="w-3 h-3" />{isExportingPDF ? "…" : "PDF"}
           </Button>
-          <Button variant="outline" size="sm" className={`h-7 text-[11px] gap-1 px-2 ${showColorPanel ? "bg-selected text-selected-foreground border-selected" : ""}`} onClick={() => setShowColorPanel(v => !v)}>
+          <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 px-2" style={showColorPanel ? activeStyle : {}} onClick={() => setShowColorPanel(v => !v)}>
             <Palette className="w-3 h-3" />Colours
           </Button>
-          <Button variant="outline" size="sm" className={`h-7 text-[11px] gap-1 px-2 ${customising ? "bg-selected text-selected-foreground border-selected" : ""}`} onClick={() => setCustomising(v => !v)}>
+          <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 px-2" style={customising ? activeStyle : {}} onClick={() => setCustomising(v => !v)}>
             <LayoutGrid className="w-3 h-3" />Layout
           </Button>
         </div>
@@ -592,7 +598,7 @@ export default function Analytics() {
                   <CardHeader className="pb-2 pt-4 px-5">
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <CardTitle className="text-[14px] font-semibold">Requests vs Clicks by Channel</CardTitle>
-                      <ChannelToggle active={channelChartChannels} onChange={setChannelChartChannels} />
+                      <ChannelToggle active={channelChartChannels} onChange={setChannelChartChannels} activeStyle={activeStyle} />
                     </div>
                   </CardHeader>
                   <CardContent className="px-5 pb-4">

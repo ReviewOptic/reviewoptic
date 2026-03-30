@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useState, useRef, useEffect } from "react";
-import { Edit2, Save, X, FileText, Mail, MessageSquare, Video, Mic, StopCircle, RotateCcw, CheckCircle2, Sparkles, Upload, Plus, Trash2, ChevronDown, Send } from "lucide-react";
+import { Edit2, Save, X, FileText, Mail, MessageSquare, Video, Mic, StopCircle, RotateCcw, CheckCircle2, Sparkles, Upload, Plus, Trash2, ChevronDown, Send, Star } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Template } from "@shared/schema";
@@ -345,9 +345,11 @@ function TemplateEditor({ template, onCancel, textOnly = false }: { template: Te
               <Label className="text-[12.5px]">Message Body</Label>
               <div className="flex items-center gap-3">
                 <GenerateAIButton channel={template.channel} templateType={template.templateType} onGenerated={(b, s) => { setBody(b); if (s) setSubject(s); }} />
-                <span className={cn("text-[11px] font-mono", isSmsWarning ? "text-destructive font-semibold" : "text-muted-foreground")}>
-                  {charCount} chars {template.channel === "sms" && !isResponseTemplate && `(max ${smsCharLimit})`}
-                </span>
+                {template.channel !== "email" && (
+                  <span className={cn("text-[11px] font-mono", isSmsWarning ? "text-destructive font-semibold" : "text-muted-foreground")}>
+                    {charCount} chars {template.channel === "sms" && !isResponseTemplate && `(max ${smsCharLimit})`}
+                  </span>
+                )}
               </div>
             </div>
             <Textarea
@@ -423,7 +425,7 @@ function TemplateEditor({ template, onCancel, textOnly = false }: { template: Te
   );
 }
 
-const TEMPLATE_SLOTS: {
+type TemplateSlotDef = {
   type: string;
   label: string;
   description: string;
@@ -432,7 +434,9 @@ const TEMPLATE_SLOTS: {
   defaultBody: string;
   defaultBodySms?: string;
   defaultBodyWa?: string;
-}[] = [
+};
+
+const RATING_SLOTS: TemplateSlotDef[] = [
   {
     type: "response_positive",
     label: "After 4-5★ Rating",
@@ -449,6 +453,9 @@ const TEMPLATE_SLOTS: {
     defaultSubject: "We'd love to make this right",
     defaultBody: "We would appreciate your feedback on how we can improve for next time and will be in touch.\n\n{{business_name}}",
   },
+];
+
+const FOLLOWUP_SLOTS: TemplateSlotDef[] = [
   {
     type: "follow_up_1",
     label: "Follow-up 1",
@@ -481,9 +488,9 @@ const TEMPLATE_SLOTS: {
   },
 ];
 
-
+// Keep for any legacy references
 function TemplateSlot({ slot, template, channel, isReadOnly }: {
-  slot: typeof TEMPLATE_SLOTS[number];
+  slot: TemplateSlotDef;
   template: Template | undefined;
   channel: string;
   isReadOnly: boolean;
@@ -624,6 +631,24 @@ function RecordingsTab() {
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const videoPreviewRef = useRef<HTMLVideoElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    setRecordedBlob(file);
+    setRecordedUrl(url);
+    setRecState("recorded");
+    // Show preview in video element if video type
+    if (addingType === "video" && videoPreviewRef.current) {
+      videoPreviewRef.current.src = url;
+      videoPreviewRef.current.muted = false;
+      videoPreviewRef.current.load();
+    }
+    // Reset input so same file can be re-selected
+    e.target.value = "";
+  }
 
   // Label editing for existing recordings
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -659,7 +684,7 @@ function RecordingsTab() {
       const mr = new MediaRecorder(stream);
       mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       mr.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        const blob = new Blob(chunksRef.current, { type: mr.mimeType || "audio/mp4" });
         const url = URL.createObjectURL(blob);
         setRecordedBlob(blob);
         setRecordedUrl(url);
@@ -673,7 +698,7 @@ function RecordingsTab() {
       timerRef.current = setInterval(() => setRecDuration(d => d + 1), 1000);
       setRecState("recording");
     } catch {
-      toast({ title: "Microphone access denied", description: "Allow microphone access to record.", variant: "destructive" });
+      toast({ title: "Recording failed", description: "Microphone access was denied or is not supported on this browser.", variant: "destructive" });
     }
   }
 
@@ -687,7 +712,7 @@ function RecordingsTab() {
       }
       setRecState("previewing");
     } catch {
-      toast({ title: "Camera access denied", description: "Allow camera and microphone to record.", variant: "destructive" });
+      toast({ title: "Recording failed", description: "Camera access was denied or is not supported on this browser.", variant: "destructive" });
     }
   }
 
@@ -695,10 +720,10 @@ function RecordingsTab() {
     const stream = videoPreviewRef.current?.srcObject as MediaStream;
     if (!stream) return;
     chunksRef.current = [];
-    const mr = new MediaRecorder(stream, { mimeType: "video/webm" });
+    const mr = new MediaRecorder(stream);
     mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
     mr.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: "video/webm" });
+      const blob = new Blob(chunksRef.current, { type: mr.mimeType || "video/mp4" });
       const url = URL.createObjectURL(blob);
       setRecordedBlob(blob);
       setRecordedUrl(url);
@@ -730,7 +755,8 @@ function RecordingsTab() {
     setUploading(true);
     try {
       const fd = new FormData();
-      const filename = addingType === "voice" ? "voice-note.webm" : "video-message.webm";
+      const ext = recordedBlob.type.includes("mp4") ? "mp4" : recordedBlob.type.includes("ogg") ? "ogg" : "webm";
+      const filename = addingType === "voice" ? `voice-note.${ext}` : `video-message.${ext}`;
       fd.append("file", recordedBlob, filename);
       fd.append("type", addingType);
       fd.append("label", newLabel.trim() || (addingType === "voice" ? "Voice Note" : "Video Message"));
@@ -851,6 +877,15 @@ function RecordingsTab() {
                     className="text-[12.5px]" />
                 </div>
 
+                {/* Hidden file input for uploads */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept={type === "voice" ? "audio/*" : "video/*"}
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
+
                 {/* Voice recorder */}
                 {type === "voice" && (
                   <div className="space-y-2">
@@ -865,9 +900,14 @@ function RecordingsTab() {
                     )}
                     <div className="flex gap-2 flex-wrap">
                       {recState === "idle" && (
-                        <Button size="sm" variant="outline" className="text-[12px] gap-1.5" onClick={startVoiceRecording}>
-                          <Mic className="w-3.5 h-3.5" /> Start recording
-                        </Button>
+                        <>
+                          <Button size="sm" variant="outline" className="text-[12px] gap-1.5" onClick={startVoiceRecording}>
+                            <Mic className="w-3.5 h-3.5" /> Record
+                          </Button>
+                          <Button size="sm" variant="outline" className="text-[12px] gap-1.5" onClick={() => fileInputRef.current?.click()}>
+                            <Upload className="w-3.5 h-3.5" /> Upload file
+                          </Button>
+                        </>
                       )}
                       {recState === "recording" && (
                         <Button size="sm" variant="destructive" className="text-[12px] gap-1.5" onClick={() => mediaRecorderRef.current?.stop()}>
@@ -906,9 +946,14 @@ function RecordingsTab() {
                     )}
                     <div className="flex gap-2 flex-wrap">
                       {recState === "idle" && (
-                        <Button size="sm" variant="outline" className="text-[12px] gap-1.5" onClick={startVideoPreview}>
-                          <Video className="w-3.5 h-3.5" /> Open camera
-                        </Button>
+                        <>
+                          <Button size="sm" variant="outline" className="text-[12px] gap-1.5" onClick={startVideoPreview}>
+                            <Video className="w-3.5 h-3.5" /> Open camera
+                          </Button>
+                          <Button size="sm" variant="outline" className="text-[12px] gap-1.5" onClick={() => fileInputRef.current?.click()}>
+                            <Upload className="w-3.5 h-3.5" /> Upload file
+                          </Button>
+                        </>
                       )}
                       {recState === "previewing" && (
                         <Button size="sm" className="text-[12px] gap-1.5 bg-red-500 hover:bg-red-600" onClick={startVideoRecording}>
@@ -1086,7 +1131,7 @@ export default function Templates() {
   const { user } = useAuth();
   const isReadOnly = !!user?.isImpersonating;
   const { data: templates, isLoading } = useQuery<Template[]>({ queryKey: ["/api/templates"] });
-  const [activeTab, setActiveTab] = useState("email");
+  const [activeTab, setActiveTab] = useState("ratings");
   const { toast } = useToast();
   const [resetting, setResetting] = useState(false);
 
@@ -1125,20 +1170,29 @@ export default function Templates() {
         </div>
       ) : (
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-5">
-            <TabsTrigger value="email" className="gap-1.5 text-[13px]" data-testid="tab-email">
-              <Mail className="w-3.5 h-3.5" /> Email
-            </TabsTrigger>
-            <TabsTrigger value="sms" className="gap-1.5 text-[13px]" data-testid="tab-sms">
-              <MessageSquare className="w-3.5 h-3.5" /> SMS
-            </TabsTrigger>
-            <TabsTrigger value="whatsapp" className="gap-1.5 text-[13px]" data-testid="tab-whatsapp">
-              <MessageSquare className="w-3.5 h-3.5 text-green-500" /> WhatsApp
-            </TabsTrigger>
-            <TabsTrigger value="recordings" className="gap-1.5 text-[13px]" data-testid="tab-recordings">
-              <Mic className="w-3.5 h-3.5" /> Recordings
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex flex-nowrap overflow-x-hidden gap-0.5 mb-5 border-b border-border pb-3">
+            {([
+              { value: "ratings",    icon: <Star className="w-3.5 h-3.5" />,                          label: "Ratings" },
+              { value: "email",      icon: <Mail className="w-3.5 h-3.5" />,                          label: "Email" },
+              { value: "sms",        icon: <MessageSquare className="w-3.5 h-3.5" />,                 label: "SMS" },
+              { value: "whatsapp",   icon: <MessageSquare className="w-3.5 h-3.5 text-green-500" />,  label: "WhatsApp" },
+              { value: "recordings", icon: <Mic className="w-3.5 h-3.5" />,                           label: "Recordings" },
+            ] as const).map(tab => (
+              <button
+                key={tab.value}
+                onClick={() => setActiveTab(tab.value)}
+                data-testid={`tab-${tab.value}`}
+                className={cn(
+                  "flex shrink-0 items-center gap-1 px-1.5 py-1 rounded-md text-[11px] font-medium transition-colors whitespace-nowrap",
+                  activeTab === tab.value
+                    ? "text-foreground bg-muted"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                )}
+              >
+                {tab.icon} {tab.label}
+              </button>
+            ))}
+          </div>
 
           {activeTab !== "recordings" && (
             <div className="mb-6 p-4 rounded-xl bg-primary/5 border border-primary/20">
@@ -1154,6 +1208,23 @@ export default function Templates() {
             </div>
           )}
 
+          {/* Ratings tab — channel-agnostic, uses email channel data */}
+          <TabsContent value="ratings" className="space-y-4">
+            <p className="text-[12.5px] text-muted-foreground -mt-2 mb-2">
+              These messages appear in the rating pop-up after a customer submits their star rating. They are the same regardless of whether the original request was sent by email, SMS, or WhatsApp.
+            </p>
+            {RATING_SLOTS.map(slot => (
+              <TemplateSlot
+                key={slot.type}
+                slot={slot}
+                template={byChannel.email.find(t => t.templateType === slot.type)}
+                channel="email"
+                isReadOnly={isReadOnly}
+              />
+            ))}
+          </TabsContent>
+
+          {/* Follow-up tabs per channel */}
           {(["email", "sms", "whatsapp"] as const).map(ch => (
             <TabsContent key={ch} value={ch} className="space-y-4">
               {!isReadOnly && (
@@ -1163,7 +1234,7 @@ export default function Templates() {
                   </Button>
                 </div>
               )}
-              {TEMPLATE_SLOTS.map(slot => (
+              {FOLLOWUP_SLOTS.map(slot => (
                 <TemplateSlot
                   key={slot.type}
                   slot={slot}
