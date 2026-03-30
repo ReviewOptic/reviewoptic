@@ -148,7 +148,7 @@ export default function Analytics() {
   const [showColorPanel, setShowColorPanel] = useState(false);
   const [customising, setCustomising] = useState(false);
   const { order, hidden, updateOrder, toggleHidden, resetLayout } = useChartLayout();
-  const [period, setPeriod] = useState<"7" | "30" | "60" | "custom">("30");
+  const [period, setPeriod] = useState<"7" | "30" | "60" | "all" | "custom">("30");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [userFilter, setUserFilter] = useState("all");
@@ -165,7 +165,7 @@ export default function Analytics() {
 
   const baseParams = period === "custom" && from && to
     ? `from=${from}&to=${to}`
-    : `days=${period}`;
+    : `days=${period === "all" ? "all" : period}`;
   const queryParams = userFilter !== "all" ? `${baseParams}&userId=${userFilter}` : baseParams;
 
   const { data, isLoading } = useQuery<AnalyticsData>({
@@ -414,13 +414,13 @@ export default function Analytics() {
       <div className="flex flex-wrap items-center gap-2">
         {/* Left: period pills + optional date inputs + team filter */}
         <div className="flex flex-wrap items-center gap-1.5 min-w-0 flex-1">
-          {(["7", "30", "60", "custom"] as const).map(d => (
+          {(["7", "30", "60", "all", "custom"] as const).map(d => (
             <button
               key={d}
               onClick={() => setPeriod(d)}
               className={`px-2 py-1 rounded-md text-[11px] font-medium border transition-colors whitespace-nowrap shrink-0 ${period === d ? "bg-selected text-selected-foreground border-selected" : "border-border text-muted-foreground hover:text-foreground"}`}
             >
-              {d === "custom" ? "Custom" : `${d}d`}
+              {d === "custom" ? "Custom" : d === "all" ? "All time" : `${d}d`}
             </button>
           ))}
           {period === "custom" && (

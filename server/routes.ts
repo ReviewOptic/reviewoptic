@@ -2193,6 +2193,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         days = 30;
         cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
       }
+    } else if (req.query.days === "all") {
+      cutoff = new Date("2000-01-01");
+      days = Math.ceil((now.getTime() - cutoff.getTime()) / (24 * 60 * 60 * 1000));
     } else {
       days = parseInt((req.query.days as string) || "30");
       if (isNaN(days) || days <= 0) days = 30;
