@@ -394,7 +394,6 @@ export default function Analytics() {
 
   const summaryCards = [
     { label: "Requests Sent", value: sent, icon: <Send className="w-4 h-4" />, color: "text-blue-500" },
-    { label: "Links Clicked", value: clicks, icon: <Eye className="w-4 h-4" />, color: "text-green-500" },
     { label: "Click Rate", value: `${clickRate}%`, icon: <TrendingUp className="w-4 h-4" />, color: "text-purple-500" },
     { label: "No Response", value: noResponseCount, icon: <Clock className="w-4 h-4" />, color: "text-orange-500" },
     { label: "Avg. Star Rating", value: avgRating != null ? avgRating.toFixed(1) : "—", icon: <Star className="w-4 h-4" />, color: "text-amber-500" },
@@ -544,7 +543,7 @@ export default function Analytics() {
       </p>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 pdf-section">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pdf-section">
         {summaryCards.map(c => (
           <Card key={c.label} className="border-card-border">
             <CardContent className="p-4">

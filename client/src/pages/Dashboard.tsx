@@ -5,7 +5,7 @@ import { useLocation } from "wouter";
 import {
   Send, Clock, CheckCircle2, ArrowRight, Plus, BarChart2,
   Eye, Users, Star, MessageSquare, Play, AlertCircle, Mail,
-  FileText, Settings as SettingsIcon, X, CreditCard
+  FileText, Settings as SettingsIcon, X, CreditCard, BookOpen
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -265,6 +265,7 @@ export default function Dashboard() {
   const { data: allRequests = [] } = useQuery<ReviewRequest[]>({ queryKey: ["/api/review-requests"] });
 
   const pendingFollowUp = customers?.filter(c => c.status === "request_sent" && !c.doNotContact) || [];
+  const reviewsCompleted = customers?.filter(c => c.status === "review_completed").length ?? 0;
   const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
   const noResponseCustomers = customers?.filter(c => c.status === "no_response" && !c.doNotContact) || [];
   const stalePendingCustomers = customers?.filter(c => {
@@ -336,7 +337,7 @@ export default function Dashboard() {
       <OnboardingChecklist />
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
         <div className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4">
           {statsLoading ? <Skeleton className="h-12 w-full opacity-30" /> : (
             <>
@@ -404,6 +405,19 @@ export default function Dashboard() {
             </>
           )}
         </div>
+        <div className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4">
+          {statsLoading ? <Skeleton className="h-12 w-full opacity-30" /> : (
+            <>
+              <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-white/20">
+                <CheckCircle2 className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <div className="text-xl font-bold text-white leading-none">{reviewsCompleted}</div>
+                <div className="text-[11.5px] text-white/70 mt-1 leading-tight">Reviews Completed</div>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Quick links — mobile only */}
@@ -413,10 +427,11 @@ export default function Dashboard() {
           { label: "Templates", icon: FileText, path: "/templates" },
           { label: "Analytics", icon: BarChart2, path: "/analytics" },
           { label: "Settings", icon: SettingsIcon, path: "/settings" },
+          { label: "Tutorial", icon: BookOpen, path: "/tutorial" },
           ...(!user?.isAdmin && user?.role !== "member" ? [{ label: "Billing", icon: CreditCard, path: "/billing" }] : []),
         ];
         return (
-          <div className={`grid sm:hidden gap-3 ${links.length === 5 ? "grid-cols-3" : "grid-cols-2"}`}>
+          <div className="grid grid-cols-3 sm:hidden gap-3">
             {links.map(link => (
               <button
                 key={link.path}
@@ -505,21 +520,30 @@ export default function Dashboard() {
         <div className="space-y-4">
 
           {/* Private Feedback */}
-          {unrespondedFeedback.length > 0 && (
-            <Card className="border-card-border border-amber-300 dark:border-amber-700">
-              <CardHeader className="pb-3 pt-4">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-[14px] font-semibold flex items-center gap-1.5">
-                    <AlertCircle className="w-4 h-4 text-amber-500" />
-                    Private Feedback
-                  </CardTitle>
+          <Card className={unrespondedFeedback.length > 0 ? "border-card-border border-amber-300 dark:border-amber-700" : "border-card-border border-green-200 dark:border-green-800"}>
+            <CardHeader className="pb-3 pt-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-[14px] font-semibold flex items-center gap-1.5">
+                  {unrespondedFeedback.length > 0
+                    ? <AlertCircle className="w-4 h-4 text-amber-500" />
+                    : <CheckCircle2 className="w-4 h-4 text-green-500" />}
+                  Private Feedback
+                </CardTitle>
+                {unrespondedFeedback.length > 0 && (
                   <Badge className="text-[11px] bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-0">
                     {unrespondedFeedback.length} Needs Response
                   </Badge>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="px-4 pb-4 space-y-1">
+              {unrespondedFeedback.length === 0 ? (
+                <div className="text-center py-3 space-y-1">
+                  <p className="text-[13px] font-medium text-green-600 dark:text-green-400">You're all caught up! 🎉</p>
+                  <p className="text-[12px] text-muted-foreground">No private feedback needs a response right now.</p>
                 </div>
-              </CardHeader>
-              <CardContent className="px-4 pb-4 space-y-1">
-                {unrespondedFeedback.slice(0, 4).map((f: any) => (
+              ) : (
+                unrespondedFeedback.slice(0, 4).map((f: any) => (
                   <div
                     key={f.id}
                     className="flex items-start gap-2 p-2.5 rounded-lg hover:bg-accent transition-colors"
@@ -552,10 +576,10 @@ export default function Dashboard() {
                       </button>
                     </div>
                   </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
+                ))
+              )}
+            </CardContent>
+          </Card>
 
           {/* Pending customers */}
           {pendingCustomers.length > 0 && (
