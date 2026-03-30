@@ -234,7 +234,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
-      <div className="md:w-1/2 flex flex-col justify-between p-8 md:p-12 md:min-h-screen" style={{ backgroundColor: "#0E679D", color: "#fff" }}>
+      <div className="md:w-1/2 bg-primary text-white flex flex-col justify-between p-8 md:p-12 md:min-h-screen">
         <div>
           <h1 className="text-3xl md:text-4xl font-bold leading-tight mb-4 text-white">Turn happy customers<br />into 5-star reviews — on autopilot.</h1>
           <p className="text-white/75 text-base mb-10 leading-relaxed">ReviewOptic helps local businesses automatically collect more reviews on Google, Trustpilot, Facebook, and more.</p>

@@ -59,7 +59,7 @@ export default function Register() {
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
-        <div className="rounded-t-2xl px-8 py-7 text-center" style={{ backgroundColor: "#0E679D" }}>
+        <div className="bg-primary rounded-t-2xl px-8 py-7 text-center">
           <img src={branding?.logoUrl || "/logo.png"} alt="ReviewOptic" className="h-16 object-contain mx-auto mb-4 brightness-0 invert" />
           <h1 className="text-xl font-bold text-white mb-1">Create your account</h1>
           <p className="text-sm text-white/75">Start your 14-day free trial. Cancel within 14 days and pay nothing.</p>
