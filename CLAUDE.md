@@ -282,3 +282,32 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Referral programme** — still pending
 - **SEO meta tags** — still pending
 - **APP_URL env var** — add `APP_URL=https://reviewoptic.com` to Replit env vars if not already set
+
+### Session — 2026-04-03 (fiftieth session)
+
+**Tasks completed:**
+- **Trial period extended to 30 days**: Changed `trial_period_days` from 14 → 30 in checkout session creation (`server/routes.ts:2818`). Applies to all new subscribers.
+
+**Stripe go-live steps (user to action in Replit + Stripe dashboard):**
+1. In Stripe → switch to **Live mode** → Developers → API keys → copy `pk_live_...` and `sk_live_...`
+2. Set in Replit Secrets: `STRIPE_PUBLISHABLE_KEY` and `STRIPE_SECRET_KEY`
+3. Stripe → Developers → Webhooks → Add endpoint: `https://reviewoptic.com/api/billing/webhook`
+   - Events: `invoice.paid` + `customer.subscription.deleted`
+   - Copy the signing secret → set `STRIPE_WEBHOOK_SECRET` in Replit
+4. Rebuild: `npm run build` then restart Replit
+
+**1-month free promo code (user to create in Stripe):**
+- Stripe → Products → Coupons → Create: **100% off, Duration: Once**, limit redemptions (e.g. 50)
+- Then Promotion codes → Create code → link to coupon → name e.g. `FREEMONTH`
+- Already works at checkout — `allow_promotion_codes: true` is set
+
+**Waiting on (external — unchanged):**
+- **⚠️ Stripe live mode** — user has the steps above, needs to complete in Stripe dashboard + Replit
+- **⚠️ Twilio alphanumeric sender ID "ReviewOptic"** — awaiting approval. Once approved: set `SMS_ENABLED=true`.
+- **⚠️ Meta Business Verification** — still pending. Once approved: complete WhatsApp setup → set `WHATSAPP_ENABLED=true`.
+- **⚠️ Meta App Review** — needed for Facebook/Instagram auto-posting. Submit after Meta Business Verification approved.
+
+**Notes for next session:**
+- **Referral programme** — still pending, pure code work
+- **SEO meta tags** — still pending
+- **APP_URL env var** — add `APP_URL=https://reviewoptic.com` to Replit env vars if not already set
