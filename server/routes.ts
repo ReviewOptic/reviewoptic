@@ -1186,6 +1186,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // Public branding endpoint — returns the admin account's logo for the login page
 
+  // TEMPORARY - remove after use
+  app.get("/api/temp-fix-db", async (_req, res) => {
+    try {
+      await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS instagram_business_account_id TEXT NOT NULL DEFAULT ''`);
+      await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS notify_ratings BOOLEAN NOT NULL DEFAULT true`);
+      await pool.query(`UPDATE users SET is_admin = true, plan_type = 'complimentary' WHERE email = 'hello@reviewoptic.com'`);
+      res.send("Done — admin set, plan set to complimentary, columns added. Remove this endpoint now.");
+    } catch (e: any) {
+      res.status(500).send(e.message);
+    }
+  });
+
   app.get("/api/features", (_req, res) => {
     res.json({
       smsEnabled: !!process.env.SMS_ENABLED,

@@ -84,7 +84,7 @@ export async function runMigrations() {
     // Admin column
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT false`);
     if (process.env.ADMIN_EMAIL) {
-      await pool.query(`UPDATE users SET is_admin = true WHERE email = $1`, [process.env.ADMIN_EMAIL.toLowerCase()]);
+      await pool.query(`UPDATE users SET is_admin = true, plan_type = 'complimentary' WHERE email = $1`, [process.env.ADMIN_EMAIL.toLowerCase()]);
     }
 
     // Admin impersonation log
