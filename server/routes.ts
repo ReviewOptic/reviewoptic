@@ -1106,6 +1106,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({
       smsEnabled: !!process.env.SMS_ENABLED,
       whatsappEnabled: !!process.env.WHATSAPP_ENABLED,
+      socialEnabled: !!process.env.SOCIAL_ENABLED,
     });
   });
 

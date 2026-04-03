@@ -1,4 +1,5 @@
 import { Check } from "lucide-react";
+import { useFeatures } from "@/hooks/useFeatures";
 
 const FEATURES = [
   {
@@ -98,6 +99,15 @@ const FEATURES = [
 ];
 
 export default function Features() {
+  const { smsEnabled, whatsappEnabled, socialEnabled } = useFeatures();
+
+  const SMS_WA_ITEMS = new Set([
+    "Review requests via email, SMS & WhatsApp",
+    "Multiple named message templates per channel (email, SMS, WhatsApp)",
+  ]);
+  const SMS_TAGS = [!smsEnabled && "SMS", !whatsappEnabled && "WhatsApp"].filter(Boolean) as string[];
+  const SOCIAL_ITEMS = new Set(["Auto-post 4 & 5-star reviews to Facebook & LinkedIn"]);
+
   return (
     <div className="min-h-screen bg-gray-50 py-16 px-4">
       <div className="max-w-3xl mx-auto">
@@ -112,12 +122,20 @@ export default function Features() {
             <div key={section.category} className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
               <h2 className="text-base font-bold text-gray-900 mb-4 uppercase tracking-wide text-xs">{section.category}</h2>
               <ul className="space-y-3">
-                {section.items.map(item => (
-                  <li key={item} className="flex items-start gap-3 text-gray-700 text-sm">
-                    <Check className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-                    {item}
-                  </li>
-                ))}
+                {section.items.map(item => {
+                  const showSmsTags = SMS_WA_ITEMS.has(item) && SMS_TAGS.length > 0;
+                  const showSocial = SOCIAL_ITEMS.has(item) && !socialEnabled;
+                  return (
+                    <li key={item} className="flex items-start gap-3 text-gray-700 text-sm">
+                      <Check className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+                      <span>
+                        {item}
+                        {showSmsTags && <span className="ml-1.5 text-[10px] bg-blue-50 text-blue-500 border border-blue-200 rounded px-1 py-0.5 font-medium">{SMS_TAGS.join(" & ")} coming soon</span>}
+                        {showSocial && <span className="ml-1.5 text-[10px] bg-blue-50 text-blue-500 border border-blue-200 rounded px-1 py-0.5 font-medium">Coming soon</span>}
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ))}

@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 interface Features {
   smsEnabled: boolean;
   whatsappEnabled: boolean;
+  socialEnabled: boolean;
 }
 
 export function useFeatures(): Features {
@@ -13,5 +14,6 @@ export function useFeatures(): Features {
   return {
     smsEnabled: data?.smsEnabled ?? false,
     whatsappEnabled: data?.whatsappEnabled ?? false,
+    socialEnabled: data?.socialEnabled ?? false,
   };
 }
