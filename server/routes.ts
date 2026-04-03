@@ -2690,6 +2690,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           quantity: 1,
         }],
         ...(isNewSubscriber ? { subscription_data: { trial_period_days: 14 } } : {}),
+        allow_promotion_codes: true,
         return_url: `${appUrl}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
         metadata: { userId: user.id, plan, period },
       });
