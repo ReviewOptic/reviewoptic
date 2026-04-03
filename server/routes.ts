@@ -1187,6 +1187,22 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // Public branding endpoint — returns the admin account's logo for the login page
 
 
+  // TEMPORARY - remove after use
+  app.get("/api/temp-check-account", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      const accountId = req.session.accountId;
+      const { rows: userRows } = await pool.query(`SELECT id, email, account_id, is_admin, plan_type FROM users WHERE id = $1`, [userId]);
+      const { rows: settingsRows } = await pool.query(`SELECT id, account_id FROM settings WHERE account_id = $1`, [accountId]);
+      if (settingsRows.length === 0) {
+        await pool.query(`INSERT INTO settings (id, account_id, business_name) VALUES (gen_random_uuid(), $1, '') ON CONFLICT DO NOTHING`, [accountId]);
+      }
+      res.json({ userId, accountId, user: userRows[0], settingsFound: settingsRows.length, settingsCreated: settingsRows.length === 0 });
+    } catch (e: any) {
+      res.status(500).send(e.message);
+    }
+  });
+
   app.get("/api/features", (_req, res) => {
     res.json({
       smsEnabled: !!process.env.SMS_ENABLED,
