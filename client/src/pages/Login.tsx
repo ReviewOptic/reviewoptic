@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { useFeatures } from "@/hooks/useFeatures";
 
 interface TrustpilotReview {
@@ -82,6 +82,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [forgotSent, setForgotSent] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendDone, setResendDone] = useState(false);
   const [accountExists, setAccountExists] = useState(false);
@@ -189,7 +190,12 @@ export default function Login() {
                   <button type="button" onClick={() => switchMode("forgot")} className="text-xs text-muted-foreground hover:text-primary">Forgot password?</button>
                 )}
               </div>
-              <Input type="password" name="password" placeholder="••••••••" autoComplete={mode === "register" ? "new-password" : "current-password"} onChange={e => setPassword(e.target.value)} required minLength={mode === "register" ? 8 : undefined} />
+              <div className="relative">
+                <Input type={showPassword ? "text" : "password"} name="password" placeholder="••••••••" autoComplete={mode === "register" ? "new-password" : "current-password"} onChange={e => setPassword(e.target.value)} required minLength={mode === "register" ? 8 : undefined} className="pr-10" />
+                <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
             {mode === "register" && (
               <label className="flex items-start gap-2 cursor-pointer">
