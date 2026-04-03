@@ -311,3 +311,27 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Referral programme** — still pending, pure code work
 - **SEO meta tags** — still pending
 - **APP_URL env var** — add `APP_URL=https://reviewoptic.com` to Replit env vars if not already set
+
+### Session — 2026-04-03 (fifty-first session)
+
+**Tasks completed:**
+- No code changes this session.
+- **Domain setup guidance**: Walked user through connecting `www.reviewoptic.com` (Namecheap) to Replit deployment. User added A record and TXT record in Namecheap Advanced DNS. www CNAME pointed to Replit app URL.
+
+**Domain setup — where we got to:**
+- A record and TXT record added in Namecheap ✅
+- www CNAME pointed to Replit app URL ✅
+- Could not locate the "Verify" button in Replit — user was seeing "Republish" but no Domains tab
+- **Next step**: In Replit, click **Republish** → look for a **Domains** tab at the top of the panel → enter `reviewoptic.com` and add it if not already listed → then click Verify. If still stuck, share a screenshot.
+
+**Waiting on (external — unchanged):**
+- **⚠️ Stripe live mode** — needs live keys + webhook in Replit
+- **⚠️ Twilio alphanumeric sender ID "ReviewOptic"** — awaiting approval. Once approved: set `SMS_ENABLED=true`.
+- **⚠️ Meta Business Verification** — still pending. Once approved: complete WhatsApp setup → set `WHATSAPP_ENABLED=true`.
+- **⚠️ Meta App Review** — needed for Facebook/Instagram auto-posting. Submit after Meta Business Verification approved.
+
+**Notes for next session:**
+- **Domain verification** — finish verifying reviewoptic.com in Replit (see above)
+- **Referral programme** — still pending, pure code work
+- **SEO meta tags** — still pending
+- **APP_URL env var** — add `APP_URL=https://reviewoptic.com` to Replit env vars if not already set
