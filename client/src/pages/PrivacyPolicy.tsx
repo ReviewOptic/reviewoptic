@@ -12,7 +12,7 @@ export default function PrivacyPolicy() {
           <section>
             <h2 className="text-lg font-semibold mb-2">1. Who we are</h2>
             <p className="text-muted-foreground leading-relaxed">
-              ReviewOptic is operated by ReviewOptic Limited, registered at hello@reviewoptic.com, England and Wales.
+              ReviewOptic is operated by ReviewOptic Limited (company number 17134444), registered in England and Wales.
               If you have any questions about this policy, contact us at hello@reviewoptic.com.
             </p>
           </section>
@@ -147,8 +147,8 @@ export default function PrivacyPolicy() {
             <h2 className="text-lg font-semibold mb-2">12. Contact</h2>
             <p className="text-muted-foreground leading-relaxed">
               For any privacy-related questions or requests, contact us at:<br />
-              <strong className="text-foreground">hello@reviewoptic.com</strong><br />
-              ReviewOptic Limited<br />
+              <strong className="text-foreground">ReviewOptic Limited</strong><br />
+              Company number: 17134444<br />
               hello@reviewoptic.com
             </p>
           </section>

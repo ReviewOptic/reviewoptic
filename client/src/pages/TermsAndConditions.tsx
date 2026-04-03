@@ -230,8 +230,8 @@ export default function TermsAndConditions() {
             <h2 className="text-lg font-semibold mb-2">18. Contact</h2>
             <p className="text-muted-foreground leading-relaxed">
               For any questions about these Terms, contact us at:<br />
-              <strong className="text-foreground">hello@reviewoptic.com</strong><br />
-              ReviewOptic Limited<br />
+              <strong className="text-foreground">ReviewOptic Limited</strong><br />
+              Company number: 17134444<br />
               hello@reviewoptic.com
             </p>
           </section>
