@@ -93,7 +93,7 @@ export default function PrivacyPolicy() {
             <p className="text-muted-foreground leading-relaxed">
               We retain your account data for as long as your account is active. If you delete your account,
               we will delete your personal data within 30 days, except where we are required to retain it
-              for legal or financial reasons. You can request deletion at any time by contacting hello@reviewoptic.com.
+              for legal or financial reasons. You can delete your account at any time through your Billing settings.
             </p>
           </section>
 
@@ -120,7 +120,7 @@ export default function PrivacyPolicy() {
               <li>Withdraw consent at any time (where processing is based on consent)</li>
             </ul>
             <p className="text-muted-foreground leading-relaxed mt-3">
-              To exercise any of these rights, contact us at hello@reviewoptic.com. You also have the right to
+              Account deletion can be done directly through your Billing settings. For all other rights requests, email us at hello@reviewoptic.com. You also have the right to
               lodge a complaint with the UK Information Commissioner's Office (ICO) at ico.org.uk.
             </p>
           </section>
