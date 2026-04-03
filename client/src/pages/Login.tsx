@@ -278,6 +278,11 @@ export default function Login() {
           </div>
         </div>
       </div>
+      <div className="text-center py-4 text-[12px] text-white/40 bg-[#0E679D]">
+        <a href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-white/70 underline">Terms & Conditions</a>
+        <span className="mx-2">·</span>
+        <a href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-white/70 underline">Privacy Policy</a>
+      </div>
     </div>
   );
 }
