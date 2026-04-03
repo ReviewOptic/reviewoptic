@@ -4,7 +4,7 @@ export default function PrivacyPolicy() {
       <div className="max-w-3xl mx-auto px-6 py-16">
         <div className="mb-10">
           <h1 className="text-3xl font-bold tracking-tight mb-2">Privacy Policy</h1>
-          <p className="text-muted-foreground text-sm">Last updated: [DATE]</p>
+          <p className="text-muted-foreground text-sm">Last updated: 3 April 2026</p>
         </div>
 
         <div className="prose prose-sm max-w-none space-y-8 text-foreground">
@@ -12,8 +12,8 @@ export default function PrivacyPolicy() {
           <section>
             <h2 className="text-lg font-semibold mb-2">1. Who we are</h2>
             <p className="text-muted-foreground leading-relaxed">
-              ReviewOptic is operated by [COMPANY NAME], registered at [REGISTERED ADDRESS], [COUNTRY].
-              If you have any questions about this policy, contact us at [CONTACT EMAIL].
+              ReviewOptic is operated by ReviewOptic Limited, registered at hello@reviewoptic.com, England and Wales.
+              If you have any questions about this policy, contact us at hello@reviewoptic.com.
             </p>
           </section>
 
@@ -92,8 +92,8 @@ export default function PrivacyPolicy() {
             <h2 className="text-lg font-semibold mb-2">7. Data retention</h2>
             <p className="text-muted-foreground leading-relaxed">
               We retain your account data for as long as your account is active. If you delete your account,
-              we will delete your personal data within [X] days, except where we are required to retain it
-              for legal or financial reasons. You can request deletion at any time by contacting [CONTACT EMAIL].
+              we will delete your personal data within 30 days, except where we are required to retain it
+              for legal or financial reasons. You can request deletion at any time by contacting hello@reviewoptic.com.
             </p>
           </section>
 
@@ -120,7 +120,7 @@ export default function PrivacyPolicy() {
               <li>Withdraw consent at any time (where processing is based on consent)</li>
             </ul>
             <p className="text-muted-foreground leading-relaxed mt-3">
-              To exercise any of these rights, contact us at [CONTACT EMAIL]. You also have the right to
+              To exercise any of these rights, contact us at hello@reviewoptic.com. You also have the right to
               lodge a complaint with the UK Information Commissioner's Office (ICO) at ico.org.uk.
             </p>
           </section>
@@ -147,9 +147,9 @@ export default function PrivacyPolicy() {
             <h2 className="text-lg font-semibold mb-2">12. Contact</h2>
             <p className="text-muted-foreground leading-relaxed">
               For any privacy-related questions or requests, contact us at:<br />
-              <strong className="text-foreground">[CONTACT EMAIL]</strong><br />
-              [COMPANY NAME]<br />
-              [REGISTERED ADDRESS]
+              <strong className="text-foreground">hello@reviewoptic.com</strong><br />
+              ReviewOptic Limited<br />
+              hello@reviewoptic.com
             </p>
           </section>
 

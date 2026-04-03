@@ -5,7 +5,7 @@ export default function TermsAndConditions() {
         <div className="mb-10">
           <img src="/logo.png" alt="ReviewOptic" className="h-28 mb-8 object-contain" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
           <h1 className="text-3xl font-bold tracking-tight mb-2">Terms and Conditions</h1>
-          <p className="text-muted-foreground text-sm">Last updated: [DATE]</p>
+          <p className="text-muted-foreground text-sm">Last updated: 3 April 2026</p>
         </div>
 
         <div className="prose prose-sm max-w-none space-y-8 text-foreground">
@@ -14,8 +14,8 @@ export default function TermsAndConditions() {
             <h2 className="text-lg font-semibold mb-2">1. About these terms</h2>
             <p className="text-muted-foreground leading-relaxed">
               These Terms and Conditions ("Terms") govern your use of ReviewOptic, a software-as-a-service
-              platform operated by [COMPANY NAME], registered in England and Wales under company number
-              [COMPANY NUMBER], with its registered office at [REGISTERED ADDRESS] ("we", "us", "our").
+              platform operated by ReviewOptic Limited, registered in England and Wales under company number
+              17134444, with its registered office at hello@reviewoptic.com ("we", "us", "our").
             </p>
             <p className="text-muted-foreground leading-relaxed mt-3">
               By creating an account or using ReviewOptic, you agree to these Terms in full. If you do not
@@ -41,7 +41,7 @@ export default function TermsAndConditions() {
             <p className="text-muted-foreground leading-relaxed">
               You must provide accurate and complete information when creating an account. You are responsible
               for maintaining the confidentiality of your login credentials and for all activity that occurs
-              under your account. You must notify us immediately at [CONTACT EMAIL] if you suspect any
+              under your account. You must notify us immediately at hello@reviewoptic.com if you suspect any
               unauthorised access to your account. You must be at least 18 years old to use this service.
             </p>
           </section>
@@ -230,9 +230,9 @@ export default function TermsAndConditions() {
             <h2 className="text-lg font-semibold mb-2">18. Contact</h2>
             <p className="text-muted-foreground leading-relaxed">
               For any questions about these Terms, contact us at:<br />
-              <strong className="text-foreground">[CONTACT EMAIL]</strong><br />
-              [COMPANY NAME]<br />
-              [REGISTERED ADDRESS]
+              <strong className="text-foreground">hello@reviewoptic.com</strong><br />
+              ReviewOptic Limited<br />
+              hello@reviewoptic.com
             </p>
           </section>
 
