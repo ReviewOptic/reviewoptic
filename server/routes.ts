@@ -1185,16 +1185,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // Public branding endpoint — returns the admin account's logo for the login page
-  // TEMPORARY - remove after use
-  app.get("/api/temp-admin-reset", async (_req, res) => {
-    try {
-      const hash = await bcrypt.hash("H1ghw00d!", 10);
-      await pool.query(`UPDATE users SET password = $1 WHERE email = $2`, [hash, "hello@reviewoptic.com"]);
-      res.send("Admin password reset to H1ghw00d! — remove this endpoint now.");
-    } catch (e: any) {
-      res.status(500).send(e.message);
-    }
-  });
 
   app.get("/api/features", (_req, res) => {
     res.json({
