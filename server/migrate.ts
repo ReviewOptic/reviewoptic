@@ -489,7 +489,7 @@ export async function runMigrations() {
     // In-app notifications
     await pool.query(`CREATE TABLE IF NOT EXISTS notifications (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      account_id TEXT NOT NULL,
       type TEXT NOT NULL,
       title TEXT NOT NULL,
       body TEXT NOT NULL DEFAULT '',
@@ -501,7 +501,7 @@ export async function runMigrations() {
     // Push notification subscriptions (PWA)
     await pool.query(`CREATE TABLE IF NOT EXISTS push_subscriptions (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      account_id TEXT NOT NULL,
       endpoint TEXT NOT NULL UNIQUE,
       p256dh TEXT NOT NULL,
       auth TEXT NOT NULL,
