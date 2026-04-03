@@ -375,3 +375,35 @@ Your job is to be the developer they would hire if they could afford a great one
 1. Check if Meta Business Verification email has arrived → complete WhatsApp setup in Twilio
 2. Test SMS (should be provisioned by then)
 3. Build referral programme
+
+### Session — 2026-04-03 (forty-eighth session)
+
+**Tasks completed:**
+- **SMS sender switched to alphanumeric "ReviewOptic"**: UK mobile number +447863750348 cannot send A2P SMS (carrier restriction). Switched `sendReviewSMS` and `sendPlainSMS` to send from `"ReviewOptic"` alphanumeric sender ID. Removed `TWILIO_PHONE_NUMBER` dependency from SMS sending.
+- **SMS opt-out: unsubscribe link**: Replaced "Reply STOP to opt out" with `Stop: reviewoptic.com/u/TOKEN` (TOKEN = first 8 chars of customer UUID). New public `GET /u/:token` route marks customer as Do Not Contact and shows a clean HTML confirmation page. No auth required.
+- **Twilio alphanumeric sender ID registration submitted**: User completed registration form in Twilio console for "ReviewOptic" sender ID in UK. Awaiting approval (1-3 business days). Once approved, set `SMS_ENABLED=true` in Replit secrets.
+- **Stripe promo codes enabled**: `allow_promotion_codes: true` added to checkout session — promo code field now appears at checkout.
+- **Coming soon badges**: New `GET /api/features` endpoint reads `SMS_ENABLED`, `WHATSAPP_ENABLED`, `SOCIAL_ENABLED` env vars. New `useFeatures()` hook used on Login, Pricing, Features pages and in-app channel selector. Badges disappear automatically when env vars are set.
+- **Terms & Privacy footer on login page**: Links appear below "View pricing · FAQ" in smaller, lighter text.
+- **T&Cs and Privacy Policy completed**: All placeholders filled — ReviewOptic Limited, company number 17134444, hello@reviewoptic.com. Cancellation is Billing settings only (no email option). Account deletion points to Billing settings. GDPR rights section updated.
+- **Stripe activation walkthrough**: User walked through activating Stripe live mode — needs to complete: copy live keys to Replit, register live webhook, add `STRIPE_WEBHOOK_SECRET`.
+- **Beta tester discount coupon**: Instructed user to create 100% off, 1-month, redemption-limited coupon in Stripe. Promo code field now live at checkout.
+
+**Architecture notes:**
+- SMS opt-out: `customer.id.split('-')[0]` = 8-char token. `GET /u/:token` queries `WHERE id::text LIKE $1 || '%'`. Always returns HTML (no 404 for invalid tokens).
+- Feature flags: `SMS_ENABLED`, `WHATSAPP_ENABLED`, `SOCIAL_ENABLED` env vars → `/api/features` → `useFeatures()` hook. Set in Replit secrets to remove coming soon badges.
+- Alphanumeric sender: hardcoded `"ReviewOptic"` in `sms.ts`. No env var needed — just needs Twilio registration approved.
+
+**Waiting on (external):**
+- **⚠️ Twilio alphanumeric sender ID "ReviewOptic"** — submitted, awaiting approval. Once approved: set `SMS_ENABLED=true` in Replit secrets.
+- **⚠️ Meta Business Verification** — still pending. Once approved: complete WhatsApp sender setup in Twilio → set `WHATSAPP_ENABLED=true`.
+- **⚠️ Stripe live mode** — user started activation process. Needs: live API keys in Replit, live webhook registered (`customer.subscription.deleted` + `invoice.paid`), `STRIPE_WEBHOOK_SECRET` set.
+- **⚠️ Facebook App Review** — can submit after Meta Business Verification approved. Once live: set `SOCIAL_ENABLED=true`.
+- **⚠️ LOA document for "ReviewOptic" sender ID** — if Twilio rejects the registration and asks for LOA, document is already prepared (signed by Alicia Galway, Director). Send to senderid@twilio.com with Twilio Account SID.
+
+**Notes for next session:**
+- **Referral programme** — still pending, pure code work
+- **SEO meta tags** — `use-page-meta` hook ready, not yet applied to public pages
+- **Intro video** — add YouTube URL to `INTRO_VIDEO_URL` (line 74, Dashboard.tsx) and uncomment the useEffect body
+- **APP_URL env var** — add `APP_URL=https://reviewoptic.com` to Replit env vars
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
