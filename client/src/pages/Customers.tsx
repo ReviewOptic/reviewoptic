@@ -29,6 +29,7 @@ import type { Customer, ReviewRequest, Template } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { TimePicker } from "@/components/ui/time-picker";
+import { useFeatures } from "@/hooks/useFeatures";
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   pending_request: { label: "Pending", color: "bg-muted text-muted-foreground", icon: <Clock className="w-3 h-3" /> },
@@ -176,6 +177,7 @@ function AddCustomerDialog({ open, onClose }: { open: boolean; onClose: () => vo
 
 function SendRequestDialog({ customer, open, onClose }: { customer: Customer | null; open: boolean; onClose: () => void }) {
   const { toast } = useToast();
+  const { smsEnabled, whatsappEnabled } = useFeatures();
   const getValidChannel = (c: typeof customer) => {
     const preferred = c?.channel || "email";
     if (preferred === "email" && !c?.email) return c?.phone ? "sms" : "email";
@@ -340,8 +342,8 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
               <SelectTrigger data-testid="select-send-channel"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="email" disabled={!customer?.email}>Email</SelectItem>
-                <SelectItem value="sms" disabled={!customer?.phone}>SMS</SelectItem>
-                <SelectItem value="whatsapp" disabled={!customer?.phone}>WhatsApp</SelectItem>
+                <SelectItem value="sms" disabled={!customer?.phone || !smsEnabled}>SMS{!smsEnabled ? " (coming soon)" : ""}</SelectItem>
+                <SelectItem value="whatsapp" disabled={!customer?.phone || !whatsappEnabled}>WhatsApp{!whatsappEnabled ? " (coming soon)" : ""}</SelectItem>
               </SelectContent>
             </Select>
           </div>

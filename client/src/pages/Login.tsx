@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, CheckCircle2 } from "lucide-react";
+import { useFeatures } from "@/hooks/useFeatures";
 
 interface TrustpilotReview {
   id: string;
@@ -64,6 +65,7 @@ export default function Login() {
   const [, navigate] = useLocation();
   const { data: branding } = useQuery<{ logoUrl: string; businessName: string }>({ queryKey: ["/api/public/branding"] });
   const { data: reviewsData } = useQuery<{ reviews: TrustpilotReview[]; source: string }>({ queryKey: ["/api/public/trustpilot-reviews"] });
+  const { smsEnabled, whatsappEnabled } = useFeatures();
 
   useEffect(() => {
     if (user && !user.requiresPayment) navigate("/");
@@ -252,15 +254,25 @@ export default function Login() {
           <h1 className="text-3xl md:text-4xl font-bold leading-tight mb-4 text-white">Turn happy customers<br />into 5-star reviews — on autopilot.</h1>
           <p className="text-white/75 text-base mb-10 leading-relaxed">ReviewOptic helps local businesses automatically collect more reviews on Google, Trustpilot, Facebook, and more.</p>
           <div className="space-y-6">
-            {FEATURES.map(item => (
-              <div key={item.title} className="flex items-start gap-4">
-                <span className="text-2xl mt-0.5">{item.icon}</span>
-                <div>
-                  <p className="font-semibold text-sm text-white">{item.title}</p>
-                  <p className="text-white/65 text-sm leading-snug mt-0.5">{item.desc}</p>
+            {FEATURES.map(item => {
+              const isChannelCard = item.title === "Send review requests in seconds";
+              const comingSoonTags = [
+                !smsEnabled && "SMS",
+                !whatsappEnabled && "WhatsApp",
+              ].filter(Boolean);
+              return (
+                <div key={item.title} className="flex items-start gap-4">
+                  <span className="text-2xl mt-0.5">{item.icon}</span>
+                  <div>
+                    <p className="font-semibold text-sm text-white">{item.title}</p>
+                    <p className="text-white/65 text-sm leading-snug mt-0.5">{item.desc}</p>
+                    {isChannelCard && comingSoonTags.length > 0 && (
+                      <span className="inline-block mt-1 text-[11px] bg-white/10 text-white/70 rounded px-1.5 py-0.5">{comingSoonTags.join(" & ")} coming soon</span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Check, X, ArrowLeft, Star } from "lucide-react";
+import { useFeatures } from "@/hooks/useFeatures";
 import { loadStripe } from "@stripe/stripe-js";
 import { EmbeddedCheckout, EmbeddedCheckoutProvider } from "@stripe/react-stripe-js";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ const PLANS = [
 export default function Pricing() {
   const { user, refreshUser } = useAuth();
   const [, navigate] = useLocation();
+  const { smsEnabled, whatsappEnabled } = useFeatures();
 
   useEffect(() => {
     if (user?.isImpersonating) refreshUser();
@@ -174,12 +176,21 @@ export default function Pricing() {
               </div>
 
               <ul className="flex-1 space-y-3 mb-3">
-                {SHARED_FEATURES.map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-sm text-gray-700">
-                    <Check className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-                    {f}
-                  </li>
-                ))}
+                {SHARED_FEATURES.map((f) => {
+                  const isChannelFeature = f === "Email, SMS & WhatsApp review requests";
+                  const tags = [!smsEnabled && "SMS", !whatsappEnabled && "WhatsApp"].filter(Boolean);
+                  return (
+                    <li key={f} className="flex items-start gap-2 text-sm text-gray-700">
+                      <Check className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+                      <span>
+                        {f}
+                        {isChannelFeature && tags.length > 0 && (
+                          <span className="ml-1.5 text-[10px] bg-blue-50 text-blue-500 border border-blue-200 rounded px-1 py-0.5 font-medium">{tags.join(" & ")} coming soon</span>
+                        )}
+                      </span>
+                    </li>
+                  );
+                })}
                 {plan.id === "pro" && (
                   <>
                     <li className="flex items-start gap-2 text-sm font-semibold text-blue-700">

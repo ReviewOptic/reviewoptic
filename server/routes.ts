@@ -1102,6 +1102,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // Public branding endpoint — returns the admin account's logo for the login page
+  app.get("/api/features", (_req, res) => {
+    res.json({
+      smsEnabled: !!process.env.SMS_ENABLED,
+      whatsappEnabled: !!process.env.WHATSAPP_ENABLED,
+    });
+  });
+
   app.get("/api/public/branding", async (_req, res) => {
     try {
       const adminUser = await pool.query(`SELECT account_id FROM users WHERE is_admin = true LIMIT 1`);
