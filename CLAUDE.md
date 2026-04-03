@@ -331,7 +331,37 @@ Your job is to be the developer they would hire if they could afford a great one
 - **⚠️ Meta App Review** — needed for Facebook/Instagram auto-posting. Submit after Meta Business Verification approved.
 
 **Notes for next session:**
-- **Domain verification** — finish verifying reviewoptic.com in Replit (see above)
 - **Referral programme** — still pending, pure code work
 - **SEO meta tags** — still pending
-- **APP_URL env var** — add `APP_URL=https://reviewoptic.com` to Replit env vars if not already set
+- **Meta Business Verification + App Review** — waiting on Meta email
+
+### Session — 2026-04-03 (fifty-second session)
+
+**Tasks completed:**
+- **Domain connected**: `reviewoptic.com` verified in Replit. Removed conflicting URL Redirect record in Namecheap. A record (`34.111.179.208`) + TXT (`replit-verify=...`) + CNAME (`www → review-optic.replit.app`) all correct.
+- **Admin account fixed on live database**: Used temp endpoint approach to reset password, create settings row, set `is_admin = true` and `plan_type = 'complimentary'` for `hello@reviewoptic.com`. Admin accounts are permanently protected from deletion in code.
+- **Migration root cause fixed**: Notifications and push_subscriptions tables used `UUID` foreign key referencing `accounts.id` which is `VARCHAR` — type mismatch crashed migration before it completed. Fixed to `TEXT NOT NULL` (no FK constraint). Also moved `notify_ratings` and `instagram_business_account_id` column additions to earlier in migration so they run before any potential failures.
+- **Notifications bug fixed**: `/api/notifications` was using `(req as any).user.accountId` but `req.user` is never set — changed to `req.session.accountId`.
+- **SMS working**: Twilio test credentials were being used instead of live ones. Swapped to live `TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` in Replit secrets → SMS now sends successfully from "ReviewOptic".
+- **Show/hide password button**: Added eye icon toggle to login/register password field.
+- **Stripe webhook**: Registered `https://reviewoptic.com/api/billing/webhook` in Stripe (events: `invoice.paid`, `customer.subscription.deleted`). `STRIPE_WEBHOOK_SECRET` set in Replit.
+- **Stripe promo codes**: Created "1 Month Free" coupon (100% off, once, 50 redemptions) + `BETAFREE` promo code. Created "Complimentary Access" coupon (100% off, forever) for partners.
+- **Facebook reconnected**: Added `reviewoptic.com` to Facebook app domains + updated OAuth redirect URI to `https://reviewoptic.com/api/auth/facebook/callback`. Facebook connects successfully.
+- **Meta App Review submitted**: Added permissions `pages_manage_posts`, `pages_read_engagement`, `instagram_content_publish`, `instagram_business_basic` — all set to Request Advanced Access. Waiting on Meta Business Verification approval before Meta will process the review.
+- **APP_URL set**: `APP_URL=https://reviewoptic.com` added to Replit secrets.
+
+**Architecture notes:**
+- Live database is separate from dev shell database. Use temp endpoints (build → republish → hit URL → remove → republish) to run one-off DB operations on live.
+- Migration now runs `notify_ratings` and `instagram_business_account_id` column additions early (after logo/website_url columns) so they're safe regardless of later failures.
+- `ADMIN_EMAIL=hello@reviewoptic.com` in Replit secrets → migration automatically sets `is_admin = true, plan_type = 'complimentary'` on every startup.
+
+**Waiting on (external):**
+- **⚠️ Meta Business Verification** — email from Meta pending. Once approved: App Review will process the submitted permissions → set `SOCIAL_ENABLED=true`.
+- **⚠️ Meta App Review** — submitted, waiting on Business Verification first.
+- **⚠️ WhatsApp** — needs Meta Business Verification → then complete Twilio WhatsApp sender setup → set `TWILIO_WHATSAPP_FROM` + `WHATSAPP_ENABLED=true`.
+
+**Notes for next session:**
+- **Referral programme** — still pending, pure code work
+- **SEO meta tags** — still pending
+- **Settings** — fill in business name, Google review link, logo etc. on live app
+- **Stripe webhook URL** — already updated to `https://reviewoptic.com/api/billing/webhook`
