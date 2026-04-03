@@ -3358,6 +3358,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     `);
   });
 
+  // SMS unsubscribe link — public endpoint, no auth needed
+  // URL format: /u/TOKEN where TOKEN = first 8 chars of customer UUID
+  app.get("/u/:token", async (req, res) => {
+    const token = (req.params.token || "").slice(0, 8).toLowerCase();
+    if (token.length === 8) {
+      await pool.query(
+        `UPDATE customers SET do_not_contact = true WHERE id::text LIKE $1 || '%'`,
+        [token]
+      ).catch(() => {});
+    }
+    res.setHeader("Content-Type", "text/html");
+    res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Unsubscribed</title><style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f9fafb}div{text-align:center;padding:2rem;max-width:400px}h1{color:#111;font-size:1.5rem;margin-bottom:.75rem}p{color:#555;line-height:1.6}</style></head><body><div><h1>You've been unsubscribed</h1><p>You won't receive any more SMS messages from this business. If this was a mistake, please contact them directly.</p></div></body></html>`);
+  });
+
   // Twilio inbound SMS/WhatsApp webhook — handles STOP replies → set customer do_not_contact
   app.post("/api/webhooks/twilio-inbound", express.urlencoded({ extended: false }), async (req, res) => {
     try {
