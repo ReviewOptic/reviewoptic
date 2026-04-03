@@ -611,3 +611,61 @@ Older session logs moved here to keep CLAUDE.md under 30k chars.
 - **FAQ**: service recovery reframe, billing cycle reset, Zapier import note, CTA banner.
 - **Lite plan renamed to Standard** everywhere (display labels only; DB value `"lite"` unchanged).
 - **Confirm email field added to Register page**.
+
+### Session — 2026-03-30 (forty-first session)
+
+**Tasks completed:**
+- Cancel subscription — modal dialog (password-confirmed pop-up modal)
+- Delete account — two-step modal flow with bcrypt password verification
+- Delete account — confirmation email with 30-day purge date and reactivation link
+- Cancellation and subscription-ended emails updated with billing period end date
+- Access enforcement: cancelled accounts blocked from adding customers
+- Admin panel — Cancelled tab and Deleted tab added with CSV export
+- 4–5★ template default text updated
+- Cancel/delete buttons on same row in Billing page
+
+### Session — 2026-03-30 (forty-second session)
+
+**Tasks completed:**
+- Deletion email reactivation link added (`reactivateUrl` param → `/pricing`)
+- Reactivation clears `scheduled_for_deletion_at` flag via `billing/confirm`
+- Cancellation email flow confirmed correct (2 emails: immediate + end-of-period)
+
+### Session — 2026-03-30 (forty-third session)
+
+**Tasks completed:**
+- Analytics active state colours use `useChartColors()` (not hardcoded)
+- Analytics "All time" filter added (`days=all`)
+- Customers mobile scroll fixed (status badge column hidden on mobile)
+- Templates tab restructured: 5 tabs — Ratings | Email | SMS | WhatsApp | Recordings
+- Email templates: no character limit shown
+- Recordings: Upload file button added; iOS Safari MIME type fix
+
+### Session — 2026-03-30 (forty-fourth session)
+
+**Tasks completed:**
+- PWA / Add to Home Screen setup (`manifest.json`, apple-touch-icon, square icon)
+- Tutorials: How-to and Top Tips entries for mobile app install
+- Features page: Mobile & Access category
+- Full mobile audit: Register, Settings, Dashboard, Billing, Layout all fixed
+
+### Session — 2026-03-30 (forty-fifth session)
+
+**Tasks completed:**
+- Dashboard stat card hover performance fix (`transition-[filter]`)
+- Settings page width fix (`max-w-5xl`)
+- Business logo shown in Dashboard header
+- Admin account (hello@reviewoptic.com) made undeletable server-side
+- All test accounts deleted; admin excluded from Users list
+- Soft-delete for customers (`deleted_at` column, 30-day purge cron)
+- Deleted customers view with Reactivate button
+- Instagram auto-posting removed entirely
+- App font changed to Lexend
+
+### Session — 2026-03-30 (forty-sixth session)
+
+**Tasks completed:**
+- Settings tab navigation fixed (controlled component, URL sync)
+- Settings broken link fixed (`/templates` not `/?tab=templates`)
+- Customers URL filter synced to URL params
+- Admin metrics reset (clean DB for real users)
