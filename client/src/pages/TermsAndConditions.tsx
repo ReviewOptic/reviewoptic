@@ -92,8 +92,7 @@ export default function TermsAndConditions() {
           <section>
             <h2 className="text-lg font-semibold mb-2">7. Cancellation and account deletion</h2>
             <p className="text-muted-foreground leading-relaxed mb-3">
-              You may cancel your subscription at any time through your Billing settings or by contacting
-              us at hello@reviewoptic.com. Upon cancellation, you will retain full access to the service
+              You may cancel your subscription at any time through your Billing settings. Upon cancellation, you will retain full access to the service
               until the end of your current billing period. After that, you can still log in and view your
               account, but you will not be able to send new review requests.
             </p>
