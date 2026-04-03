@@ -53,6 +53,11 @@ export async function sendReviewSMS(
     return;
   }
 
+  if (!process.env.TWILIO_PHONE_NUMBER) {
+    console.log(`[sms] No TWILIO_PHONE_NUMBER set. Would SMS ${customer.phone}`);
+    return;
+  }
+
   const reviewLink = selectedPlatforms?.[0]?.url ||
     settings.googleReviewLink ||
     settings.facebookReviewLink ||
@@ -66,11 +71,11 @@ export async function sendReviewSMS(
     ? applyMergeTags(template.body, customer, settings, reviewLink)
     : `Hi ${customer.name.split(" ")[0]}, thanks for choosing ${settings.businessName}! We'd love a quick review: ${reviewLink}`;
 
-  const body = rawBody + "\nReply STOP";
+  const body = rawBody + "\nReply STOP to opt out";
 
   const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
   await client.messages.create({
-    from: buildSenderId(settings.businessName),
+    from: process.env.TWILIO_PHONE_NUMBER,
     to: normaliseUKNumber(customer.phone),
     body,
   });
@@ -102,14 +107,18 @@ export async function sendWhatsAppMessage(
   });
 }
 
-export async function sendPlainSMS(phone: string, body: string, businessName = "ReviewOptic"): Promise<void> {
+export async function sendPlainSMS(phone: string, body: string): Promise<void> {
   if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
     console.log(`[sms] No Twilio credentials. Would SMS ${phone}`);
     return;
   }
+  if (!process.env.TWILIO_PHONE_NUMBER) {
+    console.log(`[sms] No TWILIO_PHONE_NUMBER set. Would SMS ${phone}`);
+    return;
+  }
   const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
   await client.messages.create({
-    from: buildSenderId(businessName),
+    from: process.env.TWILIO_PHONE_NUMBER,
     to: normaliseUKNumber(phone),
     body,
   });

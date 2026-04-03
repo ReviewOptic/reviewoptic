@@ -1980,7 +1980,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!testPhone) return res.status(400).json({ message: "Enter a phone number to send the test to", needsPhone: true });
 
       if (template.channel === "sms") {
-        await sendPlainSMS(testPhone, `[TEST] ${resolvedBody}\nReply STOP`, settings.businessName);
+        await sendPlainSMS(testPhone, `[TEST] ${resolvedBody}`);
         return res.json({ message: `Test SMS sent to ${testPhone}` });
       }
 

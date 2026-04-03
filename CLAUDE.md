@@ -342,7 +342,6 @@ Your job is to be the developer they would hire if they could afford a great one
 - Customers filter: initialised from `window.location.search` at mount time. Filter click updates state + URL.
 
 **Notes for next session:**
-- **⚠️ TWILIO UPGRADE NEEDED** — alphanumeric sender ID "ReviewOptic" for SMS, WhatsApp Business setup (remind every session)
 - **⚠️ STRIPE WEBHOOK** — verify `invoice.paid` and `customer.subscription.deleted` are both active and `STRIPE_WEBHOOK_SECRET` env var is set
 - **APP_URL env var** — add `APP_URL=https://reviewoptic.com` to Replit env vars (required for Facebook/LinkedIn OAuth callbacks to work)
 - **Facebook/LinkedIn OAuth redirect URIs** — register `https://reviewoptic.com/auth/facebook/callback` and `https://reviewoptic.com/auth/linkedin/callback` in Meta and LinkedIn developer portals
@@ -350,3 +349,29 @@ Your job is to be the developer they would hire if they could afford a great one
 - **SEO meta tags** — `use-page-meta` hook ready, not yet applied to public pages
 - **Intro video** — add YouTube URL to `INTRO_VIDEO_URL` (line 74, Dashboard.tsx) and uncomment the useEffect body to re-enable
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+
+### Session — 2026-04-03 (forty-seventh session)
+
+**Tasks completed:**
+- **SMS updated to send from Twilio phone number**: `sendReviewSMS` and `sendPlainSMS` now use `TWILIO_PHONE_NUMBER` env var instead of alphanumeric sender ID. Enables inbound STOP replies via webhook.
+- **Inbound STOP webhook confirmed**: `/api/webhooks/twilio-inbound` already built and correct. Configured in Twilio console on +447863750348.
+- **Production build updated**: Rebuilt `dist/index.cjs` to pick up all code changes (Replit runs production build, not dev server).
+- **Twilio account upgraded**: User upgraded Twilio account, purchased UK mobile number +447863750348, assigned regulatory bundle (approved same day).
+- **Meta Business Verification submitted**: User created Facebook Business account and submitted Meta Business Verification. Awaiting email confirmation.
+- **WhatsApp Business setup started**: Got through most of Twilio's WhatsApp sender flow. Blocked by Meta requiring business verification first.
+
+**Waiting on (external approvals — nothing to code):**
+- **⚠️ Meta Business Verification** — email will arrive from Meta when approved (usually 1-2 days). Once approved: go back to Twilio → Messaging → Senders → WhatsApp senders → complete setup with display name "ReviewOptic" and number +447863750348.
+- **⚠️ Twilio SMS provisioning** — UK mobile number +447863750348 not yet SMS-capable (provisioning delay, usually a few hours). Test SMS with a UK mobile number once active. Env vars already set: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER=+447863750348`.
+- **⚠️ Facebook App Review** — needed for auto-posting to Facebook pages. Can submit AFTER Meta Business Verification is approved.
+
+**Architecture notes:**
+- SMS sends from `process.env.TWILIO_PHONE_NUMBER`. If not set, logs and skips silently.
+- Inbound webhook at `/api/webhooks/twilio-inbound` handles STOP → sets `do_not_contact = true` on matching customer.
+- WhatsApp will use `TWILIO_WHATSAPP_FROM` env var (not yet set — pending WhatsApp sender approval).
+- Replit runs production mode (`npm start` → `dist/index.cjs`). Must run `npm run build` after code changes for them to take effect.
+
+**Next session priorities:**
+1. Check if Meta Business Verification email has arrived → complete WhatsApp setup in Twilio
+2. Test SMS (should be provisioned by then)
+3. Build referral programme
