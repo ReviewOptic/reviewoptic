@@ -75,6 +75,8 @@ export async function runMigrations() {
     await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS logo_url TEXT NOT NULL DEFAULT ''`);
     await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS logo_position TEXT NOT NULL DEFAULT 'left'`);
     await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS website_url TEXT NOT NULL DEFAULT ''`);
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS notify_ratings BOOLEAN NOT NULL DEFAULT true`);
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS instagram_business_account_id TEXT NOT NULL DEFAULT ''`);
 
     // User profile columns
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name TEXT NOT NULL DEFAULT ''`);
@@ -507,11 +509,6 @@ export async function runMigrations() {
       auth TEXT NOT NULL,
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
     )`);
-
-    // Add notify_ratings to settings if missing
-    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS notify_ratings BOOLEAN NOT NULL DEFAULT true`);
-    // Add instagram_business_account_id to settings if missing
-    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS instagram_business_account_id TEXT NOT NULL DEFAULT ''`);
 
     console.log("[migrate] Migrations complete");
   } finally {
