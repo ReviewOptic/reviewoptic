@@ -228,11 +228,18 @@ export default function Login() {
   const reviews = reviewsData?.reviews;
 
   const footerLinks = (
-    <p className="text-center text-sm text-muted-foreground mt-4 space-x-3">
-      <button type="button" onClick={() => navigate("/pricing")} className="underline hover:text-foreground font-medium">View pricing</button>
-      <span>·</span>
-      <button type="button" onClick={() => navigate("/faq")} className="underline hover:text-foreground font-medium">FAQ</button>
-    </p>
+    <div className="text-center mt-4">
+      <p className="text-sm text-muted-foreground space-x-3">
+        <button type="button" onClick={() => navigate("/pricing")} className="underline hover:text-foreground font-medium">View pricing</button>
+        <span>·</span>
+        <button type="button" onClick={() => navigate("/faq")} className="underline hover:text-foreground font-medium">FAQ</button>
+      </p>
+      <p className="text-xs text-muted-foreground/60 mt-1.5 space-x-2">
+        <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline hover:text-muted-foreground">Terms & Conditions</a>
+        <span>·</span>
+        <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-muted-foreground">Privacy Policy</a>
+      </p>
+    </div>
   );
 
   return (
@@ -277,11 +284,6 @@ export default function Login() {
             })}
           </div>
         </div>
-      </div>
-      <div className="text-center py-4 text-[12px] text-white/40 bg-[#0E679D]">
-        <a href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-white/70 underline">Terms & Conditions</a>
-        <span className="mx-2">·</span>
-        <a href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-white/70 underline">Privacy Policy</a>
       </div>
     </div>
   );
