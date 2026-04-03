@@ -243,3 +243,42 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Intro video** — add YouTube URL to `INTRO_VIDEO_URL` (line 74, Dashboard.tsx) and uncomment the useEffect body
 - **APP_URL env var** — add `APP_URL=https://reviewoptic.com` to Replit env vars
 - To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+
+### Session — 2026-04-03 (forty-ninth session)
+
+**Tasks completed:**
+- **Push notifications (PWA)**: Full system built — VAPID keys generated and set in Replit. Service worker at `client/public/sw.js`. SW registered in `client/index.html`. Bell icon in mobile header and desktop sidebar with unread badge and dropdown. Polls every 30s. Push subscription registered on login. DB tables: `notifications` + `push_subscriptions`.
+- **Rating notifications**: When a customer submits a star rating, three things fire: (1) in-app notification to bell, (2) push notification to phone lock screen, (3) instant email to account owner. All non-blocking (won't delay the rating response).
+- **Settings → Notifications tab**: Renamed from "Insight Emails" to "Notifications". Added toggle: "Email me when a rating is received" (saves to `settings.notify_ratings`). Insight email frequency section kept below.
+- **Instagram auto-posting**: Built full flow — generates 1080×1080 branded review card PNG (sharp + SVG), uploads to Cloudinary, posts to Facebook as photo (upgraded from text), posts to Instagram via Graph API if Instagram Business Account is linked. `instagramBusinessAccountId` stored in settings, fetched automatically on Facebook OAuth connect.
+- **Social tab logos**: Replaced hand-rolled SVGs with `react-icons` (FaFacebook, FaInstagram, FaLinkedin) — pixel-perfect brand logos.
+- **Dead code cleanup**: Deleted `ThemeSwitcher.tsx`. Removed `facebookProfileUrl`, `instagramUrl`, `xUrl`, `linkedinUrl`, `fontFamily` from schema + Settings form state. Removed "Social Media Profiles" card from Social tab (those fields were stored but never used anywhere).
+- **Howto tip added**: "How to auto-post reviews to Instagram" added to Tutorials & Guides — explains Meta Business Suite cross-posting setup.
+- **Features page updated**: "Auto-post 4 & 5-star review cards to Facebook, Instagram & LinkedIn".
+
+**Architecture notes:**
+- Push: `VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` set in Replit. `sendPushToAccount(accountId, payload)` helper in routes.ts. Dead subscriptions (410/404) auto-deleted.
+- Review card: `server/reviewCard.ts` → `generateReviewCard(stars, name, businessName)` → Buffer. `uploadBufferToCloudinary()` added to cloudinary.ts.
+- Instagram: uses Facebook Page access token (same OAuth). `instagramBusinessAccountId` fetched via `/{page-id}?fields=instagram_business_account`. Cleared on Facebook disconnect.
+- `notify_ratings` column: `ALTER TABLE settings ADD COLUMN IF NOT EXISTS notify_ratings BOOLEAN NOT NULL DEFAULT true` — runs on next Replit restart.
+- `instagram_business_account_id` column: same pattern, runs on restart.
+
+**⚠️ MUST DO NEXT SESSION — Meta App Review:**
+- User needs to complete Meta App Review before Facebook/Instagram auto-posting works for real users.
+- Go to developers.facebook.com → your app → left sidebar → App Review.
+- Before going Live, fill in: Privacy Policy URL (`https://reviewoptic.com/privacy`), app icon (1024×1024), category.
+- Permissions to request: `pages_manage_posts`, `pages_read_engagement` (Facebook), `instagram_basic`, `instagram_content_publish` (Instagram).
+- Submit all together. Needs: use case description + screencast video of the feature working.
+- Do NOT click Go Live until App Review approves the permissions.
+- After approval: set `SOCIAL_ENABLED=true` in Replit secrets.
+- After connecting Facebook again (re-auth): Instagram will auto-link if Facebook Page has Instagram Business account attached in Meta Business Suite.
+
+**Waiting on (external — unchanged):**
+- **⚠️ Twilio alphanumeric sender ID "ReviewOptic"** — awaiting approval. Once approved: set `SMS_ENABLED=true`.
+- **⚠️ Meta Business Verification** — still pending. Once approved: complete WhatsApp setup → set `WHATSAPP_ENABLED=true`.
+- **⚠️ Stripe live mode** — needs live keys + webhook in Replit.
+
+**Notes for next session:**
+- **Referral programme** — still pending
+- **SEO meta tags** — still pending
+- **APP_URL env var** — add `APP_URL=https://reviewoptic.com` to Replit env vars if not already set

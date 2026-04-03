@@ -210,6 +210,16 @@ export const HOWTOS: HowTo[] = [
     ],
   },
   {
+    title: "How to auto-post reviews to Instagram",
+    steps: [
+      { text: "ReviewOptic automatically posts 4 and 5-star reviews to your connected Facebook Page. To also have those posts appear on Instagram, you can enable cross-posting in Meta Business Suite — no extra setup needed on our end." },
+      { text: "In Meta Business Suite (business.facebook.com), go to Settings → Instagram and link your Instagram Business or Creator account to your Facebook Page." },
+      { text: "Once linked, go to your Facebook Page settings and enable 'Share to Instagram'. Any post made to your Facebook Page — including our auto-posts — will automatically appear on Instagram too." },
+      { text: "Note: your Instagram account must be a Business or Creator account (not a personal account) to be linked to a Facebook Page." },
+      { text: "Once set up, every time a 4 or 5-star review triggers an auto-post on Facebook, Instagram gets it too — no extra steps required." },
+    ],
+  },
+  {
     title: "How to use your QR code",
     steps: [
       { text: "Go to Settings → Integrations tab.", link: "/settings?tab=integrations", linkText: "Settings → Integrations" },

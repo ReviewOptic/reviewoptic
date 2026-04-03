@@ -10,12 +10,47 @@ import bcrypt from "bcryptjs";
 import { Resend } from "resend";
 import OpenAI from "openai";
 import QRCode from "qrcode";
-import { sendVerificationEmail, sendPreScreenEmail, REVIEWOPTIC_FROM } from "./email";
+import { sendVerificationEmail, sendPreScreenEmail, sendRatingNotificationEmail, REVIEWOPTIC_FROM } from "./email";
+import webpush from "web-push";
+import { generateReviewCard } from "./reviewCard";
+import { uploadBufferToCloudinary } from "./cloudinary";
 import { sendReviewSMS, sendWhatsAppMessage, sendPlainSMS } from "./sms";
 import { isCloudinaryConfigured, uploadToCloudinary, deleteFromCloudinary } from "./cloudinary";
 import { cloneVoice, deleteVoice, generateNameAudio, stitchNameToFront } from "./elevenlabs";
 import type { Review, Customer, Settings } from "@shared/schema";
 import { UAParser } from "ua-parser-js";
+
+// ─── WEB PUSH ────────────────────────────────────────────────────────────────
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    "mailto:hello@reviewoptic.com",
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+}
+
+async function sendPushToAccount(accountId: string, payload: { title: string; body: string; link: string; tag?: string }) {
+  try {
+    const { rows } = await pool.query(
+      `SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE account_id = $1`,
+      [accountId]
+    );
+    const dead: string[] = [];
+    await Promise.all(rows.map(async (row: any) => {
+      try {
+        await webpush.sendNotification(
+          { endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } },
+          JSON.stringify(payload)
+        );
+      } catch (err: any) {
+        if (err.statusCode === 410 || err.statusCode === 404) dead.push(row.endpoint);
+      }
+    }));
+    if (dead.length > 0) {
+      await pool.query(`DELETE FROM push_subscriptions WHERE endpoint = ANY($1)`, [dead]);
+    }
+  } catch { /* ignore */ }
+}
 
 async function logUserSession(req: Request, userId: string, accountId: string) {
   try {
@@ -124,19 +159,68 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
 
 async function postReviewToSocial(review: Review, customer: Customer, settings: Settings) {
   if (!settings.socialPostEnabled) return;
-  const message = settings.socialPostMessage
-    .replace("{stars}", String(review.stars))
+  const stars = (review as any).stars ?? (review as any).rating ?? 5;
+  const caption = settings.socialPostMessage
+    .replace("{stars}", String(stars))
     .replace("{customer_name}", customer.name);
+
+  // Generate review card image (for Facebook photo post + Instagram)
+  let imageUrl = "";
+  if (isCloudinaryConfigured()) {
+    try {
+      const cardBuffer = await generateReviewCard(stars, customer.name, settings.businessName);
+      imageUrl = await uploadBufferToCloudinary(cardBuffer, "review-cards");
+    } catch (err) {
+      console.error("Review card generation error:", err);
+    }
+  }
 
   if (settings.facebookPageAccessToken && settings.facebookPageId) {
     try {
-      await fetch(`https://graph.facebook.com/v18.0/${settings.facebookPageId}/feed`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, access_token: settings.facebookPageAccessToken }),
-      });
+      if (imageUrl) {
+        // Post as photo (looks better, also required for Instagram cross-post)
+        await fetch(`https://graph.facebook.com/v18.0/${settings.facebookPageId}/photos`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: imageUrl, caption, access_token: settings.facebookPageAccessToken }),
+        });
+      } else {
+        // Fallback to text post if no image
+        await fetch(`https://graph.facebook.com/v18.0/${settings.facebookPageId}/feed`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: caption, access_token: settings.facebookPageAccessToken }),
+        });
+      }
     } catch (err) {
       console.error("Facebook post error:", err);
+    }
+  }
+
+  // Instagram — requires image
+  if (imageUrl && settings.facebookPageAccessToken && settings.instagramBusinessAccountId) {
+    try {
+      // Step 1: create media container
+      const containerRes = await fetch(`https://graph.facebook.com/v18.0/${settings.instagramBusinessAccountId}/media`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          image_url: imageUrl,
+          caption,
+          access_token: settings.facebookPageAccessToken,
+        }),
+      });
+      const container = await containerRes.json() as any;
+      if (container.id) {
+        // Step 2: publish container
+        await fetch(`https://graph.facebook.com/v18.0/${settings.instagramBusinessAccountId}/media_publish`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ creation_id: container.id, access_token: settings.facebookPageAccessToken }),
+        });
+      }
+    } catch (err) {
+      console.error("Instagram post error:", err);
     }
   }
 
@@ -153,7 +237,7 @@ async function postReviewToSocial(review: Review, customer: Customer, settings: 
           lifecycleState: "PUBLISHED",
           specificContent: {
             "com.linkedin.ugc.ShareContent": {
-              shareCommentary: { text: message },
+              shareCommentary: { text: caption },
               shareMediaCategory: "NONE",
             },
           },
@@ -164,7 +248,6 @@ async function postReviewToSocial(review: Review, customer: Customer, settings: 
       console.error("LinkedIn post error:", err);
     }
   }
-
 }
 
 const logoUpload = multer({
@@ -1287,6 +1370,34 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           message: `${customer.name} left a ${rating}-star rating ${stars}`,
           metadata: "{}",
         });
+
+        // Fire in-app notification + push + email (non-blocking)
+        const notifTitle = rating >= 4
+          ? `${customer.name} left a ${rating}-star rating`
+          : `${customer.name} left private feedback`;
+        const notifBody = rating >= 4
+          ? `${stars} — great news!`
+          : `${rating} star${rating === 1 ? "" : "s"} — they've left feedback for you to review.`;
+        const ownerEmail = await pool.query(
+          `SELECT u.email, s.notify_ratings FROM users u JOIN settings s ON s.account_id = u.account_id WHERE u.account_id = $1 AND u.role = 'owner' LIMIT 1`,
+          [request.accountId]
+        ).then(r => r.rows[0]).catch(() => null);
+
+        // In-app notification
+        pool.query(
+          `INSERT INTO notifications (id, account_id, type, title, body, link) VALUES ($1, $2, $3, $4, $5, '/customers')`,
+          [randomUUID(), request.accountId, "rating", notifTitle, notifBody]
+        ).catch(() => {});
+
+        // Push notification
+        sendPushToAccount(request.accountId, { title: notifTitle, body: notifBody, link: "/customers", tag: "rating" }).catch(() => {});
+
+        // Email notification (respects notify_ratings setting, defaults to true)
+        if (ownerEmail?.email && ownerEmail.notify_ratings !== false) {
+          const businessName = settings?.businessName || "";
+          const appUrl = process.env.APP_URL || "https://reviewoptic.com";
+          sendRatingNotificationEmail(ownerEmail.email, customer.name, rating, businessName, appUrl).catch(() => {});
+        }
       }
 
       const templateType = rating >= 4 ? "response_positive" : "response_negative";
@@ -2576,7 +2687,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const pagesData = await pagesRes.json() as { data: Array<{ access_token: string; id: string }> };
       if (!pagesData.data?.length) return res.status(400).send("No Facebook Pages found on this account.");
       const page = pagesData.data[0];
-      await storage.upsertSettings(accountId, { facebookPageAccessToken: page.access_token, facebookPageId: page.id });
+      // Also fetch linked Instagram Business Account
+      let instagramBusinessAccountId = "";
+      try {
+        const igRes = await fetch(`https://graph.facebook.com/v18.0/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`);
+        const igData = await igRes.json() as any;
+        instagramBusinessAccountId = igData.instagram_business_account?.id || "";
+      } catch { /* optional */ }
+      await storage.upsertSettings(accountId, { facebookPageAccessToken: page.access_token, facebookPageId: page.id, instagramBusinessAccountId });
       res.redirect(`${process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000")}/?tab=settings&connected=facebook`);
     } catch (err) {
       console.error("Facebook OAuth error:", err);
@@ -2585,7 +2703,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.delete("/api/social/facebook", requireAuth, async (req, res) => {
-    await storage.upsertSettings(req.session.accountId!, { facebookPageAccessToken: "", facebookPageId: "" });
+    await storage.upsertSettings(req.session.accountId!, { facebookPageAccessToken: "", facebookPageId: "", instagramBusinessAccountId: "" });
     res.json({ success: true });
   });
 
@@ -2869,6 +2987,60 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       console.error("[billing/portal] Error:", msg);
       res.status(500).json({ message: msg });
     }
+  });
+
+  // ─── NOTIFICATIONS ────────────────────────────────────────────────────────
+
+  // Get in-app notifications for current account
+  app.get("/api/notifications", requireAuth, async (req, res) => {
+    const accountId = (req as any).user.accountId;
+    const { rows } = await pool.query(
+      `SELECT id, type, title, body, link, read, created_at FROM notifications WHERE account_id = $1 ORDER BY created_at DESC LIMIT 50`,
+      [accountId]
+    );
+    res.json(rows);
+  });
+
+  // Mark notifications as read
+  app.post("/api/notifications/mark-read", requireAuth, async (req, res) => {
+    const accountId = (req as any).user.accountId;
+    const ids: string[] = Array.isArray(req.body.ids) ? req.body.ids : [];
+    if (ids.length === 0) {
+      await pool.query(`UPDATE notifications SET read = true WHERE account_id = $1`, [accountId]);
+    } else {
+      await pool.query(`UPDATE notifications SET read = true WHERE account_id = $1 AND id = ANY($2)`, [accountId, ids]);
+    }
+    res.json({ ok: true });
+  });
+
+  // Get VAPID public key for push subscription
+  app.get("/api/push/vapid-public-key", requireAuth, (_req, res) => {
+    res.json({ key: process.env.VAPID_PUBLIC_KEY || "" });
+  });
+
+  // Subscribe to push notifications
+  app.post("/api/push/subscribe", requireAuth, async (req, res) => {
+    const accountId = (req as any).user.accountId;
+    const { endpoint, keys } = req.body;
+    if (!endpoint || !keys?.p256dh || !keys?.auth) return res.status(400).json({ message: "Invalid subscription" });
+    await pool.query(
+      `INSERT INTO push_subscriptions (id, account_id, endpoint, p256dh, auth) VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (endpoint) DO UPDATE SET account_id = $2, p256dh = $4, auth = $5`,
+      [randomUUID(), accountId, endpoint, keys.p256dh, keys.auth]
+    );
+    res.json({ ok: true });
+  });
+
+  // Unsubscribe from push notifications
+  app.delete("/api/push/unsubscribe", requireAuth, async (req, res) => {
+    const accountId = (req as any).user.accountId;
+    const { endpoint } = req.body;
+    if (endpoint) {
+      await pool.query(`DELETE FROM push_subscriptions WHERE account_id = $1 AND endpoint = $2`, [accountId, endpoint]);
+    } else {
+      await pool.query(`DELETE FROM push_subscriptions WHERE account_id = $1`, [accountId]);
+    }
+    res.json({ ok: true });
   });
 
   // Cancel subscription at period end

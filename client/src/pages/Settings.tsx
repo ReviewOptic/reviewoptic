@@ -4,6 +4,7 @@ import { useLocation } from "wouter";
 import { useState, useEffect, useCallback, useRef } from "react";
 import Cropper from "react-easy-crop";
 import { Save, ExternalLink, Copy, Check, Globe, Bell, FileCode, Star, Share2, Upload, X, Trash2, UserPlus, Mic, Video, Gift, Zap, QrCode, Download, RefreshCw } from "lucide-react";
+import { FaFacebook, FaInstagram, FaLinkedin } from "react-icons/fa";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,9 +85,6 @@ export default function Settings() {
     websiteUrl: "",
     logoUrl: "",
     logoPosition: "left",
-    facebookProfileUrl: "",
-    xUrl: "",
-    linkedinUrl: "",
     googleReviewLink: "",
     facebookReviewLink: "",
     trustpilotLink: "",
@@ -117,9 +115,6 @@ export default function Settings() {
         websiteUrl: settings.websiteUrl || "",
         logoUrl: settings.logoUrl || "",
         logoPosition: settings.logoPosition || "left",
-        facebookProfileUrl: settings.facebookProfileUrl || "",
-        xUrl: settings.xUrl || "",
-        linkedinUrl: settings.linkedinUrl || "",
         googleReviewLink: settings.googleReviewLink || "",
         facebookReviewLink: settings.facebookReviewLink || "",
         trustpilotLink: settings.trustpilotLink || "",
@@ -203,7 +198,7 @@ export default function Settings() {
             <TabsTrigger value="followup" className="whitespace-nowrap md:w-full md:justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-followup">Follow-Ups</TabsTrigger>
             <TabsTrigger value="widget" className="whitespace-nowrap md:w-full md:justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-widget">Widget</TabsTrigger>
             <TabsTrigger value="social" className="whitespace-nowrap md:w-full md:justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-social">Social</TabsTrigger>
-            <TabsTrigger value="notifications" className="whitespace-nowrap md:w-full md:justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-notifications">Insight Emails</TabsTrigger>
+            <TabsTrigger value="notifications" className="whitespace-nowrap md:w-full md:justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-notifications">Notifications</TabsTrigger>
             <TabsTrigger value="team" className="whitespace-nowrap md:w-full md:justify-start text-[12.5px] px-3 py-2 rounded-lg" data-testid="tab-team">
               <span className="flex items-center gap-1.5">
                 Team
@@ -608,50 +603,19 @@ export default function Settings() {
         <TabsContent value="social">
           <div className="space-y-4">
 
-            {/* Social Media Profiles */}
-            <Card className="border-card-border">
-              <CardHeader>
-                <CardTitle className="text-[15px]">Social Media Profiles</CardTitle>
-                <CardDescription className="text-[12.5px]">Add your business profile links for each platform.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 pb-5">
-                {[
-                  { label: "Facebook", key: "facebookProfileUrl", placeholder: "https://www.facebook.com/yourbusiness" },
-                  { label: "LinkedIn", key: "linkedinUrl", placeholder: "https://www.linkedin.com/company/yourbusiness" },
-                ].map(({ label, key, placeholder }) => (
-                  <div key={key} className="flex items-center gap-2">
-                    <span className="text-[12px] text-muted-foreground w-24 flex-shrink-0">{label}</span>
-                    <Input
-                      value={(form as any)[key]}
-                      onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-                      placeholder={placeholder}
-                      className="flex-1 text-[13px]"
-                    />
-                    {(form as any)[key] && (
-                      <Button variant="outline" size="icon" className="h-9 w-9 flex-shrink-0" onClick={() => window.open((form as any)[key], "_blank")}>
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
             {/* Connected Accounts */}
             <Card className="border-card-border">
               <CardHeader>
                 <CardTitle className="text-[15px]">Connected Accounts</CardTitle>
                 <CardDescription className="text-[12.5px]">
-                  Connect your Facebook Page to auto-post when a 4 or 5 star review is received.
+                  Connect your accounts to auto-post a review card image when a 4 or 5 star rating is received.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5 pb-5">
                 {/* Facebook row */}
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
-                      <Share2 className="w-4 h-4 text-white" />
-                    </div>
+                    <FaFacebook className="w-8 h-8 flex-shrink-0 text-[#1877F2]" />
                     <div>
                       <p className="text-[13.5px] font-medium">Facebook</p>
                       {settings?.facebookPageAccessToken ? (
@@ -675,12 +639,7 @@ export default function Settings() {
                         Disconnect
                       </Button>
                     ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-[12px]"
-                        onClick={() => window.location.href = "/auth/facebook"}
-                      >
+                      <Button variant="outline" size="sm" className="text-[12px]" onClick={() => window.location.href = "/auth/facebook"}>
                         Connect Facebook
                       </Button>
                     )}
@@ -689,12 +648,29 @@ export default function Settings() {
 
                 <div className="border-t border-border" />
 
+                {/* Instagram row */}
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <FaInstagram className="w-8 h-8 flex-shrink-0 text-[#E1306C]" />
+                    <div>
+                      <p className="text-[13.5px] font-medium">Instagram</p>
+                      {(settings as any)?.instagramBusinessAccountId ? (
+                        <p className="text-[12px] text-green-600 font-medium">Connected via Facebook Page</p>
+                      ) : settings?.facebookPageAccessToken ? (
+                        <p className="text-[12px] text-amber-600">Facebook connected — no Instagram Business account found. Link one in Meta Business Suite.</p>
+                      ) : (
+                        <p className="text-[12px] text-muted-foreground">Connect Facebook first — Instagram links automatically if your Page has an Instagram Business account</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t border-border" />
+
                 {/* LinkedIn row */}
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-sky-700 flex items-center justify-center flex-shrink-0">
-                      <Share2 className="w-4 h-4 text-white" />
-                    </div>
+                    <FaLinkedin className="w-8 h-8 flex-shrink-0 text-[#0A66C2]" />
                     <div>
                       <p className="text-[13.5px] font-medium">LinkedIn</p>
                       {settings?.linkedinAccessToken ? (
@@ -718,12 +694,7 @@ export default function Settings() {
                         Disconnect
                       </Button>
                     ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-[12px]"
-                        onClick={() => window.location.href = "/auth/linkedin"}
-                      >
+                      <Button variant="outline" size="sm" className="text-[12px]" onClick={() => window.location.href = "/auth/linkedin"}>
                         Connect LinkedIn
                       </Button>
                     )}
@@ -793,14 +764,21 @@ export default function Settings() {
 
 function NotificationsTab() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { data: settingsData } = useQuery<any>({ queryKey: ["/api/settings"] });
   const [frequency, setFrequency] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [notifyRatings, setNotifyRatings] = useState<boolean>(true);
 
   useEffect(() => {
     fetch("/api/user/notification-prefs", { credentials: "include" })
       .then(r => r.json())
       .then(d => setFrequency(d.insightEmailFrequency || "weekly"));
   }, []);
+
+  useEffect(() => {
+    if (settingsData) setNotifyRatings(settingsData.notifyRatings ?? true);
+  }, [settingsData]);
 
   const save = async (val: string) => {
     setFrequency(val);
@@ -820,47 +798,88 @@ function NotificationsTab() {
     }
   };
 
+  const saveNotifyRatings = async (val: boolean) => {
+    setNotifyRatings(val);
+    try {
+      await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ notifyRatings: val }),
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+      toast({ title: "Preferences saved" });
+    } catch {
+      toast({ title: "Failed to save", variant: "destructive" });
+    }
+  };
+
   return (
-    <Card className="border-card-border">
-      <CardHeader>
-        <CardTitle className="text-[15px]">Email Reports</CardTitle>
-        <CardDescription className="text-[12.5px]">
-          ReviewOptic sends you a personalised report with your review stats, conversion rate, and AI-generated insights.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-5 pb-5">
-        <div className="space-y-1.5">
-          <Label className="text-[12.5px]">Report frequency</Label>
-          {frequency === null ? (
-            <p className="text-[12.5px] text-muted-foreground">Loading…</p>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {[
-                { value: "weekly", label: "Weekly", desc: "Receive a report every 7 days" },
-                { value: "monthly", label: "Monthly", desc: "Receive a report once a month" },
-                { value: "never", label: "Never", desc: "Opt out — no report emails" },
-              ].map(opt => (
-                <label key={opt.value} className="flex items-start gap-3 cursor-pointer p-3 rounded-lg border border-border hover:bg-muted/40 transition-colors">
-                  <input
-                    type="radio"
-                    name="frequency"
-                    value={opt.value}
-                    checked={frequency === opt.value}
-                    onChange={() => save(opt.value)}
-                    disabled={saving}
-                    className="mt-0.5 accent-primary"
-                  />
-                  <div>
-                    <p className="text-[13.5px] font-medium">{opt.label}</p>
-                    <p className="text-[12px] text-muted-foreground">{opt.desc}</p>
-                  </div>
-                </label>
-              ))}
+    <div className="space-y-4">
+      <Card className="border-card-border">
+        <CardHeader>
+          <CardTitle className="text-[15px]">Rating Notifications</CardTitle>
+          <CardDescription className="text-[12.5px]">
+            Get notified by email when a customer submits a star rating or private feedback.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pb-5">
+          <label className="flex items-center justify-between gap-4 cursor-pointer">
+            <div>
+              <p className="text-[13.5px] font-medium">Email me when a rating is received</p>
+              <p className="text-[12px] text-muted-foreground">Sends an instant email to your account address each time a customer rates you</p>
             </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+            <input
+              type="checkbox"
+              checked={notifyRatings}
+              onChange={e => saveNotifyRatings(e.target.checked)}
+              className="w-4 h-4 accent-primary shrink-0"
+            />
+          </label>
+        </CardContent>
+      </Card>
+
+      <Card className="border-card-border">
+        <CardHeader>
+          <CardTitle className="text-[15px]">Insight Email Reports</CardTitle>
+          <CardDescription className="text-[12.5px]">
+            ReviewOptic sends you a personalised report with your review stats, conversion rate, and AI-generated insights.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5 pb-5">
+          <div className="space-y-1.5">
+            <Label className="text-[12.5px]">Report frequency</Label>
+            {frequency === null ? (
+              <p className="text-[12.5px] text-muted-foreground">Loading…</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {[
+                  { value: "weekly", label: "Weekly", desc: "Receive a report every 7 days" },
+                  { value: "monthly", label: "Monthly", desc: "Receive a report once a month" },
+                  { value: "never", label: "Never", desc: "Opt out — no report emails" },
+                ].map(opt => (
+                  <label key={opt.value} className="flex items-start gap-3 cursor-pointer p-3 rounded-lg border border-border hover:bg-muted/40 transition-colors">
+                    <input
+                      type="radio"
+                      name="frequency"
+                      value={opt.value}
+                      checked={frequency === opt.value}
+                      onChange={() => save(opt.value)}
+                      disabled={saving}
+                      className="mt-0.5 accent-primary"
+                    />
+                    <div>
+                      <p className="text-[13.5px] font-medium">{opt.label}</p>
+                      <p className="text-[12px] text-muted-foreground">{opt.desc}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 

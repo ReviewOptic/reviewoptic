@@ -1,15 +1,16 @@
 import { Link, useLocation, useSearch } from "wouter";
 import { HOWTOS } from "@/data/howtos";
-import { LayoutDashboard, Users, FileText, BarChart3, Settings, Menu, X, LogOut, Shield, CreditCard, AlertTriangle, MessageSquarePlus, BookOpen, ArrowLeft, Home, ChevronDown, ChevronUp } from "lucide-react";
+import { LayoutDashboard, Users, FileText, BarChart3, Settings, Menu, X, LogOut, Shield, CreditCard, AlertTriangle, MessageSquarePlus, BookOpen, ArrowLeft, Home, ChevronDown, ChevronUp, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useRef, useEffect, Component, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import type { PrivateFeedback } from "@shared/schema";
 import ChatWidget from "@/components/ChatWidget";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null };
@@ -69,8 +70,11 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
 
   return (
     <>
-      <div className="flex items-center justify-center px-5 py-5 border-b border-sidebar-border">
+      <div className="flex items-center justify-between px-5 py-5 border-b border-sidebar-border">
         <LogoOrText />
+        <div className="ml-2 shrink-0">
+          <NotificationBell buttonClassName="text-white/70 hover:bg-white/10 hover:text-white" />
+        </div>
       </div>
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {navItems.filter(item => !(user?.isAdmin && item.href === "/tutorial")).map((item) => {
@@ -136,6 +140,132 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
       </div>
       <FeedbackDialog open={showFeedback} onClose={() => setShowFeedback(false)} />
     </>
+  );
+}
+
+// ─── NOTIFICATION BELL ───────────────────────────────────────────────────────
+type Notification = { id: string; type: string; title: string; body: string; link: string; read: boolean; created_at: string };
+
+function NotificationBell({ buttonClassName }: { buttonClassName?: string } = {}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const [, navigate] = useLocation();
+  const queryClient = useQueryClient();
+
+  const { data: notifications = [] } = useQuery<Notification[]>({
+    queryKey: ["/api/notifications"],
+    refetchInterval: 30000,
+  });
+
+  // Register push subscription once on mount
+  useEffect(() => {
+    async function registerPush() {
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+      try {
+        const { key } = await apiRequest("GET", "/api/push/vapid-public-key").then((r: any) => r.json());
+        if (!key) return;
+        const registration = await navigator.serviceWorker.ready;
+        const existing = await registration.pushManager.getSubscription();
+        if (existing) { await apiRequest("POST", "/api/push/subscribe", existing.toJSON()); return; }
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") return;
+        const sub = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: key,
+        });
+        await apiRequest("POST", "/api/push/subscribe", sub.toJSON());
+      } catch { /* push not supported */ }
+    }
+    registerPush();
+  }, []);
+
+  const unread = notifications.filter(n => !n.read).length;
+
+  const markRead = useMutation({
+    mutationFn: (ids: string[]) => apiRequest("POST", "/api/notifications/mark-read", { ids }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/notifications"] }),
+  });
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  function handleOpen() {
+    setOpen(v => !v);
+    if (unread > 0) markRead.mutate([]);
+  }
+
+  function handleNotifClick(notif: Notification) {
+    setOpen(false);
+    navigate(notif.link || "/customers");
+  }
+
+  function timeAgo(dateStr: string) {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={handleOpen}
+        className={cn("h-10 w-10 flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground relative", buttonClassName)}
+        aria-label="Notifications"
+      >
+        <Bell className="w-5 h-5" />
+        {unread > 0 && (
+          <span className="absolute top-1.5 right-1.5 h-4 w-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center leading-none">
+            {unread > 9 ? "9+" : unread}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-12 w-80 bg-background border border-border rounded-xl shadow-lg z-50 overflow-hidden">
+          <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+            <span className="text-sm font-semibold">Notifications</span>
+            {notifications.length > 0 && (
+              <button onClick={() => markRead.mutate([])} className="text-xs text-muted-foreground hover:text-foreground">
+                Mark all read
+              </button>
+            )}
+          </div>
+          <div className="max-h-80 overflow-y-auto">
+            {notifications.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">No notifications yet</p>
+            ) : (
+              notifications.map(n => (
+                <button
+                  key={n.id}
+                  onClick={() => handleNotifClick(n)}
+                  className={cn(
+                    "w-full text-left px-4 py-3 border-b border-border last:border-0 hover:bg-accent transition-colors",
+                    !n.read && "bg-blue-50 dark:bg-blue-950/20"
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className={cn("text-sm truncate", !n.read && "font-semibold")}>{n.title}</p>
+                      {n.body && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.body}</p>}
+                    </div>
+                    <span className="text-[10px] text-muted-foreground shrink-0 mt-0.5">{timeAgo(n.created_at)}</span>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -403,7 +533,7 @@ function ClassicLayout({ children }: { children: ReactNode }) {
               )}
             </div>
             <LogoOrText />
-            <div className="w-12" />
+            <NotificationBell />
           </header>
           <main className="flex-1 overflow-y-auto">{children}</main>
         </div>

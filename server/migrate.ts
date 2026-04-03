@@ -486,6 +486,33 @@ export async function runMigrations() {
     // Per-account font family selection
     await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS font_family TEXT NOT NULL DEFAULT 'Inter'`);
 
+    // In-app notifications
+    await pool.query(`CREATE TABLE IF NOT EXISTS notifications (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      body TEXT NOT NULL DEFAULT '',
+      link TEXT NOT NULL DEFAULT '/customers',
+      read BOOLEAN NOT NULL DEFAULT false,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )`);
+
+    // Push notification subscriptions (PWA)
+    await pool.query(`CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      endpoint TEXT NOT NULL UNIQUE,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )`);
+
+    // Add notify_ratings to settings if missing
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS notify_ratings BOOLEAN NOT NULL DEFAULT true`);
+    // Add instagram_business_account_id to settings if missing
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS instagram_business_account_id TEXT NOT NULL DEFAULT ''`);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();

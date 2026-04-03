@@ -564,3 +564,40 @@ export async function sendSubscriptionConfirmationEmail(
     `,
   });
 }
+
+export async function sendRatingNotificationEmail(
+  to: string,
+  customerName: string,
+  rating: number,
+  businessName: string,
+  appUrl: string
+) {
+  if (!process.env.RESEND_API_KEY) return;
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const stars = "\u2605".repeat(rating) + "\u2606".repeat(5 - rating);
+  const emoji = rating >= 4 ? "\u{1F31F}" : "\uD83D\uDCAC";
+  const subject = rating >= 4
+    ? `${customerName} left you a ${rating}-star rating ${stars}`
+    : `${customerName} left private feedback (${rating} star${rating === 1 ? "" : "s"})`;
+  await resend.emails.send({
+    from: REVIEWOPTIC_FROM,
+    to,
+    subject,
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
+        ${LOGO_HTML}
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">New rating received</h2>
+        <p style="color:#555;margin:0 0 16px;line-height:1.6;">
+          <strong style="color:#111;">${customerName}</strong> rated ${businessName} <strong style="color:#111;">${rating} star${rating === 1 ? "" : "s"}</strong> ${stars}
+        </p>
+        ${rating < 4
+          ? `<p style="color:#555;margin:0 0 16px;line-height:1.6;">They have left private feedback — log in to read it and respond.</p>`
+          : `<p style="color:#555;margin:0 0 16px;line-height:1.6;">Head to your customers page to see the details.</p>`}
+        <a href="${appUrl}/customers" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin-bottom:24px;">
+          View in ReviewOptic
+        </a>
+        ${PLATFORM_FOOTER}
+      </div>
+    `,
+  });
+}

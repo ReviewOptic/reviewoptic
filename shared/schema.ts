@@ -98,10 +98,6 @@ export const settings = pgTable("settings", {
   logoUrl: text("logo_url").notNull().default(""),
   logoPosition: text("logo_position").notNull().default("left"),
   websiteUrl: text("website_url").notNull().default(""),
-  facebookProfileUrl: text("facebook_profile_url").notNull().default(""),
-  instagramUrl: text("instagram_url").notNull().default(""),
-  xUrl: text("x_url").notNull().default(""),
-  linkedinUrl: text("linkedin_url").notNull().default(""),
   googleReviewLink: text("google_review_link").notNull().default(""),
   facebookReviewLink: text("facebook_review_link").notNull().default(""),
   trustpilotLink: text("trustpilot_link").notNull().default(""),
@@ -125,6 +121,7 @@ export const settings = pgTable("settings", {
   facebookPageId: text("facebook_page_id").notNull().default(""),
   linkedinAccessToken: text("linkedin_access_token").notNull().default(""),
   linkedinOrganizationId: text("linkedin_organization_id").notNull().default(""),
+  instagramBusinessAccountId: text("instagram_business_account_id").notNull().default(""),
   socialPostEnabled: boolean("social_post_enabled").notNull().default(false),
   socialPostMessage: text("social_post_message").notNull().default("⭐ We just received a {stars}★ review! Thank you {customer_name}!"),
   country: text("country").notNull().default(""),
@@ -132,7 +129,7 @@ export const settings = pgTable("settings", {
   voiceNoteUrl: text("voice_note_url").notNull().default(""),
   videoMessageUrl: text("video_message_url").notNull().default(""),
   elevenLabsVoiceId: text("elevenlabs_voice_id").notNull().default(""),
-  fontFamily: text("font_family").notNull().default("Inter"),
+  notifyRatings: boolean("notify_ratings").notNull().default(true),
 });
 
 export const insertCustomerSchema = createInsertSchema(customers).omit({ createdAt: true });
