@@ -251,10 +251,7 @@ async function postReviewToSocial(review: Review, customer: Customer, settings: 
 }
 
 const logoUpload = multer({
-  storage: multer.diskStorage({
-    destination: uploadsDir,
-    filename: (_req, _file, cb) => cb(null, `logo-${randomUUID()}.png`),
-  }),
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (file.mimetype.startsWith("image/")) cb(null, true);
@@ -2252,9 +2249,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!entry || Date.now() > entry.expires) return res.status(404).json({ message: "Preview expired" });
     res.sendFile(entry.path, { root: "/" });
   });
-  app.post("/api/settings/upload-logo", requireAuth, logoUpload.single("logo"), (req, res) => {
+  app.post("/api/settings/upload-logo", requireAuth, logoUpload.single("logo"), async (req, res) => {
     if (!req.file) return res.status(400).json({ message: "No image uploaded" });
-    res.json({ url: `/uploads/${req.file.filename}` });
+    try {
+      const url = await uploadBufferToCloudinary(req.file.buffer, "logos");
+      res.json({ url });
+    } catch (err) {
+      console.error("Logo upload to Cloudinary failed:", err);
+      res.status(500).json({ message: "Upload failed" });
+    }
   });
 
   // Settings
