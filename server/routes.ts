@@ -3698,6 +3698,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ ok: true });
   });
 
+  // Public: fetch system dialog box text for review landing page
+  app.get("/api/public/dialog-text", async (_req, res) => {
+    const { getEffectiveTemplate } = await import("./systemEmailTemplates");
+    const [pos, neg] = await Promise.all([
+      getEffectiveTemplate("dialog_positive"),
+      getEffectiveTemplate("dialog_negative"),
+    ]);
+    res.json({
+      dialog_positive: { title: pos.subject, body: pos.body },
+      dialog_negative: { title: neg.subject, body: neg.body },
+    });
+  });
+
   // Admin: test-send any system email to the admin's own email address
   app.post("/api/admin/test-email", requireAdmin, async (req, res) => {
     const { type } = req.body as { type: string };
@@ -3760,25 +3773,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         case "pre_screen": {
           const { sendPreScreenEmail } = await import("./email");
           await sendPreScreenEmail(dummyCustomer, dummySettings, "test-request-id", appUrl);
-          break;
-        }
-        case "review_request": {
-          const { sendReviewEmail } = await import("./email");
-          await sendReviewEmail(
-            { ...dummyCustomer, email: adminEmail },
-            dummySettings,
-            null,
-            [{ name: "Google", url: "https://g.page/r/test/review" }, { name: "Trustpilot", url: "https://www.trustpilot.com" }]
-          );
-          break;
-        }
-        case "follow_up": {
-          const { sendFollowUpEmail } = await import("./email");
-          await sendFollowUpEmail(
-            { ...dummyCustomer, email: adminEmail },
-            dummySettings,
-            `${appUrl}/review?rid=test-request-id`
-          );
           break;
         }
         case "rating_notification":

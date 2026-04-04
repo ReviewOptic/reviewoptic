@@ -816,10 +816,16 @@ export default function Admin() {
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
               <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-xl max-h-[90vh] overflow-y-auto p-6">
                 <h3 className="text-base font-semibold mb-1">{editingTemplate.label}</h3>
-                <p className="text-xs text-muted-foreground mb-4">Changes apply to all future emails of this type.</p>
+                <p className="text-xs text-muted-foreground mb-4">
+                  {editingTemplate.type.startsWith("dialog_")
+                    ? "Changes apply to all customers who submit a rating from this point forward."
+                    : "Changes apply to all future emails of this type, for all users."}
+                </p>
 
                 <div className="mb-3">
-                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-1">Subject line</label>
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-1">
+                    {editingTemplate.type.startsWith("dialog_") ? "Title" : "Subject line"}
+                  </label>
                   <input
                     value={editSubject}
                     onChange={e => setEditSubject(e.target.value)}
@@ -867,13 +873,14 @@ export default function Admin() {
             </div>
           )}
 
+          {/* System emails section */}
           <div className="mb-5">
             <p className="text-sm font-semibold mb-0.5">System emails</p>
-            <p className="text-xs text-muted-foreground">Click Edit to change the subject and body of any email. Changes take effect immediately. Use Send test to preview the email in your inbox.</p>
+            <p className="text-xs text-muted-foreground">Emails sent by ReviewOptic to your users. Click Edit to update subject and body. Use Test to preview in your inbox.</p>
           </div>
-          <div className="bg-card border border-border rounded-xl overflow-hidden">
-            {emailTemplates.map((e, i) => (
-              <div key={e.type} className={`flex items-center justify-between gap-3 px-4 py-3.5 ${i < emailTemplates.length - 1 ? "border-b border-border" : ""}`}>
+          <div className="bg-card border border-border rounded-xl overflow-hidden mb-8">
+            {emailTemplates.filter(e => !e.type.startsWith("dialog_")).map((e, i, arr) => (
+              <div key={e.type} className={`flex items-center justify-between gap-3 px-4 py-3.5 ${i < arr.length - 1 ? "border-b border-border" : ""}`}>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium truncate">{e.label}</p>
@@ -882,12 +889,7 @@ export default function Admin() {
                   <p className="text-xs text-muted-foreground mt-0.5 truncate">{e.subject}</p>
                 </div>
                 <div className="flex gap-1.5 flex-shrink-0">
-                  <button
-                    onClick={() => openEdit(e)}
-                    className="text-xs font-medium px-3 py-1.5 rounded-lg border border-border hover:bg-muted transition-colors"
-                  >
-                    Edit
-                  </button>
+                  <button onClick={() => openEdit(e)} className="text-xs font-medium px-3 py-1.5 rounded-lg border border-border hover:bg-muted transition-colors">Edit</button>
                   <button
                     onClick={() => sendTestEmail(e.type)}
                     disabled={emailSending === e.type}
@@ -899,6 +901,28 @@ export default function Admin() {
                   >
                     {emailSending === e.type ? "Sending…" : emailResult[e.type] === "sent" ? "✓ Sent" : emailResult[e.type] === "error" ? "✗ Failed" : "Test"}
                   </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Post-rating dialogue boxes section */}
+          <div className="mb-5">
+            <p className="text-sm font-semibold mb-0.5">Post-rating dialogue boxes</p>
+            <p className="text-xs text-muted-foreground">These are not emails — they are the pop-up messages shown to a customer after they submit a star rating. The title and body text are editable here.</p>
+          </div>
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            {emailTemplates.filter(e => e.type.startsWith("dialog_")).map((e, i, arr) => (
+              <div key={e.type} className={`flex items-center justify-between gap-3 px-4 py-3.5 ${i < arr.length - 1 ? "border-b border-border" : ""}`}>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium truncate">{e.label}</p>
+                    {e.customised && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 flex-shrink-0">Edited</span>}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5 truncate">{e.subject}</p>
+                </div>
+                <div className="flex gap-1.5 flex-shrink-0">
+                  <button onClick={() => openEdit(e)} className="text-xs font-medium px-3 py-1.5 rounded-lg border border-border hover:bg-muted transition-colors">Edit</button>
                 </div>
               </div>
             ))}

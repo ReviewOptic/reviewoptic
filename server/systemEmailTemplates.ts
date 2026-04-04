@@ -32,18 +32,6 @@ export const DEFAULT_EMAIL_TEMPLATES: Record<string, { subject: string; body: st
     variables: ["{{first_name}}", "{{business_name}}"],
     description: "Sent to customers asking them to tap a star rating",
   },
-  review_request: {
-    subject: "How was your experience with {{business_name}}?",
-    body: "Thank you for choosing {{business_name}}. We'd love to hear about your experience — it only takes a minute and means a lot to us.",
-    variables: ["{{first_name}}", "{{business_name}}"],
-    description: "Sent to customers with direct links to review platforms",
-  },
-  follow_up: {
-    subject: "Just checking in — {{business_name}} would love your feedback",
-    body: "Just a quick follow-up from {{business_name}} — we'd love to hear how we did! Tap the button below to leave your rating.",
-    variables: ["{{first_name}}", "{{business_name}}", "{{owner_name}}"],
-    description: "Sent to customers who haven't left a review yet",
-  },
   rating_notification: {
     subject: "{{customer_name}} left you a {{rating}}-star rating",
     body: "{{customer_name}} rated {{business_name}} {{rating}} star{{rating_plural}}.\n\nHead to your customers page to see the details.",
@@ -91,6 +79,18 @@ export const DEFAULT_EMAIL_TEMPLATES: Record<string, { subject: string; body: st
     body: "You've been using ReviewOptic for a little while now, and we hope it's been making a real difference for {{company_name}}.\n\nWe're a small team and honest reviews help us grow so we can keep improving the product for businesses like yours. If you've got 60 seconds, we'd be incredibly grateful if you could share your experience:",
     variables: ["{{first_name}}", "{{company_name}}"],
     description: "Sent to users asking them to review ReviewOptic on Google",
+  },
+  dialog_positive: {
+    subject: "Thanks for the rating!",
+    body: "Would you please take a couple of moments to leave us a review?",
+    variables: [],
+    description: "Post-rating dialogue box shown after a 4–5★ rating",
+  },
+  dialog_negative: {
+    subject: "Sorry to hear you did not have the experience you expected",
+    body: "We would appreciate your feedback on how we can improve for next time and will be in touch.",
+    variables: [],
+    description: "Post-rating dialogue box shown after a 1–3★ rating",
   },
 };
 

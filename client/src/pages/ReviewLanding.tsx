@@ -91,6 +91,14 @@ export default function ReviewLanding() {
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   const [ratingLocked, setRatingLocked] = useState(false);
 
+  const { data: dialogText } = useQuery<{
+    dialog_positive: { title: string; body: string };
+    dialog_negative: { title: string; body: string };
+  }>({
+    queryKey: ["/api/public/dialog-text"],
+    staleTime: 1000 * 60 * 60, // cache for 1 hour
+  });
+
   const { data: info, isLoading } = useQuery<{
     businessName: string;
     logoUrl: string;
@@ -292,7 +300,7 @@ export default function ReviewLanding() {
                 )}
                 {!templateOpening && !templateBody && platforms.length > 0 && (
                   <DialogDescription className="text-center">
-                    Would you please take a couple of moments to leave us a review?
+                    {dialogText?.dialog_positive?.body || "Would you please take a couple of moments to leave us a review?"}
                   </DialogDescription>
                 )}
               </DialogHeader>
@@ -378,9 +386,9 @@ export default function ReviewLanding() {
                     <Star key={s} className={cn("w-6 h-6", s <= ratedStar ? "fill-amber-400 text-amber-400" : "fill-none text-muted-foreground/30")} />
                   ))}
                 </div>
-                <DialogTitle className="text-center">Sorry to hear you did not have the experience you expected</DialogTitle>
+                <DialogTitle className="text-center">{dialogText?.dialog_negative?.title || "Sorry to hear you did not have the experience you expected"}</DialogTitle>
                 <DialogDescription className="text-center whitespace-pre-line">
-                  <span className="block mt-1">{templateBody || "We would appreciate your feedback on how we can improve for next time and will be in touch."}</span>
+                  <span className="block mt-1">{templateBody || dialogText?.dialog_negative?.body || "We would appreciate your feedback on how we can improve for next time and will be in touch."}</span>
                 </DialogDescription>
               </DialogHeader>
 
