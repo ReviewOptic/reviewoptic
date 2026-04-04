@@ -1871,7 +1871,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       metadata: "{}",
     });
 
-    const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "");
+    const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://reviewoptic.com");
     const ratingLink = `${appUrl}/review?rid=${rr.id}`;
     const smsLink = `${appUrl}/r/${rr.id}`;
     const firstName = customer.name.split(" ")[0];

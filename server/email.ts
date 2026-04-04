@@ -67,7 +67,7 @@ export async function sendVerificationEmail(to: string, verifyUrl: string) {
           We're really happy to have you here. Just verify your email below to unlock your free trial and start building the reviews your business deserves.
         </p>
         <p style="color:#555;margin:0 0 24px;line-height:1.6;">
-          It takes less than a minute — and your first 14 days are completely free.
+          It takes less than a minute — and your first 30 days are completely free.
         </p>
         <a href="${verifyUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
           Verify email &amp; start free trial
