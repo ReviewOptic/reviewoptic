@@ -760,7 +760,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
               (SELECT COUNT(*) FROM customers c WHERE c.account_id = u.account_id)::int AS customer_count,
               (SELECT COUNT(*) FROM review_requests rr WHERE rr.account_id = u.account_id)::int AS request_count
        FROM users u
-       WHERE u.plan_type = 'cancelled' AND u.role = 'owner' AND u.scheduled_for_deletion_at IS NULL
+       WHERE u.plan_type = 'cancelled' AND u.role = 'owner'
        ORDER BY u.cancelled_at DESC NULLS LAST`
     );
     res.json(rows);
@@ -768,13 +768,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // Deleted accounts log — anonymised, for audit trail only
   app.get("/api/admin/deleted-accounts", requireAdmin, async (req, res) => {
-    const { rows } = await pool.query(
-      `SELECT scheduled_for_deletion_at AS deletion_scheduled_at, cancelled_at
-       FROM users
-       WHERE scheduled_for_deletion_at IS NOT NULL AND role = 'owner'
-       ORDER BY scheduled_for_deletion_at DESC`
-    );
-    res.json(rows);
+    try {
+      const { rows } = await pool.query(
+        `SELECT scheduled_for_deletion_at AS deletion_scheduled_at, cancelled_at
+         FROM users
+         WHERE scheduled_for_deletion_at IS NOT NULL AND role = 'owner'
+         ORDER BY scheduled_for_deletion_at DESC`
+      );
+      res.json(rows);
+    } catch {
+      res.json([]); // Column not yet in DB — return empty until migration runs
+    }
   });
 
   app.post("/api/admin/impersonate/:userId", requireAdmin, async (req, res) => {
