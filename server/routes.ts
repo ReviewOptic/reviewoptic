@@ -3655,5 +3655,179 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     });
   });
 
+  // Admin: test-send any system email to the admin's own email address
+  app.post("/api/admin/test-email", requireAdmin, async (req, res) => {
+    const { type } = req.body as { type: string };
+    if (!type) return res.status(400).json({ message: "Missing type" });
+    if (!process.env.RESEND_API_KEY) return res.status(503).json({ message: "RESEND_API_KEY not set" });
+
+    const appUrl = process.env.APP_URL || "https://reviewoptic.com";
+
+    // Get admin email
+    const adminRow = await pool.query(`SELECT email, first_name FROM users WHERE id = $1`, [req.session.userId]);
+    const adminEmail = adminRow.rows[0]?.email;
+    const adminName = adminRow.rows[0]?.first_name || "Alicia";
+    if (!adminEmail) return res.status(400).json({ message: "Admin email not found" });
+
+    const {
+      sendVerificationEmail, sendTeamInviteEmail, sendRatingNotificationEmail,
+      sendCancellationEmail, sendSubscriptionEndedEmail, sendAccountDeletionEmail,
+      sendSubscriptionConfirmationEmail, sendPlatformReviewRequest,
+    } = await import("./email");
+
+    const dummyCustomer = {
+      id: "test-customer-id", name: "Jane Smith", email: adminEmail,
+      phone: "+447700000000", serviceType: "boiler service",
+      channel: "email", accountId: "test-account-id",
+      doNotContact: false, createdAt: new Date(), notes: "", source: "manual",
+      lastContactedAt: null, customField1: null, customField2: null,
+    } as any;
+
+    const dummySettings = {
+      businessName: "Demo Plumbing Co", ownerName: adminName,
+      businessEmail: adminEmail, logoUrl: "",
+      googleReviewLink: "https://g.page/r/test/review",
+      facebookReviewLink: "", trustpilotLink: "", tripadvisorLink: "",
+      checkatradeLink: "", mybuilderLink: "", websiteUrl: "https://example.com",
+    } as any;
+
+    try {
+      switch (type) {
+        case "verification":
+          await sendVerificationEmail(adminEmail, `${appUrl}/verify-email?token=TEST_TOKEN_EXAMPLE`);
+          break;
+        case "reset":
+          const { Resend: ResendReset } = await import("resend");
+          const resendReset = new ResendReset(process.env.RESEND_API_KEY);
+          await resendReset.emails.send({
+            from: REVIEWOPTIC_FROM, to: adminEmail,
+            subject: "[TEST] Reset your ReviewOptic password",
+            html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
+              <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:6px;padding:10px 14px;font-size:13px;color:#92400e;margin-bottom:20px">TEST EMAIL — links are not real</div>
+              <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Reset your password</h2>
+              <p style="color:#555;margin:0 0 24px;line-height:1.6;">We received a request to reset your password. Click the button below to choose a new one. This link expires in 1 hour.</p>
+              <a href="#" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">Reset my password</a>
+              <p style="color:#999;font-size:12px;margin-top:32px;">If you didn't request this, you can safely ignore this email.</p>
+            </div>`,
+          });
+          break;
+        case "team_invite":
+          await sendTeamInviteEmail(adminEmail, adminName, "Demo Plumbing Co", `${appUrl}/accept-invite?token=TEST_TOKEN`);
+          break;
+        case "pre_screen": {
+          const { sendPreScreenEmail } = await import("./email");
+          await sendPreScreenEmail(dummyCustomer, dummySettings, "test-request-id", appUrl);
+          break;
+        }
+        case "review_request": {
+          const { sendReviewEmail } = await import("./email");
+          await sendReviewEmail(
+            { ...dummyCustomer, email: adminEmail },
+            dummySettings,
+            null,
+            [{ name: "Google", url: "https://g.page/r/test/review" }, { name: "Trustpilot", url: "https://www.trustpilot.com" }]
+          );
+          break;
+        }
+        case "follow_up": {
+          const { sendFollowUpEmail } = await import("./email");
+          await sendFollowUpEmail(
+            { ...dummyCustomer, email: adminEmail },
+            dummySettings,
+            `${appUrl}/review?rid=test-request-id`
+          );
+          break;
+        }
+        case "rating_notification":
+          await sendRatingNotificationEmail(adminEmail, "Jane Smith", 5, "Demo Plumbing Co", appUrl);
+          break;
+        case "private_feedback": {
+          const resendPF = new Resend(process.env.RESEND_API_KEY);
+          const baseUrl = appUrl;
+          await resendPF.emails.send({
+            from: REVIEWOPTIC_FROM, to: adminEmail,
+            subject: "[TEST] Private feedback received from Jane Smith (2★)",
+            html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
+              <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:6px;padding:10px 14px;font-size:13px;color:#92400e;margin-bottom:20px">TEST EMAIL</div>
+              <div style="margin-bottom:28px;"><img src="${baseUrl}/logo.png" alt="ReviewOptic" style="height:36px;max-width:180px;object-fit:contain;display:block;" /></div>
+              <h2 style="font-size:18px;font-weight:700;margin:0 0 8px;">Private feedback received</h2>
+              <p style="color:#555;margin:0 0 16px;line-height:1.6;"><strong>Jane Smith</strong> rated their experience <strong>2 stars</strong> and left the following message:</p>
+              <div style="background:#f5f5f5;border-left:4px solid #e5e7eb;padding:12px 16px;border-radius:4px;margin:0 0 24px;">
+                <p style="margin:0;font-style:italic;color:#333;">"The service took longer than expected and the engineer left a mess."</p>
+              </div>
+              <p style="color:#555;margin:0 0 24px;">This feedback is private — only you can see it. Log in to respond.</p>
+              <a href="${baseUrl}" style="display:inline-block;background:#0E679D;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">View &amp; Respond in Dashboard</a>
+            </div>`,
+          });
+          break;
+        }
+        case "subscription_confirmation":
+          await sendSubscriptionConfirmationEmail(
+            adminEmail, adminName, "Pro", "monthly", "£49.00",
+            new Date(Date.now() + 30 * 86400000).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }),
+            "", `${appUrl}/billing`
+          );
+          break;
+        case "cancellation":
+          await sendCancellationEmail(
+            adminEmail, adminName,
+            new Date(Date.now() + 30 * 86400000).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }),
+            `${appUrl}/billing`
+          );
+          break;
+        case "subscription_ended":
+          await sendSubscriptionEndedEmail(adminEmail, adminName, `${appUrl}/pricing`,
+            new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }));
+          break;
+        case "account_deletion":
+          await sendAccountDeletionEmail(adminEmail, adminName,
+            new Date(Date.now() + 30 * 86400000).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }),
+            `${appUrl}/pricing`);
+          break;
+        case "insight": {
+          const { runMonthlyInsightEmails } = await import("./insightEmail");
+          // Just send directly to admin with dummy stats
+          const resendInsight = new Resend(process.env.RESEND_API_KEY);
+          await resendInsight.emails.send({
+            from: "ReviewOptic <noreply@reviewoptic.com>",
+            to: adminEmail,
+            subject: "[TEST] Your weekly review report — April 2026",
+            html: `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#111;">
+              <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:6px;padding:10px 14px;font-size:13px;color:#92400e;margin-bottom:20px">TEST EMAIL — sample data</div>
+              <div style="margin-bottom:28px;"><a href="${appUrl}"><img src="${appUrl}/logo.png" alt="ReviewOptic" style="height:36px;max-width:180px;object-fit:contain;display:block;" /></a></div>
+              <h2 style="font-size:20px;font-weight:700;margin:0 0 4px;">Weekly Review Report</h2>
+              <p style="color:#888;font-size:13px;margin:0 0 24px;">April 2026 · Demo Plumbing Co</p>
+              <table style="width:100%;border-collapse:collapse;">
+                <tr><td style="padding:10px 0;border-bottom:1px solid #f0f0f0;color:#555;font-size:14px;">New reviews this period</td><td style="padding:10px 0;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600;font-size:14px;">12 <span style="font-size:12px;color:#16a34a">+4 vs last period</span></td></tr>
+                <tr><td style="padding:10px 0;border-bottom:1px solid #f0f0f0;color:#555;font-size:14px;">Average star rating</td><td style="padding:10px 0;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600;font-size:14px;">4.7 ⭐</td></tr>
+                <tr><td style="padding:10px 0;border-bottom:1px solid #f0f0f0;color:#555;font-size:14px;">Review requests sent</td><td style="padding:10px 0;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600;font-size:14px;">28</td></tr>
+                <tr><td style="padding:10px 0;border-bottom:1px solid #f0f0f0;color:#555;font-size:14px;">Conversion rate</td><td style="padding:10px 0;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600;font-size:14px;">43%</td></tr>
+                <tr><td style="padding:10px 0;color:#555;font-size:14px;">Total reviews (all time)</td><td style="padding:10px 0;text-align:right;font-weight:600;font-size:14px;">84</td></tr>
+              </table>
+              <div style="background:#f8fafc;border-radius:8px;padding:20px;margin-top:24px;">
+                <h3 style="font-size:15px;font-weight:700;margin:0 0 12px;">Your personalised insights</h3>
+                <p style="color:#444;font-size:14px;line-height:1.7;margin:0;">1. Great week — 12 new reviews is above your monthly average.<br>2. Your 43% conversion rate is strong. Keep the follow-ups coming.<br>3. Email is your best channel this week — try sending earlier in the day.</p>
+              </div>
+              <p style="color:#999;font-size:12px;margin-top:32px;line-height:1.6;">
+                You're receiving weekly review reports as a ReviewOptic subscriber.<br>
+                <a href="${appUrl}/settings?tab=notifications" style="color:#999;">Change email frequency</a> · <a href="${appUrl}/api/insight/opt-out?id=test&uid=test" style="color:#999;">Unsubscribe</a>
+              </p>
+            </div>`,
+          });
+          break;
+        }
+        case "platform_review":
+          await sendPlatformReviewRequest({ id: req.session.userId!, email: adminEmail, firstName: adminName, companyName: "Demo Plumbing Co" }, false);
+          break;
+        default:
+          return res.status(400).json({ message: `Unknown email type: ${type}` });
+      }
+      res.json({ ok: true, sentTo: adminEmail });
+    } catch (err: any) {
+      console.error("[test-email]", err);
+      res.status(500).json({ message: err.message || "Send failed" });
+    }
+  });
+
   return httpServer;
 }

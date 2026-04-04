@@ -95,7 +95,7 @@ export default function Admin() {
   const [, navigate] = useLocation();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
-  const [tab, setTab] = useState<"metrics" | "users" | "cancelled" | "deleted">("metrics");
+  const [tab, setTab] = useState<"metrics" | "users" | "cancelled" | "deleted" | "emails">("metrics");
   const [planFilter, setPlanFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [metricsLoading, setMetricsLoading] = useState(true);
@@ -163,11 +163,48 @@ export default function Admin() {
 
   if (loading) return <div className="p-8 text-muted-foreground text-sm">Loading…</div>;
 
+  const [emailSending, setEmailSending] = useState<string | null>(null);
+  const [emailResult, setEmailResult] = useState<Record<string, "sent" | "error">>({});
+
+  const testEmails = [
+    { type: "verification",             label: "Email verification",          desc: "Sent when a user signs up — contains their email verify link" },
+    { type: "reset",                     label: "Password reset",              desc: "Sent when a user requests a password reset" },
+    { type: "team_invite",               label: "Team invite",                 desc: "Sent when you invite a team member to your account" },
+    { type: "pre_screen",                label: "Review request (pre-screen)", desc: "Sent to a customer asking them to tap a star rating" },
+    { type: "review_request",            label: "Review request (direct)",     desc: "Sent to a customer with direct links to review platforms" },
+    { type: "follow_up",                 label: "Follow-up reminder",          desc: "Sent to a customer who hasn't left a review yet" },
+    { type: "rating_notification",       label: "New rating (5★ example)",     desc: "Sent to you when a customer submits a star rating" },
+    { type: "private_feedback",          label: "Private feedback received",   desc: "Sent to you when a customer leaves private negative feedback" },
+    { type: "subscription_confirmation", label: "Subscription confirmation",   desc: "Sent when a user's payment goes through and plan activates" },
+    { type: "cancellation",              label: "Cancellation confirmation",   desc: "Sent when a user cancels their subscription" },
+    { type: "subscription_ended",        label: "Subscription ended",          desc: "Sent when a user's access period expires" },
+    { type: "account_deletion",          label: "Account deletion",            desc: "Sent when a user deletes their account" },
+    { type: "insight",                   label: "Weekly/monthly insight",      desc: "Sent automatically with stats and AI insights each week/month" },
+    { type: "platform_review",           label: "ReviewOptic review request",  desc: "Sent to users asking them to review ReviewOptic on Google" },
+  ];
+
+  const sendTestEmail = async (type: string) => {
+    setEmailSending(type);
+    try {
+      const r = await fetch("/api/admin/test-email", {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type }),
+      });
+      setEmailResult(prev => ({ ...prev, [type]: r.ok ? "sent" : "error" }));
+    } catch {
+      setEmailResult(prev => ({ ...prev, [type]: "error" }));
+    } finally {
+      setEmailSending(null);
+    }
+  };
+
   const tabs = [
     { id: "metrics", label: "Metrics", icon: BarChart3 },
     { id: "users", label: "Users", icon: Users },
     { id: "cancelled", label: "Cancelled", icon: AlertTriangle },
     { id: "deleted", label: "Deleted", icon: Trash2 },
+    { id: "emails", label: "Emails", icon: Zap },
   ] as const;
 
   const alertIcon = (s: string) => s === "green" ? <CheckCircle className="w-4 h-4 text-green-500" /> : s === "red" ? <AlertCircle className="w-4 h-4 text-red-500" /> : <AlertTriangle className="w-4 h-4 text-yellow-500" />;
@@ -748,6 +785,37 @@ export default function Admin() {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── EMAILS TAB ── */}
+      {tab === "emails" && (
+        <div>
+          <div className="mb-5">
+            <p className="text-sm font-semibold mb-0.5">Test system emails</p>
+            <p className="text-xs text-muted-foreground">Each button sends a test copy to your admin email address with sample data so you can see exactly what your users receive.</p>
+          </div>
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            {testEmails.map((e, i) => (
+              <div key={e.type} className={`flex items-center justify-between gap-4 px-4 py-3.5 ${i < testEmails.length - 1 ? "border-b border-border" : ""}`}>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">{e.label}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{e.desc}</p>
+                </div>
+                <button
+                  onClick={() => sendTestEmail(e.type)}
+                  disabled={emailSending === e.type}
+                  className={`flex-shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
+                    emailResult[e.type] === "sent" ? "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400" :
+                    emailResult[e.type] === "error" ? "bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400" :
+                    "bg-primary text-primary-foreground hover:bg-primary/90"
+                  } disabled:opacity-50`}
+                >
+                  {emailSending === e.type ? "Sending…" : emailResult[e.type] === "sent" ? "✓ Sent" : emailResult[e.type] === "error" ? "✗ Failed" : "Send test"}
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
