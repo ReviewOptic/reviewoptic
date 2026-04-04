@@ -411,3 +411,27 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Referral programme** — still pending, pure code work
 - **Google Search Console** — submit sitemap and verify domain ownership
 - **OG image** — create a 1200×630px branded image and save as client/public/og-image.png
+
+### Session — 2026-04-04 (fifty-fifth session)
+
+**Tasks completed:**
+- **All SEO URLs fixed to www**: Discovered live domain is `www.reviewoptic.com` (non-www doesn't work). Updated canonical, og:url, og:image, sitemap, and BASE_URL in use-page-meta.ts from `reviewoptic.com` → `www.reviewoptic.com`.
+- **Google Search Console**: Property verified at `https://www.reviewoptic.com`. Sitemap submitted (`sitemap.xml`, 8 pages discovered). Homepage indexing requested.
+- **Bing Webmaster Tools**: Verified via HTML meta tag (`msvalidate.01`). Sitemap submitted and processing.
+- **SaaSHub**: Free listing submitted with competitors listed (Trustpilot, Birdeye, Podium, Grade.us, NiceJob) — will show as alternative in search results.
+- **AlternativeTo**: Free listing submitted.
+- **BetaList**: Skipped — no free tier, minimum $39.
+
+**Architecture notes:**
+- Canonical domain is `https://www.reviewoptic.com` — always use www in all future URLs, links, and configs.
+- Google + Bing verification meta tags are in `client/index.html`.
+
+**Waiting on (external — unchanged):**
+- **⚠️ Meta Business Verification** — email from Meta pending.
+- **⚠️ Meta App Review** — submitted, waiting on Business Verification first.
+- **⚠️ WhatsApp** — needs Meta Business Verification first.
+
+**Notes for next session:**
+- **Referral programme** — still pending, pure code work
+- **OG image** — create a 1200×630px branded image, save as `client/public/og-image.png`, update `og:image` in `client/index.html` and `landing.html`
+- **Product Hunt / Hacker News** — save for when there's traction to show
