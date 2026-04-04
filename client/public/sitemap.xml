@@ -3,48 +3,48 @@
 
   <!-- Homepage -->
   <url>
-    <loc>https://reviewoptic.com/</loc>
+    <loc>https://www.reviewoptic.com/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
 
   <!-- Key marketing pages -->
   <url>
-    <loc>https://reviewoptic.com/features</loc>
+    <loc>https://www.reviewoptic.com/features</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://reviewoptic.com/pricing</loc>
+    <loc>https://www.reviewoptic.com/pricing</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://reviewoptic.com/faq</loc>
+    <loc>https://www.reviewoptic.com/faq</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <!-- Conversion pages -->
   <url>
-    <loc>https://reviewoptic.com/register</loc>
+    <loc>https://www.reviewoptic.com/register</loc>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://reviewoptic.com/login</loc>
+    <loc>https://www.reviewoptic.com/login</loc>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
   </url>
 
   <!-- Legal -->
   <url>
-    <loc>https://reviewoptic.com/privacy</loc>
+    <loc>https://www.reviewoptic.com/privacy</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://reviewoptic.com/terms</loc>
+    <loc>https://www.reviewoptic.com/terms</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>

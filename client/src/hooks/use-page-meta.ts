@@ -3,7 +3,7 @@ import { useEffect } from "react";
 const DEFAULT_TITLE = "Review Request Software for Local Businesses | ReviewOptic";
 const DEFAULT_DESCRIPTION =
   "ReviewOptic automates review requests via email, SMS & WhatsApp. Collect more 5-star Google reviews for your local business — set up in 5 minutes.";
-const BASE_URL = "https://reviewoptic.com";
+const BASE_URL = "https://www.reviewoptic.com";
 
 export function usePageMeta(title: string, description: string, canonical?: string) {
   useEffect(() => {
