@@ -388,7 +388,7 @@ export async function runMigrations() {
       for (const [channel, body] of [["sms", slot.smsBody], ["whatsapp", slot.waBody]] as const) {
         await pool.query(`
           INSERT INTO templates (id, account_id, name, template_type, channel, is_default, subject, body, preferred_platform, video_url, audio_url, updated_at)
-          SELECT gen_random_uuid(), a.id, $1, $2, $3, true, '', $4, '', null, null, NOW()
+          SELECT gen_random_uuid(), a.id, $1, $2, $3, true, '', $4, '', '', '', NOW()
           FROM (SELECT DISTINCT account_id AS id FROM templates) a
           WHERE NOT EXISTS (
             SELECT 1 FROM templates t2
@@ -447,7 +447,7 @@ export async function runMigrations() {
     ] as const) {
       await pool.query(`
         INSERT INTO templates (id, account_id, name, template_type, channel, is_default, subject, body, preferred_platform, video_url, audio_url, updated_at)
-        SELECT gen_random_uuid(), a.id, $1, $2, 'email', true, $3, $4, '', null, null, NOW()
+        SELECT gen_random_uuid(), a.id, $1, $2, 'email', true, $3, $4, '', '', '', NOW()
         FROM (SELECT DISTINCT account_id AS id FROM templates) a
         WHERE NOT EXISTS (SELECT 1 FROM templates t2 WHERE t2.account_id = a.id AND t2.template_type = $2 AND t2.channel = 'email')
       `, [name, type, subject, body]);

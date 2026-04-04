@@ -108,6 +108,8 @@ export default function Admin() {
   const [insightStats, setInsightStats] = useState<{ totalSent: number; totalOpened: number; openRate: number; optOuts: number; recentEmails: any[] } | null>(null);
   const [cancelledAccounts, setCancelledAccounts] = useState<any[]>([]);
   const [deletedAccounts, setDeletedAccounts] = useState<any[]>([]);
+  const [emailSending, setEmailSending] = useState<string | null>(null);
+  const [emailResult, setEmailResult] = useState<Record<string, "sent" | "error">>({});
 
   const loadInsightStats = () => fetch("/api/admin/insight-stats", { credentials: "include" })
     .then(r => r.ok ? r.json().catch(() => null) : null)
@@ -162,9 +164,6 @@ export default function Admin() {
   const fmtDateTime = (d: string) => new Date(d).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
   if (loading) return <div className="p-8 text-muted-foreground text-sm">Loading…</div>;
-
-  const [emailSending, setEmailSending] = useState<string | null>(null);
-  const [emailResult, setEmailResult] = useState<Record<string, "sent" | "error">>({});
 
   const testEmails = [
     { type: "verification",             label: "Email verification",          desc: "Sent when a user signs up — contains their email verify link" },
