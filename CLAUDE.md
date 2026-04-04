@@ -365,3 +365,29 @@ Your job is to be the developer they would hire if they could afford a great one
 - **SEO meta tags** — still pending
 - **Settings** — fill in business name, Google review link, logo etc. on live app
 - **Stripe webhook URL** — already updated to `https://reviewoptic.com/api/billing/webhook`
+
+### Session — 2026-04-04 (fifty-third session)
+
+**Tasks completed:**
+- **Admin email panel — system emails**: Audited all system email types. Removed `review_request` and `follow_up` from admin panel (user-customizable per-account via Templates page, not system-level). All remaining emails go to the ReviewOptic subscriber (user), plus `pre_screen` which goes to their customers.
+- **Admin email panel — post-rating dialogue boxes**: Added `dialog_positive` (4–5★) and `dialog_negative` (1–3★) to the `system_email_templates` DB table and admin panel. Stored in same table with types `dialog_positive` / `dialog_negative`. Admin can edit title and body text. No Test button (they're not emails).
+- **Admin emails tab split into two sections**: "System emails" (with Edit + Test buttons) and "Post-rating dialogue boxes" (Edit button only). Edit modal correctly labels field as "Title" not "Subject" for dialogue types, and description says "changes apply to all customers" not "all future emails".
+- **Public dialog-text endpoint**: `GET /api/public/dialog-text` returns effective dialogue text (DB override or default) for both types. No auth required.
+- **ReviewLanding.tsx updated**: Fetches `/api/public/dialog-text` on load. Uses system defaults as fallback when per-account templateBody/templateOpening are empty. The "This doesn't affect your right to leave a public review." line remains hardcoded and non-editable.
+- **Confirmed existing behaviour**: 4–5★ dialogue shows platform cards (Google, Facebook, etc.) with logos when user has review links set in Settings. These are fully clickable and open the platform URL.
+
+**Architecture notes:**
+- `dialog_positive` / `dialog_negative` stored in `system_email_templates` table (same as email overrides). `subject` field = dialogue title, `body` field = dialogue body text.
+- Admin template changes are global — affect all users/customers immediately.
+- ReviewLanding fetches dialog-text once on load with 1-hour stale time.
+- Per-account template text (user's custom review template) still takes precedence over system defaults for the negative dialog body.
+
+**Waiting on (external — unchanged):**
+- **⚠️ Meta Business Verification** — email from Meta pending. Once approved: App Review will process → set `SOCIAL_ENABLED=true`.
+- **⚠️ Meta App Review** — submitted, waiting on Business Verification first.
+- **⚠️ WhatsApp** — needs Meta Business Verification → complete Twilio WhatsApp sender setup → set `TWILIO_WHATSAPP_FROM` + `WHATSAPP_ENABLED=true`. Then update Google Business description to mention WhatsApp.
+
+**Notes for next session:**
+- **Referral programme** — still pending, pure code work
+- **SEO meta tags** — still pending
+- **WhatsApp** — once Meta approved, update Google Business description: "email, SMS or WhatsApp"
