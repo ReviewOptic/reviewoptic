@@ -389,5 +389,25 @@ Your job is to be the developer they would hire if they could afford a great one
 
 **Notes for next session:**
 - **Referral programme** — still pending, pure code work
-- **SEO meta tags** — still pending
 - **WhatsApp** — once Meta approved, update Google Business description: "email, SMS or WhatsApp"
+
+### Session — 2026-04-04 (fifty-fourth session)
+
+**Tasks completed:**
+- **Full SEO setup**: Keywords researched and applied. Primary: "review request software". Secondary: automated review requests, get more Google reviews, review collection software, customer review automation.
+- **client/index.html**: keyword-optimized title (57 chars), meta description (148 chars), canonical URL, full OG tags (og:url added, og:image points to existing /logo.png), full Twitter card tags.
+- **landing.html**: Added complete meta/OG/Twitter tags. H2s updated to include keywords ("Three steps to more Google reviews", "Automated review request software, built for small business"). Copied to client/public/ → builds to /landing.html.
+- **robots.txt**: Created — allows all crawlers, disallows /api/ + /uploads/, points to sitemap.
+- **sitemap.xml**: All public pages with priority weights (/ = 1.0, /features + /pricing = 0.8, /faq = 0.7, /register = 0.6, /login = 0.4, /privacy + /terms = 0.3).
+- **use-page-meta.ts**: Enhanced to update OG tags, Twitter tags, og:url, and canonical link on every route change.
+- **Pricing, Features, FAQ**: All wired up with page-specific titles, descriptions, and canonical paths.
+
+**Architecture notes:**
+- OG image uses `/logo.png`. For best social sharing, create a 1200×630px `/og-image.png` and update the `og:image` tags in index.html and landing.html.
+- landing.html serves at `/landing.html` (not `/`). For best SEO, consider a server route for unauthenticated `GET /` → serve landing.html directly.
+- Submit sitemap to Google Search Console: Sitemaps → enter `sitemap.xml` → Submit.
+
+**Notes for next session:**
+- **Referral programme** — still pending, pure code work
+- **Google Search Console** — submit sitemap and verify domain ownership
+- **OG image** — create a 1200×630px branded image and save as client/public/og-image.png
