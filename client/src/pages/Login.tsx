@@ -63,7 +63,6 @@ const FEATURES = [
 export default function Login() {
   const { login, register, user } = useAuth();
   const [, navigate] = useLocation();
-  const { data: branding } = useQuery<{ logoUrl: string; businessName: string }>({ queryKey: ["/api/public/branding"] });
   const { data: reviewsData } = useQuery<{ reviews: TrustpilotReview[]; source: string }>({ queryKey: ["/api/public/trustpilot-reviews"] });
   const { smsEnabled, whatsappEnabled, socialEnabled } = useFeatures();
 
@@ -230,7 +229,7 @@ export default function Login() {
     </div>
   );
 
-  const logoUrl = branding?.logoUrl || "/logo.png";
+  const logoUrl = "/logo.png";
   const reviews = reviewsData?.reviews;
 
   const footerLinks = (
