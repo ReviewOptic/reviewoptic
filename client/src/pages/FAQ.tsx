@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp, ArrowLeft } from "lucide-react";
 import { useLocation } from "wouter";
+import { usePageMeta } from "@/hooks/use-page-meta";
 
 const FAQS = [
   {
@@ -171,6 +172,11 @@ function FAQItem({ q, a }: { q: string; a: string }) {
 }
 
 export default function FAQ() {
+  usePageMeta(
+    "FAQ — Common Questions About ReviewOptic",
+    "Answers to common questions about ReviewOptic's review request software — pricing, setup, supported platforms, and how it works.",
+    "/faq"
+  );
   const [, navigate] = useLocation();
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-16">

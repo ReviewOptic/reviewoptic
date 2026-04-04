@@ -1,5 +1,6 @@
 import { Check } from "lucide-react";
 import { useFeatures } from "@/hooks/useFeatures";
+import { usePageMeta } from "@/hooks/use-page-meta";
 
 const FEATURES = [
   {
@@ -99,6 +100,11 @@ const FEATURES = [
 ];
 
 export default function Features() {
+  usePageMeta(
+    "Features — Automated Review Requests & More | ReviewOptic",
+    "Review requests via email, SMS & WhatsApp. AI-powered templates, automated follow-ups, private feedback capture, analytics and more.",
+    "/features"
+  );
   const { smsEnabled, whatsappEnabled, socialEnabled } = useFeatures();
 
   const SMS_WA_ITEMS = new Set([

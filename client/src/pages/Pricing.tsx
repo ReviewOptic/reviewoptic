@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Check, X, ArrowLeft, Star } from "lucide-react";
 import { useFeatures } from "@/hooks/useFeatures";
+import { usePageMeta } from "@/hooks/use-page-meta";
 import { loadStripe } from "@stripe/stripe-js";
 import { EmbeddedCheckout, EmbeddedCheckoutProvider } from "@stripe/react-stripe-js";
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,11 @@ const PLANS = [
 ];
 
 export default function Pricing() {
+  usePageMeta(
+    "Pricing — Simple, Transparent Plans | ReviewOptic",
+    "ReviewOptic starts at £29/month. Get automated review requests via email, SMS & WhatsApp. No contracts, cancel anytime, 30-day free trial.",
+    "/pricing"
+  );
   const { user, refreshUser } = useAuth();
   const [, navigate] = useLocation();
   const { smsEnabled, whatsappEnabled } = useFeatures();
