@@ -1,6 +1,7 @@
 import "dotenv/config";
 import * as Sentry from "@sentry/node";
 import express, { type Request, Response, NextFunction } from "express";
+import compression from "compression";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import session from "express-session";
@@ -61,6 +62,9 @@ const httpServer = createServer(app);
 
 // Trust proxy — required for secure cookies behind Cloudflare/Nginx
 app.set("trust proxy", 1);
+
+// Gzip compression for all responses
+app.use(compression());
 
 // Security headers
 app.use(helmet({

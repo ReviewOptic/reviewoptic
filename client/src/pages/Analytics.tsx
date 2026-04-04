@@ -14,8 +14,6 @@ import {
 } from "recharts";
 import { format, parseISO } from "date-fns";
 import { useRef } from "react";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 
 // ── Chart colour system ───────────────────────────────────────────────────
 const COLOR_THEMES: Record<string, { label: string; requests: string; reviews: string; email: string; sms: string; whatsapp: string; positive: string; negative: string; rating: string }> = {
@@ -227,6 +225,10 @@ export default function Analytics() {
     const label = contentRef.current.querySelector(".pdf-period-label") as HTMLElement | null;
     if (label) label.classList.remove("hidden");
     try {
+      const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+        import("jspdf"),
+        import("html2canvas"),
+      ]);
       const blobToDataUrl = (blob: Blob) => new Promise<string>(resolve => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);

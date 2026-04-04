@@ -38,7 +38,7 @@ const Scan = lazy(() => import("@/pages/Scan"));
 function PageLoader() {
   return (
     <div className="min-h-screen flex items-center justify-center">
-      <div className="text-muted-foreground text-sm">Loading…</div>
+      <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
     </div>
   );
 }
@@ -80,11 +80,7 @@ function ProtectedRoutes() {
   }, [user, loading]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-muted-foreground text-sm">Loading…</div>
-      </div>
-    );
+    return <PageLoader />;
   }
 
   if (!user || user.requiresPayment) {
