@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import type { Customer, Settings } from "@shared/schema";
+import { getEmailTemplateOverride, renderBodyHtml } from "./systemEmailTemplates";
 
 const APP_URL = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://reviewoptic.com");
 
@@ -54,21 +55,22 @@ export async function sendVerificationEmail(to: string, verifyUrl: string) {
     console.log(`[verify email] No RESEND_API_KEY. Verify link for ${to}: ${verifyUrl}`);
     return;
   }
+  const tmpl = await getEmailTemplateOverride("verification");
+  const subject = tmpl?.subject || "Verify your email and choose your plan";
+  const bodyHtml = tmpl?.body
+    ? renderBodyHtml(tmpl.body)
+    : `<p style="color:#555;margin:0 0 8px;line-height:1.6;">We're really happy to have you here. Just verify your email below to unlock your free trial and start building the reviews your business deserves.</p>
+       <p style="color:#555;margin:0 0 24px;line-height:1.6;">It takes less than a minute — and your first 30 days are completely free.</p>`;
   const resend = new Resend(process.env.RESEND_API_KEY);
   const result = await resend.emails.send({
     from: REVIEWOPTIC_FROM,
     to,
-    subject: "Verify your email and choose your plan",
+    subject,
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
         ${LOGO_HTML}
         <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Welcome — you're one step away! 👋</h2>
-        <p style="color:#555;margin:0 0 8px;line-height:1.6;">
-          We're really happy to have you here. Just verify your email below to unlock your free trial and start building the reviews your business deserves.
-        </p>
-        <p style="color:#555;margin:0 0 24px;line-height:1.6;">
-          It takes less than a minute — and your first 30 days are completely free.
-        </p>
+        ${bodyHtml}
         <a href="${verifyUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
           Verify email &amp; start free trial
         </a>
@@ -87,21 +89,22 @@ export async function sendTeamInviteEmail(to: string, inviterName: string, compa
     console.log(`[team invite] No RESEND_API_KEY. Invite link for ${to}: ${acceptUrl}`);
     return;
   }
+  const tmpl = await getEmailTemplateOverride("team_invite");
+  const subject = tmpl?.subject
+    ? tmpl.subject.replace("{{company_name}}", companyName)
+    : `You've been invited to join ${companyName} on ReviewOptic`;
+  const bodyHtml = tmpl?.body
+    ? renderBodyHtml(tmpl.body, { "{{inviter_name}}": inviterName, "{{company_name}}": companyName })
+    : `<p style="color:#555;margin:0 0 8px;line-height:1.6;"><strong>${inviterName}</strong> has invited you to join <strong>${companyName}</strong> on ReviewOptic — the platform that helps businesses collect more genuine reviews and grow their reputation online.</p>
+       <p style="color:#555;margin:0 0 24px;line-height:1.6;">Click below to set your password and get started. We think you're going to love it.</p>`;
   const resend = new Resend(process.env.RESEND_API_KEY);
   await resend.emails.send({
-    from: REVIEWOPTIC_FROM,
-    to,
-    subject: `You've been invited to join ${companyName} on ReviewOptic`,
+    from: REVIEWOPTIC_FROM, to, subject,
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
         ${LOGO_HTML}
         <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">You're in — welcome to the team! 🎉</h2>
-        <p style="color:#555;margin:0 0 8px;line-height:1.6;">
-          <strong>${inviterName}</strong> has invited you to join <strong>${companyName}</strong> on ReviewOptic — the platform that helps businesses collect more genuine reviews and grow their reputation online.
-        </p>
-        <p style="color:#555;margin:0 0 24px;line-height:1.6;">
-          Click below to set your password and get started. We think you're going to love it.
-        </p>
+        ${bodyHtml}
         <a href="${acceptUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
           Accept invitation &amp; get started
         </a>
@@ -237,6 +240,13 @@ export async function sendPreScreenEmail(
 
   const firstName = customer.name.split(" ")[0];
   const logoHtml = customerLogoHtml(settings);
+  const tmpl = await getEmailTemplateOverride("pre_screen");
+  const subject = tmpl?.subject
+    ? tmpl.subject.replace("{{business_name}}", settings.businessName)
+    : `How would you rate your experience with ${settings.businessName}?`;
+  const introHtml = tmpl?.body
+    ? renderBodyHtml(tmpl.body, { "{{first_name}}": firstName, "{{business_name}}": settings.businessName })
+    : `<p style="color:#555;margin:0 0 28px;line-height:1.6;">Thank you for choosing ${settings.businessName}! How would you rate your experience? Tap a star below:</p>`;
 
   const stars = [1, 2, 3, 4, 5].map(n =>
     `<td style="padding:0 6px;text-align:center;">
@@ -251,14 +261,12 @@ export async function sendPreScreenEmail(
     from: customerFrom(settings),
     replyTo: settings.businessEmail || undefined,
     to: customer.email,
-    subject: `How would you rate your experience with ${settings.businessName}?`,
+    subject,
     html: `
       <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#111;">
         ${logoHtml}
         <h2 style="font-size:20px;font-weight:700;margin:0 0 8px;">Hi ${firstName},</h2>
-        <p style="color:#555;margin:0 0 28px;line-height:1.6;">
-          Thank you for choosing ${settings.businessName}! How would you rate your experience? Tap a star below:
-        </p>
+        ${introHtml}
         <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 auto 24px;">
           <tr>${stars}</tr>
         </table>
@@ -406,34 +414,28 @@ export async function sendCancellationEmail(to: string, firstName: string, acces
     console.log(`[cancellation email] No RESEND_API_KEY. Would have sent to ${to}`);
     return;
   }
+  const tmplC = await getEmailTemplateOverride("cancellation");
   const resend = new Resend(process.env.RESEND_API_KEY);
+  const subjectC = tmplC?.subject?.replace("{{first_name}}", firstName || "") || "Your ReviewOptic subscription has been cancelled";
+  const bodyHtmlC = tmplC?.body
+    ? renderBodyHtml(tmplC.body, { "{{first_name}}": firstName || "", "{{access_ends}}": accessEndsDate })
+    : `<p style="color:#555;margin:0 0 16px;line-height:1.6;">Your cancellation is confirmed. You'll still have <strong>full access to all features</strong> until <strong>${accessEndsDate}</strong> — so keep making the most of it until then.</p>
+       <p style="color:#555;margin:0 0 16px;line-height:1.6;">After ${accessEndsDate}, you'll still be able to log in and view your analytics — but you won't be able to add new customers or send review requests.</p>
+       <p style="color:#555;margin:0 0 16px;line-height:1.6;">Your account and all your data will be kept safe. If you ever want to reactivate, you're always welcome back — one click is all it takes.</p>
+       <p style="color:#555;margin:0 0 8px;line-height:1.6;">We're always looking to improve — if there's anything we could have done better, we'd genuinely love to hear it. Just hit reply.</p>
+       <p style="color:#555;margin:0;line-height:1.6;">Thank you for trusting us with your business. It's meant a lot to us. 🙏</p>`;
   await resend.emails.send({
-    from: REVIEWOPTIC_FROM,
-    to,
-    subject: "Your ReviewOptic subscription has been cancelled",
+    from: REVIEWOPTIC_FROM, to,
+    subject: subjectC,
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
         ${LOGO_HTML}
         <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">We're sad to see you go${firstName ? `, ${firstName}` : ""} 💙</h2>
-        <p style="color:#555;margin:0 0 16px;line-height:1.6;">
-          Your cancellation is confirmed. You'll still have <strong>full access to all features</strong> until <strong>${accessEndsDate}</strong> — so keep making the most of it until then.
-        </p>
-        <p style="color:#555;margin:0 0 16px;line-height:1.6;">
-          After ${accessEndsDate}, you'll still be able to log in and view your analytics — but you won't be able to add new customers or send review requests.
-        </p>
-        <p style="color:#555;margin:0 0 16px;line-height:1.6;">
-          Your account and all your data will be kept safe. If you ever want to reactivate, you're always welcome back — one click is all it takes.
-        </p>
-        <a href="${reactivateUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin-bottom:24px;">
+        ${bodyHtmlC}
+        <a href="${reactivateUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin:16px 0 24px;">
           Reactivate my subscription
         </a>
-        <p style="color:#555;margin:0 0 8px;line-height:1.6;">
-          We're always looking to improve — if there's anything we could have done better, or if something didn't work the way you hoped, we'd genuinely love to hear it. Just hit reply.
-        </p>
-        <p style="color:#555;margin:0;line-height:1.6;">
-          Thank you for trusting us with your business. It's meant a lot to us. 🙏
-        </p>
-        <p style="color:#999;font-size:12px;margin-top:32px;">Alicia &amp; Rob — ReviewOptic</p>
+        <p style="color:#999;font-size:12px;margin-top:16px;">Alicia &amp; Rob — ReviewOptic</p>
         ${PLATFORM_FOOTER}
       </div>
     `,
@@ -445,31 +447,27 @@ export async function sendSubscriptionEndedEmail(to: string, firstName: string, 
     console.log(`[subscription-ended email] No RESEND_API_KEY. Would have sent to ${to}`);
     return;
   }
+  const tmplSE = await getEmailTemplateOverride("subscription_ended");
   const resend = new Resend(process.env.RESEND_API_KEY);
+  const subjectSE = tmplSE?.subject?.replace("{{first_name}}", firstName || "") || "Your ReviewOptic subscription has ended";
+  const bodyHtmlSE = tmplSE?.body
+    ? renderBodyHtml(tmplSE.body, { "{{first_name}}": firstName || "", "{{access_ended}}": accessEndedDate || "today" })
+    : `<p style="color:#555;margin:0 0 16px;line-height:1.6;">Your ReviewOptic subscription ended ${accessEndedDate ? `on <strong>${accessEndedDate}</strong>` : "today"} and billing has stopped. You won't be charged again. ✅</p>
+       <p style="color:#555;margin:0 0 16px;line-height:1.6;">You can still log in and view your analytics — but you won't be able to add new customers or send review requests. Your account data will be kept safe for 30 days.</p>
+       <p style="color:#555;margin:0 0 8px;line-height:1.6;">We hope ReviewOptic made a difference while you were with us. If there's anything we could have done better, we'd genuinely love to know — just hit reply.</p>
+       <p style="color:#555;margin:0;line-height:1.6;">Thank you for being part of ReviewOptic. The door is always open. 🙏</p>`;
   await resend.emails.send({
-    from: REVIEWOPTIC_FROM,
-    to,
-    subject: "Your ReviewOptic subscription has ended",
+    from: REVIEWOPTIC_FROM, to,
+    subject: subjectSE,
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
         ${LOGO_HTML}
         <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Your subscription has now ended${firstName ? `, ${firstName}` : ""}</h2>
-        <p style="color:#555;margin:0 0 16px;line-height:1.6;">
-          Your ReviewOptic subscription ended ${accessEndedDate ? `on <strong>${accessEndedDate}</strong>` : "today"} and billing has stopped. You won't be charged again. ✅
-        </p>
-        <p style="color:#555;margin:0 0 16px;line-height:1.6;">
-          You can still log in and view your analytics — but you won't be able to add new customers or send review requests. Your account data will be kept safe for 30 days.
-        </p>
-        <a href="${reactivateUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin-bottom:24px;">
+        ${bodyHtmlSE}
+        <a href="${reactivateUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin:16px 0 24px;">
           Reactivate my account
         </a>
-        <p style="color:#555;margin:0 0 8px;line-height:1.6;">
-          We hope ReviewOptic made a difference while you were with us. If there's anything we could have done better, we'd genuinely love to know — just hit reply.
-        </p>
-        <p style="color:#555;margin:0;line-height:1.6;">
-          Thank you for being part of ReviewOptic. The door is always open. 🙏
-        </p>
-        <p style="color:#999;font-size:12px;margin-top:32px;">Alicia &amp; Rob — ReviewOptic</p>
+        <p style="color:#999;font-size:12px;margin-top:16px;">Alicia &amp; Rob — ReviewOptic</p>
         ${PLATFORM_FOOTER}
       </div>
     `,
@@ -481,31 +479,27 @@ export async function sendAccountDeletionEmail(to: string, firstName: string, pu
     console.log(`[account deletion email] No RESEND_API_KEY. Would have sent to ${to}`);
     return;
   }
+  const tmplAD = await getEmailTemplateOverride("account_deletion");
   const resend = new Resend(process.env.RESEND_API_KEY);
+  const subjectAD = tmplAD?.subject?.replace("{{first_name}}", firstName || "") || "Your ReviewOptic account has been deleted";
+  const bodyHtmlAD = tmplAD?.body
+    ? renderBodyHtml(tmplAD.body, { "{{first_name}}": firstName || "", "{{purge_date}}": purgeDate })
+    : `<p style="color:#555;margin:0 0 16px;line-height:1.6;">As requested, your ReviewOptic account has been deleted. All your data will be permanently removed on <strong>${purgeDate}</strong>.</p>
+       <p style="color:#555;margin:0 0 20px;line-height:1.6;">Changed your mind? You can reactivate at any time before ${purgeDate} and everything will be restored.</p>
+       <p style="color:#555;margin:0 0 8px;line-height:1.6;">After ${purgeDate} your data cannot be recovered. If you have any questions, just hit reply.</p>
+       <p style="color:#555;margin:0;line-height:1.6;">Thank you for using ReviewOptic. We hope to see you again. 🙏</p>`;
   await resend.emails.send({
-    from: REVIEWOPTIC_FROM,
-    to,
-    subject: "Your ReviewOptic account has been deleted",
+    from: REVIEWOPTIC_FROM, to,
+    subject: subjectAD,
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
         ${LOGO_HTML}
         <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Your account has been deleted${firstName ? `, ${firstName}` : ""}</h2>
-        <p style="color:#555;margin:0 0 16px;line-height:1.6;">
-          As requested, your ReviewOptic account has been deleted. All your data — customers, review requests, templates, analytics, and team members — will be permanently and irreversibly removed on <strong>${purgeDate}</strong>.
-        </p>
-        <p style="color:#555;margin:0 0 20px;line-height:1.6;">
-          Changed your mind? You can reactivate your account at any time before ${purgeDate} and everything will be restored exactly as you left it.
-        </p>
-        <a href="${reactivateUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin-bottom:24px;">
+        ${bodyHtmlAD}
+        <a href="${reactivateUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin:16px 0 24px;">
           Reactivate my account
         </a>
-        <p style="color:#555;margin:0 0 8px;line-height:1.6;">
-          After ${purgeDate} your data cannot be recovered. If you have any questions, just hit reply.
-        </p>
-        <p style="color:#555;margin:0;line-height:1.6;">
-          Thank you for using ReviewOptic. We hope to see you again. 🙏
-        </p>
-        <p style="color:#999;font-size:12px;margin-top:32px;">Alicia &amp; Rob — ReviewOptic</p>
+        <p style="color:#999;font-size:12px;margin-top:16px;">Alicia &amp; Rob — ReviewOptic</p>
         ${PLATFORM_FOOTER}
       </div>
     `,
@@ -513,34 +507,28 @@ export async function sendAccountDeletionEmail(to: string, firstName: string, pu
 }
 
 export async function sendSubscriptionConfirmationEmail(
-  to: string,
-  firstName: string,
-  planName: string,
-  billingPeriod: string,
-  amountPaid: string,
-  nextBillingDate: string,
-  invoiceUrl: string,
-  billingUrl: string
+  to: string, firstName: string, planName: string, billingPeriod: string,
+  amountPaid: string, nextBillingDate: string, invoiceUrl: string, billingUrl: string
 ) {
   if (!process.env.RESEND_API_KEY) {
     console.log(`[subscription confirmation] No RESEND_API_KEY. Would have sent to ${to}`);
     return;
   }
+  const tmplSC = await getEmailTemplateOverride("subscription_confirmation");
   const resend = new Resend(process.env.RESEND_API_KEY);
+  const subjectSC = tmplSC?.subject?.replace("{{first_name}}", firstName || "") || "Your ReviewOptic subscription is now active";
+  const bodyHtmlSC = tmplSC?.body
+    ? renderBodyHtml(tmplSC.body, { "{{first_name}}": firstName || "" })
+    : `<p style="color:#555;margin:0 0 16px;line-height:1.6;">We're so glad you enjoyed your free trial — and we're even more excited to see what you'll achieve from here.</p>
+       <p style="color:#555;margin:0 0 24px;line-height:1.6;">Your ReviewOptic subscription is now active. Businesses that stay consistent with review requests typically see their ratings grow within the first 30 days. Keep sending, keep following up, and let ReviewOptic do the heavy lifting.</p>`;
   await resend.emails.send({
-    from: REVIEWOPTIC_FROM,
-    to,
-    subject: "Your ReviewOptic subscription is now active",
+    from: REVIEWOPTIC_FROM, to,
+    subject: subjectSC,
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
         ${LOGO_HTML}
         <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Welcome to the team${firstName ? `, ${firstName}` : ""}! 🎉</h2>
-        <p style="color:#555;margin:0 0 16px;line-height:1.6;">
-          We're so glad you enjoyed your free trial — and we're even more excited to see what you'll achieve from here.
-        </p>
-        <p style="color:#555;margin:0 0 24px;line-height:1.6;">
-          Your ReviewOptic subscription is now active. This is just the start — businesses that stay consistent with review requests typically see their ratings grow within the first 30 days. Keep sending, keep following up, and let ReviewOptic do the heavy lifting.
-        </p>
+        ${bodyHtmlSC}
         <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:20px;margin-bottom:24px;">
           <p style="margin:0 0 4px;font-size:12px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;">Your subscription</p>
           <p style="margin:0 0 8px;font-size:13px;color:#555;"><strong style="color:#111;">Plan:</strong> ReviewOptic ${planName}</p>
@@ -549,15 +537,9 @@ export async function sendSubscriptionConfirmationEmail(
           ${nextBillingDate ? `<p style="margin:0;font-size:13px;color:#555;"><strong style="color:#111;">Next billing date:</strong> ${nextBillingDate}</p>` : ""}
         </div>
         ${invoiceUrl ? `<a href="${invoiceUrl}" style="display:inline-block;background:#f3f4f6;color:#111;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;margin-bottom:24px;border:1px solid #e5e7eb;">View receipt →</a>` : ""}
-        <p style="color:#555;margin:0 0 16px;line-height:1.6;">
-          You can manage your subscription, switch plans, or cancel at any time from your billing settings.
-        </p>
-        <a href="${billingUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin-bottom:24px;">
-          Manage billing
-        </a>
-        <p style="color:#555;margin:0 0 8px;line-height:1.6;">
-          If you have any questions, just reply to this email — we're always happy to help.
-        </p>
+        <p style="color:#555;margin:0 0 16px;line-height:1.6;">You can manage your subscription, switch plans, or cancel at any time from your billing settings.</p>
+        <a href="${billingUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin-bottom:24px;">Manage billing</a>
+        <p style="color:#555;margin:0 0 8px;line-height:1.6;">If you have any questions, just reply to this email — we're always happy to help.</p>
         <p style="color:#999;font-size:12px;margin-top:32px;">Alicia &amp; Rob — ReviewOptic</p>
         ${PLATFORM_FOOTER}
       </div>
@@ -575,10 +557,17 @@ export async function sendRatingNotificationEmail(
   if (!process.env.RESEND_API_KEY) return;
   const resend = new Resend(process.env.RESEND_API_KEY);
   const stars = "\u2605".repeat(rating) + "\u2606".repeat(5 - rating);
-  const emoji = rating >= 4 ? "\u{1F31F}" : "\uD83D\uDCAC";
-  const subject = rating >= 4
-    ? `${customerName} left you a ${rating}-star rating ${stars}`
-    : `${customerName} left private feedback (${rating} star${rating === 1 ? "" : "s"})`;
+  const tmpl = await getEmailTemplateOverride("rating_notification");
+  const ratingPlural = rating === 1 ? "" : "s";
+  const subject = tmpl?.subject
+    ? tmpl.subject.replace("{{customer_name}}", customerName).replace("{{rating}}", String(rating))
+    : rating >= 4
+      ? `${customerName} left you a ${rating}-star rating ${stars}`
+      : `${customerName} left private feedback (${rating} star${ratingPlural})`;
+  const bodyHtml = tmpl?.body
+    ? renderBodyHtml(tmpl.body, { "{{customer_name}}": customerName, "{{business_name}}": businessName, "{{rating}}": String(rating), "{{rating_plural}}": ratingPlural })
+    : `<p style="color:#555;margin:0 0 16px;line-height:1.6;"><strong style="color:#111;">${customerName}</strong> rated ${businessName} <strong style="color:#111;">${rating} star${ratingPlural}</strong> ${stars}</p>
+       ${rating < 4 ? `<p style="color:#555;margin:0 0 16px;line-height:1.6;">They have left private feedback — log in to read it and respond.</p>` : `<p style="color:#555;margin:0 0 16px;line-height:1.6;">Head to your customers page to see the details.</p>`}`;
   await resend.emails.send({
     from: REVIEWOPTIC_FROM,
     to,
@@ -587,12 +576,7 @@ export async function sendRatingNotificationEmail(
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
         ${LOGO_HTML}
         <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">New rating received</h2>
-        <p style="color:#555;margin:0 0 16px;line-height:1.6;">
-          <strong style="color:#111;">${customerName}</strong> rated ${businessName} <strong style="color:#111;">${rating} star${rating === 1 ? "" : "s"}</strong> ${stars}
-        </p>
-        ${rating < 4
-          ? `<p style="color:#555;margin:0 0 16px;line-height:1.6;">They have left private feedback — log in to read it and respond.</p>`
-          : `<p style="color:#555;margin:0 0 16px;line-height:1.6;">Head to your customers page to see the details.</p>`}
+        ${bodyHtml}
         <a href="${appUrl}/customers" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin-bottom:24px;">
           View in ReviewOptic
         </a>

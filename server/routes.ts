@@ -3659,6 +3659,45 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     });
   });
 
+  // Admin: get all system email templates (DB overrides merged with defaults)
+  app.get("/api/admin/email-templates", requireAdmin, async (_req, res) => {
+    const { DEFAULT_EMAIL_TEMPLATES } = await import("./systemEmailTemplates");
+    const { rows } = await pool.query(`SELECT type, subject, body FROM system_email_templates`).catch(() => ({ rows: [] as any[] }));
+    const overrides: Record<string, { subject: string; body: string }> = {};
+    for (const r of rows) overrides[r.type] = { subject: r.subject, body: r.body };
+    const result = Object.entries(DEFAULT_EMAIL_TEMPLATES).map(([type, def]) => ({
+      type,
+      label: def.description,
+      subject: overrides[type]?.subject ?? def.subject,
+      body: overrides[type]?.body ?? def.body,
+      variables: def.variables,
+      customised: !!overrides[type],
+    }));
+    res.json(result);
+  });
+
+  // Admin: save a custom subject/body for a system email
+  app.put("/api/admin/email-templates/:type", requireAdmin, async (req, res) => {
+    const { type } = req.params;
+    const { subject, body } = req.body as { subject: string; body: string };
+    const { DEFAULT_EMAIL_TEMPLATES } = await import("./systemEmailTemplates");
+    if (!DEFAULT_EMAIL_TEMPLATES[type]) return res.status(404).json({ message: "Unknown email type" });
+    if (!subject?.trim() || !body?.trim()) return res.status(400).json({ message: "Subject and body are required" });
+    await pool.query(
+      `INSERT INTO system_email_templates (type, subject, body, updated_at)
+       VALUES ($1, $2, $3, NOW())
+       ON CONFLICT (type) DO UPDATE SET subject = $2, body = $3, updated_at = NOW()`,
+      [type, subject.trim(), body.trim()]
+    );
+    res.json({ ok: true });
+  });
+
+  // Admin: reset a system email template to its default
+  app.delete("/api/admin/email-templates/:type", requireAdmin, async (req, res) => {
+    await pool.query(`DELETE FROM system_email_templates WHERE type = $1`, [req.params.type]);
+    res.json({ ok: true });
+  });
+
   // Admin: test-send any system email to the admin's own email address
   app.post("/api/admin/test-email", requireAdmin, async (req, res) => {
     const { type } = req.body as { type: string };

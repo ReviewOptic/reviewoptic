@@ -110,6 +110,11 @@ export default function Admin() {
   const [deletedAccounts, setDeletedAccounts] = useState<any[]>([]);
   const [emailSending, setEmailSending] = useState<string | null>(null);
   const [emailResult, setEmailResult] = useState<Record<string, "sent" | "error">>({});
+  const [emailTemplates, setEmailTemplates] = useState<{ type: string; label: string; subject: string; body: string; variables: string[]; customised: boolean }[]>([]);
+  const [editingTemplate, setEditingTemplate] = useState<{ type: string; label: string; subject: string; body: string; variables: string[] } | null>(null);
+  const [editSubject, setEditSubject] = useState("");
+  const [editBody, setEditBody] = useState("");
+  const [savingTemplate, setSavingTemplate] = useState(false);
 
   const loadInsightStats = () => fetch("/api/admin/insight-stats", { credentials: "include" })
     .then(r => r.ok ? r.json().catch(() => null) : null)
@@ -135,12 +140,17 @@ export default function Admin() {
       .finally(() => setMetricsLoading(false));
   }, [period, fromDate, toDate]);
 
+  const loadEmailTemplates = () =>
+    fetch("/api/admin/email-templates", { credentials: "include" })
+      .then(r => r.ok ? r.json() : []).then(setEmailTemplates).catch(() => {});
+
   useEffect(() => {
     if (!user?.isAdmin) { navigate("/"); return; }
     loadUsers().finally(() => setLoading(false));
     loadInsightStats();
     loadCancelledAccounts();
     loadDeletedAccounts();
+    loadEmailTemplates();
   }, [user]);
 
   useEffect(() => {
@@ -165,22 +175,33 @@ export default function Admin() {
 
   if (loading) return <div className="p-8 text-muted-foreground text-sm">Loading…</div>;
 
-  const testEmails = [
-    { type: "verification",             label: "Email verification",          desc: "Sent when a user signs up — contains their email verify link" },
-    { type: "reset",                     label: "Password reset",              desc: "Sent when a user requests a password reset" },
-    { type: "team_invite",               label: "Team invite",                 desc: "Sent when you invite a team member to your account" },
-    { type: "pre_screen",                label: "Review request (pre-screen)", desc: "Sent to a customer asking them to tap a star rating" },
-    { type: "review_request",            label: "Review request (direct)",     desc: "Sent to a customer with direct links to review platforms" },
-    { type: "follow_up",                 label: "Follow-up reminder",          desc: "Sent to a customer who hasn't left a review yet" },
-    { type: "rating_notification",       label: "New rating (5★ example)",     desc: "Sent to you when a customer submits a star rating" },
-    { type: "private_feedback",          label: "Private feedback received",   desc: "Sent to you when a customer leaves private negative feedback" },
-    { type: "subscription_confirmation", label: "Subscription confirmation",   desc: "Sent when a user's payment goes through and plan activates" },
-    { type: "cancellation",              label: "Cancellation confirmation",   desc: "Sent when a user cancels their subscription" },
-    { type: "subscription_ended",        label: "Subscription ended",          desc: "Sent when a user's access period expires" },
-    { type: "account_deletion",          label: "Account deletion",            desc: "Sent when a user deletes their account" },
-    { type: "insight",                   label: "Weekly/monthly insight",      desc: "Sent automatically with stats and AI insights each week/month" },
-    { type: "platform_review",           label: "ReviewOptic review request",  desc: "Sent to users asking them to review ReviewOptic on Google" },
-  ];
+  const openEdit = (t: typeof emailTemplates[0]) => {
+    setEditingTemplate(t);
+    setEditSubject(t.subject);
+    setEditBody(t.body);
+  };
+
+  const saveTemplate = async () => {
+    if (!editingTemplate) return;
+    setSavingTemplate(true);
+    try {
+      await fetch(`/api/admin/email-templates/${editingTemplate.type}`, {
+        method: "PUT", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subject: editSubject, body: editBody }),
+      });
+      await loadEmailTemplates();
+      setEditingTemplate(null);
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
+  const resetTemplate = async (type: string) => {
+    await fetch(`/api/admin/email-templates/${type}`, { method: "DELETE", credentials: "include" });
+    await loadEmailTemplates();
+    setEditingTemplate(null);
+  };
 
   const sendTestEmail = async (type: string) => {
     setEmailSending(type);
@@ -790,28 +811,95 @@ export default function Admin() {
       {/* ── EMAILS TAB ── */}
       {tab === "emails" && (
         <div>
+          {/* Edit modal */}
+          {editingTemplate && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+              <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-xl max-h-[90vh] overflow-y-auto p-6">
+                <h3 className="text-base font-semibold mb-1">{editingTemplate.label}</h3>
+                <p className="text-xs text-muted-foreground mb-4">Changes apply to all future emails of this type.</p>
+
+                <div className="mb-3">
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-1">Subject line</label>
+                  <input
+                    value={editSubject}
+                    onChange={e => setEditSubject(e.target.value)}
+                    className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
+                  />
+                </div>
+
+                <div className="mb-3">
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-1">Body text</label>
+                  <textarea
+                    value={editBody}
+                    onChange={e => setEditBody(e.target.value)}
+                    rows={8}
+                    className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background resize-y font-mono"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Use blank lines to separate paragraphs.</p>
+                </div>
+
+                {editingTemplate.variables.length > 0 && (
+                  <div className="mb-4 bg-muted/50 rounded-lg px-3 py-2">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Available variables:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {editingTemplate.variables.map(v => (
+                        <code key={v} className="text-xs bg-background border border-border rounded px-1.5 py-0.5">{v}</code>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between gap-3 pt-2">
+                  <button
+                    onClick={() => resetTemplate(editingTemplate.type)}
+                    className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    Reset to default
+                  </button>
+                  <div className="flex gap-2">
+                    <button onClick={() => setEditingTemplate(null)} className="text-sm px-4 py-2 rounded-lg border border-border hover:bg-muted transition-colors">Cancel</button>
+                    <button onClick={saveTemplate} disabled={savingTemplate} className="text-sm px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50">
+                      {savingTemplate ? "Saving…" : "Save changes"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="mb-5">
-            <p className="text-sm font-semibold mb-0.5">Test system emails</p>
-            <p className="text-xs text-muted-foreground">Each button sends a test copy to your admin email address with sample data so you can see exactly what your users receive.</p>
+            <p className="text-sm font-semibold mb-0.5">System emails</p>
+            <p className="text-xs text-muted-foreground">Click Edit to change the subject and body of any email. Changes take effect immediately. Use Send test to preview the email in your inbox.</p>
           </div>
           <div className="bg-card border border-border rounded-xl overflow-hidden">
-            {testEmails.map((e, i) => (
-              <div key={e.type} className={`flex items-center justify-between gap-4 px-4 py-3.5 ${i < testEmails.length - 1 ? "border-b border-border" : ""}`}>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium truncate">{e.label}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{e.desc}</p>
+            {emailTemplates.map((e, i) => (
+              <div key={e.type} className={`flex items-center justify-between gap-3 px-4 py-3.5 ${i < emailTemplates.length - 1 ? "border-b border-border" : ""}`}>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium truncate">{e.label}</p>
+                    {e.customised && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 flex-shrink-0">Edited</span>}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5 truncate">{e.subject}</p>
                 </div>
-                <button
-                  onClick={() => sendTestEmail(e.type)}
-                  disabled={emailSending === e.type}
-                  className={`flex-shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
-                    emailResult[e.type] === "sent" ? "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400" :
-                    emailResult[e.type] === "error" ? "bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400" :
-                    "bg-primary text-primary-foreground hover:bg-primary/90"
-                  } disabled:opacity-50`}
-                >
-                  {emailSending === e.type ? "Sending…" : emailResult[e.type] === "sent" ? "✓ Sent" : emailResult[e.type] === "error" ? "✗ Failed" : "Send test"}
-                </button>
+                <div className="flex gap-1.5 flex-shrink-0">
+                  <button
+                    onClick={() => openEdit(e)}
+                    className="text-xs font-medium px-3 py-1.5 rounded-lg border border-border hover:bg-muted transition-colors"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => sendTestEmail(e.type)}
+                    disabled={emailSending === e.type}
+                    className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
+                      emailResult[e.type] === "sent" ? "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400" :
+                      emailResult[e.type] === "error" ? "bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400" :
+                      "bg-primary text-primary-foreground hover:bg-primary/90"
+                    } disabled:opacity-50`}
+                  >
+                    {emailSending === e.type ? "Sending…" : emailResult[e.type] === "sent" ? "✓ Sent" : emailResult[e.type] === "error" ? "✗ Failed" : "Test"}
+                  </button>
+                </div>
               </div>
             ))}
           </div>

@@ -510,6 +510,14 @@ export async function runMigrations() {
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
     )`);
 
+    // Editable system email templates
+    await pool.query(`CREATE TABLE IF NOT EXISTS system_email_templates (
+      type TEXT PRIMARY KEY,
+      subject TEXT NOT NULL,
+      body TEXT NOT NULL,
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )`);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();
