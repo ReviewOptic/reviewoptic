@@ -669,3 +669,74 @@ Older session logs moved here to keep CLAUDE.md under 30k chars.
 - Settings broken link fixed (`/templates` not `/?tab=templates`)
 - Customers URL filter synced to URL params
 - Admin metrics reset (clean DB for real users)
+
+### Session — 2026-04-03 (forty-seventh session)
+
+**Tasks completed:**
+- **SMS updated to send from Twilio phone number**: `sendReviewSMS` and `sendPlainSMS` now use `TWILIO_PHONE_NUMBER` env var instead of alphanumeric sender ID. Enables inbound STOP replies via webhook.
+- **Inbound STOP webhook confirmed**: `/api/webhooks/twilio-inbound` already built and correct. Configured in Twilio console on +447863750348.
+- **Production build updated**: Rebuilt `dist/index.cjs` to pick up all code changes.
+- **Twilio account upgraded**: Purchased UK mobile number +447863750348, assigned regulatory bundle.
+- **Meta Business Verification submitted**: Awaiting email confirmation.
+- **WhatsApp Business setup started**: Blocked by Meta requiring business verification first.
+
+**Architecture notes:**
+- Replit runs production mode (`npm start` → `dist/index.cjs`). Must run `npm run build` after code changes.
+
+### Session — 2026-04-03 (forty-eighth session)
+
+**Tasks completed:**
+- **SMS sender switched to alphanumeric "ReviewOptic"**: UK mobile number cannot send A2P SMS. Hardcoded `"ReviewOptic"` in `sms.ts`.
+- **SMS opt-out: unsubscribe link**: `Stop: reviewoptic.com/u/TOKEN` (8-char prefix of UUID). `GET /u/:token` marks Do Not Contact, returns HTML confirmation.
+- **Twilio alphanumeric sender ID registration submitted**: Awaiting approval. Once approved: set `SMS_ENABLED=true`.
+- **Stripe promo codes enabled**: `allow_promotion_codes: true` in checkout session.
+- **Coming soon badges**: `GET /api/features` reads `SMS_ENABLED`, `WHATSAPP_ENABLED`, `SOCIAL_ENABLED` env vars. `useFeatures()` hook removes badges when vars are set.
+- **Terms & Privacy completed**: ReviewOptic Limited, company number 17134444, hello@reviewoptic.com.
+- **Beta tester discount**: `BETAFREE` promo code live at checkout.
+
+**Architecture notes:**
+- Feature flags: `SMS_ENABLED`, `WHATSAPP_ENABLED`, `SOCIAL_ENABLED` → `/api/features` → `useFeatures()` hook.
+- To grant complimentary access: `UPDATE users SET plan_type = 'complimentary' WHERE email = 'x@x.com';`
+
+### Session — 2026-04-03 (forty-ninth session)
+
+**Tasks completed:**
+- **Push notifications (PWA)**: VAPID keys in Replit. SW at `client/public/sw.js`. Bell icon with unread badge + dropdown. Polls every 30s. DB: `notifications` + `push_subscriptions`.
+- **Rating notifications**: Star rating fires (1) in-app bell, (2) lock-screen push, (3) instant email to owner.
+- **Settings → Notifications tab**: Toggle "Email me when a rating is received" → `settings.notify_ratings`.
+- **Instagram auto-posting**: Generates 1080×1080 PNG (sharp + SVG) → Cloudinary → Facebook photo post → Instagram via Graph API.
+- **Social tab logos**: `react-icons` (FaFacebook, FaInstagram, FaLinkedin).
+
+**Architecture notes:**
+- `sendPushToAccount(accountId, payload)` in routes.ts. Dead subscriptions (410/404) auto-deleted.
+- `server/reviewCard.ts` → `generateReviewCard(stars, name, businessName)` → Buffer.
+- `instagramBusinessAccountId` fetched via `/{page-id}?fields=instagram_business_account`. Cleared on Facebook disconnect.
+- Meta App Review needed for real users: `pages_manage_posts`, `pages_read_engagement`, `instagram_content_publish`, `instagram_business_basic`.
+
+### Session — 2026-04-03 (fiftieth session)
+
+**Tasks completed:**
+- **Trial period extended to 30 days**: `trial_period_days` 14 → 30 in `server/routes.ts:2818`.
+
+### Session — 2026-04-03 (fifty-first session)
+
+**Tasks completed:**
+- **Domain setup guidance**: Namecheap A record (34.111.179.208) + TXT + www CNAME → review-optic.replit.app.
+
+### Session — 2026-04-03 (fifty-second session)
+
+**Tasks completed:**
+- **Domain connected**: `reviewoptic.com` verified in Replit. Removed conflicting URL Redirect record.
+- **Admin account fixed**: Used temp endpoint to set `is_admin = true, plan_type = 'complimentary'` for `hello@reviewoptic.com`.
+- **Migration fixed**: Changed FK type from UUID → TEXT to fix type mismatch crash.
+- **Notifications bug fixed**: Changed `req.user.accountId` → `req.session.accountId`.
+- **SMS working**: Swapped to live Twilio credentials. SMS sends from "ReviewOptic".
+- **Show/hide password button**: Eye icon toggle on login/register.
+- **Stripe live mode**: Webhook at `https://reviewoptic.com/api/billing/webhook` registered. `STRIPE_WEBHOOK_SECRET` set.
+- **Facebook reconnected**: OAuth redirect URI updated to `https://reviewoptic.com/api/auth/facebook/callback`.
+- **Meta App Review submitted**: Waiting on Business Verification.
+- **APP_URL set**: `APP_URL=https://reviewoptic.com`.
+
+**Architecture notes:**
+- `ADMIN_EMAIL=hello@reviewoptic.com` → migration auto-sets `is_admin = true, plan_type = 'complimentary'` on startup.
+- Live DB is separate. Use temp endpoints for one-off live DB operations.
