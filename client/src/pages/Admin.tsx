@@ -256,14 +256,14 @@ export default function Admin() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div className="max-w-7xl mx-auto p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
         <div className="flex items-center gap-3">
           <Shield className="w-5 h-5 text-primary" />
           <h1 className="text-xl font-bold">Admin Panel</h1>
         </div>
         {tab === "metrics" && (
-          <div className="flex items-center gap-2 print:hidden">
+          <div className="flex flex-wrap items-center gap-2 print:hidden">
             <Select value={period} onValueChange={v => { setPeriod(v); setFromDate(""); setToDate(""); }}>
               <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -318,13 +318,15 @@ export default function Admin() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-muted p-1 rounded-lg w-fit mb-6 print:hidden">
+      <div className="overflow-x-auto mb-6 print:hidden">
+      <div className="flex gap-1 bg-muted p-1 rounded-lg w-fit min-w-full sm:min-w-0">
         {tabs.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${tab === t.id ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
             <t.icon className="w-3.5 h-3.5" />{t.label}
           </button>
         ))}
+      </div>
       </div>
 
       {/* ── METRICS TAB ── */}
@@ -550,7 +552,7 @@ export default function Admin() {
 
           {/* Revenue & Payments */}
           <div>
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-wrap items-center justify-between mb-4 gap-2">
               <div className="flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-primary" />
                 <h2 className="text-base font-semibold">Revenue & Payments</h2>
@@ -722,12 +724,12 @@ export default function Admin() {
       {/* ── CANCELLED TAB ── */}
       {tab === "cancelled" && (
         <div>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
             <div>
               <p className="text-sm font-semibold">{cancelledAccounts.length} cancelled account{cancelledAccounts.length !== 1 ? "s" : ""}</p>
               <p className="text-xs text-muted-foreground mt-0.5">These users have cancelled their subscription. Contact them to reactivate.</p>
             </div>
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => exportCSV(cancelledAccounts, "cancelled-accounts.csv")}>
+            <Button size="sm" variant="outline" className="gap-1.5 self-start sm:self-auto" onClick={() => exportCSV(cancelledAccounts, "cancelled-accounts.csv")}>
               <Download className="w-3.5 h-3.5" />Export CSV
             </Button>
           </div>
@@ -737,7 +739,8 @@ export default function Admin() {
             </div>
           ) : (
             <div className="bg-card border border-border rounded-xl overflow-hidden">
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[600px]">
                 <thead>
                   <tr className="border-b border-border bg-muted/50">
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Email</th>
@@ -767,6 +770,7 @@ export default function Admin() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </div>
@@ -933,15 +937,15 @@ export default function Admin() {
       {/* ── USERS TAB ── */}
       {tab === "users" && (
         <div>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
+            <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm text-muted-foreground">{users.filter(u => u.email !== "hello@reviewoptic.com" && (planFilter === "all" || u.planType === planFilter)).length} user{users.filter(u => u.email !== "hello@reviewoptic.com" && (planFilter === "all" || u.planType === planFilter)).length !== 1 ? "s" : ""}</p>
               {users.some(u => u.emailUnsubscribed) && (
                 <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
                   {users.filter(u => u.emailUnsubscribed).length} unsubscribed
                 </span>
               )}
-              <div className="flex gap-1">
+              <div className="flex flex-wrap gap-1">
                 {["all", "lite", "pro", "complimentary", "cancelled"].map(p => (
                   <button key={p} onClick={() => setPlanFilter(p)}
                     className={`text-xs px-3 py-1 rounded-full font-medium transition-colors capitalize ${planFilter === p ? "bg-selected text-selected-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
@@ -950,7 +954,7 @@ export default function Admin() {
                 ))}
               </div>
             </div>
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => exportCSV(users, "users.csv")}>
+            <Button size="sm" variant="outline" className="gap-1.5 self-start sm:self-auto" onClick={() => exportCSV(users, "users.csv")}>
               <Download className="w-3.5 h-3.5" />Export CSV
             </Button>
           </div>
