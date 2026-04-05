@@ -220,10 +220,10 @@ export default function Admin() {
   };
 
   const tabs = [
-    { id: "metrics", label: "Metrics", icon: BarChart3 },
     { id: "users", label: "Users", icon: Users },
     { id: "cancelled", label: "Cancelled", icon: AlertTriangle },
     { id: "deleted", label: "Deleted", icon: Trash2 },
+    { id: "metrics", label: "Metrics", icon: BarChart3 },
     { id: "emails", label: "Emails", icon: Zap },
   ] as const;
 
@@ -318,10 +318,10 @@ export default function Admin() {
       </div>
 
       {/* Tabs */}
-      <div className="grid grid-cols-3 sm:flex gap-1 bg-muted p-1 rounded-lg sm:w-fit mb-6 print:hidden">
+      <div className="flex flex-wrap justify-center sm:flex-nowrap sm:justify-start gap-1 bg-muted p-1 rounded-lg sm:w-fit mb-6 print:hidden">
         {tabs.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
-            className={`px-3 sm:px-4 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-1.5 ${tab === t.id ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+            className={`basis-[31%] sm:basis-auto px-3 sm:px-4 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-1.5 ${tab === t.id ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
             <t.icon className="w-3.5 h-3.5" />{t.label}
           </button>
         ))}
