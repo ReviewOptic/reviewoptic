@@ -27,6 +27,7 @@ export default function PrivacyPolicy() {
               <li><strong className="text-foreground">Private feedback:</strong> written feedback submitted by customers who give a low rating (1–3 stars), which is shared only with the business that sent the review request</li>
               <li><strong className="text-foreground">Usage data:</strong> how you interact with the app (e.g. pages visited, features used)</li>
               <li><strong className="text-foreground">Communication data:</strong> emails and messages sent through the platform</li>
+              <li><strong className="text-foreground">Voice and video recordings:</strong> voice notes and video attachments you upload when sending review requests</li>
             </ul>
           </section>
 
@@ -35,7 +36,7 @@ export default function PrivacyPolicy() {
             <p className="text-muted-foreground leading-relaxed mb-3">We use your data to:</p>
             <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
               <li>Provide and operate the ReviewOptic service</li>
-              <li>Send review request emails and SMS messages on your behalf to your customers</li>
+              <li>Send review request emails, SMS, and WhatsApp messages on your behalf to your customers</li>
               <li>Send you account-related emails (verification, password reset, billing)</li>
               <li>Improve and develop the platform</li>
               <li>Comply with legal obligations</li>
@@ -65,7 +66,9 @@ export default function PrivacyPolicy() {
               <li><strong className="text-foreground">Neon (PostgreSQL)</strong> — used to store all platform data securely. Neon is GDPR-compliant and we have a Data Processing Agreement in place with Neon.</li>
               <li><strong className="text-foreground">Twilio</strong> — used to send SMS and WhatsApp messages on your behalf to your customers. Customer phone numbers are shared with Twilio solely for this purpose. Twilio is GDPR-compliant and we have a Data Processing Agreement in place with Twilio.</li>
               <li><strong className="text-foreground">Sentry</strong> — used for error monitoring to help us identify and fix technical issues. Error data may include technical information such as IP addresses. Sentry is GDPR-compliant and we have a Data Processing Agreement in place with Sentry.</li>
-              <li><strong className="text-foreground">Meta (Facebook)</strong> — if you connect your Facebook Page for auto-posting</li>
+              <li><strong className="text-foreground">OpenAI</strong> — used to power AI features including template generation and the AI chat assistant. Message content may be processed by OpenAI to generate responses. OpenAI is GDPR-compliant and we have a Data Processing Agreement in place with OpenAI.</li>
+              <li><strong className="text-foreground">ElevenLabs</strong> — used for voice cloning to personalise audio review requests. Voice recordings you upload are processed by ElevenLabs solely for this purpose. ElevenLabs is GDPR-compliant and we have a Data Processing Agreement in place with ElevenLabs.</li>
+              <li><strong className="text-foreground">Meta (Facebook/Instagram)</strong> — if you connect your Facebook Page for auto-posting</li>
               <li><strong className="text-foreground">LinkedIn</strong> — if you connect your LinkedIn account</li>
             </ul>
             <p className="text-muted-foreground leading-relaxed mt-3">

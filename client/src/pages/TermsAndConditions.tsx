@@ -202,7 +202,7 @@ export default function TermsAndConditions() {
               We may suspend or terminate your account at any time if you breach these Terms, fail to
               pay subscription fees, or if we reasonably believe your use of the service poses a risk
               to us, other users, or third parties. Upon termination, your right to access the service
-              ceases immediately. Sections 9, 11, 12, 13, and 15 survive termination.
+              ceases immediately. Sections 9, 10, 11, 12, 13, and 14 survive termination.
             </p>
           </section>
 
