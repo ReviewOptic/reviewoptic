@@ -247,7 +247,7 @@ Your job is to be the developer they would hire if they could afford a great one
 - Google + Bing verification meta tags are in `client/index.html`.
 
 **Waiting on (external — unchanged):**
-- **⚠️ Meta Business Verification** — email from Meta pending.
+- **⚠️ Meta Business Verification** — IN01 document submitted. Domain verified via meta tag. Awaiting approval.
 - **⚠️ Meta App Review** — submitted, waiting on Business Verification first.
 - **⚠️ WhatsApp** — needs Meta Business Verification first.
 
@@ -255,3 +255,30 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Referral programme** — still pending, pure code work
 - **OG image** — create a 1200×630px branded image, save as `client/public/og-image.png`, update `og:image` in `client/index.html` and `landing.html`
 - **Product Hunt / Hacker News** — save for when there's traction to show
+
+### Session — 2026-04-05 (fifty-sixth session)
+
+**Tasks completed:**
+
+- **Admin panel mobile responsiveness**: Fixed header overflow (flex-col on mobile), tabs now show as 3+2 grid with labels on mobile (Users/Cancelled/Deleted top row, Metrics/Emails bottom row centred), cancelled accounts table hides non-essential columns on mobile, users table hides Custs/Reqs/Last Active/Role on small screens. No scrollbars.
+- **Free trial copy audit**: Confirmed 14 days correct everywhere. Fixed one outlier: Pricing page meta description said "30-day free trial" → corrected to 14 days.
+- **Pricing audit**: £29/month Standard, £49/month Pro correct everywhere. Annual £319/£539 maths correct.
+- **Messaging audit — "automates requests" fix**: Corrected all instances implying ReviewOptic automatically sends the initial request. Now consistently says "you send review requests, ReviewOptic follows up on autopilot". Fixed in: `use-page-meta.ts`, `Pricing.tsx`, `FAQ.tsx`, `landing.html` (meta, H1, hero body, step 2 heading/copy), `Settings.tsx` (all 4 referral share messages).
+- **FAQ typo fixed**: "and and automatically" → corrected.
+- **Terms & Conditions**: Removed "registered office at hello@reviewoptic.com" (email is not an address; home address privacy). Replaced with "You can contact us at hello@reviewoptic.com." Section 15 survival clause corrected: was listing section 15 itself and missing section 14 (Limitation of liability) → fixed to sections 9, 10, 11, 12, 13, 14.
+- **Privacy Policy**: Added WhatsApp to section 3. Added voice/video recordings to section 2 (data collected). Added OpenAI and ElevenLabs as data processors in section 5 (legally required under UK GDPR).
+- **Social media consistency**: Features page SOCIAL_ITEMS set was mismatched (wouldn't show "coming soon" badge when social disabled) → fixed. Login page said "Facebook and LinkedIn" → updated to "Facebook, Instagram & LinkedIn" to match Features page.
+- **Meta domain verification**: Added `<meta name="facebook-domain-verification" content="yomb587husc1goq2qbzo8s23cno2lp" />` to `client/index.html`. Verified successfully.
+- **index.html meta descriptions**: Were still saying "automates review requests" (missed when updating `use-page-meta.ts`) → corrected to match new messaging.
+
+**Architecture notes:**
+- Privacy Policy now correctly lists all data processors: Resend, Stripe, Neon, Twilio, Sentry, OpenAI, ElevenLabs, Meta, LinkedIn.
+- DPAs with OpenAI and ElevenLabs are accepted as part of their standard API sign-up terms — worth confirming this is documented.
+
+**Waiting on (external):**
+- Meta Business Verification (IN01 submitted) → App Review → WhatsApp
+- Once WhatsApp live: update Google Business description to mention WhatsApp
+
+**Notes for next session:**
+- **Referral programme** — still the top pending code task
+- **OG image** — 1200×630px branded image → `client/public/og-image.png`
