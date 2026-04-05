@@ -318,15 +318,13 @@ export default function Admin() {
       </div>
 
       {/* Tabs */}
-      <div className="overflow-x-auto mb-6 print:hidden">
-      <div className="flex gap-1 bg-muted p-1 rounded-lg w-fit min-w-full sm:min-w-0">
+      <div className="flex gap-1 bg-muted p-1 rounded-lg w-fit mb-6 print:hidden">
         {tabs.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${tab === t.id ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
-            <t.icon className="w-3.5 h-3.5" />{t.label}
+            className={`px-3 sm:px-4 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${tab === t.id ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+            <t.icon className="w-3.5 h-3.5" /><span className="hidden sm:inline">{t.label}</span>
           </button>
         ))}
-      </div>
       </div>
 
       {/* ── METRICS TAB ── */}
@@ -739,16 +737,15 @@ export default function Admin() {
             </div>
           ) : (
             <div className="bg-card border border-border rounded-xl overflow-hidden">
-              <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[600px]">
+              <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-muted/50">
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Email</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Name</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Company</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Name</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Company</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Plan</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Customers</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Requests</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Customers</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Requests</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Cancelled</th>
                   </tr>
                 </thead>
@@ -756,21 +753,20 @@ export default function Admin() {
                   {cancelledAccounts.map((a, i) => (
                     <tr key={i} className="border-b border-border last:border-0">
                       <td className="px-4 py-3 font-medium text-[12.5px]">{a.email}</td>
-                      <td className="px-4 py-3 text-[12.5px] text-muted-foreground">{[a.first_name, a.last_name].filter(Boolean).join(" ") || "—"}</td>
-                      <td className="px-4 py-3 text-[12.5px] text-muted-foreground">{a.company_name || "—"}</td>
+                      <td className="px-4 py-3 text-[12.5px] text-muted-foreground hidden sm:table-cell">{[a.first_name, a.last_name].filter(Boolean).join(" ") || "—"}</td>
+                      <td className="px-4 py-3 text-[12.5px] text-muted-foreground hidden sm:table-cell">{a.company_name || "—"}</td>
                       <td className="px-4 py-3 text-[12.5px]">
                         <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground capitalize">
                           {a.plan_type === "lite" ? "Standard" : a.plan_type} — {a.plan_period}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-[12.5px] text-muted-foreground">{a.customer_count}</td>
-                      <td className="px-4 py-3 text-[12.5px] text-muted-foreground">{a.request_count}</td>
+                      <td className="px-4 py-3 text-[12.5px] text-muted-foreground hidden md:table-cell">{a.customer_count}</td>
+                      <td className="px-4 py-3 text-[12.5px] text-muted-foreground hidden md:table-cell">{a.request_count}</td>
                       <td className="px-4 py-3 text-[12.5px] text-muted-foreground">{a.cancelled_at ? fmtDate(a.cancelled_at) : "—"}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              </div>
             </div>
           )}
         </div>
@@ -959,17 +955,16 @@ export default function Admin() {
             </Button>
           </div>
           <div className="bg-card border border-border rounded-xl overflow-hidden">
-            <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[700px]">
+            <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/50">
                   <th className="text-left px-3 py-3 font-medium text-muted-foreground">Email</th>
                   <th className="text-left px-3 py-3 font-medium text-muted-foreground">Plan</th>
-                  <th className="text-left px-3 py-3 font-medium text-muted-foreground">Custs</th>
-                  <th className="text-left px-3 py-3 font-medium text-muted-foreground">Reqs</th>
-                  <th className="text-left px-3 py-3 font-medium text-muted-foreground">Last Active</th>
-                  <th className="text-left px-3 py-3 font-medium text-muted-foreground">Ver.</th>
-                  <th className="text-left px-3 py-3 font-medium text-muted-foreground">Role</th>
+                  <th className="text-left px-3 py-3 font-medium text-muted-foreground hidden md:table-cell">Custs</th>
+                  <th className="text-left px-3 py-3 font-medium text-muted-foreground hidden md:table-cell">Reqs</th>
+                  <th className="text-left px-3 py-3 font-medium text-muted-foreground hidden sm:table-cell">Last Active</th>
+                  <th className="text-left px-3 py-3 font-medium text-muted-foreground hidden sm:table-cell">Ver.</th>
+                  <th className="text-left px-3 py-3 font-medium text-muted-foreground hidden sm:table-cell">Role</th>
                   <th className="px-3 py-3" />
                 </tr>
               </thead>
@@ -986,11 +981,11 @@ export default function Admin() {
                         "bg-muted text-muted-foreground"
                       }`}>{u.planType === "lite" ? "standard" : u.planType}</span>
                     </td>
-                    <td className="px-3 py-3 text-muted-foreground">{u.customerCount}</td>
-                    <td className="px-3 py-3 text-muted-foreground">{u.reviewRequestCount}</td>
-                    <td className="px-3 py-3 text-muted-foreground">{fmtDate(u.lastActive)}</td>
-                    <td className="px-3 py-3">{u.emailVerified ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <XCircle className="w-4 h-4 text-muted-foreground" />}</td>
-                    <td className="px-3 py-3">
+                    <td className="px-3 py-3 text-muted-foreground hidden md:table-cell">{u.customerCount}</td>
+                    <td className="px-3 py-3 text-muted-foreground hidden md:table-cell">{u.reviewRequestCount}</td>
+                    <td className="px-3 py-3 text-muted-foreground hidden sm:table-cell">{fmtDate(u.lastActive)}</td>
+                    <td className="px-3 py-3 hidden sm:table-cell">{u.emailVerified ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <XCircle className="w-4 h-4 text-muted-foreground" />}</td>
+                    <td className="px-3 py-3 hidden sm:table-cell">
                       {u.isAdmin ? <span className="text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">Admin</span> : <span className="text-xs text-muted-foreground">User</span>}
                       {u.emailUnsubscribed && <span className="ml-1.5 text-xs font-medium px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">Unsub</span>}
                     </td>
@@ -1013,7 +1008,6 @@ export default function Admin() {
                 ))}
               </tbody>
             </table>
-            </div>
           </div>
         </div>
       )}
