@@ -112,7 +112,7 @@ export default function Features() {
     "Multiple named message templates per channel (email, SMS, WhatsApp)",
   ]);
   const SMS_TAGS = [!smsEnabled && "SMS", !whatsappEnabled && "WhatsApp"].filter(Boolean) as string[];
-  const SOCIAL_ITEMS = new Set(["Auto-post 4 & 5-star reviews to Facebook & LinkedIn"]);
+  const SOCIAL_ITEMS = new Set(["Auto-post 4 & 5-star review cards to Facebook, Instagram & LinkedIn"]);
 
   return (
     <div className="min-h-screen bg-gray-50 py-16 px-4">

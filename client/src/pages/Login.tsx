@@ -55,7 +55,7 @@ const FEATURES = [
   { icon: "📊", title: "Track everything in one place", desc: "See your conversion rate, average star rating, and best-performing channels at a glance." },
   { icon: "🤖", title: "AI-powered insights", desc: "Get a personalised weekly report with actionable tips to improve your review performance." },
   { icon: "🛡️", title: "Turn unhappy customers into loyal ones", desc: "Low ratings go to a private feedback form — so you can make it right before it becomes a public complaint." },
-  { icon: "📱", title: "Auto-post reviews to social media", desc: "Automatically share your best reviews to Facebook and LinkedIn. Your reputation, amplified." },
+  { icon: "📱", title: "Auto-post reviews to social media", desc: "Automatically share your best reviews to Facebook, Instagram & LinkedIn. Your reputation, amplified." },
   { icon: "🌟", title: "Works with all major platforms", desc: "Google, Trustpilot, Facebook, Checkatrade, TripAdvisor, and more." },
   { icon: "📲", title: "Fully optimised for mobile", desc: "Manage customers, send requests, and track your reviews from your phone. Save ReviewOptic to your home screen for instant access — no App Store download needed." },
 ];

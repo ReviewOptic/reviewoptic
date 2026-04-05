@@ -15,7 +15,7 @@ export default function TermsAndConditions() {
             <p className="text-muted-foreground leading-relaxed">
               These Terms and Conditions ("Terms") govern your use of ReviewOptic, a software-as-a-service
               platform operated by ReviewOptic Limited, registered in England and Wales under company number
-              17134444, with its registered office at hello@reviewoptic.com ("we", "us", "our").
+              17134444 ("we", "us", "our"). You can contact us at hello@reviewoptic.com.
             </p>
             <p className="text-muted-foreground leading-relaxed mt-3">
               By creating an account or using ReviewOptic, you agree to these Terms in full. If you do not

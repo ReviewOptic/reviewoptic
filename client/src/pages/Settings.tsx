@@ -1168,7 +1168,7 @@ function ReferralTab() {
             {[
               {
                 label: "WhatsApp",
-                url: `https://wa.me/?text=${encodeURIComponent(`I've been using ReviewOptic to collect customer reviews automatically — it's been great. Sign up here: ${referralLink}`)}`,
+                url: `https://wa.me/?text=${encodeURIComponent(`I've been using ReviewOptic to send review requests and get follow-ups on autopilot — it's been great. Sign up here: ${referralLink}`)}`,
               },
               {
                 label: "Facebook",
@@ -1176,7 +1176,7 @@ function ReferralTab() {
               },
               {
                 label: "X (Twitter)",
-                url: `https://twitter.com/intent/tweet?text=${encodeURIComponent(`I've been using ReviewOptic to automate customer review collection — really useful for any business. Check it out:`)}&url=${encodeURIComponent(referralLink)}`,
+                url: `https://twitter.com/intent/tweet?text=${encodeURIComponent(`I've been using ReviewOptic to send review requests and follow up on autopilot — really useful for any business. Check it out:`)}&url=${encodeURIComponent(referralLink)}`,
               },
               {
                 label: "LinkedIn",
@@ -1184,11 +1184,11 @@ function ReferralTab() {
               },
               {
                 label: "Email",
-                url: `mailto:?subject=You should try ReviewOptic&body=${encodeURIComponent(`Hi,\n\nI've been using ReviewOptic to automatically collect customer reviews and it's made a real difference. Thought you might find it useful too.\n\nSign up here: ${referralLink}\n\nBest`)}`,
+                url: `mailto:?subject=You should try ReviewOptic&body=${encodeURIComponent(`Hi,\n\nI've been using ReviewOptic to send review requests and follow up on autopilot — it's made a real difference. Thought you might find it useful too.\n\nSign up here: ${referralLink}\n\nBest`)}`,
               },
               {
                 label: "SMS",
-                url: `sms:?body=${encodeURIComponent(`Check out ReviewOptic — it automates customer review collection. Sign up here: ${referralLink}`)}`,
+                url: `sms:?body=${encodeURIComponent(`Check out ReviewOptic — send review requests and follow up on autopilot. Sign up here: ${referralLink}`)}`,
               },
             ].map(s => (
               <Button key={s.label} variant="outline" size="sm" className="gap-1.5" onClick={() => window.open(s.url, "_blank")}>

@@ -44,7 +44,7 @@ const PLANS = [
 export default function Pricing() {
   usePageMeta(
     "Pricing — Simple, Transparent Plans | ReviewOptic",
-    "ReviewOptic starts at £29/month. Get automated review requests via email, SMS & WhatsApp. No contracts, cancel anytime, 30-day free trial.",
+    "ReviewOptic starts at £29/month. Send review requests via email, SMS & WhatsApp — follow-ups handled on autopilot. No contracts, 14-day free trial.",
     "/pricing"
   );
   const { user, refreshUser } = useAuth();
