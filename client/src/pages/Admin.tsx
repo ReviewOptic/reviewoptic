@@ -318,11 +318,11 @@ export default function Admin() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-muted p-1 rounded-lg w-fit mb-6 print:hidden">
+      <div className="grid grid-cols-3 sm:flex gap-1 bg-muted p-1 rounded-lg sm:w-fit mb-6 print:hidden">
         {tabs.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
-            className={`px-3 sm:px-4 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${tab === t.id ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
-            <t.icon className="w-3.5 h-3.5" /><span className="hidden sm:inline">{t.label}</span>
+            className={`px-3 sm:px-4 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-1.5 ${tab === t.id ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+            <t.icon className="w-3.5 h-3.5" />{t.label}
           </button>
         ))}
       </div>
