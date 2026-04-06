@@ -80,6 +80,18 @@ export const DEFAULT_EMAIL_TEMPLATES: Record<string, { subject: string; body: st
     variables: ["{{first_name}}", "{{company_name}}"],
     description: "Sent to users asking them to review ReviewOptic on Google",
   },
+  renewal_reminder: {
+    subject: "Your ReviewOptic subscription renews in 3 days",
+    body: "Just a heads-up — your {{plan_name}} subscription will automatically renew in 3 days on {{renewal_date}} for {{amount}}.\n\nNo action needed. If you'd like to make any changes to your plan or payment details, you can do so from your billing settings.",
+    variables: ["{{first_name}}", "{{plan_name}}", "{{renewal_date}}", "{{amount}}"],
+    description: "Sent 1 day before a subscription renewal",
+  },
+  payment_failed: {
+    subject: "Action required: your ReviewOptic payment failed",
+    body: "We weren't able to take your latest payment. This can happen if your card has expired or your details have changed.\n\nTo avoid interruption to your service, please update your payment details as soon as possible.",
+    variables: ["{{first_name}}"],
+    description: "Sent when a subscription payment fails",
+  },
   dialog_positive: {
     subject: "Thanks for the rating!",
     body: "Would you please take a couple of moments to leave us a review?",

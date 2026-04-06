@@ -278,6 +278,44 @@ app.use((req, res, next) => {
   await runPlatformReviewRequests().catch(console.error);
   setInterval(() => runPlatformReviewRequests().catch(console.error), 24 * 60 * 60 * 1000);
 
+  // Daily: cancel accounts that have had a failed payment for more than 7 days
+  const runPaymentFailedCancellations = async () => {
+    try {
+      const { rows } = await pool.query(
+        `SELECT id, email, first_name, stripe_subscription_id FROM users
+         WHERE payment_failed = true
+           AND payment_failed_count >= 2
+           AND plan_type NOT IN ('cancelled', 'free')`
+      );
+      for (const user of rows) {
+        // Cancel the Stripe subscription
+        if (user.stripe_subscription_id) {
+          const stripe = (await import("stripe")).default;
+          const stripeClient = new stripe(process.env.STRIPE_SECRET_KEY || "");
+          await stripeClient.subscriptions.cancel(user.stripe_subscription_id).catch((err: any) =>
+            console.error(`[payment-cancellation] Failed to cancel Stripe sub for ${user.email}:`, err.message)
+          );
+        }
+        // Mark as cancelled, clear payment_failed flag
+        await pool.query(
+          `UPDATE users SET plan_type = 'cancelled', cancelled_at = NOW(), payment_failed = false, payment_failed_at = NULL WHERE id = $1`,
+          [user.id]
+        );
+        // Send cancellation email explaining why
+        const appUrl = process.env.APP_URL || "https://www.reviewoptic.com";
+        const { sendCancellationEmail } = await import("./email");
+        sendCancellationEmail(user.email, user.first_name || "", "immediately", `${appUrl}/billing`).catch((err: any) =>
+          console.error(`[payment-cancellation] Failed to send cancellation email to ${user.email}:`, err.message)
+        );
+        console.log(`[payment-cancellation] Auto-cancelled account for ${user.email} after 7 days of failed payment`);
+      }
+    } catch (err: any) {
+      console.error("[payment-cancellation] Error:", err.message);
+    }
+  };
+  await runPaymentFailedCancellations().catch(console.error);
+  setInterval(() => runPaymentFailedCancellations().catch(console.error), 24 * 60 * 60 * 1000);
+
   // Daily: send trial reminder emails to users whose trial ends in ~2 days
   // Daily: permanently delete accounts that have passed their 30-day deletion window
   const runAccountDeletions = async () => {

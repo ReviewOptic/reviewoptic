@@ -9,6 +9,8 @@ export interface AuthUser {
   planType: "free" | "lite" | "pro" | "cancelled" | "complimentary";
   planPeriod: "monthly" | "annual";
   requiresPayment: boolean;
+  paymentFailed: boolean;
+  isSuspended: boolean;
   emailVerified: boolean;
   role: "owner" | "member";
   firstName: string;

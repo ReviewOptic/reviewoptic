@@ -136,17 +136,26 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
     if (!isAdmin && !isImpersonating) {
       // For members, check the account owner's plan instead of their own
       const planQuery = req.session.userRole === "member"
-        ? pool.query(`SELECT plan_type FROM users WHERE account_id = $1 AND role = 'owner' LIMIT 1`, [req.session.accountId])
-        : pool.query(`SELECT plan_type FROM users WHERE id = $1`, [user.id]);
+        ? pool.query(`SELECT plan_type, payment_failed, is_suspended FROM users WHERE account_id = $1 AND role = 'owner' LIMIT 1`, [req.session.accountId])
+        : pool.query(`SELECT plan_type, payment_failed, is_suspended FROM users WHERE id = $1`, [user.id]);
       planQuery.then(({ rows }) => {
         const planType = rows[0]?.plan_type || "free";
+        const paymentFailed = rows[0]?.payment_failed || false;
+        const isSuspended = rows[0]?.is_suspended || false;
+        if (isSuspended) return res.status(403).json({ message: "Your account has been suspended. Please contact hello@reviewoptic.com.", code: "suspended" });
         if (planType === "free") return res.status(402).json({ message: "Subscription required" });
-        // Cancelled plan — block only sending new review requests
+        const isSendingRequest = req.path === "/api/review-requests" && req.method === "POST";
+        const isAddingCustomer = req.path === "/api/customers" && req.method === "POST";
+        // Cancelled plan — block only sending new review requests and adding customers
         if (planType === "cancelled") {
-          const isSendingRequest = req.path === "/api/review-requests" && req.method === "POST";
-          const isAddingCustomer = req.path === "/api/customers" && req.method === "POST";
           if (isSendingRequest || isAddingCustomer) {
             return res.status(402).json({ message: "Your subscription has ended. Please reactivate to continue.", code: "subscription_ended" });
+          }
+        }
+        // Payment failed — same restrictions with different message
+        if (paymentFailed) {
+          if (isSendingRequest || isAddingCustomer) {
+            return res.status(402).json({ message: "Your last payment failed. Please update your payment details to continue.", code: "payment_failed" });
           }
         }
         next();
@@ -651,7 +660,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     let billing: any = {};
     try {
       const { rows } = await pool.query(
-        `SELECT plan_type, plan_period, role, first_name, last_name, company_name FROM users WHERE id = $1`,
+        `SELECT plan_type, plan_period, role, first_name, last_name, company_name, payment_failed, is_suspended FROM users WHERE id = $1`,
         [user.id]
       );
       billing = rows[0] || {};
@@ -667,6 +676,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       planType,
       planPeriod: billing.plan_period || "monthly",
       requiresPayment: !user.isAdmin && planType === "free" && role === "owner" && !req.session.originalUserId,
+      paymentFailed: billing.payment_failed || false,
+      isSuspended: billing.is_suspended || false,
       emailVerified: user.emailVerified,
       role,
       firstName: billing.first_name || "",
@@ -704,9 +715,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.get("/api/admin/users", requireAdmin, async (req, res) => {
     const [allUsers, stats] = await Promise.all([storage.getAllUsers(), storage.getAdminUserStats()]);
-    const { rows: planRows } = await pool.query(`SELECT id, plan_type, COALESCE(email_unsubscribed, false) as email_unsubscribed FROM users`);
+    const { rows: planRows } = await pool.query(`SELECT id, plan_type, COALESCE(email_unsubscribed, false) as email_unsubscribed, COALESCE(is_suspended, false) as is_suspended FROM users`);
     const planMap = Object.fromEntries(planRows.map((r: any) => [r.id, r.plan_type]));
     const unsubMap = Object.fromEntries(planRows.map((r: any) => [r.id, r.email_unsubscribed]));
+    const suspendMap = Object.fromEntries(planRows.map((r: any) => [r.id, r.is_suspended]));
     const statsMap = Object.fromEntries(stats.map(s => [s.userId, s]));
     const activeUsers = allUsers.filter(u => {
       if (u.isAdmin) return true;
@@ -721,6 +733,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       emailVerified: u.emailVerified,
       planType: planMap[u.id] || "free",
       emailUnsubscribed: unsubMap[u.id] ?? false,
+      isSuspended: suspendMap[u.id] ?? false,
       customerCount: statsMap[u.id]?.customerCount ?? 0,
       reviewRequestCount: statsMap[u.id]?.reviewRequestCount ?? 0,
       lastActive: statsMap[u.id]?.lastActive ?? null,
@@ -738,6 +751,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (target.isAdmin) return res.status(400).json({ message: "Cannot delete an admin account" });
     await storage.deleteUserAccount(String(req.params.userId));
     res.json({ success: true });
+  });
+
+  app.post("/api/admin/toggle-suspend/:userId", requireAdmin, async (req, res) => {
+    const target = await storage.getUser(String(req.params.userId));
+    if (!target) return res.status(404).json({ message: "User not found" });
+    if (target.isAdmin) return res.status(400).json({ message: "Cannot suspend an admin account" });
+    const { rows } = await pool.query(`UPDATE users SET is_suspended = NOT is_suspended WHERE id = $1 RETURNING is_suspended`, [target.id]);
+    res.json({ isSuspended: rows[0]?.is_suspended });
   });
 
   app.post("/api/admin/toggle-admin/:userId", requireAdmin, async (req, res) => {
@@ -3110,6 +3131,63 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // Data export — GDPR portable format
+  app.get("/api/account/export", requireAuth, async (req, res) => {
+    const accountId = req.session.accountId!;
+    const [customerRows, requestRows, feedbackRows, userRows] = await Promise.all([
+      pool.query(`SELECT name, email, phone, status, created_at FROM customers WHERE account_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC`, [accountId]),
+      pool.query(`SELECT c.name AS customer_name, rr.channel, rr.status, rr.sent_at, rr.rating FROM review_requests rr LEFT JOIN customers c ON rr.customer_id = c.id WHERE rr.account_id = $1 ORDER BY rr.sent_at DESC`, [accountId]),
+      pool.query(`SELECT c.name AS customer_name, pf.rating, pf.feedback, pf.created_at FROM private_feedback pf LEFT JOIN customers c ON pf.customer_id = c.id WHERE pf.account_id = $1 ORDER BY pf.created_at DESC`, [accountId]),
+      pool.query(`SELECT first_name, last_name, email, company_name, created_at FROM users WHERE account_id = $1 AND role = 'owner'`, [accountId]),
+    ]);
+    const exportData = {
+      exported_at: new Date().toISOString(),
+      account: userRows.rows[0] || {},
+      customers: customerRows.rows,
+      review_requests: requestRows.rows,
+      private_feedback: feedbackRows.rows,
+    };
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Content-Disposition", `attachment; filename="reviewoptic-data-export-${new Date().toISOString().split("T")[0]}.json"`);
+    res.json(exportData);
+  });
+
+  // Retry a failed payment against the existing card on file
+  app.post("/api/billing/retry-payment", requireAuth, async (req, res) => {
+    try {
+      if (!process.env.STRIPE_SECRET_KEY) return res.status(500).json({ message: "Stripe not configured" });
+      const { rows } = await pool.query(
+        `SELECT stripe_subscription_id, payment_failed FROM users WHERE id = $1`,
+        [req.session.userId]
+      );
+      const row = rows[0];
+      if (!row?.stripe_subscription_id) return res.status(400).json({ message: "No subscription found" });
+      if (!row.payment_failed) return res.status(400).json({ message: "No failed payment to retry" });
+
+      const Stripe = (await import("stripe")).default;
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+      // Find the latest open invoice for this subscription and attempt to pay it
+      const invoices = await stripe.invoices.list({ subscription: row.stripe_subscription_id, limit: 1 }) as any;
+      const invoice = invoices.data[0];
+      if (!invoice) return res.status(400).json({ message: "No invoice found" });
+      if (invoice.status === "paid") return res.json({ ok: true, alreadyPaid: true });
+
+      await stripe.invoices.pay(invoice.id);
+      // Payment succeeded — clear suspension (webhook will also fire, but belt-and-braces)
+      await pool.query(
+        `UPDATE users SET payment_failed = false, payment_failed_at = NULL, payment_failed_count = 0 WHERE id = $1`,
+        [req.session.userId]
+      );
+      res.json({ ok: true });
+    } catch (err: any) {
+      const msg = err?.raw?.message || err?.message || "Payment retry failed";
+      console.error("[billing/retry-payment]", msg);
+      // Card declined — return a user-friendly message
+      res.status(402).json({ message: msg });
+    }
+  });
+
   // Stripe webhook — handles subscription cancellations asynchronously
   app.post("/api/billing/webhook", express.raw({ type: "application/json" }), async (req, res) => {
     if (!process.env.STRIPE_SECRET_KEY) return res.status(500).send("Stripe not configured");
@@ -3131,8 +3209,56 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       event = typeof rawBody === "string" ? JSON.parse(rawBody) : rawBody;
     }
 
+    if (event.type === "invoice.upcoming") {
+      const invoice = event.data.object as any;
+      const subId = typeof invoice.subscription === "string" ? invoice.subscription : invoice.subscription?.id;
+      const customerId = typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id;
+      if (subId && customerId) {
+        const { rows: userRows } = await pool.query(
+          `SELECT email, first_name, plan_type, plan_period FROM users WHERE stripe_subscription_id = $1`,
+          [subId]
+        );
+        if (userRows[0]) {
+          const u = userRows[0];
+          const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://www.reviewoptic.com");
+          const planName = u.plan_type === "pro" ? "Pro Plan" : "Standard Plan";
+          const renewalDate = new Date(invoice.period_end * 1000).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+          const amount = `£${(invoice.amount_due / 100).toFixed(2)}`;
+          const { sendRenewalReminderEmail } = await import("./email");
+          sendRenewalReminderEmail(u.email, u.first_name || "", planName, renewalDate, amount, `${appUrl}/billing`).catch(err =>
+            console.error("[stripe-webhook] Failed to send renewal reminder email:", err.message)
+          );
+        }
+      }
+    }
+
+    if (event.type === "invoice.payment_failed") {
+      const invoice = event.data.object as any;
+      const subId = typeof invoice.subscription === "string" ? invoice.subscription : invoice.subscription?.id;
+      if (subId) {
+        const { rows: userRows } = await pool.query(
+          `UPDATE users SET payment_failed = true, payment_failed_at = COALESCE(payment_failed_at, NOW()), payment_failed_count = payment_failed_count + 1
+           WHERE stripe_subscription_id = $1 RETURNING email, first_name, payment_failed_count`,
+          [subId]
+        );
+        if (userRows[0]) {
+          const u = userRows[0];
+          const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://www.reviewoptic.com");
+          const { sendPaymentFailedEmail } = await import("./email");
+          sendPaymentFailedEmail(u.email, u.first_name || "", `${appUrl}/billing`, u.payment_failed_count).catch(err =>
+            console.error("[stripe-webhook] Failed to send payment-failed email:", err.message)
+          );
+        }
+      }
+    }
+
     if (event.type === "invoice.paid" || event.type === "invoice.payment_succeeded") {
       const invoice = event.data.object as any;
+      // Clear any payment_failed suspension when payment goes through
+      const subIdForClear = typeof invoice.subscription === "string" ? invoice.subscription : invoice.subscription?.id;
+      if (subIdForClear) {
+        await pool.query(`UPDATE users SET payment_failed = false, payment_failed_at = NULL, payment_failed_count = 0 WHERE stripe_subscription_id = $1`, [subIdForClear]).catch(() => {});
+      }
       // Only send confirmation on the very first payment (amount > 0, not a setup invoice)
       if (invoice.amount_paid > 0 && invoice.billing_reason !== "subscription_create") {
         const subId = typeof invoice.subscription === "string" ? invoice.subscription : invoice.subscription?.id;

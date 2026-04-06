@@ -1,11 +1,11 @@
 export default function TermsAndConditions() {
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-3xl mx-auto px-6 py-16">
-        <div className="mb-10">
-          <img src="/logo.png" alt="ReviewOptic" className="h-28 mb-8 object-contain" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Terms and Conditions</h1>
-          <p className="text-muted-foreground text-sm">Last updated: 3 April 2026</p>
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-16">
+        <div className="mb-6 sm:mb-10">
+          <img src="/logo.png" alt="ReviewOptic" className="h-16 sm:h-24 mb-4 sm:mb-6 object-contain" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-2">Terms and Conditions</h1>
+          <p className="text-muted-foreground text-sm">Last updated: 6 April 2026</p>
         </div>
 
         <div className="prose prose-sm max-w-none space-y-8 text-foreground">
@@ -54,10 +54,10 @@ export default function TermsAndConditions() {
               annual, as selected at sign-up).
             </p>
             <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
-              <li><strong className="text-foreground">Monthly billing:</strong> charged every 30 days from the date your trial ends</li>
+              <li><strong className="text-foreground">Monthly billing:</strong> charged each month from the date your trial ends</li>
               <li><strong className="text-foreground">Annual billing:</strong> charged once per year from the date your trial ends, at a discounted rate</li>
               <li>Subscription fees are non-refundable except where required by law or as stated in our refund policy below</li>
-              <li>If a payment fails, we will notify you and may suspend access to the service until payment is resolved</li>
+              <li>If a payment fails, we will notify you and will suspend access to the service until payment is resolved</li>
             </ul>
           </section>
 
@@ -175,11 +175,15 @@ export default function TermsAndConditions() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">13. Disclaimer of warranties</h2>
+            <h2 className="text-lg font-semibold mb-2">13. No guarantees about the service</h2>
             <p className="text-muted-foreground leading-relaxed">
               ReviewOptic is provided "as is" and "as available". We do not guarantee that the service
               will be uninterrupted, error-free, or meet your specific requirements. We make no warranty
-              that using the service will result in an increase in reviews, ratings, or revenue.
+              that using the service will result in an increase in reviews, ratings, or revenue. We are
+              not responsible for the actions of third-party platforms such as Google, Facebook, or
+              Instagram, including the removal, moderation, or non-publication of reviews submitted
+              through or as a result of using our service. We are not liable for any failure, outage,
+              or change in functionality of any third-party service we integrate with.
             </p>
           </section>
 
@@ -199,15 +203,75 @@ export default function TermsAndConditions() {
           <section>
             <h2 className="text-lg font-semibold mb-2">15. Termination</h2>
             <p className="text-muted-foreground leading-relaxed">
-              We may suspend or terminate your account at any time if you breach these Terms, fail to
-              pay subscription fees, or if we reasonably believe your use of the service poses a risk
-              to us, other users, or third parties. Upon termination, your right to access the service
-              ceases immediately. Sections 9, 10, 11, 12, 13, and 14 survive termination.
+              If a subscription payment fails, your account will be suspended immediately — you will
+              retain read-only access but will not be able to add new customers or send review requests.
+              You will be notified by email and we will retry the payment automatically. If all payment
+              retries are exhausted without success, your subscription will be cancelled automatically.
+              Your account data is retained and you can reactivate at any time from your billing settings.
+            </p>
+            <p className="text-muted-foreground leading-relaxed mt-3">
+              We may also suspend or terminate your account at any time if you breach these Terms or if
+              we reasonably believe your use of the service poses a risk to us, other users, or third
+              parties. Upon termination, your right to access the service ceases immediately. Sections
+              9, 10, 11, 12, 13, 14, and 16 survive termination.
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">16. Governing law and disputes</h2>
+            <h2 className="text-lg font-semibold mb-2">16. Indemnification</h2>
+            <p className="text-muted-foreground leading-relaxed">
+              You agree to indemnify, defend, and hold harmless ReviewOptic Limited, its directors,
+              employees, and agents from and against any claims, liabilities, damages, losses, and
+              expenses (including reasonable legal fees) arising out of or in connection with: your use
+              of the service; any content or communications you send through the platform; your breach
+              of these Terms; or your violation of any applicable law or the rights of any third party,
+              including your customers.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold mb-2">17. Third-party services</h2>
+            <p className="text-muted-foreground leading-relaxed">
+              ReviewOptic integrates with third-party services including Stripe, Twilio, Google,
+              Facebook, Instagram, LinkedIn, OpenAI, and ElevenLabs. We have no control over these
+              services and accept no liability for their availability, accuracy, actions, or failure.
+              Your use of any third-party service is subject to that service's own terms and conditions.
+              We are not responsible for any loss or damage caused by your reliance on third-party
+              services accessed through or in connection with our platform.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold mb-2">18. Force majeure</h2>
+            <p className="text-muted-foreground leading-relaxed">
+              We will not be liable for any failure or delay in performing our obligations under these
+              Terms where such failure or delay results from circumstances beyond our reasonable control,
+              including but not limited to acts of God, natural disasters, pandemic, war, civil unrest,
+              government action, internet or infrastructure outages, or failure of third-party services.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold mb-2">19. Severability</h2>
+            <p className="text-muted-foreground leading-relaxed">
+              If any provision of these Terms is found to be void, invalid, or unenforceable by a court
+              of competent jurisdiction, that provision shall be removed or limited to the minimum extent
+              necessary, and the remainder of these Terms shall continue in full force and effect.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold mb-2">20. Promotions and offers</h2>
+            <p className="text-muted-foreground leading-relaxed">
+              We reserve the right to cancel, amend, withdraw, or change any promotion, special offer,
+              free trial, discount, or other marketing offer at any time and without prior notice, except
+              where doing so would affect an offer already taken up by an existing subscriber in a way
+              that would breach these Terms.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold mb-2">21. Governing law and disputes</h2>
             <p className="text-muted-foreground leading-relaxed">
               These Terms are governed by the laws of England and Wales. Any dispute arising out of or
               in connection with these Terms shall be subject to the exclusive jurisdiction of the courts
@@ -217,7 +281,7 @@ export default function TermsAndConditions() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">17. Changes to these terms</h2>
+            <h2 className="text-lg font-semibold mb-2">22. Changes to these terms</h2>
             <p className="text-muted-foreground leading-relaxed">
               We may update these Terms from time to time. We will notify you of material changes by
               email or in-app notice at least 14 days before they take effect. Continued use of the
@@ -226,7 +290,7 @@ export default function TermsAndConditions() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">18. Contact</h2>
+            <h2 className="text-lg font-semibold mb-2">23. Contact</h2>
             <p className="text-muted-foreground leading-relaxed">
               For any questions about these Terms, contact us at:<br />
               <strong className="text-foreground">ReviewOptic Limited</strong><br />

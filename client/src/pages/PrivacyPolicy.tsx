@@ -1,10 +1,11 @@
 export default function PrivacyPolicy() {
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-3xl mx-auto px-6 py-16">
-        <div className="mb-10">
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Privacy Policy</h1>
-          <p className="text-muted-foreground text-sm">Last updated: 3 April 2026</p>
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-16">
+        <div className="mb-6 sm:mb-10">
+          <img src="/logo.png" alt="ReviewOptic" className="h-16 sm:h-24 mb-4 sm:mb-6 object-contain" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-2">Privacy Policy</h1>
+          <p className="text-muted-foreground text-sm">Last updated: 6 April 2026</p>
         </div>
 
         <div className="prose prose-sm max-w-none space-y-8 text-foreground">
@@ -28,7 +29,10 @@ export default function PrivacyPolicy() {
               <li><strong className="text-foreground">Usage data:</strong> how you interact with the app (e.g. pages visited, features used)</li>
               <li><strong className="text-foreground">Communication data:</strong> emails and messages sent through the platform</li>
               <li><strong className="text-foreground">Voice and video recordings:</strong> voice notes and video attachments you upload when sending review requests</li>
+              <li><strong className="text-foreground">AI chat messages:</strong> messages you send to the ReviewOptic AI assistant, stored to provide the service</li>
+              <li><strong className="text-foreground">Billing data:</strong> subscription and payment history (payment card details are handled directly by Stripe and never stored by us)</li>
             </ul>
+            <p className="text-muted-foreground leading-relaxed mt-3">We do not access or view your customers' data in the normal operation of the service. We may access data only where necessary to resolve a technical issue at your request, or where required by law.</p>
           </section>
 
           <section>
@@ -37,8 +41,12 @@ export default function PrivacyPolicy() {
             <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
               <li>Provide and operate the ReviewOptic service</li>
               <li>Send review request emails, SMS, and WhatsApp messages on your behalf to your customers</li>
-              <li>Send you account-related emails (verification, password reset, billing)</li>
+              <li>Send you account-related emails (verification, password reset, billing, payment notifications, and subscription renewals)</li>
+              <li>Notify you when a customer submits a star rating or private feedback</li>
+              <li>Send you weekly or monthly performance reports and AI-generated insights about your reviews (you can opt out of these at any time from your Settings)</li>
+              <li>Send you occasional emails asking you to review ReviewOptic on Google, to help us grow our business (you can opt out by contacting us)</li>
               <li>Improve and develop the platform</li>
+              <li>Detect and prevent fraud, abuse, and security incidents</li>
               <li>Comply with legal obligations</li>
             </ul>
           </section>
@@ -61,18 +69,18 @@ export default function PrivacyPolicy() {
               We do not sell your data. We share it only with trusted third-party services required to operate the platform:
             </p>
             <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
-              <li><strong className="text-foreground">Resend</strong> — used to send transactional and marketing emails on our behalf. Your email address is shared with Resend solely for this purpose. Resend is GDPR-compliant and we have a Data Processing Agreement in place with Resend.</li>
-              <li><strong className="text-foreground">Stripe</strong> — used to process payments and manage subscriptions. Card and billing data is handled directly by Stripe and is never stored on our servers. Stripe is GDPR-compliant and we have a Data Processing Agreement in place with Stripe.</li>
-              <li><strong className="text-foreground">Neon (PostgreSQL)</strong> — used to store all platform data securely. Neon is GDPR-compliant and we have a Data Processing Agreement in place with Neon.</li>
-              <li><strong className="text-foreground">Twilio</strong> — used to send SMS and WhatsApp messages on your behalf to your customers. Customer phone numbers are shared with Twilio solely for this purpose. Twilio is GDPR-compliant and we have a Data Processing Agreement in place with Twilio.</li>
-              <li><strong className="text-foreground">Sentry</strong> — used for error monitoring to help us identify and fix technical issues. Error data may include technical information such as IP addresses. Sentry is GDPR-compliant and we have a Data Processing Agreement in place with Sentry.</li>
-              <li><strong className="text-foreground">OpenAI</strong> — used to power AI features including template generation and the AI chat assistant. Message content may be processed by OpenAI to generate responses. OpenAI is GDPR-compliant and we have a Data Processing Agreement in place with OpenAI.</li>
-              <li><strong className="text-foreground">ElevenLabs</strong> — used for voice cloning to personalise audio review requests. Voice recordings you upload are processed by ElevenLabs solely for this purpose. ElevenLabs is GDPR-compliant and we have a Data Processing Agreement in place with ElevenLabs.</li>
+              <li><strong className="text-foreground">Resend</strong> — sends transactional and marketing emails on our behalf</li>
+              <li><strong className="text-foreground">Stripe</strong> — processes payments and manages subscriptions. Card and billing data is handled directly by Stripe and never stored on our servers</li>
+              <li><strong className="text-foreground">Neon (PostgreSQL)</strong> — stores all platform data securely</li>
+              <li><strong className="text-foreground">Twilio</strong> — sends SMS and WhatsApp messages to your customers on your behalf</li>
+              <li><strong className="text-foreground">Sentry</strong> — error monitoring to help us identify and fix technical issues</li>
+              <li><strong className="text-foreground">OpenAI</strong> — powers AI features including template generation and the AI chat assistant</li>
+              <li><strong className="text-foreground">ElevenLabs</strong> — powers voice cloning to personalise audio review requests</li>
               <li><strong className="text-foreground">Meta (Facebook/Instagram)</strong> — if you connect your Facebook Page for auto-posting</li>
               <li><strong className="text-foreground">LinkedIn</strong> — if you connect your LinkedIn account</li>
             </ul>
             <p className="text-muted-foreground leading-relaxed mt-3">
-              All third-party providers are required to handle your data securely and in accordance with applicable data protection law.
+              All third-party providers are GDPR-compliant. Where required, Data Processing Agreements are in place — either entered into directly by ReviewOptic as part of our service sign-up, or governed by each provider's standard DPA terms which form part of their service agreement.
             </p>
           </section>
 
@@ -80,9 +88,13 @@ export default function PrivacyPolicy() {
             <h2 className="text-lg font-semibold mb-2">6. Your customers' data</h2>
             <p className="text-muted-foreground leading-relaxed mb-3">
               When you add your customers to ReviewOptic, you are the data controller for their personal information.
-              ReviewOptic acts as a data processor on your behalf. You are responsible for ensuring you have a
+              ReviewOptic acts as a data processor on your behalf. You are solely responsible for ensuring you have a
               lawful basis to contact your customers and that doing so complies with applicable marketing laws
               (including UK PECR and GDPR). We will only use your customers' data to provide the service to you.
+              We do not access or view your customers' personal data in the normal operation of the service. We
+              may access data only where necessary to resolve a technical issue at your request, or where required by law.
+              We accept no liability for any regulatory action, fines, or claims arising from your failure to
+              comply with applicable data protection or marketing laws when collecting or using your customers' data.
             </p>
             <p className="text-muted-foreground leading-relaxed">
               Where a customer submits private feedback via the star rating pre-screen, that feedback is stored
@@ -94,9 +106,11 @@ export default function PrivacyPolicy() {
           <section>
             <h2 className="text-lg font-semibold mb-2">7. Data retention</h2>
             <p className="text-muted-foreground leading-relaxed">
-              We retain your account data for as long as your account is active. If you delete your account,
+              We retain your account data for as long as your account exists. If you cancel your subscription,
+              your account remains active in a read-only state and your data is retained. If you delete your account,
               we will delete your personal data within 30 days, except where we are required to retain it
-              for legal or financial reasons. You can delete your account at any time through your Billing settings.
+              by law — for example, billing and financial records are retained for 7 years as required under
+              UK law. You can cancel your subscription or delete your account at any time through your Billing settings.
             </p>
           </section>
 
@@ -123,8 +137,11 @@ export default function PrivacyPolicy() {
               <li>Withdraw consent at any time (where processing is based on consent)</li>
             </ul>
             <p className="text-muted-foreground leading-relaxed mt-3">
-              Account deletion can be done directly through your Billing settings. For all other rights requests, email us at hello@reviewoptic.com. You also have the right to
-              lodge a complaint with the UK Information Commissioner's Office (ICO) at ico.org.uk.
+              Account deletion can be done directly through your Billing settings. You can opt out of
+              weekly/monthly insight emails from your Settings page. For all other rights requests,
+              email us at hello@reviewoptic.com. We will respond to all valid requests within one month.
+              We may need to verify your identity before processing your request. You also have the right
+              to lodge a complaint with the UK Information Commissioner's Office (ICO) at ico.org.uk.
             </p>
           </section>
 
@@ -138,7 +155,60 @@ export default function PrivacyPolicy() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">11. Changes to this policy</h2>
+            <h2 className="text-lg font-semibold mb-2">11. Third-party links</h2>
+            <p className="text-muted-foreground leading-relaxed">
+              The ReviewOptic platform may contain links to third-party websites, portals, or services
+              (such as Google, Facebook, or the Stripe billing portal). Clicking those links will take
+              you away from our platform. We do not control those third-party services and are not
+              responsible for their privacy practices. We encourage you to read the privacy policy of
+              every third-party service you visit or use.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold mb-2">12. Business sale or transfer</h2>
+            <p className="text-muted-foreground leading-relaxed">
+              If ReviewOptic Limited is sold, merged, or transfers all or part of its business or assets
+              to a third party, your personal data may be transferred to the new owner as part of that
+              transaction. The new owner will be required to use your personal data in accordance with
+              this privacy policy, or to notify you of any material changes before doing otherwise.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold mb-2">13. Change of purpose</h2>
+            <p className="text-muted-foreground leading-relaxed">
+              We will only use your personal data for the purposes for which it was collected. If we
+              reasonably need to use it for a different purpose, we will notify you and explain the
+              legal basis that allows us to do so. We will not use your personal data for an unrelated
+              purpose without notifying you first.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold mb-2">14. International data transfers</h2>
+            <p className="text-muted-foreground leading-relaxed">
+              Some of our third-party service providers are based outside the UK and European Economic Area,
+              including in the United States (Neon, Resend, OpenAI, ElevenLabs, Sentry). Where your data
+              is transferred outside the UK/EEA, we ensure appropriate safeguards are in place, including
+              reliance on Standard Contractual Clauses or the UK International Data Transfer Agreement,
+              or providers certified under equivalent data protection frameworks. By using ReviewOptic,
+              you consent to these transfers.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold mb-2">15. Data breaches</h2>
+            <p className="text-muted-foreground leading-relaxed">
+              In the event of a personal data breach that is likely to result in a risk to your rights
+              and freedoms, we will notify the UK Information Commissioner's Office (ICO) within 72 hours
+              of becoming aware of the breach, as required by UK GDPR. Where the breach is likely to
+              result in a high risk to you, we will also notify you directly without undue delay.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold mb-2">16. Changes to this policy</h2>
             <p className="text-muted-foreground leading-relaxed">
               We may update this policy from time to time. We will notify you of significant changes
               by email or by a notice in the app. Continued use of the service after changes constitutes
@@ -147,7 +217,7 @@ export default function PrivacyPolicy() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">12. Contact</h2>
+            <h2 className="text-lg font-semibold mb-2">17. Contact</h2>
             <p className="text-muted-foreground leading-relaxed">
               For any privacy-related questions or requests, contact us at:<br />
               <strong className="text-foreground">ReviewOptic Limited</strong><br />

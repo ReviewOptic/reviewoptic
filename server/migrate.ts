@@ -518,6 +518,14 @@ export async function runMigrations() {
       updated_at TIMESTAMP NOT NULL DEFAULT NOW()
     )`);
 
+    // Admin manual suspension
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN NOT NULL DEFAULT false`);
+
+    // Payment failure suspension flag
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS payment_failed BOOLEAN NOT NULL DEFAULT false`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS payment_failed_at TIMESTAMP`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS payment_failed_count INTEGER NOT NULL DEFAULT 0`);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();

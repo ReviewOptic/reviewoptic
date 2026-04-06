@@ -29,6 +29,7 @@ export default function Billing() {
   const [deletePassword, setDeletePassword] = useState("");
   const [cancelLoading, setCancelLoading] = useState(false);
   const [reactivateLoading, setReactivateLoading] = useState(false);
+  const [retryLoading, setRetryLoading] = useState(false);
   const [stripePromise] = useState(() =>
     fetch("/api/billing/config").then(r => r.json()).then(d => loadStripe(d.publishableKey))
   );
@@ -115,6 +116,22 @@ export default function Billing() {
       toast({ title: "Could not reactivate", description: err.message, variant: "destructive" });
     } finally {
       setReactivateLoading(false);
+    }
+  }
+
+  async function retryPayment() {
+    setRetryLoading(true);
+    try {
+      const res = await fetch("/api/billing/retry-payment", { method: "POST", credentials: "include" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Payment retry failed");
+      toast({ title: "Payment successful", description: "Your account has been reactivated." });
+      qc.invalidateQueries({ queryKey: ["/api/billing/subscription"] });
+      window.location.reload();
+    } catch (err: any) {
+      toast({ title: "Payment failed", description: err.message, variant: "destructive" });
+    } finally {
+      setRetryLoading(false);
     }
   }
 
@@ -228,6 +245,32 @@ export default function Billing() {
 
       </div>
 
+      {/* Payment failed warning */}
+      {user?.paymentFailed && (
+        <div className="bg-red-50 rounded-xl border border-red-200 p-4 space-y-3">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+            <div>
+              <h2 className="text-sm font-semibold text-red-700">Your last payment failed</h2>
+              <p className="text-sm text-gray-600 mt-1">
+                We weren't able to take your payment. Update your card details or retry with your existing card below.
+                If payment isn't resolved within 7 days your subscription will be cancelled.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" onClick={retryPayment} disabled={retryLoading} className="gap-2 bg-red-600 hover:bg-red-700 text-white">
+              {retryLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+              {retryLoading ? "Retrying…" : "Retry payment"}
+            </Button>
+            <Button size="sm" variant="outline" onClick={openPortal} disabled={portalLoading} className="gap-2">
+              {portalLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
+              Update card details
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Payment details */}
       <div className="bg-white rounded-xl border border-gray-200 p-4">
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Payment details</h2>
@@ -274,6 +317,18 @@ export default function Billing() {
           View all invoices in Stripe
         </Button>
       </div>
+
+      {/* Data export */}
+      {user?.role !== "member" && (
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Your data</h2>
+          <p className="text-sm text-gray-500 mb-3">Download a copy of all your account data in a portable format (JSON). Includes your customers, review requests, and feedback.</p>
+          <a href="/api/account/export" download className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+            <Download className="w-4 h-4" />
+            Export my data
+          </a>
+        </div>
+      )}
 
       {/* Cancel / reactivate + delete — buttons only; modals handle the flows */}
       {user?.role !== "member" && (

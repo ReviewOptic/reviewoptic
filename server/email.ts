@@ -585,3 +585,69 @@ export async function sendRatingNotificationEmail(
     `,
   });
 }
+
+export async function sendRenewalReminderEmail(to: string, firstName: string, planName: string, renewalDate: string, amount: string, billingUrl: string) {
+  if (!process.env.RESEND_API_KEY) return;
+  const tmpl = await getEmailTemplateOverride("renewal_reminder");
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const subject = tmpl?.subject || "Your ReviewOptic subscription renews in 7 days";
+  const bodyHtml = tmpl?.body
+    ? renderBodyHtml(tmpl.body, { "{{first_name}}": firstName, "{{plan_name}}": planName, "{{renewal_date}}": renewalDate, "{{amount}}": amount })
+    : `<p style="color:#555;margin:0 0 16px;line-height:1.6;">Just a heads-up — your <strong style="color:#111;">${planName}</strong> subscription will automatically renew in 3 days on <strong style="color:#111;">${renewalDate}</strong> for <strong style="color:#111;">${amount}</strong>.</p>
+       <p style="color:#555;margin:0 0 20px;line-height:1.6;">No action needed. If you'd like to make any changes to your plan or payment details, you can do so from your billing settings.</p>`;
+  await resend.emails.send({
+    from: REVIEWOPTIC_FROM, to,
+    subject,
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
+        ${LOGO_HTML}
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Renewal reminder${firstName ? ` — hi ${firstName}` : ""}</h2>
+        ${bodyHtml}
+        <a href="${billingUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin:16px 0 24px;">
+          Manage billing
+        </a>
+        <p style="color:#999;font-size:12px;margin-top:16px;">Alicia &amp; Rob — ReviewOptic</p>
+        ${PLATFORM_FOOTER}
+      </div>
+    `,
+  });
+}
+
+export async function sendPaymentFailedEmail(to: string, firstName: string, billingUrl: string, attemptCount = 1) {
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`[payment-failed email] No RESEND_API_KEY. Would have sent to ${to}`);
+    return;
+  }
+  const tmpl = await getEmailTemplateOverride("payment_failed");
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const isFinal = attemptCount >= 2;
+  const subject = tmpl?.subject
+    ? tmpl.subject
+    : isFinal
+      ? "Final notice: your ReviewOptic payment has failed — account will be cancelled"
+      : "Action required: your ReviewOptic payment failed";
+  const bodyHtml = tmpl?.body
+    ? renderBodyHtml(tmpl.body, { "{{first_name}}": firstName || "" })
+    : isFinal
+      ? `<p style="color:#555;margin:0 0 16px;line-height:1.6;">We've tried to take your payment again but it has failed a second time. <strong style="color:#111;">Your subscription will be cancelled shortly</strong> if this isn't resolved.</p>
+         <p style="color:#555;margin:0 0 20px;line-height:1.6;">You can retry with your existing card or update your payment details below. Your account data will be kept safe.</p>`
+      : `<p style="color:#555;margin:0 0 16px;line-height:1.6;">We weren't able to take your latest payment. This can happen if your card has expired or your details have changed.</p>
+         <p style="color:#555;margin:0 0 20px;line-height:1.6;">To avoid interruption to your service, please update your payment details or retry below. We'll try again automatically in 24 hours.</p>`;
+  await resend.emails.send({
+    from: REVIEWOPTIC_FROM, to,
+    subject,
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
+        ${LOGO_HTML}
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Payment failed${firstName ? ` — hi ${firstName}` : ""}</h2>
+        ${bodyHtml}
+        <a href="${billingUrl}" style="display:inline-block;background:#dc2626;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin:16px 0 12px;">
+          Retry payment now
+        </a>
+        <p style="margin:0 0 24px;"><a href="${billingUrl}" style="color:#2563eb;font-size:14px;text-decoration:underline;">Or update your card details</a></p>
+        <p style="color:#999;font-size:12px;margin-top:16px;">Alicia &amp; Rob — ReviewOptic</p>
+        ${PLATFORM_FOOTER}
+      </div>
+    `,
+  });
+}

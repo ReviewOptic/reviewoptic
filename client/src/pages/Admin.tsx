@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Shield, LogIn, CheckCircle2, XCircle, Trash2, ShieldCheck, ShieldOff,
+  Shield, LogIn, CheckCircle2, XCircle, Trash2, ShieldCheck, ShieldOff, Ban,
   Users, BarChart3, TrendingUp, TrendingDown, AlertTriangle, AlertCircle,
   CheckCircle, RefreshCw, Download, Zap, Target, Activity, Printer,
 } from "lucide-react";
@@ -16,7 +16,7 @@ import {
 
 interface AdminUser {
   id: string; email: string; accountId: string; isAdmin: boolean;
-  emailVerified: boolean; planType: string; emailUnsubscribed: boolean; customerCount: number; reviewRequestCount: number; lastActive: string | null;
+  emailVerified: boolean; planType: string; emailUnsubscribed: boolean; isSuspended: boolean; customerCount: number; reviewRequestCount: number; lastActive: string | null;
 }
 
 interface Metrics {
@@ -169,6 +169,7 @@ export default function Admin() {
   };
   const verifyUser = async (userId: string) => { const r = await fetch(`/api/admin/verify-user/${userId}`, { method: "POST", credentials: "include" }); if (r.ok) await loadUsers(); };
   const toggleAdmin = async (userId: string) => { const r = await fetch(`/api/admin/toggle-admin/${userId}`, { method: "POST", credentials: "include" }); if (r.ok) await loadUsers(); };
+  const toggleSuspend = async (userId: string) => { const r = await fetch(`/api/admin/toggle-suspend/${userId}`, { method: "POST", credentials: "include" }); if (r.ok) await loadUsers(); };
   const deleteUser = async (userId: string) => { const r = await fetch(`/api/admin/user/${userId}`, { method: "DELETE", credentials: "include" }); if (r.ok) { setConfirmDelete(null); await loadUsers(); } };
   const fmtDate = (d: string | null) => { if (!d) return "Never"; return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); };
   const fmtDateTime = (d: string) => new Date(d).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -992,6 +993,7 @@ export default function Admin() {
                     <td className="px-3 py-3">
                       <div className="flex items-center gap-1.5 justify-end">
                         {!u.emailVerified && <Button size="sm" variant="outline" onClick={() => verifyUser(u.id)} title="Verify email"><CheckCircle2 className="w-3.5 h-3.5" /></Button>}
+                        {u.id !== user?.id && !u.isAdmin && <Button size="sm" variant="outline" onClick={() => toggleSuspend(u.id)} title={u.isSuspended ? "Unsuspend account" : "Suspend account"} className={u.isSuspended ? "border-orange-400 text-orange-600" : ""}><Ban className="w-3.5 h-3.5" /></Button>}
                         {u.id !== user?.id && <Button size="sm" variant="outline" onClick={() => toggleAdmin(u.id)} title={u.isAdmin ? "Remove admin" : "Make admin"}>{u.isAdmin ? <ShieldOff className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}</Button>}
                         {u.id !== user?.id && <Button size="sm" variant="outline" onClick={() => impersonate(u.id)} title="Impersonate"><LogIn className="w-3.5 h-3.5" /></Button>}
                         {u.id !== user?.id && !u.isAdmin && (confirmDelete === u.id ? (

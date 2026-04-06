@@ -43,6 +43,29 @@ function PageLoader() {
   );
 }
 
+function AccountSuspended() {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
+      <img src="/logo.png" alt="ReviewOptic" className="h-28 mb-8 object-contain" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-10 max-w-md w-full text-center space-y-4">
+        <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto">
+          <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+        </div>
+        <h1 className="text-xl font-bold text-gray-900">Your account has been suspended</h1>
+        <p className="text-sm text-gray-500 leading-relaxed">
+          Access to your account has been suspended. Please contact us to resolve this.
+        </p>
+        <a
+          href="mailto:hello@reviewoptic.com"
+          className="inline-block w-full bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-blue-700 transition-colors text-sm mt-2"
+        >
+          Contact hello@reviewoptic.com
+        </a>
+      </div>
+    </div>
+  );
+}
+
 function PlanCancelled() {
   const [, navigate] = useLocation();
   return (
@@ -81,6 +104,10 @@ function ProtectedRoutes() {
 
   if (loading) {
     return <PageLoader />;
+  }
+
+  if (user?.isSuspended) {
+    return <AccountSuspended />;
   }
 
   if (!user || user.requiresPayment) {
