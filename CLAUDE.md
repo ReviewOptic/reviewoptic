@@ -282,3 +282,33 @@ Your job is to be the developer they would hire if they could afford a great one
 **Notes for next session:**
 - **Referral programme** — still the top pending code task
 - **OG image** — 1200×630px branded image → `client/public/og-image.png`
+
+### Session — 2026-04-06 (fifty-seventh session)
+
+**Tasks completed:**
+- **Payment failure handling**: Suspend on first failure, auto-retry x2 (Stripe), auto-cancel after all retries exhausted. `payment_failed` + `payment_failed_at` + `payment_failed_count` columns added to users table.
+- **Payment failed email**: Sent on each failure, escalating urgency on 2nd attempt. Includes "Retry payment" and "Update card" links.
+- **Renewal reminder email**: Fired via `invoice.upcoming` webhook (3 days before renewal). Branded, links to /billing.
+- **Retry payment button**: In Billing page — immediately charges existing card via `POST /api/billing/retry-payment`. Clears suspension on success.
+- **Payment failed banner**: Red banner in Layout when `paymentFailed = true`. Links to Billing.
+- **Data export**: `GET /api/account/export` returns JSON of all account data (customers, requests, feedback). "Export my data" button in Billing. GDPR portable format.
+- **Admin manual suspension**: `is_suspended` column, toggle endpoint, Ban icon button in admin user rows (orange when suspended). Full-screen lockout page shown to suspended users.
+- **T&Cs full overhaul**: Now 23 sections. Added indemnification (s16), third-party services (s17), force majeure (s18), severability (s19), promotions clause (s20). Fixed billing copy, termination copy, warranty heading, plan names. Cross-referenced against actual app behaviour.
+- **Privacy Policy full overhaul**: Now 17 sections. Added international transfers (s11), third-party links (s11→moved), business sale (s12), change of purpose (s13), data breaches (s15). Added AI chat messages, billing data to s2. Added all email types to s3 (insight reports, rating notifications, platform review emails). 1-month rights response time added. Tightened customer data liability.
+- **Both documents**: Mobile optimised (responsive padding/headings/logo), Privacy Policy logo added, last updated date corrected to 6 April 2026.
+- **Stripe webhooks**: Added `invoice.upcoming` and `invoice.payment_failed`. Configured retry schedule (2x at 1 day apart), cancel subscription + mark invoice uncollectible on failure, Stripe customer emails turned off (we handle our own), all customer portal links point to /billing.
+
+**Architecture notes:**
+- Payment failure flow: `invoice.payment_failed` → set `payment_failed=true`, increment `payment_failed_count`, send email. `invoice.paid` → clear all flags. Daily job cancels if `payment_failed_count >= 2`.
+- Stripe handles card expiry emails (more reliable for modern PaymentMethod cards than our own webhook).
+- `customer.source.expiring` webhook NOT handled — Stripe's built-in email used instead, pointing to /billing.
+- Data export is unauthenticated-safe: uses `requireAuth` + `accountId` from session.
+- Suspension is a full lockout (403 on all API calls + full-screen UI). Different from cancelled (read-only).
+
+**Waiting on (external — unchanged):**
+- Meta Business Verification → App Review → WhatsApp
+- Once WhatsApp live: update Google Business description to mention WhatsApp
+
+**Notes for next session:**
+- **Referral programme** — still the top pending code task
+- **OG image** — 1200×630px branded image → `client/public/og-image.png`
