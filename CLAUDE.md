@@ -281,6 +281,11 @@ Your job is to be the developer they would hire if they could afford a great one
 
 **Notes for next session:**
 - **Referral programme** — still the top pending code task
+- **Once Meta Business Verification approved** → Meta App Review will process → then:
+  - Set `SOCIAL_ENABLED=true` (unlocks Facebook/Instagram auto-posting)
+  - Complete Twilio WhatsApp sender setup → set `TWILIO_WHATSAPP_FROM` + `WHATSAPP_ENABLED=true`
+  - Update Google Business description to mention WhatsApp
+  - Test Instagram auto-posting end to end
 
 ### Session — 2026-04-06 (fifty-seventh session)
 
