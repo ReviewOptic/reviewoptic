@@ -281,7 +281,6 @@ Your job is to be the developer they would hire if they could afford a great one
 
 **Notes for next session:**
 - **Referral programme** — still the top pending code task
-- **OG image** — 1200×630px branded image → `client/public/og-image.png`
 
 ### Session — 2026-04-06 (fifty-seventh session)
 
