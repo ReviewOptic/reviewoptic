@@ -740,6 +740,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     })));
   });
 
+  // Users who registered but haven't paid yet (free plan, not admin)
+  app.get("/api/admin/pending-users", requireAdmin, async (req, res) => {
+    const { rows } = await pool.query(
+      `SELECT id, email, first_name, last_name, created_at, email_verified
+       FROM users
+       WHERE plan_type = 'free' AND is_admin = false
+       ORDER BY created_at DESC`
+    );
+    res.json(rows.map((u: any) => ({
+      id: u.id,
+      email: u.email,
+      name: [u.first_name, u.last_name].filter(Boolean).join(" ") || "—",
+      emailVerified: u.email_verified,
+      createdAt: u.created_at,
+    })));
+  });
+
   app.post("/api/admin/verify-user/:userId", requireAdmin, async (req, res) => {
     await storage.verifyUserManually(String(req.params.userId));
     res.json({ success: true });

@@ -106,6 +106,7 @@ export default function Admin() {
   const [toDate, setToDate] = useState("");
   const [log, setLog] = useState<{ id: string; adminEmail: string; targetEmail: string; createdAt: string }[]>([]);
   const [insightStats, setInsightStats] = useState<{ totalSent: number; totalOpened: number; openRate: number; optOuts: number; recentEmails: any[] } | null>(null);
+  const [pendingUsers, setPendingUsers] = useState<any[]>([]);
   const [cancelledAccounts, setCancelledAccounts] = useState<any[]>([]);
   const [deletedAccounts, setDeletedAccounts] = useState<any[]>([]);
   const [emailSending, setEmailSending] = useState<string | null>(null);
@@ -120,6 +121,7 @@ export default function Admin() {
     .then(r => r.ok ? r.json().catch(() => null) : null)
     .then(d => { if (d) setInsightStats(d); })
     .catch(() => {});
+  const loadPendingUsers = () => fetch("/api/admin/pending-users", { credentials: "include" }).then(r => r.ok ? r.json() : []).then(setPendingUsers).catch(() => {});
   const loadCancelledAccounts = () => fetch("/api/admin/cancelled-accounts", { credentials: "include" }).then(r => r.ok ? r.json() : []).then(setCancelledAccounts).catch(() => {});
   const loadDeletedAccounts = () => fetch("/api/admin/deleted-accounts", { credentials: "include" }).then(r => r.ok ? r.json() : []).then(setDeletedAccounts).catch(() => {});
   const loadUsers = () => fetch("/api/admin/users", { credentials: "include" }).then(r => r.ok ? r.json() : []).then(setUsers);
@@ -147,6 +149,7 @@ export default function Admin() {
   useEffect(() => {
     if (!user?.isAdmin) { navigate("/"); return; }
     loadUsers().finally(() => setLoading(false));
+    loadPendingUsers();
     loadInsightStats();
     loadCancelledAccounts();
     loadDeletedAccounts();
@@ -170,7 +173,7 @@ export default function Admin() {
   const verifyUser = async (userId: string) => { const r = await fetch(`/api/admin/verify-user/${userId}`, { method: "POST", credentials: "include" }); if (r.ok) await loadUsers(); };
   const toggleAdmin = async (userId: string) => { const r = await fetch(`/api/admin/toggle-admin/${userId}`, { method: "POST", credentials: "include" }); if (r.ok) await loadUsers(); };
   const toggleSuspend = async (userId: string) => { const r = await fetch(`/api/admin/toggle-suspend/${userId}`, { method: "POST", credentials: "include" }); if (r.ok) await loadUsers(); };
-  const deleteUser = async (userId: string) => { const r = await fetch(`/api/admin/user/${userId}`, { method: "DELETE", credentials: "include" }); if (r.ok) { setConfirmDelete(null); await loadUsers(); } };
+  const deleteUser = async (userId: string) => { const r = await fetch(`/api/admin/user/${userId}`, { method: "DELETE", credentials: "include" }); if (r.ok) { setConfirmDelete(null); await loadUsers(); await loadPendingUsers(); } };
   const fmtDate = (d: string | null) => { if (!d) return "Never"; return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); };
   const fmtDateTime = (d: string) => new Date(d).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
@@ -1011,6 +1014,46 @@ export default function Admin() {
               </tbody>
             </table>
           </div>
+
+          {/* Pending registrations — registered but haven't paid */}
+          {pendingUsers.length > 0 && (
+            <div className="mt-6">
+              <p className="text-sm font-semibold text-muted-foreground mb-2">Pending registrations ({pendingUsers.length}) — registered but not yet paid</p>
+              <div className="bg-card border border-border rounded-xl overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/50">
+                      <th className="text-left px-3 py-2 font-medium text-muted-foreground">Name</th>
+                      <th className="text-left px-3 py-2 font-medium text-muted-foreground">Email</th>
+                      <th className="text-left px-3 py-2 font-medium text-muted-foreground hidden sm:table-cell">Registered</th>
+                      <th className="px-3 py-2" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pendingUsers.map(u => (
+                      <tr key={u.id} className="border-b border-border last:border-0">
+                        <td className="px-3 py-2 text-muted-foreground">{u.name}</td>
+                        <td className="px-3 py-2 font-medium">{u.email}</td>
+                        <td className="px-3 py-2 text-muted-foreground hidden sm:table-cell">{fmtDate(u.createdAt)}</td>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-1.5 justify-end">
+                            {confirmDelete === u.id ? (
+                              <div className="flex items-center gap-1">
+                                <Button size="sm" variant="destructive" onClick={() => deleteUser(u.id)}>Confirm</Button>
+                                <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(null)}>Cancel</Button>
+                              </div>
+                            ) : (
+                              <Button size="sm" variant="outline" onClick={() => setConfirmDelete(u.id)} title="Delete account"><Trash2 className="w-3.5 h-3.5 text-destructive" /></Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
