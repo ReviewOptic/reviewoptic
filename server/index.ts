@@ -322,7 +322,39 @@ app.use((req, res, next) => {
   await runPaymentFailedCancellations().catch(console.error);
   setInterval(() => runPaymentFailedCancellations().catch(console.error), 24 * 60 * 60 * 1000);
 
-  // Daily: send trial reminder emails to users whose trial ends in ~2 days
+  // Daily: delete unverified accounts older than 5 days (never completed registration)
+  const runUnverifiedAccountCleanup = async () => {
+    try {
+      const { rows } = await pool.query(
+        `SELECT id, email, account_id FROM users
+         WHERE email_verified = false AND is_admin = false
+           AND created_at < NOW() - INTERVAL '5 days'`
+      );
+      if (rows.length === 0) return;
+      // Also remove them from the admin's customer list (auto-added at registration)
+      const adminEmail = process.env.ADMIN_EMAIL;
+      let adminAccountId: string | null = null;
+      if (adminEmail) {
+        const { rows: adminRows } = await pool.query(`SELECT account_id FROM users WHERE email = $1 LIMIT 1`, [adminEmail.toLowerCase()]);
+        adminAccountId = adminRows[0]?.account_id ?? null;
+      }
+      for (const u of rows) {
+        if (adminAccountId) {
+          await pool.query(`DELETE FROM customers WHERE account_id = $1 AND email = $2`, [adminAccountId, u.email]).catch(() => {});
+        }
+        await pool.query(`DELETE FROM templates WHERE account_id = $1`, [u.account_id]).catch(() => {});
+        await pool.query(`DELETE FROM settings WHERE account_id = $1`, [u.account_id]).catch(() => {});
+        await pool.query(`DELETE FROM accounts WHERE id = $1`, [u.account_id]).catch(() => {});
+        await pool.query(`DELETE FROM users WHERE id = $1`, [u.id]);
+        console.log(`[unverified-cleanup] Deleted unverified account: ${u.email}`);
+      }
+    } catch (err: any) {
+      console.error("[unverified-cleanup] Error:", err.message);
+    }
+  };
+  await runUnverifiedAccountCleanup().catch(console.error);
+  setInterval(() => runUnverifiedAccountCleanup().catch(console.error), 24 * 60 * 60 * 1000);
+
   // Daily: permanently delete accounts that have passed their 30-day deletion window
   const runAccountDeletions = async () => {
     try {
