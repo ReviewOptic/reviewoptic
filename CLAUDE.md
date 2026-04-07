@@ -316,3 +316,30 @@ Your job is to be the developer they would hire if they could afford a great one
 **Notes for next session:**
 - **Referral programme** — still the top pending code task
 - **OG image** — 1200×630px branded image → `client/public/og-image.png`
+
+### Session — 2026-04-07 (fifty-eighth session)
+
+**Tasks completed:**
+- **Stripe payment page fixed**: New users couldn't subscribe — `APP_URL=www.reviewoptic.com` (missing `https://`) caused Stripe to reject the `return_url` with `StripeInvalidRequestError url_invalid`. Fixed by normalising `APP_URL` at server startup in `server/index.ts`: if it doesn't start with `http`, prepend `https://`.
+- **Register page logo fixed**: Logo PNG has a solid white background. The previous `brightness-0 invert` CSS filter made it entirely white → invisible on the blue header. Fixed by wrapping the image in a white rounded container (`bg-white rounded-xl px-4 py-2`).
+- **Apple Pay / Google Pay enabled**: Removed `payment_method_types: ["card"]` from Stripe checkout session creation in `server/routes.ts`. Stripe now auto-detects supported payment methods per device — Apple Pay shows on Safari/iOS, Google Pay on Android/Chrome.
+- **Pending registrations visible in admin panel**: Admin panel was filtering to `emailVerified && plan !== "free"` — so unverified/unpaid users were completely invisible. Added `GET /api/admin/pending-users` endpoint and a "Pending registrations" section in the admin Users tab showing name, email, sign-up date, and a delete button.
+- **Auto-delete unverified accounts after 5 days**: Daily cleanup job in `server/index.ts` deletes users where `email_verified = false` and `created_at < NOW() - 5 days`. Also removes them from the admin's customer list.
+- **"Did you mean to sign up?" email**: Before deleting each unverified account, the cleanup job sends a friendly re-registration email. Subject: "Did you mean to sign up for ReviewOptic?" Body explains their account was removed, includes a "Complete my sign-up" CTA button linking to `/register`, and invites them to reply with questions. Function: `sendIncompleteRegistrationEmail` in `server/email.ts`.
+
+**Bug/issue discovered:**
+- User "Claira Edwards" couldn't be found anywhere in the admin panel — she had registered but never verified or paid, so was hidden. She is not in the production DB (likely registered on a local/staging run). She should simply register fresh — payment will now work with today's fixes.
+
+**Architecture notes:**
+- `APP_URL` normalisation happens at the very top of server startup, before any Stripe calls. All existing code that uses `process.env.APP_URL` is unaffected.
+- Pending users endpoint: `GET /api/admin/pending-users` — returns users with `email_verified = false OR plan_type = 'free'`, newest first.
+- Cleanup job also removes from admin's customer list (added automatically at registration) to keep things tidy.
+- Email sent fire-and-forget (`.catch` logged) — deletion proceeds even if email fails.
+
+**Waiting on (external — unchanged):**
+- Meta Business Verification → App Review → WhatsApp
+- Once WhatsApp live: update Google Business description to mention WhatsApp
+
+**Notes for next session:**
+- **Referral programme** — still the top pending code task
+- **OG image** — 1200×630px branded image → `client/public/og-image.png`
