@@ -2834,7 +2834,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       session = await stripe.checkout.sessions.create({
         mode: "subscription",
-        payment_method_types: ["card"],
         customer_email: user.email,
         ui_mode: "embedded",
         line_items: [{
