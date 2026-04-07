@@ -326,11 +326,14 @@ app.use((req, res, next) => {
   const runUnverifiedAccountCleanup = async () => {
     try {
       const { rows } = await pool.query(
-        `SELECT id, email, account_id FROM users
+        `SELECT id, email, first_name, account_id FROM users
          WHERE email_verified = false AND is_admin = false
            AND created_at < NOW() - INTERVAL '5 days'`
       );
       if (rows.length === 0) return;
+      const appUrl = process.env.APP_URL || "https://www.reviewoptic.com";
+      const registerUrl = `${appUrl}/register`;
+      const { sendIncompleteRegistrationEmail } = await import("./email");
       // Also remove them from the admin's customer list (auto-added at registration)
       const adminEmail = process.env.ADMIN_EMAIL;
       let adminAccountId: string | null = null;
@@ -339,6 +342,10 @@ app.use((req, res, next) => {
         adminAccountId = adminRows[0]?.account_id ?? null;
       }
       for (const u of rows) {
+        // Send email before deleting
+        sendIncompleteRegistrationEmail(u.email, u.first_name || "", registerUrl).catch((err: any) =>
+          console.error(`[unverified-cleanup] Failed to send email to ${u.email}:`, err.message)
+        );
         if (adminAccountId) {
           await pool.query(`DELETE FROM customers WHERE account_id = $1 AND email = $2`, [adminAccountId, u.email]).catch(() => {});
         }

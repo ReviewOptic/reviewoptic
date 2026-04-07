@@ -651,3 +651,31 @@ export async function sendPaymentFailedEmail(to: string, firstName: string, bill
     `,
   });
 }
+
+export async function sendIncompleteRegistrationEmail(to: string, firstName: string, registerUrl: string) {
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`[incomplete-registration email] No RESEND_API_KEY. Would have sent to ${to}`);
+    return;
+  }
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const name = firstName ? `, ${firstName}` : "";
+  await resend.emails.send({
+    from: REVIEWOPTIC_FROM,
+    to,
+    subject: "Did you mean to sign up for ReviewOptic?",
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
+        ${LOGO_HTML}
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">We noticed you didn't finish signing up${name} 👋</h2>
+        <p style="color:#555;margin:0 0 16px;line-height:1.6;">You started creating a ReviewOptic account but didn't complete the sign-up process — so your account has been removed to keep things tidy.</p>
+        <p style="color:#555;margin:0 0 16px;line-height:1.6;">If you'd still like to get more Google reviews on autopilot, it only takes a couple of minutes to get started. Your 14-day free trial is waiting.</p>
+        <a href="${registerUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin:8px 0 24px;">
+          Complete my sign-up
+        </a>
+        <p style="color:#555;margin:0 0 8px;line-height:1.6;">If you have any questions before signing up, just reply to this email — we're happy to help.</p>
+        <p style="color:#999;font-size:12px;margin-top:16px;">Alicia &amp; Rob — ReviewOptic</p>
+        ${PLATFORM_FOOTER}
+      </div>
+    `,
+  });
+}
