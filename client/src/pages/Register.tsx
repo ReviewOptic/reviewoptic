@@ -59,7 +59,9 @@ export default function Register() {
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <div className="bg-primary rounded-t-2xl px-8 py-7 text-center">
-          <img src="/logo.png" alt="ReviewOptic" className="h-16 object-contain mx-auto mb-4 brightness-0 invert" />
+          <div className="inline-block bg-white rounded-xl px-4 py-2 mb-4">
+            <img src="/logo.png" alt="ReviewOptic" className="h-10 object-contain" />
+          </div>
           <h1 className="text-xl font-bold text-white mb-1">Create your account</h1>
           <p className="text-sm text-white/75">Start your 14-day free trial. Cancel within 14 days and pay nothing.</p>
         </div>

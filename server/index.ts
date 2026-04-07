@@ -21,6 +21,12 @@ import { pool } from "./storage";
 import path from "path";
 import { execSync } from "child_process";
 
+// Normalise APP_URL — ensure it always carries a scheme (https://)
+// so URLs passed to Stripe and emails are always valid.
+if (process.env.APP_URL && !process.env.APP_URL.startsWith("http")) {
+  process.env.APP_URL = `https://${process.env.APP_URL}`;
+}
+
 if (process.env.SENTRY_DSN) {
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
