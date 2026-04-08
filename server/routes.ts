@@ -2837,25 +2837,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!PRICES[key]) return res.status(400).json({ message: "Invalid plan or period" });
     if (!process.env.STRIPE_SECRET_KEY) return res.status(500).json({ message: "Stripe is not configured" });
 
-    const Stripe = (await import("stripe")).default;
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-
-    const user = await storage.getUser(req.session.userId!);
-    if (!user) return res.status(401).json({ message: "User not found" });
-
-    // Check if this user has ever had a subscription — existing subscribers don't get a trial
-    const { rows: subRows } = await pool.query(
-      `SELECT stripe_customer_id FROM users WHERE id = $1`,
-      [req.session.userId]
-    );
-    const isNewSubscriber = !subRows[0]?.stripe_customer_id;
-
-    const appUrl = process.env.APP_URL || `https://${process.env.REPLIT_DEV_DOMAIN}` || "http://localhost:5000";
-    const price = PRICES[key];
-
-    let session;
     try {
-      session = await stripe.checkout.sessions.create({
+      const Stripe = (await import("stripe")).default;
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+      const user = await storage.getUser(req.session.userId!);
+      if (!user) return res.status(401).json({ message: "User not found" });
+
+      // Check if this user has ever had a subscription — existing subscribers don't get a trial
+      const { rows: subRows } = await pool.query(
+        `SELECT stripe_customer_id FROM users WHERE id = $1`,
+        [req.session.userId]
+      );
+      const isNewSubscriber = !subRows[0]?.stripe_customer_id;
+
+      const appUrl = process.env.APP_URL || `https://${process.env.REPLIT_DEV_DOMAIN}` || "http://localhost:5000";
+      const price = PRICES[key];
+
+      const session = await stripe.checkout.sessions.create({
         mode: "subscription",
         customer_email: user.email,
         ui_mode: "embedded",
@@ -2873,12 +2872,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return_url: `${appUrl}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
         metadata: { userId: user.id, plan, period },
       });
+
+      res.json({ clientSecret: session.client_secret });
     } catch (err: any) {
-      console.error("[billing] Stripe session creation failed:", err?.message, err?.type, err?.code);
+      console.error("[billing] create-checkout-session failed:", err?.message, err?.type, err?.code);
       return res.status(500).json({ message: err?.message || "Failed to create checkout session" });
     }
-
-    res.json({ clientSecret: session.client_secret });
   });
 
   app.get("/api/billing/confirm", async (req, res) => {
@@ -2949,72 +2948,87 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.get("/api/billing/status", requireAuth, async (req, res) => {
-    const { rows } = await pool.query(
-      `SELECT plan_type, plan_period, stripe_customer_id, stripe_subscription_id FROM users WHERE id = $1`,
-      [req.session.userId]
-    );
-    const row = rows[0] || {};
-    res.json({
-      planType: row.plan_type || "free",
-      planPeriod: row.plan_period || "monthly",
-      stripeCustomerId: row.stripe_customer_id || null,
-      stripeSubscriptionId: row.stripe_subscription_id || null,
-    });
+    try {
+      const { rows } = await pool.query(
+        `SELECT plan_type, plan_period, stripe_customer_id, stripe_subscription_id FROM users WHERE id = $1`,
+        [req.session.userId]
+      );
+      const row = rows[0] || {};
+      res.json({
+        planType: row.plan_type || "free",
+        planPeriod: row.plan_period || "monthly",
+        stripeCustomerId: row.stripe_customer_id || null,
+        stripeSubscriptionId: row.stripe_subscription_id || null,
+      });
+    } catch (err: any) {
+      console.error("[billing/status] Error:", err?.message);
+      res.status(500).json({ message: "Failed to fetch billing status" });
+    }
   });
 
   app.get("/api/billing/subscription", requireAuth, async (req, res) => {
     if (!process.env.STRIPE_SECRET_KEY) return res.status(500).json({ message: "Stripe not configured" });
-    const { rows } = await pool.query(
-      `SELECT plan_type, plan_period, stripe_customer_id, stripe_subscription_id FROM users WHERE id = $1`,
-      [req.session.userId]
-    );
-    const row = rows[0] || {};
-    if (!row.stripe_subscription_id) return res.json({ subscription: null });
+    try {
+      const { rows } = await pool.query(
+        `SELECT plan_type, plan_period, stripe_customer_id, stripe_subscription_id FROM users WHERE id = $1`,
+        [req.session.userId]
+      );
+      const row = rows[0] || {};
+      if (!row.stripe_subscription_id) return res.json({ subscription: null });
 
-    const Stripe = (await import("stripe")).default;
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-    const sub = await stripe.subscriptions.retrieve(row.stripe_subscription_id) as any;
+      const Stripe = (await import("stripe")).default;
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+      const sub = await stripe.subscriptions.retrieve(row.stripe_subscription_id) as any;
 
-    // If Stripe says the subscription is fully cancelled, mark the user as cancelled in our DB
-    if (sub.status === "canceled" && row.plan_type !== "cancelled" && row.plan_type !== "free" && row.plan_type !== "complimentary") {
-      await pool.query(`UPDATE users SET plan_type = 'cancelled', cancelled_at = NOW() WHERE id = $1`, [req.session.userId]);
+      // If Stripe says the subscription is fully cancelled, mark the user as cancelled in our DB
+      if (sub.status === "canceled" && row.plan_type !== "cancelled" && row.plan_type !== "free" && row.plan_type !== "complimentary") {
+        await pool.query(`UPDATE users SET plan_type = 'cancelled', cancelled_at = NOW() WHERE id = $1`, [req.session.userId]);
+      }
+
+      res.json({
+        subscription: {
+          status: sub.status,
+          currentPeriodEnd: sub.current_period_end,
+          cancelAtPeriodEnd: sub.cancel_at_period_end,
+          trialEnd: sub.trial_end || null,
+          planType: row.plan_type,
+          planPeriod: row.plan_period,
+        },
+      });
+    } catch (err: any) {
+      console.error("[billing/subscription] Error:", err?.message);
+      res.status(500).json({ message: "Failed to fetch subscription" });
     }
-
-    res.json({
-      subscription: {
-        status: sub.status,
-        currentPeriodEnd: sub.current_period_end,
-        cancelAtPeriodEnd: sub.cancel_at_period_end,
-        trialEnd: sub.trial_end || null,
-        planType: row.plan_type,
-        planPeriod: row.plan_period,
-      },
-    });
   });
 
   app.get("/api/billing/invoices", requireAuth, async (req, res) => {
     if (!process.env.STRIPE_SECRET_KEY) return res.status(500).json({ message: "Stripe not configured" });
-    const { rows } = await pool.query(
-      `SELECT stripe_customer_id FROM users WHERE id = $1`,
-      [req.session.userId]
-    );
-    const customerId = rows[0]?.stripe_customer_id;
-    if (!customerId) return res.json({ invoices: [] });
+    try {
+      const { rows } = await pool.query(
+        `SELECT stripe_customer_id FROM users WHERE id = $1`,
+        [req.session.userId]
+      );
+      const customerId = rows[0]?.stripe_customer_id;
+      if (!customerId) return res.json({ invoices: [] });
 
-    const Stripe = (await import("stripe")).default;
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-    const { data } = await stripe.invoices.list({ customer: customerId, limit: 10 });
-    res.json({
-      invoices: data.map(inv => ({
-        id: inv.id,
-        number: inv.number,
-        amountPaid: inv.amount_paid,
-        currency: inv.currency,
-        status: inv.status,
-        created: inv.created,
-        pdfUrl: inv.invoice_pdf,
-      })),
-    });
+      const Stripe = (await import("stripe")).default;
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+      const { data } = await stripe.invoices.list({ customer: customerId, limit: 10 });
+      res.json({
+        invoices: data.map(inv => ({
+          id: inv.id,
+          number: inv.number,
+          amountPaid: inv.amount_paid,
+          currency: inv.currency,
+          status: inv.status,
+          created: inv.created,
+          pdfUrl: inv.invoice_pdf,
+        })),
+      });
+    } catch (err: any) {
+      console.error("[billing/invoices] Error:", err?.message);
+      res.status(500).json({ message: "Failed to fetch invoices" });
+    }
   });
 
   app.post("/api/billing/portal", requireAuth, async (req, res) => {
@@ -3231,6 +3245,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       event = typeof rawBody === "string" ? JSON.parse(rawBody) : rawBody;
     }
 
+    try {
+
     if (event.type === "invoice.upcoming") {
       const invoice = event.data.object as any;
       const subId = typeof invoice.subscription === "string" ? invoice.subscription : invoice.subscription?.id;
@@ -3345,6 +3361,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           console.error("[stripe-webhook] Failed to send subscription-ended email:", err.message)
         );
       }
+    }
+
+    } catch (err: any) {
+      console.error("[stripe-webhook] Unhandled error processing event:", event?.type, err?.message);
     }
 
     res.json({ received: true });
