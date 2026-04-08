@@ -316,6 +316,25 @@ Your job is to be the developer they would hire if they could afford a great one
 **Notes for next session:**
 - **Referral programme** — still the top pending code task
 
+### Session — 2026-04-08 (sixtieth session)
+
+**Tasks completed:**
+- **Customer delete is now immediate and permanent**: Previously delete was a soft-delete with a 30-day grace period and a "Deleted" tab. User confirmed customers don't need a grace period — changed `deleteCustomer()` to hard-delete immediately. Removed 30-day purge job, `/api/customers/deleted` endpoint, and the Deleted tab from the Customers page UI. Delete toast no longer mentions 30 days. Archive functionality untouched.
+- **Favicon fixed**: Updated `favicon.png` in `client/public/` to the proper ReviewOptic icon (speech bubble + checkmark + star from `reviewoptic icon only - square - app.png`). Previous build had the old file in `dist/public/` — rebuilt to sync. Note: hard refresh (`Cmd+Shift+R`) needed to clear browser favicon cache.
+- **Privacy Policy section 3 corrected**: Both review request emails and ReviewOptic's own marketing emails now correctly state they contain an unsubscribe link. Removed incorrect "opt out by contacting us" wording.
+- **Claira Edwards confirmed deleted**: User deleted her from admin panel. Since she never verified or paid, she had no Stripe subscription — confirmed she will not be charged.
+
+**Important clarification logged:**
+- 30-day grace period applies to **user accounts** (when a subscriber deletes their ReviewOptic account, data kept 30 days for potential reactivation) — this is unchanged.
+- 30-day soft-delete did NOT apply to **customers** (contact records in a user's customer list) — those now delete immediately.
+
+**Waiting on (external — unchanged):**
+- Meta Business Verification → App Review → WhatsApp
+- Once WhatsApp live: update Google Business description to mention WhatsApp
+
+**Notes for next session:**
+- **Referral programme** — still the top pending code task
+
 ### Session — 2026-04-08 (fifty-ninth session)
 
 **Tasks completed:**
