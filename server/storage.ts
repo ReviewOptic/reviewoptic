@@ -118,8 +118,7 @@ export class DatabaseStorage implements IStorage {
     return c;
   }
   async deleteCustomer(id: string, accountId: string): Promise<void> {
-    // Soft-delete: permanently purged after 30 days, ratings/requests kept for stats
-    await db.update(customers).set({ deletedAt: new Date() }).where(and(eq(customers.id, id), eq(customers.accountId, accountId)));
+    await db.delete(customers).where(and(eq(customers.id, id), eq(customers.accountId, accountId)));
   }
   async reactivateCustomer(id: string, accountId: string): Promise<void> {
     await db.update(customers).set({ deletedAt: null }).where(and(eq(customers.id, id), eq(customers.accountId, accountId)));

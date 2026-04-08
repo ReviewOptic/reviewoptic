@@ -312,13 +312,6 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
-// Permanently purge soft-deleted customers after 30 days (ratings/requests kept for stats)
-setInterval(async () => {
-  try {
-    const result = await pool.query(`DELETE FROM customers WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '30 days'`);
-    if (result.rowCount && result.rowCount > 0) console.log(`[purge] Permanently deleted ${result.rowCount} customer(s) past 30-day grace period`);
-  } catch (err: any) { console.error("[purge] Customer purge error:", err.message); }
-}, 60 * 60 * 1000); // runs hourly
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
 
@@ -1691,11 +1684,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.delete("/api/customers/:id", requireAuth, async (req, res) => {
     await storage.deleteCustomer(String(req.params.id), req.session.accountId!);
     res.json({ success: true });
-  });
-
-  app.get("/api/customers/deleted", requireAuth, async (req, res) => {
-    const deleted = await storage.getDeletedCustomers(req.session.accountId!);
-    res.json(deleted);
   });
 
   app.post("/api/customers/:id/reactivate", requireAuth, async (req, res) => {
