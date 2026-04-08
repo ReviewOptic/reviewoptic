@@ -13,9 +13,9 @@ function customerFrom(settings: Settings): string {
   return `${displayName} <noreply@reviewoptic.com>`;
 }
 
-const LOGO_URL = `${APP_URL}/logo.png`;
+const LOGO_URL = `https://www.reviewoptic.com/logo.png`;
 const LOGO_HTML = `<div style="margin-bottom:28px;">
-  <a href="https://reviewoptic.com" style="text-decoration:none;">
+  <a href="https://www.reviewoptic.com" style="text-decoration:none;">
     <img src="${LOGO_URL}" alt="ReviewOptic" style="width:100%;max-width:200px;height:auto;object-fit:contain;display:block;" />
   </a>
 </div>`;
@@ -718,7 +718,7 @@ export async function sendIncompleteRegistrationEmail(to: string, firstName: str
         ${LOGO_HTML}
         <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">We noticed you didn't finish signing up${name} 👋</h2>
         <p style="color:#555;margin:0 0 16px;line-height:1.6;">You started creating a ReviewOptic account but didn't complete the sign-up process — so your account has been removed to keep things tidy.</p>
-        <p style="color:#555;margin:0 0 16px;line-height:1.6;">If you'd still like to get more Google reviews on autopilot, it only takes a couple of minutes to get started. Your 14-day free trial is waiting.</p>
+        <p style="color:#555;margin:0 0 16px;line-height:1.6;">If you'd still like to get more Google reviews on autopilot, it only takes a couple of minutes to get started. Your 30-day free trial is waiting.</p>
         <a href="${registerUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin:8px 0 24px;">
           Complete my sign-up
         </a>

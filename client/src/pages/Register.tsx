@@ -25,7 +25,6 @@ export default function Register() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [accountExists, setAccountExists] = useState(false);
-  const [resendLoading, setResendLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -63,7 +62,7 @@ export default function Register() {
             <img src="/logo.png" alt="ReviewOptic" className="h-10 object-contain" />
           </div>
           <h1 className="text-xl font-bold text-white mb-1">Create your account</h1>
-          <p className="text-sm text-white/75">Start your 14-day free trial. Cancel within 14 days and pay nothing.</p>
+          <p className="text-sm text-white/75">Start your 30-day free trial. Cancel within 30 days and pay nothing.</p>
         </div>
 
         <div className="bg-card rounded-b-2xl border border-t-0 border-border shadow-sm p-8">
@@ -121,15 +120,6 @@ export default function Register() {
 
             {accountExists && (
               <div className="flex flex-col gap-1.5 text-sm border-t border-gray-100 pt-3">
-                <button type="button" onClick={async () => {
-                  setResendLoading(true);
-                  await fetch("/api/auth/resend-verification", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) });
-                  setResendLoading(false);
-                  setAccountExists(false);
-                  setError("Activation email resent — check your inbox.");
-                }} className="text-blue-600 hover:underline font-medium text-left" disabled={resendLoading}>
-                  {resendLoading ? "Sending…" : "Resend activation email"}
-                </button>
                 <button type="button" onClick={() => navigate("/login")} className="text-blue-600 hover:underline font-medium text-left">
                   Sign in to existing account
                 </button>

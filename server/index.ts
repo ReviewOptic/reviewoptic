@@ -101,6 +101,15 @@ app.use(
 app.use(express.urlencoded({ extended: false }));
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
+// Redirect non-www to www (reviewoptic.com → www.reviewoptic.com)
+app.use((req, res, next) => {
+  const host = req.headers.host || "";
+  if (host === "reviewoptic.com" || host.startsWith("reviewoptic.com:")) {
+    return res.redirect(301, `https://www.reviewoptic.com${req.url}`);
+  }
+  next();
+});
+
 // Session middleware
 const PgSession = connectPgSimple(session);
 const sessionPool = new Pool({ connectionString: process.env.DATABASE_URL });

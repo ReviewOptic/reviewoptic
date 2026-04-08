@@ -329,17 +329,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     const existing = await storage.getUserByEmail(email);
     if (existing) {
-      if (!existing.emailVerified) {
-        // Resend verification email and let the frontend show the "check your email" screen
-        const newToken = randomUUID();
-        await storage.updateVerificationToken(existing.id, newToken);
-        const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000");
-        const verifyUrl = `${appUrl}/verify-email?token=${newToken}`;
-        await sendVerificationEmail(existing.email, verifyUrl).catch(err =>
-          console.error("[register] Failed to resend verification email:", err.message)
-        );
-        return res.json({ requiresVerification: true, email: existing.email });
-      }
       return res.status(400).json({ message: "An account with this email already exists" });
     }
 
@@ -420,12 +409,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }));
     console.log("[register] Session saved, userId:", req.session.userId, "sessionID:", req.sessionID);
 
-    // Send verification email immediately on registration
-    const appUrlReg = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000");
-    const verifyUrl = `${appUrlReg}/verify-email?token=${verificationToken}`;
-    await sendVerificationEmail(email.toLowerCase(), verifyUrl).catch(err =>
-      console.error("[register] Failed to send verification email:", err.message)
-    );
+    // Verification email is sent after payment via billing/confirm — not at registration
 
     // Return full user object so the client can set user state directly (no second round-trip)
     res.json({

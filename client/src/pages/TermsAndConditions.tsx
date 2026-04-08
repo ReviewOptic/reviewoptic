@@ -78,12 +78,12 @@ export default function TermsAndConditions() {
           <section>
             <h2 className="text-lg font-semibold mb-2">6. Free trial</h2>
             <p className="text-muted-foreground leading-relaxed mb-3">
-              New accounts are offered a 14-day free trial. During the trial you have full access to all
+              New accounts are offered a 30-day free trial. During the trial you have full access to all
               features included in your chosen plan. A valid payment method is required to start your trial.
             </p>
             <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
               <li>Only one free trial is permitted per person or business</li>
-              <li>At the end of the 14-day trial, your payment method will be charged automatically for your chosen plan (monthly or annual) unless you cancel before the trial ends</li>
+              <li>At the end of the 30-day trial, your payment method will be charged automatically for your chosen plan (monthly or annual) unless you cancel before the trial ends</li>
               <li>You may cancel at any time during the trial and will not be charged</li>
               <li>We reserve the right to modify or withdraw the free trial offer at any time for new sign-ups</li>
             </ul>

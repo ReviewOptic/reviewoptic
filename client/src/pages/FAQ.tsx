@@ -13,11 +13,11 @@ const FAQS = [
       },
       {
         q: "How does the free trial work?",
-        a: "Every new account gets a 14-day free trial with full access to all features on your chosen plan. You'll need to enter a payment method when you choose your plan, but you won't be charged anything until the 14 days are up. Cancel any time before then and you pay nothing. You'll receive a reminder email 2 days before your trial ends so you're never caught off guard.",
+        a: "Every new account gets a 30-day free trial with full access to all features on your chosen plan. You'll need to enter a payment method when you choose your plan, but you won't be charged anything until the 30 days are up. Cancel any time before then and you pay nothing. You'll receive a reminder email 2 days before your trial ends so you're never caught off guard.",
       },
       {
         q: "Do I need a credit card to sign up?",
-        a: "You don't need a card to create your account. You will need to enter payment details when you select your plan — but your card won't be charged until the 14-day trial ends.",
+        a: "You don't need a card to create your account. You will need to enter payment details when you select your plan — but your card won't be charged until the 30-day trial ends.",
       },
       {
         q: "How do I get started?",
@@ -129,7 +129,7 @@ const FAQS = [
       },
       {
         q: "If I cancel during my free trial, will I be charged?",
-        a: "No. If you cancel before your 14-day trial ends, your subscription ends immediately and you will not be charged anything. You'll receive a confirmation email as soon as you cancel.",
+        a: "No. If you cancel before your 30-day trial ends, your subscription ends immediately and you will not be charged anything. You'll receive a confirmation email as soon as you cancel.",
       },
       {
         q: "What happens when my subscription ends?",
@@ -213,7 +213,7 @@ export default function FAQ() {
 
         <div className="mt-12 bg-blue-600 rounded-2xl p-8 text-center">
           <h2 className="text-xl font-bold text-white mb-2">Ready to start collecting more reviews?</h2>
-          <p className="text-blue-100 text-sm mb-6">Join businesses already growing their reputation with ReviewOptic. Start your 14-day free trial today.</p>
+          <p className="text-blue-100 text-sm mb-6">Join businesses already growing their reputation with ReviewOptic. Start your 30-day free trial today.</p>
           <button
             onClick={() => navigate("/register")}
             className="inline-block bg-white text-blue-600 font-semibold px-6 py-2.5 rounded-lg hover:bg-blue-50 transition-colors text-sm"
