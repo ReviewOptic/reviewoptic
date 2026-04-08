@@ -316,6 +316,31 @@ Your job is to be the developer they would hire if they could afford a great one
 **Notes for next session:**
 - **Referral programme** — still the top pending code task
 
+### Session — 2026-04-08 (fifty-ninth session)
+
+**Tasks completed:**
+- **Claira Edwards investigation**: Logs showed her registration POST never hit the server — she loaded the register page at 11:32 PM, then tried to submit during a server restart around 2 AM (SIGTERM). Browser showed Safari's "can't establish a secure connection" error. She was already in the DB from before (now visible via new pending registrations section). Fixed: improved network error message in register form ("Unable to reach the server — please try again").
+- **Full delete for admin-managed users**: `DELETE /api/admin/user/:userId` now also removes the user from the admin's own customer list (they were auto-added at registration). Previously left a stale customer record.
+- **Resend verification button in admin panel**: Added a blue mail icon button next to each unverified pending user. Calls `/api/auth/resend-verification` — one click to resend without the user having to re-attempt registration.
+- **Former subscribers — Customers page**: When a user cancels or deletes, they're now moved (not deleted) in the admin's customer list. Status `"subscriber_cancelled"` (amber badge) for cancellations, `"subscriber_deleted"` (grey badge) for account deletions. Deleted accounts automatically get `do_not_contact = true`; cancelled accounts only if they were `email_unsubscribed`. Both filtered out of the main Customers list and shown in a collapsible "Former subscribers" section at the bottom.
+- **Subscriber review request**: New daily job sends a 1–5 star rating email to admin's customers (ReviewOptic subscribers) who joined 30+ days ago and haven't been contacted. Creates a proper `review_request` record so the rating flow works normally. Template (`subscriber_review_request`) is editable via a new "ReviewOptic admin templates" section in the admin panel Emails tab — clearly separated from system emails and dialogue boxes. Test button included.
+- **Favicon updated**: Replaced generic orange favicon with the proper ReviewOptic icon (speech bubble + checkmark + star) from `reviewoptic icon only - square - app.png`. Resized to 256×256 PNG.
+- **Privacy Policy section 3 corrected**: Removed incorrect "opt out by contacting us" wording. Both customer-facing messages and ReviewOptic's own marketing emails now correctly state they include an unsubscribe link for opt-out. Confirmed both `customerUnsubscribeFooter` and `platformUnsubscribeFooter` are present in all relevant email functions.
+- **OG image removed from task list**: User confirmed it's not needed.
+
+**Architecture notes:**
+- Former subscriber status flow: `customer.subscription.deleted` webhook → `"subscriber_cancelled"` in admin customer list. `DELETE /api/account` → `"subscriber_deleted"` + `do_not_contact = true`.
+- Subscriber review request job: queries `customers` joined to `users` to ensure subscriber is verified + paying + not DNC + 30+ days old + still `pending_request`. Creates `review_request` record then calls `sendSubscriberReviewRequestEmail`. Runs daily.
+- `subscriber_review_request` template has `adminOnly: true` flag — filtered into its own section in admin panel, excluded from the main system emails list.
+
+**Waiting on (external — unchanged):**
+- Meta Business Verification → App Review → WhatsApp
+- Once WhatsApp live: update Google Business description to mention WhatsApp
+
+**Notes for next session:**
+- **Referral programme** — still the top pending code task
+- **Claira Edwards** — needs to delete her existing account via admin panel (trash icon in Pending Registrations) so she can register fresh
+
 ### Session — 2026-04-07 (fifty-eighth session)
 
 **Tasks completed:**

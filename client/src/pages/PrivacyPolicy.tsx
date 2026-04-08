@@ -40,11 +40,11 @@ export default function PrivacyPolicy() {
             <p className="text-muted-foreground leading-relaxed mb-3">We use your data to:</p>
             <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
               <li>Provide and operate the ReviewOptic service</li>
-              <li>Send review request emails, SMS, and WhatsApp messages on your behalf to your customers</li>
+              <li>Send review request emails, SMS, and WhatsApp messages on your behalf to your customers — every message includes an unsubscribe link so your customers can opt out at any time</li>
               <li>Send you account-related emails (verification, password reset, billing, payment notifications, and subscription renewals)</li>
               <li>Notify you when a customer submits a star rating or private feedback</li>
               <li>Send you weekly or monthly performance reports and AI-generated insights about your reviews (you can opt out of these at any time from your Settings)</li>
-              <li>Send you occasional emails asking you to review ReviewOptic on Google, to help us grow our business (you can opt out by contacting us)</li>
+              <li>Send you occasional emails asking you to review ReviewOptic on Google, to help us grow our business — every such email includes an unsubscribe link so you can opt out at any time</li>
               <li>Improve and develop the platform</li>
               <li>Detect and prevent fraud, abuse, and security incidents</li>
               <li>Comply with legal obligations</li>
