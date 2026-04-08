@@ -19,6 +19,10 @@ import {
 } from "@shared/schema";
 
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+// Prevent stale connections (e.g. Neon serverless suspend) from crashing the server
+pool.on("error", (err) => {
+  console.error("[pool] Unexpected idle client error:", err.message);
+});
 const db = drizzle(pool);
 
 export interface IStorage {

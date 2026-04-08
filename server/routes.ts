@@ -514,15 +514,29 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/auth/verify-email", async (req, res) => {
     const token = String(req.query.token || "");
     if (!token) return res.status(400).json({ message: "Missing token" });
-    const user = await storage.verifyUserEmail(token);
-    if (!user) return res.status(400).json({ message: "Invalid or already used verification link." });
-    req.session.userId = user.id;
-    req.session.accountId = user.accountId;
-    await new Promise<void>((resolve) => req.session.save((err) => {
-      if (err) console.error("[verify-email] Session save failed:", err);
-      resolve();
-    }));
-    res.json({ success: true });
+    try {
+      // Retry once on DB error — handles stale connections after Neon serverless sleep
+      let user;
+      try {
+        user = await storage.verifyUserEmail(token);
+      } catch (firstErr: any) {
+        console.warn("[verify-email] First attempt failed, retrying:", firstErr?.message);
+        await new Promise(r => setTimeout(r, 800));
+        user = await storage.verifyUserEmail(token);
+      }
+      if (!user) return res.status(400).json({ message: "Invalid or already used verification link." });
+      req.session.userId = user.id;
+      req.session.accountId = user.accountId;
+      await new Promise<void>((resolve) => req.session.save((err) => {
+        if (err) console.error("[verify-email] Session save failed:", err);
+        resolve();
+      }));
+      console.log("[verify-email] Success for user:", user.id);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("[verify-email] Error after retry:", err?.message, err);
+      res.status(500).json({ message: "Verification failed — please try again or contact support." });
+    }
   });
 
   app.post("/api/auth/resend-verification", async (req, res) => {
