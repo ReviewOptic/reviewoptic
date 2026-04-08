@@ -316,6 +316,30 @@ Your job is to be the developer they would hire if they could afford a great one
 **Notes for next session:**
 - **Referral programme** — still the top pending code task
 
+### Session — 2026-04-08 (sixty-first session)
+
+**Tasks completed:**
+- **Email verification crash fixed**: New users clicking the verification link got "site couldn't be reached" — the server was crashing. Root cause: `process.on("unhandledRejection")` calls `process.exit(1)`, and the verify-email route had no try/catch. If the Drizzle DB query threw (e.g. stale Neon connection after inactivity), the server died. Fix: added try/catch to route, added server-side retry (800ms delay) on first failure, added `pool.on("error")` handler to prevent idle client errors crashing the server, added client-side auto-retry (2s delay) before showing any error screen. Users now click once and get verified.
+- **Verification email moved to after payment**: Previously sent at registration. Now sent only after Stripe payment confirmed (billing/confirm endpoint already had this logic). BillingSuccess page already shows "check your email to verify" — no UI change needed. Register.tsx "Resend activation email" button removed (not applicable pre-payment). Existing-unverified users who try to re-register now get "account exists, please log in" (400) instead of a re-sent verification link.
+- **Logo fixed in emails**: `LOGO_URL` in `server/email.ts` was a module-level constant set at import time, before the `https://` normalisation in `server/index.ts` ran. Result: logo URL was `www.reviewoptic.com/logo.png` (no scheme) — email clients showed a broken image. Fixed: hardcoded to `https://www.reviewoptic.com/logo.png`.
+- **30-day free trial copy**: Updated all trial copy from 14 days to 30 days across Pricing, FAQ, T&Cs, Register page, and incomplete-registration email. Deliberately left the "14 days" refund window and notice period in T&Cs unchanged (those are legal clauses, not trial duration).
+- **Non-www redirect middleware**: Added Express middleware to 301-redirect `reviewoptic.com` → `https://www.reviewoptic.com`. Deferred DNS setup (add `reviewoptic.com` as second custom domain in Replit + A record in Namecheap) to a future session.
+- **Stripe coupon + trial clarification**: Confirmed that a "1 month free" Stripe coupon applied on top of the 30-day trial gives ~60 days free total (trial first, then coupon on first invoice). User confirmed this is intentional.
+
+**Architecture notes:**
+- Verification email flow: register → billing → `billing/confirm` sends verification email → BillingSuccess prompts user to check email → user clicks link → verified → dashboard.
+- The `billing/confirm` endpoint already had: `if (paidUser && !paidUser.email_verified && paidUser.verification_token)` → send verification email. This is now the ONLY place it's sent.
+- `LOGO_URL` and `LOGO_HTML` in `server/email.ts` are now hardcoded to `https://www.reviewoptic.com` — safe because dev environments skip email sends (no RESEND_API_KEY).
+- Pool error handler in `server/storage.ts` catches idle client errors silently (logs them but doesn't crash).
+
+**Waiting on (external — unchanged):**
+- Meta Business Verification → App Review → WhatsApp
+- Once WhatsApp live: update Google Business description to mention WhatsApp
+
+**Notes for next session:**
+- **Referral programme** — still the top pending code task
+- **Non-www redirect DNS** — add `reviewoptic.com` as a second custom domain in Replit, then add an A record in Namecheap pointing `@` to Replit's IP. Express middleware is already in place.
+
 ### Session — 2026-04-08 (sixtieth session)
 
 **Tasks completed:**
