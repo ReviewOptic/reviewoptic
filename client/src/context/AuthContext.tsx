@@ -32,12 +32,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const register = async (email: string, password: string, firstName: string, lastName: string, companyName: string, referredByAccountId?: string, termsAccepted?: boolean) => {
-    const res = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ email, password, firstName, lastName, companyName, referredByAccountId, termsAccepted }),
-    });
+    let res: Response;
+    try {
+      res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email, password, firstName, lastName, companyName, referredByAccountId, termsAccepted }),
+      });
+    } catch {
+      throw new Error("Unable to reach the server — please check your connection and try again.");
+    }
     if (!res.ok) {
       const data = await res.json();
       throw new Error(data.message || "Registration failed");

@@ -7,7 +7,8 @@ export interface EmailTemplateOverride {
 
 // Default subject + body (plain text, \n\n = paragraph break) for every system email.
 // Body text is injected into the standard HTML wrapper — dynamic parts (buttons, tables) are added by code.
-export const DEFAULT_EMAIL_TEMPLATES: Record<string, { subject: string; body: string; variables: string[]; description: string }> = {
+// adminOnly: true means this template is only shown in the ReviewOptic admin section, not the general system emails list.
+export const DEFAULT_EMAIL_TEMPLATES: Record<string, { subject: string; body: string; variables: string[]; description: string; adminOnly?: boolean }> = {
   verification: {
     subject: "Verify your email and choose your plan",
     body: "We're really happy to have you here. Just verify your email below to unlock your free trial and start building the reviews your business deserves.\n\nIt takes less than a minute — and your first 30 days are completely free.",
@@ -103,6 +104,13 @@ export const DEFAULT_EMAIL_TEMPLATES: Record<string, { subject: string; body: st
     body: "We would appreciate your feedback on how we can improve for next time and will be in touch.",
     variables: [],
     description: "Post-rating dialogue box shown after a 1–3★ rating",
+  },
+  subscriber_review_request: {
+    subject: "How are you finding ReviewOptic?",
+    body: "You've been using ReviewOptic for about a month now — we hope it's been making a real difference for {{company_name}}!\n\nWe'd love to know how we're doing. Tap a star below to leave us a quick rating:",
+    variables: ["{{first_name}}", "{{company_name}}"],
+    description: "Sent to ReviewOptic subscribers after 1 month asking for a 1–5 star rating",
+    adminOnly: true,
   },
 };
 

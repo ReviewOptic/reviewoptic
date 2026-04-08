@@ -280,6 +280,56 @@ export async function sendPreScreenEmail(
   console.log(`[pre-screen email] result:`, JSON.stringify(result));
 }
 
+// Sent to ReviewOptic subscribers after 1 month — asks them to rate ReviewOptic with 1–5 stars.
+// Uses the subscriber_review_request system template (editable in admin panel).
+export async function sendSubscriberReviewRequestEmail(
+  subscriber: { id: string; email: string; name: string; companyName: string },
+  requestId: string,
+  appUrl: string
+): Promise<void> {
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`[subscriber review request] No RESEND_API_KEY. Would email ${subscriber.email}`);
+    return;
+  }
+  const { getEffectiveTemplate, renderBodyHtml } = await import("./systemEmailTemplates");
+  const tmpl = await getEffectiveTemplate("subscriber_review_request");
+  const firstName = subscriber.name.split(" ")[0];
+  const subject = tmpl.subject;
+  const introHtml = renderBodyHtml(tmpl.body, {
+    "{{first_name}}": firstName,
+    "{{company_name}}": subscriber.companyName,
+  });
+
+  const stars = [1, 2, 3, 4, 5].map(n =>
+    `<td style="padding:0 6px;text-align:center;">
+      <a href="${appUrl}/review-landing?rid=${requestId}&rating=${n}"
+         style="display:inline-block;width:52px;height:52px;line-height:52px;text-align:center;font-size:42px;color:#f59e0b;text-decoration:none;font-family:Arial,sans-serif;">&#9733;</a>
+      <div style="font-size:11px;color:#9ca3af;text-align:center;margin-top:2px;">${n}</div>
+    </td>`
+  ).join("");
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const result = await resend.emails.send({
+    from: REVIEWOPTIC_FROM,
+    to: subscriber.email,
+    subject,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#111;">
+        ${LOGO_HTML}
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 8px;">Hi ${firstName},</h2>
+        ${introHtml}
+        <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 auto 24px;">
+          <tr>${stars}</tr>
+        </table>
+        <p style="text-align:center;color:#9ca3af;font-size:12px;margin:0 0 32px;">Tap a star to submit your rating</p>
+        ${PLATFORM_FOOTER}
+        <img src="${appUrl}/api/track/${requestId}/open" width="1" height="1" alt="" style="display:block;border:0;width:1px;height:1px;" />
+      </div>
+    `,
+  });
+  console.log(`[subscriber review request] result:`, JSON.stringify(result));
+}
+
 // Sent as a follow-up to unrated customers — uses the follow-up template body + a "Rate your experience" button.
 export async function sendFollowUpEmail(
   customer: Customer,

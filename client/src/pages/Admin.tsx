@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Shield, LogIn, CheckCircle2, XCircle, Trash2, ShieldCheck, ShieldOff, Ban,
   Users, BarChart3, TrendingUp, TrendingDown, AlertTriangle, AlertCircle,
-  CheckCircle, RefreshCw, Download, Zap, Target, Activity, Printer,
+  CheckCircle, RefreshCw, Download, Zap, Target, Activity, Printer, Mail,
 } from "lucide-react";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
@@ -107,6 +107,7 @@ export default function Admin() {
   const [log, setLog] = useState<{ id: string; adminEmail: string; targetEmail: string; createdAt: string }[]>([]);
   const [insightStats, setInsightStats] = useState<{ totalSent: number; totalOpened: number; openRate: number; optOuts: number; recentEmails: any[] } | null>(null);
   const [pendingUsers, setPendingUsers] = useState<any[]>([]);
+  const [resendingVerification, setResendingVerification] = useState<string | null>(null);
   const [cancelledAccounts, setCancelledAccounts] = useState<any[]>([]);
   const [deletedAccounts, setDeletedAccounts] = useState<any[]>([]);
   const [emailSending, setEmailSending] = useState<string | null>(null);
@@ -883,7 +884,40 @@ export default function Admin() {
             <p className="text-xs text-muted-foreground">Emails sent by ReviewOptic to your users. Click Edit to update subject and body. Use Test to preview in your inbox.</p>
           </div>
           <div className="bg-card border border-border rounded-xl overflow-hidden mb-8">
-            {emailTemplates.filter(e => !e.type.startsWith("dialog_")).map((e, i, arr) => (
+            {emailTemplates.filter(e => !e.type.startsWith("dialog_") && !e.adminOnly).map((e, i, arr) => (
+              <div key={e.type} className={`flex items-center justify-between gap-3 px-4 py-3.5 ${i < arr.length - 1 ? "border-b border-border" : ""}`}>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium truncate">{e.label}</p>
+                    {e.customised && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 flex-shrink-0">Edited</span>}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5 truncate">{e.subject}</p>
+                </div>
+                <div className="flex gap-1.5 flex-shrink-0">
+                  <button onClick={() => openEdit(e)} className="text-xs font-medium px-3 py-1.5 rounded-lg border border-border hover:bg-muted transition-colors">Edit</button>
+                  <button
+                    onClick={() => sendTestEmail(e.type)}
+                    disabled={emailSending === e.type}
+                    className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
+                      emailResult[e.type] === "sent" ? "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400" :
+                      emailResult[e.type] === "error" ? "bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400" :
+                      "bg-primary text-primary-foreground hover:bg-primary/90"
+                    } disabled:opacity-50`}
+                  >
+                    {emailSending === e.type ? "Sending…" : emailResult[e.type] === "sent" ? "✓ Sent" : emailResult[e.type] === "error" ? "✗ Failed" : "Test"}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* ReviewOptic admin-only templates */}
+          <div className="mb-5">
+            <p className="text-sm font-semibold mb-0.5">ReviewOptic admin templates</p>
+            <p className="text-xs text-muted-foreground">These templates are used only by the ReviewOptic admin account — not sent to end users of the platform. Edit to customise the message ReviewOptic sends to its own subscribers.</p>
+          </div>
+          <div className="bg-card border border-border rounded-xl overflow-hidden mb-8">
+            {emailTemplates.filter(e => e.adminOnly).map((e, i, arr) => (
               <div key={e.type} className={`flex items-center justify-between gap-3 px-4 py-3.5 ${i < arr.length - 1 ? "border-b border-border" : ""}`}>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
@@ -1037,6 +1071,17 @@ export default function Admin() {
                         <td className="px-3 py-2 text-muted-foreground hidden sm:table-cell">{fmtDate(u.createdAt)}</td>
                         <td className="px-3 py-2">
                           <div className="flex items-center gap-1.5 justify-end">
+                            {!u.emailVerified && (
+                              <Button size="sm" variant="outline" title="Resend verification email"
+                                disabled={resendingVerification === u.id}
+                                onClick={async () => {
+                                  setResendingVerification(u.id);
+                                  await fetch("/api/auth/resend-verification", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ email: u.email }) });
+                                  setResendingVerification(null);
+                                }}>
+                                <Mail className="w-3.5 h-3.5 text-blue-500" />
+                              </Button>
+                            )}
                             {confirmDelete === u.id ? (
                               <div className="flex items-center gap-1">
                                 <Button size="sm" variant="destructive" onClick={() => deleteUser(u.id)}>Confirm</Button>

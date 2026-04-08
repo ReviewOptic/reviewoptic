@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import {
   Plus, Search, Send, MoreHorizontal, Ban, Trash2, Users,
-  Upload, Download, X, CheckCircle2, Clock, Star, Eye, AlertCircle, Edit2, Sparkles, RefreshCw, Mic, Video, Archive, ArchiveRestore, CalendarClock, ArrowLeft
+  Upload, Download, X, CheckCircle2, Clock, Star, Eye, AlertCircle, Edit2, Sparkles, RefreshCw, Mic, Video, Archive, ArchiveRestore, CalendarClock, ArrowLeft, XCircle, ChevronDown
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,8 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.R
   no_response: { label: "No Response", color: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400", icon: <AlertCircle className="w-3 h-3" /> },
   do_not_contact: { label: "Do Not Contact", color: "bg-destructive/10 text-destructive", icon: <Ban className="w-3 h-3" /> },
   scheduled: { label: "Scheduled", color: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400", icon: <CalendarClock className="w-3 h-3" /> },
+  subscriber_cancelled: { label: "Cancelled", color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", icon: <XCircle className="w-3 h-3" /> },
+  subscriber_deleted: { label: "Deleted account", color: "bg-muted text-muted-foreground", icon: <Trash2 className="w-3 h-3" /> },
 };
 
 function StatusBadge({ status, doNotContact }: { status: string; doNotContact: boolean }) {
@@ -738,6 +740,7 @@ export default function Customers() {
   );
   const [showArchived, setShowArchived] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
+  const [showFormer, setShowFormer] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [sendTo, setSendTo] = useState<Customer | null>(null);
@@ -821,11 +824,19 @@ export default function Customers() {
     },
   });
 
+  const FORMER_STATUSES = ["subscriber_cancelled", "subscriber_deleted"];
+
   const filtered = customers?.filter(c => {
+    if (FORMER_STATUSES.includes(c.status)) return false;
     const matchesSearch = !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.email.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === "all" || (statusFilter === "dnc" ? c.doNotContact : c.status === statusFilter);
     return matchesSearch && matchesStatus;
   }) || [];
+
+  const formerSubscribers = customers?.filter(c =>
+    FORMER_STATUSES.includes(c.status) &&
+    (!search || c.name.toLowerCase().includes(search.toLowerCase()) || c.email.toLowerCase().includes(search.toLowerCase()))
+  ) || [];
 
   const filteredArchived = archivedCustomers?.filter(c =>
     !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.email.toLowerCase().includes(search.toLowerCase())
@@ -1198,6 +1209,51 @@ export default function Customers() {
           </table>
         </div>
       </Card>
+
+      {/* Former subscribers section */}
+      {formerSubscribers.length > 0 && !showArchived && !showDeleted && (
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={() => setShowFormer(v => !v)}
+            className="flex items-center gap-2 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors mb-2"
+          >
+            <ChevronDown className={cn("w-4 h-4 transition-transform", showFormer && "rotate-180")} />
+            Former subscribers ({formerSubscribers.length})
+          </button>
+          {showFormer && (
+            <Card>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/40">
+                      <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Name</th>
+                      <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Email</th>
+                      <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {formerSubscribers.map(c => (
+                      <tr key={c.id} className="border-b border-border/50 last:border-0">
+                        <td className="px-4 py-2.5">
+                          <span className="text-[13px] font-medium">{c.name}</span>
+                          <p className="text-[11.5px] text-muted-foreground sm:hidden">{c.email}</p>
+                        </td>
+                        <td className="px-4 py-2.5 hidden sm:table-cell">
+                          <span className="text-[13px] text-muted-foreground">{c.email}</span>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <StatusBadge status={c.status} doNotContact={c.doNotContact} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
 
       <AddCustomerDialog open={showAdd} onClose={() => setShowAdd(false)} />
       <ImportCsvDialog open={showImport} onClose={() => setShowImport(false)} />

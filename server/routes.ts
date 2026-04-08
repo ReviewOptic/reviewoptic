@@ -598,6 +598,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         `UPDATE users SET scheduled_for_deletion_at = NOW() + INTERVAL '30 days', plan_type = 'cancelled' WHERE account_id = $1`,
         [accountId]
       );
+      // Move them to "former subscribers (deleted)" in the admin's customer list
+      if (process.env.ADMIN_EMAIL) {
+        const adminUser = await storage.getUserByEmail(process.env.ADMIN_EMAIL);
+        if (adminUser) {
+          const { rows: ownerRows } = await pool.query(`SELECT email FROM users WHERE id = $1`, [userId]);
+          if (ownerRows[0]) {
+            await pool.query(
+              `UPDATE customers SET status = 'subscriber_deleted', do_not_contact = true WHERE account_id = $1 AND email = $2`,
+              [adminUser.accountId, ownerRows[0].email]
+            ).catch(() => {});
+          }
+        }
+      }
 
       // Send deletion confirmation email with reactivation link
       const { rows: emailRows } = await pool.query(`SELECT email, first_name FROM users WHERE id = $1`, [userId]);
@@ -766,6 +779,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const target = await storage.getUser(String(req.params.userId));
     if (!target) return res.status(404).json({ message: "User not found" });
     if (target.isAdmin) return res.status(400).json({ message: "Cannot delete an admin account" });
+    // Also remove them from the admin's own customer list (added at registration for review request purposes)
+    if (process.env.ADMIN_EMAIL) {
+      const adminUser = await storage.getUserByEmail(process.env.ADMIN_EMAIL);
+      if (adminUser) {
+        await pool.query(`DELETE FROM customers WHERE account_id = $1 AND email = $2`, [adminUser.accountId, target.email]).catch(() => {});
+      }
+    }
     await storage.deleteUserAccount(String(req.params.userId));
     res.json({ success: true });
   });
@@ -3312,9 +3332,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const { rows: userRows } = await pool.query(
         `UPDATE users SET plan_type = 'cancelled', plan_period = 'monthly', cancelled_at = NOW()
          WHERE stripe_subscription_id = $1
-         RETURNING email, first_name`,
+         RETURNING email, first_name, email_unsubscribed`,
         [subId]
       );
+      // Move them to "former subscribers" in the admin's customer list
+      if (userRows[0] && process.env.ADMIN_EMAIL) {
+        const adminUser = await storage.getUserByEmail(process.env.ADMIN_EMAIL);
+        if (adminUser) {
+          const dnc = userRows[0].email_unsubscribed === true;
+          await pool.query(
+            `UPDATE customers SET status = 'subscriber_cancelled'${dnc ? ", do_not_contact = true" : ""} WHERE account_id = $1 AND email = $2`,
+            [adminUser.accountId, userRows[0].email]
+          ).catch(() => {});
+        }
+      }
       // Send "your subscription has now ended" email
       if (userRows[0]) {
         const u = userRows[0];
@@ -3814,6 +3845,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       body: overrides[type]?.body ?? def.body,
       variables: def.variables,
       customised: !!overrides[type],
+      adminOnly: def.adminOnly ?? false,
     }));
     res.json(result);
   });
@@ -3998,6 +4030,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         case "platform_review":
           await sendPlatformReviewRequest({ id: req.session.userId!, email: adminEmail, firstName: adminName, companyName: "Demo Plumbing Co" }, false);
           break;
+        case "subscriber_review_request": {
+          const { sendSubscriberReviewRequestEmail } = await import("./email");
+          await sendSubscriberReviewRequestEmail({ id: "test-id", email: adminEmail, name: adminName, companyName: "Demo Plumbing Co" }, "test-request-id", appUrl);
+          break;
+        }
         default:
           return res.status(400).json({ message: `Unknown email type: ${type}` });
       }
