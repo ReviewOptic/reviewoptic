@@ -186,6 +186,40 @@ Your job is to be the developer they would hire if they could afford a great one
 
 *(Sessions 18–58 archived to CLAUDE_ARCHIVE.md)*
 
+### Session — 2026-04-09 (sixty-second session)
+
+**Tasks completed:**
+- **Non-www redirect DNS confirmed working**: Express middleware was already in place. User added `reviewoptic.com` as a second custom domain in Replit (Deployments → Domains → Connect your own domain). DNS was already pointed from Namecheap. Redirect is fully live.
+- **Referral programme built**: Full implementation from scratch (much of the infrastructure was already in place from a prior session):
+  - `/referral/:slug` route, `referred_by_account_id` DB column, and registration tracking were already built
+  - Added `referral_rewarded` boolean column to users table (DB migration)
+  - `billing/confirm`: when a referred user pays, credits the referrer via a Stripe customer balance transaction (negative balance = credit applied to next invoice automatically)
+  - Credit amount = monthly price of the plan the referred person signed up on — always uses monthly rate regardless of whether they chose monthly or annual billing
+  - If multiple referrals convert, credits stack in Stripe and drain one invoice at a time
+  - Added `GET /api/referrals/stats` endpoint returning count of successful (paid) referrals
+  - Settings Referral tab updated: replaced "coming soon" placeholder with real reward description and live referral counter
+  - T&Cs: added new section 21 "Referral programme" covering all rules (credit value, stacking, annual invoices, no cash value, right to modify)
+- **Plan rename + price update**:
+  - "Lite" renamed to "Standard" everywhere in the UI (internal DB value stays as `"lite"` — no migration needed)
+  - Pro monthly: £49 → £39/month; Pro annual: £539 → £429/year (11 × £39)
+  - Standard pricing unchanged: £29/month, £319/year
+  - Updated PRICES object in server, Pricing page, Billing page, billing email copy
+
+**Architecture notes:**
+- Referral reward logic lives in `billing/confirm` (server/routes.ts). Flow: referred user pays → retrieve referrer's `stripe_customer_id` → `stripe.customers.createBalanceTransaction(referrerCustomerId, { amount: -monthlyAmount, currency: "gbp" })` → mark `referral_rewarded = true` on referred user.
+- Credit amount uses `PRICES[\`${plan}_monthly\`].unit_amount` — locked at sign-up, unaffected by plan changes.
+- Internal plan_type value in DB is still `"lite"` for Standard plan subscribers. All display labels show "Standard". No DB migration required.
+- Pro annual = 11 × £39 = £429 (1 month free baked in). Standard annual = 11 × £29 = £319.
+
+**Waiting on (external — unchanged):**
+- Meta Business Verification → App Review → WhatsApp
+- Once WhatsApp live: update Google Business description to mention WhatsApp
+
+**Notes for next session:**
+- No major pending code tasks — referral programme is now live
+- Consider adding a referral reward notification email to the referrer when they earn a credit
+- Monitor Stripe to confirm balance credits apply correctly once real referrals come in
+
 ### Session — 2026-04-08 (sixty-first session)
 
 **Tasks completed:**
