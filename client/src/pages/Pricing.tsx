@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { Check, X, ArrowLeft, Star } from "lucide-react";
+import { Check, X, ArrowLeft, Star, Loader2 } from "lucide-react";
 import { useFeatures } from "@/hooks/useFeatures";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { loadStripe } from "@stripe/stripe-js";
@@ -57,6 +57,7 @@ export default function Pricing() {
   const { toast } = useToast();
   const [period, setPeriod] = useState<"monthly" | "annual">("monthly");
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [stripePromise] = useState(() =>
     fetch("/api/billing/config")
       .then((r) => r.json())
@@ -68,6 +69,7 @@ export default function Pricing() {
       navigate("/register");
       return;
     }
+    setCheckoutLoading(planId);
     try {
       const res = await fetch("/api/billing/create-checkout-session", {
         method: "POST",
@@ -80,6 +82,8 @@ export default function Pricing() {
       setClientSecret(data.clientSecret);
     } catch (err: any) {
       toast({ title: "Checkout failed", description: err.message, variant: "destructive" });
+    } finally {
+      setCheckoutLoading(null);
     }
   }
 
@@ -231,25 +235,28 @@ export default function Pricing() {
                 <Button
                   className="w-full"
                   variant="outline"
+                  disabled={!!checkoutLoading}
                   onClick={() => openCheckout(plan.id)}
                 >
-                  Switch to {period === "annual" ? "annual" : "monthly"}
+                  {checkoutLoading === plan.id ? <><Loader2 className="w-4 h-4 animate-spin mr-1" /> Loading...</> : `Switch to ${period === "annual" ? "annual" : "monthly"}`}
                 </Button>
               ) : user?.planType && user.planType !== "free" && user.planType !== "cancelled" && user.planType !== plan.id ? (
                 <Button
                   className="w-full"
                   variant="default"
+                  disabled={!!checkoutLoading}
                   onClick={() => openCheckout(plan.id)}
                 >
-                  {plan.id === "pro" ? "Upgrade to Pro" : "Switch to Standard"}
+                  {checkoutLoading === plan.id ? <><Loader2 className="w-4 h-4 animate-spin mr-1" /> Loading...</> : plan.id === "pro" ? "Upgrade to Pro" : "Switch to Standard"}
                 </Button>
               ) : (
                 <Button
                   className="w-full"
                   variant="default"
+                  disabled={!!checkoutLoading}
                   onClick={() => openCheckout(plan.id)}
                 >
-                  Get started
+                  {checkoutLoading === plan.id ? <><Loader2 className="w-4 h-4 animate-spin mr-1" /> Loading...</> : "Get started"}
                 </Button>
               )}
             </div>
