@@ -105,6 +105,13 @@ export const DEFAULT_EMAIL_TEMPLATES: Record<string, { subject: string; body: st
     variables: [],
     description: "Post-rating dialogue box shown after a 1–3★ rating",
   },
+  referral_reward: {
+    subject: "You've earned a free month on ReviewOptic 🎉",
+    body: "Hi {{first_name}},\n\nSomeone you referred just signed up and paid — so we've added a {{credit_amount}} credit to your account.\n\nThis will be automatically applied against your next invoice. If you refer more people, credits stack up and keep reducing your future bills.\n\nThanks for spreading the word — we really appreciate it.",
+    variables: ["{{first_name}}", "{{credit_amount}}"],
+    description: "Sent to a user when they earn a referral credit",
+    adminOnly: true,
+  },
   subscriber_review_request: {
     subject: "How are you finding ReviewOptic?",
     body: "You've been using ReviewOptic for about a month now — we hope it's been making a real difference for {{company_name}}!\n\nWe'd love to know how we're doing. Tap a star below to leave us a quick rating:",
