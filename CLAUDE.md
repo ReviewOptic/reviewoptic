@@ -186,6 +186,17 @@ Your job is to be the developer they would hire if they could afford a great one
 
 *(Sessions 18–58 archived to CLAUDE_ARCHIVE.md)*
 
+### Session — 2026-04-09 (sixty-fifth session)
+
+**Tasks completed:**
+- **FAQ copy accuracy fixes**: Pro annual prices were stale from last session's reprice — corrected £539→£429 and £588→£468. Trial reminder changed from "2 days" to "a few days" (Stripe fires invoice.upcoming 3 days before, not 2).
+- **FAQ and Pricing page audited**: No other inaccuracies found. Pricing meta description ("follow-ups handled on autopilot") is correctly specific. All pricing, feature descriptions, and process descriptions checked as accurate.
+
+**Notes for next session:**
+- All copy and pricing is now accurate and up to date
+- No pending code tasks
+- Waiting on Meta/WhatsApp externally as before
+
 ### Session — 2026-04-09 (sixty-fourth session)
 
 **Tasks completed:**
