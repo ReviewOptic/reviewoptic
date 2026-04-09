@@ -1144,7 +1144,7 @@ function ReferralTab() {
         <div className="rounded-xl bg-primary/5 border border-primary/20 p-4 text-center space-y-1">
           <p className="text-[12px] text-muted-foreground uppercase tracking-wide font-medium">Your referral reward</p>
           <p className="text-[15px] font-semibold text-foreground">1 free month for every business you refer</p>
-          <p className="text-[12px] text-muted-foreground">When someone signs up and pays using your link, we'll apply a free month to your next bill.</p>
+          <p className="text-[12px] text-muted-foreground">When someone signs up and pays using your link, we'll credit one month's fee (based on their plan at sign-up) to your account. Credits stack and apply automatically to your future invoices — including annual ones.</p>
         </div>
         <div className="rounded-xl border border-border p-4 flex items-center justify-between">
           <div>

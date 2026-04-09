@@ -2949,19 +2949,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           [paidUser.referred_by_account_id]
         );
         const referrerCustomerId = referrerRows[0]?.stripe_customer_id;
-        if (referrerCustomerId && subscriptionId) {
-          // Get the referred user's plan price to credit the exact amount
-          const sub = await stripe.subscriptions.retrieve(subscriptionId, { expand: ["items.data.price"] });
-          const unitAmount = (sub.items.data[0]?.price as any)?.unit_amount ?? 0;
-          const currency = (sub.items.data[0]?.price as any)?.currency ?? "gbp";
-          if (unitAmount > 0) {
+        if (referrerCustomerId) {
+          // Credit = monthly price of the referred person's plan at time of sign-up
+          // Always use monthly rate so annual sign-ups don't generate an outsized credit
+          const monthlyAmount = PRICES[`${plan}_monthly`]?.unit_amount ?? 0;
+          if (monthlyAmount > 0) {
             // Add a negative balance transaction — credits stack and auto-apply to future invoices
             await stripe.customers.createBalanceTransaction(referrerCustomerId, {
-              amount: -unitAmount,
-              currency,
+              amount: -monthlyAmount,
+              currency: "gbp",
               description: "Referral reward — 1 free month",
             });
-            console.log(`[billing/confirm] Referral credit of ${unitAmount} ${currency} added to customer ${referrerCustomerId}`);
+            console.log(`[billing/confirm] Referral credit of ${monthlyAmount}p added to customer ${referrerCustomerId}`);
           }
         }
         // Mark as rewarded regardless (prevents double-rewarding if Stripe call fails partially)

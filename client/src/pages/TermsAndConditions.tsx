@@ -271,7 +271,23 @@ export default function TermsAndConditions() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">21. Governing law and disputes</h2>
+            <h2 className="text-lg font-semibold mb-2">21. Referral programme</h2>
+            <p className="text-muted-foreground leading-relaxed">
+              We operate a referral programme under which existing subscribers can earn account credits
+              by referring new subscribers. The following terms apply:
+            </p>
+            <ul className="list-disc list-inside text-muted-foreground leading-relaxed mt-2 space-y-1">
+              <li>A referral is only eligible for a reward once the referred person completes a paid subscription (free trials do not qualify).</li>
+              <li>The credit value is equal to one month's subscription fee on the plan the referred person signs up on, calculated at the monthly rate regardless of whether they choose a monthly or annual billing period.</li>
+              <li>The credit is fixed at the time of the referral and is not affected by any subsequent plan changes made by either party.</li>
+              <li>Credits are applied as a balance against your future invoices. If you are on an annual plan, the credit will reduce your next annual invoice by the credited amount.</li>
+              <li>Credits have no cash value and cannot be transferred or refunded.</li>
+              <li>We reserve the right to modify or withdraw the referral programme at any time. Credits already earned will be honoured.</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold mb-2">22. Governing law and disputes</h2>
             <p className="text-muted-foreground leading-relaxed">
               These Terms are governed by the laws of England and Wales. Any dispute arising out of or
               in connection with these Terms shall be subject to the exclusive jurisdiction of the courts
@@ -281,7 +297,7 @@ export default function TermsAndConditions() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">22. Changes to these terms</h2>
+            <h2 className="text-lg font-semibold mb-2">23. Changes to these terms</h2>
             <p className="text-muted-foreground leading-relaxed">
               We may update these Terms from time to time. We will notify you of material changes by
               email or in-app notice at least 14 days before they take effect. Continued use of the
@@ -290,7 +306,7 @@ export default function TermsAndConditions() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">23. Contact</h2>
+            <h2 className="text-lg font-semibold mb-2">24. Contact</h2>
             <p className="text-muted-foreground leading-relaxed">
               For any questions about these Terms, contact us at:<br />
               <strong className="text-foreground">ReviewOptic Limited</strong><br />
