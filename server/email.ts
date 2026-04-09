@@ -729,3 +729,20 @@ export async function sendIncompleteRegistrationEmail(to: string, firstName: str
     `,
   });
 }
+
+export async function sendAdminNewUserEmail(firstName: string, lastName: string, email: string, companyName: string) {
+  if (!process.env.RESEND_API_KEY) return;
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const name = [firstName, lastName].filter(Boolean).join(" ") || email;
+  await resend.emails.send({
+    from: REVIEWOPTIC_FROM,
+    to: "hello@reviewoptic.com",
+    subject: `New sign-up: ${name}${companyName ? ` (${companyName})` : ""}`,
+    html: `<p>A new user has registered on ReviewOptic.</p>
+<ul>
+  <li><strong>Name:</strong> ${name}</li>
+  <li><strong>Email:</strong> ${email}</li>
+  ${companyName ? `<li><strong>Company:</strong> ${companyName}</li>` : ""}
+</ul>`,
+  }).catch((err: any) => console.error("[admin-new-user email] Failed:", err.message));
+}

@@ -411,6 +411,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     // Verification email is sent after payment via billing/confirm — not at registration
 
+    // Notify admin of new sign-up
+    const { sendAdminNewUserEmail } = await import("./email");
+    sendAdminNewUserEmail(firstName, lastName, email, companyName).catch(() => {});
+
     // Return full user object so the client can set user state directly (no second round-trip)
     res.json({
       id: user.id,

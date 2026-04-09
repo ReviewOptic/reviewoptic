@@ -41,8 +41,8 @@ export default function Settings() {
   const { data: settings, isLoading } = useQuery<SettingsType>({ queryKey: ["/api/settings"] });
   const [copied, setCopied] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
-  const isFirstRender = useRef(true);
-  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const formRef = useRef(form);
+  const isDirtyRef = useRef(false);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -151,16 +151,26 @@ export default function Settings() {
     },
   });
 
+  // Track form changes so we can auto-save on exit
+  useEffect(() => { formRef.current = form; isDirtyRef.current = true; }, [form]);
+
+  // Auto-save silently when user navigates away (only if form is valid)
   useEffect(() => {
-    if (isFirstRender.current) { isFirstRender.current = false; return; }
+    return () => {
+      const f = formRef.current;
+      if (!isDirtyRef.current) return;
+      if (!f.businessEmail || (!f.ownerName.trim() && !f.businessName.trim())) return;
+      apiRequest("PATCH", "/api/settings", f).catch(() => {});
+    };
+  }, []);
+
+  function handleSave() {
     if (!form.businessEmail) { toast({ title: "Business email is required", variant: "destructive" }); return; }
     if (!form.ownerName.trim() && !form.businessName.trim()) { toast({ title: "Please enter at least your name or company name", variant: "destructive" }); return; }
     if (!form.country && !user?.isAdmin) { toast({ title: "Please select your country before saving", variant: "destructive" }); return; }
-    if (debounceTimer.current) clearTimeout(debounceTimer.current);
     setSaveStatus("saving");
-    debounceTimer.current = setTimeout(() => mutation.mutate(), 1500);
-    return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
-  }, [form]);
+    mutation.mutate();
+  }
 
   const widgetCode = `<script src="https://reviewoptic.app/widget.js" data-account-id="${user?.accountId}" data-theme="light"></script>`;
 
@@ -184,9 +194,11 @@ export default function Settings() {
           <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
           <p className="text-[13.5px] text-muted-foreground mt-0.5">Configure your ReviewOptic account</p>
         </div>
-        <div className="flex items-center gap-1.5 text-[12.5px]">
-          {saveStatus === "saving" && <span className="text-muted-foreground">Saving…</span>}
-          {saveStatus === "saved" && <span className="text-green-600 flex items-center gap-1"><Check className="w-3.5 h-3.5" /> Saved</span>}
+        <div className="flex items-center gap-2">
+          {saveStatus === "saved" && <span className="text-green-600 flex items-center gap-1 text-[12.5px]"><Check className="w-3.5 h-3.5" /> Saved</span>}
+          <Button size="sm" onClick={handleSave} disabled={saveStatus === "saving"}>
+            {saveStatus === "saving" ? <><Save className="w-3.5 h-3.5 mr-1.5 animate-pulse" /> Saving…</> : <><Save className="w-3.5 h-3.5 mr-1.5" /> Save</>}
+          </Button>
         </div>
       </div>
 
