@@ -186,6 +186,29 @@ Your job is to be the developer they would hire if they could afford a great one
 
 *(Sessions 18–58 archived to CLAUDE_ARCHIVE.md)*
 
+### Session — 2026-04-09 (sixty-third session)
+
+**Tasks completed:**
+- **reviewoptic.com redirect now fully live**: Root cause was a URL Redirect Record in Namecheap conflicting with the A Record — Namecheap was trying to do the redirect itself but dropping the connection. Fixed by deleting the URL Redirect Record. Also added the correct A Record (34.111.179.208) and two TXT verification records (@ and www) for Replit domain verification. Domain now routes correctly through Express middleware to https://www.reviewoptic.com.
+- **Checkout "Lite Plan" label fixed**: The dist already had "Standard Plan" — was a cached Stripe product name from old sessions. Resolved on new checkouts automatically.
+- **Checkout loading state added**: "Get started" / upgrade buttons on Pricing page now show a spinner while the checkout session is being created. Buttons are disabled during loading to prevent double-clicks.
+- **Settings: manual Save button**: Replaced auto-save-while-typing (which caused "please select country" errors mid-edit) with a Save button. Still auto-saves silently on navigate-away if required fields are filled.
+- **Admin new user notification**: Every new registration sends an email to hello@reviewoptic.com with the user's name, email, and company. Uses `sendAdminNewUserEmail` in email.ts, fired from the register endpoint.
+- **Delete customer confirmation**: Clicking Delete on a customer now shows a confirmation dialog ("This will permanently delete the customer and all their history. This cannot be undone.") before proceeding.
+
+**Architecture notes:**
+- Namecheap DNS for reviewoptic.com: A Record @ → 34.111.179.208, CNAME www → review-optic.replit.app, two TXT records (@ and www) with same Replit verify value. No URL Redirect Record.
+- `sendAdminNewUserEmail` in server/email.ts sends to hardcoded `hello@reviewoptic.com` — safe, no env var needed beyond RESEND_API_KEY.
+- Settings auto-save on exit uses a `useRef` to track the latest form value and fires `apiRequest` on component unmount, skipping validation (silent save).
+
+**Waiting on (external — unchanged):**
+- Meta Business Verification → App Review → WhatsApp
+- Once WhatsApp live: update Google Business description to mention WhatsApp
+
+**Notes for next session:**
+- **Referral reward notification email** — when a referrer earns a credit, send them an email confirming it
+- **No other pending code tasks** — everything from today is shipped
+
 ### Session — 2026-04-09 (sixty-second session)
 
 **Tasks completed:**
