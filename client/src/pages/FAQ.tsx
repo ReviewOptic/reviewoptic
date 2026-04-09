@@ -13,7 +13,7 @@ const FAQS = [
       },
       {
         q: "How does the free trial work?",
-        a: "Every new account gets a 30-day free trial with full access to all features on your chosen plan. You'll need to enter a payment method when you choose your plan, but you won't be charged anything until the 30 days are up. Cancel any time before then and you pay nothing. You'll receive a reminder email 2 days before your trial ends so you're never caught off guard.",
+        a: "Every new account gets a 30-day free trial with full access to all features on your chosen plan. You'll need to enter a payment method when you choose your plan, but you won't be charged anything until the 30 days are up. Cancel any time before then and you pay nothing. You'll receive a reminder email a few days before your trial ends so you're never caught off guard.",
       },
       {
         q: "Do I need a credit card to sign up?",
@@ -46,7 +46,7 @@ const FAQS = [
       },
       {
         q: "Can I switch from monthly to annual billing?",
-        a: "Yes. You can switch to annual billing from the Billing tab. Paying annually gives you the equivalent of 1 month free — £319/year for Standard (vs £348 monthly) and £539/year for Pro (vs £588 monthly).",
+        a: "Yes. You can switch to annual billing from the Billing tab. Paying annually gives you the equivalent of 1 month free — £319/year for Standard (vs £348 monthly) and £429/year for Pro (vs £468 monthly).",
       },
       {
         q: "Will my price ever go up?",
