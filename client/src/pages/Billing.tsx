@@ -153,7 +153,7 @@ export default function Billing() {
 
   const planLabel = user?.planType === "pro" ? "Pro Plan" : user?.planType === "lite" ? "Standard Plan" : "Plan";
   const periodLabel = user?.planPeriod === "annual" ? "Annual" : "Monthly";
-  const annualSaving = user?.planType === "lite" ? "Save £29 — equivalent to 1 month free" : "Save £49 — equivalent to 1 month free";
+  const annualSaving = user?.planType === "lite" ? "Save £29 — equivalent to 1 month free" : "Save £39 — equivalent to 1 month free";
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-5 space-y-4">

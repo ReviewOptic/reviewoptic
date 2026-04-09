@@ -2821,10 +2821,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // ── Billing / Stripe ──────────────────────────────────────────────────────
 
   const PRICES: Record<string, { unit_amount: number; interval: "month" | "year"; name: string }> = {
-    lite_monthly: { unit_amount: 2900,  interval: "month", name: "Lite Plan (Monthly)" },
-    lite_annual:  { unit_amount: 31900, interval: "year",  name: "Lite Plan (Annual)" },
-    pro_monthly:  { unit_amount: 4900,  interval: "month", name: "Pro Plan (Monthly)" },
-    pro_annual:   { unit_amount: 53900, interval: "year",  name: "Pro Plan (Annual)" },
+    lite_monthly: { unit_amount: 2900,  interval: "month", name: "Standard Plan (Monthly)" },
+    lite_annual:  { unit_amount: 31900, interval: "year",  name: "Standard Plan (Annual)" },
+    pro_monthly:  { unit_amount: 3900,  interval: "month", name: "Pro Plan (Monthly)" },
+    pro_annual:   { unit_amount: 42900, interval: "year",  name: "Pro Plan (Annual)" },
   };
 
   app.get("/api/billing/config", (_req, res) => {
@@ -3359,7 +3359,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             const u = userRows[0];
             const sub = await stripe.subscriptions.retrieve(subId).catch(() => null) as any;
             const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://reviewoptic.com");
-            const planName = u.plan_type === "pro" ? "Pro" : "Lite";
+            const planName = u.plan_type === "pro" ? "Pro" : "Standard";
             const amountPaid = `£${(invoice.amount_paid / 100).toFixed(2)}`;
             const billingPeriod = u.plan_period === "annual" ? "annual" : "monthly";
             const nextBillingDate = sub?.current_period_end
@@ -4026,7 +4026,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
         case "subscription_confirmation":
           await sendSubscriptionConfirmationEmail(
-            adminEmail, adminName, "Pro", "monthly", "£49.00",
+            adminEmail, adminName, "Pro", "monthly", "£39.00",
             new Date(Date.now() + 30 * 86400000).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }),
             "", `${appUrl}/billing`
           );
