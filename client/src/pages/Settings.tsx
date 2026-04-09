@@ -1116,6 +1116,7 @@ function ReferralTab() {
   const { user } = useAuth();
   const [copied, setCopied] = useState(false);
   const { data: settings } = useQuery<SettingsType>({ queryKey: ["/api/settings"] });
+  const { data: referralStats } = useQuery<{ count: number }>({ queryKey: ["/api/referrals/stats"] });
 
   const appUrl = window.location.origin;
   const slug = settings?.businessName
@@ -1142,8 +1143,15 @@ function ReferralTab() {
       <CardContent className="space-y-5 pb-6">
         <div className="rounded-xl bg-primary/5 border border-primary/20 p-4 text-center space-y-1">
           <p className="text-[12px] text-muted-foreground uppercase tracking-wide font-medium">Your referral reward</p>
-          <p className="text-[15px] font-semibold text-foreground">Offer details coming soon 🎁</p>
-          <p className="text-[12px] text-muted-foreground">We're finalising the referral programme — watch this space.</p>
+          <p className="text-[15px] font-semibold text-foreground">1 free month for every business you refer</p>
+          <p className="text-[12px] text-muted-foreground">When someone signs up and pays using your link, we'll apply a free month to your next bill.</p>
+        </div>
+        <div className="rounded-xl border border-border p-4 flex items-center justify-between">
+          <div>
+            <p className="text-[13px] font-medium">Successful referrals</p>
+            <p className="text-[12px] text-muted-foreground">Businesses that signed up and paid via your link</p>
+          </div>
+          <span className="text-[22px] font-bold text-primary">{referralStats?.count ?? 0}</span>
         </div>
 
         <div className="space-y-1.5">

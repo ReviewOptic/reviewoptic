@@ -2930,7 +2930,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     );
 
     // Send verification email now that payment is confirmed
-    const { rows: userRows } = await pool.query(`SELECT email, verification_token, email_verified FROM users WHERE id = $1`, [userId]);
+    const { rows: userRows } = await pool.query(`SELECT email, verification_token, email_verified, referred_by_account_id, referral_rewarded FROM users WHERE id = $1`, [userId]);
     const paidUser = userRows[0];
     if (paidUser && !paidUser.email_verified && paidUser.verification_token) {
       const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000");
@@ -2940,10 +2940,47 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       );
     }
 
+    // Referral reward: if this user was referred and hasn't been rewarded yet, give the referrer 1 month free
+    if (paidUser && paidUser.referred_by_account_id && !paidUser.referral_rewarded) {
+      try {
+        const { rows: referrerRows } = await pool.query(
+          `SELECT stripe_subscription_id FROM users WHERE account_id = $1 AND role = 'owner' LIMIT 1`,
+          [paidUser.referred_by_account_id]
+        );
+        const referrerSubId = referrerRows[0]?.stripe_subscription_id;
+        if (referrerSubId) {
+          // Create a one-time 100% off coupon and apply it to the referrer's subscription
+          const coupon = await stripe.coupons.create({ percent_off: 100, duration: "once", name: "Referral reward — 1 month free" });
+          await stripe.subscriptions.update(referrerSubId, { coupon: coupon.id });
+          console.log(`[billing/confirm] Referral reward applied to sub ${referrerSubId} for referring account ${paidUser.referred_by_account_id}`);
+        }
+        // Mark as rewarded regardless (even if referrer has no sub yet, don't reward again later)
+        await pool.query(`UPDATE users SET referral_rewarded = true WHERE id = $1`, [userId]);
+      } catch (err: any) {
+        console.error("[billing/confirm] Failed to apply referral reward:", err.message);
+      }
+    }
+
     res.json({ success: true, plan, period });
     } catch (err: any) {
       console.error("[billing/confirm] Error:", err?.message, err?.type, err?.code);
       res.status(500).json({ message: err?.message || "Failed to confirm payment" });
+    }
+  });
+
+  // Referral stats — how many successful (paid) referrals this user has made
+  app.get("/api/referrals/stats", requireAuth, async (req, res) => {
+    try {
+      const { rows: userRows } = await pool.query(`SELECT account_id FROM users WHERE id = $1`, [req.session.userId]);
+      const accountId = userRows[0]?.account_id;
+      if (!accountId) return res.json({ count: 0 });
+      const { rows } = await pool.query(
+        `SELECT COUNT(*) as count FROM users WHERE referred_by_account_id = $1 AND referral_rewarded = true`,
+        [accountId]
+      );
+      res.json({ count: parseInt(rows[0]?.count ?? "0", 10) });
+    } catch (err: any) {
+      res.json({ count: 0 });
     }
   });
 
