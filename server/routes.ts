@@ -2940,21 +2940,31 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       );
     }
 
-    // Referral reward: if this user was referred and hasn't been rewarded yet, give the referrer 1 month free
+    // Referral reward: if this user was referred and hasn't been rewarded yet, credit the referrer 1 month free
+    // Credit is based on the referred person's plan price (locked at time of referral, unaffected by future plan changes)
     if (paidUser && paidUser.referred_by_account_id && !paidUser.referral_rewarded) {
       try {
         const { rows: referrerRows } = await pool.query(
-          `SELECT stripe_subscription_id FROM users WHERE account_id = $1 AND role = 'owner' LIMIT 1`,
+          `SELECT stripe_customer_id FROM users WHERE account_id = $1 AND role = 'owner' LIMIT 1`,
           [paidUser.referred_by_account_id]
         );
-        const referrerSubId = referrerRows[0]?.stripe_subscription_id;
-        if (referrerSubId) {
-          // Create a one-time 100% off coupon and apply it to the referrer's subscription
-          const coupon = await stripe.coupons.create({ percent_off: 100, duration: "once", name: "Referral reward — 1 month free" });
-          await stripe.subscriptions.update(referrerSubId, { coupon: coupon.id });
-          console.log(`[billing/confirm] Referral reward applied to sub ${referrerSubId} for referring account ${paidUser.referred_by_account_id}`);
+        const referrerCustomerId = referrerRows[0]?.stripe_customer_id;
+        if (referrerCustomerId && subscriptionId) {
+          // Get the referred user's plan price to credit the exact amount
+          const sub = await stripe.subscriptions.retrieve(subscriptionId, { expand: ["items.data.price"] });
+          const unitAmount = (sub.items.data[0]?.price as any)?.unit_amount ?? 0;
+          const currency = (sub.items.data[0]?.price as any)?.currency ?? "gbp";
+          if (unitAmount > 0) {
+            // Add a negative balance transaction — credits stack and auto-apply to future invoices
+            await stripe.customers.createBalanceTransaction(referrerCustomerId, {
+              amount: -unitAmount,
+              currency,
+              description: "Referral reward — 1 free month",
+            });
+            console.log(`[billing/confirm] Referral credit of ${unitAmount} ${currency} added to customer ${referrerCustomerId}`);
+          }
         }
-        // Mark as rewarded regardless (even if referrer has no sub yet, don't reward again later)
+        // Mark as rewarded regardless (prevents double-rewarding if Stripe call fails partially)
         await pool.query(`UPDATE users SET referral_rewarded = true WHERE id = $1`, [userId]);
       } catch (err: any) {
         console.error("[billing/confirm] Failed to apply referral reward:", err.message);
