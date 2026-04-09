@@ -748,6 +748,7 @@ export default function Customers() {
   const [showBulkSend, setShowBulkSend] = useState(false);
   const [bulkChannel, setBulkChannel] = useState<"email" | "sms" | "whatsapp">("email");
   const [bulkSending, setBulkSending] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const { user } = useAuth();
@@ -1102,7 +1103,7 @@ export default function Customers() {
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem
-                                    onClick={() => deleteMutation.mutate(customer.id)}
+                                    onClick={() => setDeleteConfirmId(customer.id)}
                                     className="text-destructive"
                                   >
                                     <Trash2 className="w-3.5 h-3.5 mr-2" />
@@ -1148,7 +1149,7 @@ export default function Customers() {
                                     Archive
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
-                                    onClick={() => deleteMutation.mutate(customer.id)}
+                                    onClick={() => setDeleteConfirmId(customer.id)}
                                     className="text-destructive"
                                     data-testid={`action-delete-${customer.id}`}
                                   >
@@ -1217,6 +1218,19 @@ export default function Customers() {
 
       <AddCustomerDialog open={showAdd} onClose={() => setShowAdd(false)} />
       <ImportCsvDialog open={showImport} onClose={() => setShowImport(false)} />
+
+      <Dialog open={!!deleteConfirmId} onOpenChange={v => !v && setDeleteConfirmId(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete customer?</DialogTitle>
+            <DialogDescription>This will permanently delete the customer and all their history. This cannot be undone.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeleteConfirmId(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => { deleteMutation.mutate(deleteConfirmId!); setDeleteConfirmId(null); }}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <SendRequestDialog customer={sendTo} open={!!sendTo} onClose={() => setSendTo(null)} />
       <EditCustomerDialog customer={editCustomer} open={!!editCustomer} onClose={() => setEditCustomer(null)} />
 
