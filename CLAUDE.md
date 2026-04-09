@@ -186,6 +186,26 @@ Your job is to be the developer they would hire if they could afford a great one
 
 *(Sessions 18–58 archived to CLAUDE_ARCHIVE.md)*
 
+### Session — 2026-04-09 (sixty-fourth session)
+
+**Tasks completed:**
+- **Referral reward notification email added to admin templates**: `referral_reward` added to `DEFAULT_EMAIL_TEMPLATES` with `adminOnly: true` — appears in Admin → Emails → ReviewOptic admin templates. Subject/body now editable. Variables: `{{first_name}}`, `{{credit_amount}}`. `sendReferralRewardEmail` updated to use the template system via `getEffectiveTemplate`.
+- **Login page headline fixed**: Removed "on autopilot" from headline (only follow-ups are automated, not initial requests). New subheading: "Send review requests in seconds. ReviewOptic follows up automatically — so no opportunity is ever missed."
+- **Login feature cards trimmed**: Cut from 10 to 6 — kept highest-impact items (Every review grows your business, Send in seconds, Automatic follow-ups, Personal voice & video, Turn unhappy customers, AI insights).
+- **Voice/video copy corrected**: Was incorrectly saying recordings are "embedded in email" — they actually play on the review landing page when the customer clicks the link. Fixed in both Login.tsx and Features.tsx. Also removed inaccurate "record once, reuse" claim.
+
+**Architecture notes:**
+- Voice/video recordings: stored in Cloudinary, URL saved on the `review_requests` record. Played on the `/review/:id` landing page (ReviewLanding.tsx), NOT embedded in emails. The email just contains the link — the recording plays when the customer opens that link.
+- Referral reward email: uses `getEffectiveTemplate("referral_reward")` so subject/body are DB-overridable from admin panel.
+
+**Waiting on (external — unchanged):**
+- Meta Business Verification → App Review → WhatsApp
+- Once WhatsApp live: update Google Business description to mention WhatsApp
+
+**Notes for next session:**
+- No major pending code tasks
+- Consider auditing FAQ and Pricing page copy for similar accuracy issues now that Login/Features have been cleaned up
+
 ### Session — 2026-04-09 (sixty-third session)
 
 **Tasks completed:**
