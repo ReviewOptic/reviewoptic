@@ -2949,7 +2949,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (paidUser && paidUser.referred_by_account_id && !paidUser.referral_rewarded) {
       try {
         const { rows: referrerRows } = await pool.query(
-          `SELECT stripe_customer_id FROM users WHERE account_id = $1 AND role = 'owner' LIMIT 1`,
+          `SELECT stripe_customer_id, email, first_name FROM users WHERE account_id = $1 AND role = 'owner' LIMIT 1`,
           [paidUser.referred_by_account_id]
         );
         const referrerCustomerId = referrerRows[0]?.stripe_customer_id;
@@ -2965,6 +2965,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
               description: "Referral reward — 1 free month",
             });
             console.log(`[billing/confirm] Referral credit of ${monthlyAmount}p added to customer ${referrerCustomerId}`);
+            // Notify the referrer
+            const { sendReferralRewardEmail } = await import("./email");
+            const creditAmount = `£${(monthlyAmount / 100).toFixed(2)}`;
+            sendReferralRewardEmail(referrerRows[0].email, referrerRows[0].first_name || "", creditAmount).catch((err: any) =>
+              console.error("[billing/confirm] Failed to send referral reward email:", err.message)
+            );
           }
         }
         // Mark as rewarded regardless (prevents double-rewarding if Stripe call fails partially)

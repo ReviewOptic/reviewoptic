@@ -730,6 +730,32 @@ export async function sendIncompleteRegistrationEmail(to: string, firstName: str
   });
 }
 
+export async function sendReferralRewardEmail(to: string, firstName: string, creditAmount: string) {
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`[referral-reward email] No RESEND_API_KEY. Would have sent to ${to}`);
+    return;
+  }
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const name = firstName ? firstName : "there";
+  await resend.emails.send({
+    from: REVIEWOPTIC_FROM,
+    to,
+    subject: "You've earned a free month on ReviewOptic 🎉",
+    html: `
+      <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;background:#fff;">
+        ${LOGO_HTML}
+        <h2 style="font-size:20px;font-weight:700;color:#111;margin:0 0 16px;">You've earned a free month!</h2>
+        <p style="color:#444;line-height:1.6;margin:0 0 12px;">Hi ${name},</p>
+        <p style="color:#444;line-height:1.6;margin:0 0 12px;">Someone you referred just signed up and paid — so we've added a <strong>${creditAmount} credit</strong> to your account.</p>
+        <p style="color:#444;line-height:1.6;margin:0 0 12px;">This will be automatically applied against your next invoice. If you refer more people, credits stack up and keep reducing your future bills.</p>
+        <p style="color:#444;line-height:1.6;margin:0 0 24px;">Thanks for spreading the word — we really appreciate it.</p>
+        <p style="color:#999;font-size:12px;margin-top:16px;">Alicia &amp; Rob — ReviewOptic</p>
+        ${PLATFORM_FOOTER}
+      </div>
+    `,
+  });
+}
+
 export async function sendAdminNewUserEmail(firstName: string, lastName: string, email: string, companyName: string) {
   if (!process.env.RESEND_API_KEY) return;
   const resend = new Resend(process.env.RESEND_API_KEY);
