@@ -50,14 +50,10 @@ function ReviewCards({ reviews }: { reviews: TrustpilotReview[] }) {
 const FEATURES = [
   { icon: "📈", title: "Every review grows your business", desc: "A one-star improvement in your Google rating can increase revenue by up to 9%. Every new 5-star review makes you more visible in local search." },
   { icon: "⚡", title: "Send review requests in seconds", desc: "Email, SMS, or WhatsApp — reach customers on the channel they actually use." },
-  { icon: "🎙️", title: "Personal voice & video messages", desc: "Record a short voice note or video from you personally — customers respond far more to a human touch than a plain text message." },
   { icon: "🔄", title: "Automatic follow-ups", desc: "If a customer doesn't respond, ReviewOptic follows up for you — so no opportunity is ever missed." },
-  { icon: "📊", title: "Track everything in one place", desc: "See your conversion rate, average star rating, and best-performing channels at a glance." },
-  { icon: "🤖", title: "AI-powered insights", desc: "Get a personalised weekly report with actionable tips to improve your review performance." },
+  { icon: "🎙️", title: "Personal voice & video messages", desc: "Record a voice note or video from you personally — it plays when your customer opens their review request link. Far more powerful than a plain text message." },
   { icon: "🛡️", title: "Turn unhappy customers into loyal ones", desc: "Low ratings go to a private feedback form — so you can make it right before it becomes a public complaint." },
-  { icon: "📱", title: "Auto-post reviews to social media", desc: "Automatically share your best reviews to Facebook, Instagram & LinkedIn. Your reputation, amplified." },
-  { icon: "🌟", title: "Works with all major platforms", desc: "Google, Trustpilot, Facebook, Checkatrade, TripAdvisor, and more." },
-  { icon: "📲", title: "Fully optimised for mobile", desc: "Manage customers, send requests, and track your reviews from your phone. Save ReviewOptic to your home screen for instant access — no App Store download needed." },
+  { icon: "🤖", title: "AI-powered insights", desc: "Get a personalised weekly report with actionable tips to improve your review performance." },
 ];
 
 export default function Login() {
@@ -263,8 +259,8 @@ export default function Login() {
       {/* Features panel — shown below form on mobile, left side on desktop */}
       <div className="md:w-1/2 bg-primary text-white flex flex-col justify-between p-8 md:p-12 md:min-h-screen md:order-1">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold leading-tight mb-4 text-white">Turn happy customers<br />into 5-star reviews — on autopilot.</h1>
-          <p className="text-white/75 text-base mb-10 leading-relaxed">ReviewOptic helps local businesses automatically collect more reviews on Google, Trustpilot, Facebook, and more.</p>
+          <h1 className="text-3xl md:text-4xl font-bold leading-tight mb-4 text-white">Turn happy customers<br />into 5-star reviews.</h1>
+          <p className="text-white/75 text-base mb-10 leading-relaxed">Send review requests in seconds. ReviewOptic follows up automatically — so no opportunity is ever missed.</p>
           <div className="space-y-6">
             {FEATURES.map(item => {
               const isChannelCard = item.title === "Send review requests in seconds";
