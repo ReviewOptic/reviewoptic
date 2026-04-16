@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import { randomUUID } from "crypto";
 
 const API_BASE = "https://api.elevenlabs.io/v1";
@@ -97,37 +97,31 @@ export async function stitchNameToFront(
     // Concatenate two audio files
     const listFile = path.join(tmpDir, `${randomUUID()}.txt`);
     fs.writeFileSync(listFile, `file '${nameAudioPath}'\nfile '${sourcePath}'`);
-    execSync(`ffmpeg -y -f concat -safe 0 -i "${listFile}" -c copy "${outPath}"`, { stdio: "pipe" });
+    execFileSync("ffmpeg", ["-y", "-f", "concat", "-safe", "0", "-i", listFile, "-c", "copy", outPath], { stdio: "pipe" });
     fs.unlink(listFile, () => {});
   } else {
     // For video: prepend a short black frame with the name audio, then the main video
     // Step 1: get duration of name audio
-    const durationOut = execSync(
-      `ffprobe -v error -show_entries format=duration -of csv=p=0 "${nameAudioPath}"`
-    ).toString().trim();
+    const durationOut = execFileSync("ffprobe", [
+      "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", nameAudioPath
+    ]).toString().trim();
     const nameDuration = parseFloat(durationOut) || 1.5;
 
     // Step 2: create a black video clip the length of the name audio
     const blackClip = path.join(tmpDir, `${randomUUID()}.mp4`);
-    execSync(
-      `ffmpeg -y -f lavfi -i color=c=black:s=1280x720:r=25 -i "${nameAudioPath}" -shortest -c:v libx264 -c:a aac "${blackClip}"`,
-      { stdio: "pipe" }
-    );
+    execFileSync("ffmpeg", [
+      "-y", "-f", "lavfi", "-i", "color=c=black:s=1280x720:r=25", "-i", nameAudioPath,
+      "-shortest", "-c:v", "libx264", "-c:a", "aac", blackClip
+    ], { stdio: "pipe" });
 
     // Step 3: ensure source video has audio track
     const sourceWithAudio = path.join(tmpDir, `${randomUUID()}.mp4`);
-    execSync(
-      `ffmpeg -y -i "${sourcePath}" -c:v copy -c:a aac "${sourceWithAudio}"`,
-      { stdio: "pipe" }
-    );
+    execFileSync("ffmpeg", ["-y", "-i", sourcePath, "-c:v", "copy", "-c:a", "aac", sourceWithAudio], { stdio: "pipe" });
 
     // Step 4: concat black clip + source video
     const listFile = path.join(tmpDir, `${randomUUID()}.txt`);
     fs.writeFileSync(listFile, `file '${blackClip}'\nfile '${sourceWithAudio}'`);
-    execSync(
-      `ffmpeg -y -f concat -safe 0 -i "${listFile}" -c copy "${outPath}"`,
-      { stdio: "pipe" }
-    );
+    execFileSync("ffmpeg", ["-y", "-f", "concat", "-safe", "0", "-i", listFile, "-c", "copy", outPath], { stdio: "pipe" });
     fs.unlink(listFile, () => {});
     fs.unlink(blackClip, () => {});
     fs.unlink(sourceWithAudio, () => {});

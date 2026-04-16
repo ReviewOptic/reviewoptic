@@ -22,6 +22,10 @@
       var subColor = isDark ? "#94a3b8" : "#64748b";
       var borderColor = isDark ? "#334155" : "#e2e8f0";
 
+      function escHtml(str) {
+        return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+      }
+
       function renderStars(rating) {
         var s = "";
         for (var i = 1; i <= 5; i++) {
@@ -38,7 +42,7 @@
       function renderCard(review) {
         return "<div style=\"background:" + cardBg + ";border:1px solid " + borderColor + ";border-radius:10px;padding:16px 18px;\">" +
           "<div style=\"margin-bottom:6px;\">" + renderStars(review.rating) + "</div>" +
-          "<div style=\"font-size:14px;font-weight:600;color:" + textColor + ";margin-bottom:2px;\">" + review.displayName + "</div>" +
+          "<div style=\"font-size:14px;font-weight:600;color:" + textColor + ";margin-bottom:2px;\">" + escHtml(review.displayName) + "</div>" +
           "<div style=\"font-size:12px;color:" + subColor + ";\">" + formatDate(review.createdAt) + "</div>" +
           "</div>";
       }

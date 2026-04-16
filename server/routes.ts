@@ -3808,11 +3808,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         // Normalise to E.164 and also try without country code for matching
         const normalised = from.replace(/\s+/g, "");
         const ukLocal = normalised.startsWith("+44") ? "0" + normalised.slice(3) : null;
-        const conditions = [normalised, ukLocal].filter(Boolean).map((_, i) => `$${i + 1}`).join(", ");
         const values = [normalised, ukLocal].filter(Boolean);
         await pool.query(
-          `UPDATE customers SET do_not_contact = true WHERE REPLACE(phone, ' ', '') = ANY(ARRAY[${conditions}])`,
-          values
+          `UPDATE customers SET do_not_contact = true WHERE REPLACE(phone, ' ', '') = ANY($1::text[])`,
+          [values]
         ).catch(() => {});
         console.log(`[twilio-inbound] STOP received from ${from} — customer(s) set to Do Not Contact`);
       }
