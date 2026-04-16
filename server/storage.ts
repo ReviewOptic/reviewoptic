@@ -18,7 +18,7 @@ import {
   type User, type InsertUser,
 } from "@shared/schema";
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+export const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 3 });
 // Prevent stale connections (e.g. Neon serverless suspend) from crashing the server
 pool.on("error", (err) => {
   console.error("[pool] Unexpected idle client error:", err.message);

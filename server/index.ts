@@ -112,7 +112,7 @@ app.use((req, res, next) => {
 
 // Session middleware
 const PgSession = connectPgSimple(session);
-const sessionPool = new Pool({ connectionString: process.env.DATABASE_URL });
+const sessionPool = new Pool({ connectionString: process.env.DATABASE_URL, max: 2 });
 
 app.use(session({
   store: new PgSession({
