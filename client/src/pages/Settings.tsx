@@ -41,7 +41,6 @@ export default function Settings() {
   const { data: settings, isLoading } = useQuery<SettingsType>({ queryKey: ["/api/settings"] });
   const [copied, setCopied] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
-  const formRef = useRef(form);
   const isDirtyRef = useRef(false);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
@@ -105,6 +104,7 @@ export default function Settings() {
     socialPostMessage: "⭐ We just received a {stars}★ review! Thank you {customer_name}!",
     country: "",
   });
+  const formRef = useRef(form);
 
   useEffect(() => {
     if (settings) {
