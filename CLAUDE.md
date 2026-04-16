@@ -186,6 +186,22 @@ Your job is to be the developer they would hire if they could afford a great one
 
 *(Sessions 18–58 archived to CLAUDE_ARCHIVE.md)*
 
+### Session — 2026-04-16 (sixty-sixth session)
+
+**Tasks completed:**
+- **Settings page crash fixed**: `formRef = useRef(form)` was declared on line 44 before `form` was declared on line 81 — JavaScript temporal dead zone threw a ReferenceError, caught by ErrorBoundary, showing "Something went wrong." Fixed by moving `formRef` to after the `form` useState declaration.
+- **Security vulnerabilities fixed** (required to unblock Replit deployment):
+  - `server/elevenlabs.ts`: replaced `execSync` with string interpolation → `execFileSync` with args arrays (command injection fix)
+  - `server/routes.ts`: rewrote SMS STOP handler to use `ANY($1::text[])` array parameter instead of dynamic placeholder construction
+  - `client/public/widget.js`: fully rewrote using `createElement`/`appendChild`/`textContent` — no `innerHTML` anywhere
+  - `server/email.ts`: removed all customer/user email addresses from `console.log` statements (GDPR/PII compliance)
+- **Dependency updates**: all packages patched (axios, drizzle-orm, lodash, minimatch, vite, rollup etc.), npm overrides added to force patched versions for transitive deps
+- **Replit scanner deadlock**: scanner was stuck scanning old deployed version and blocking new deploy. Replit support manually cleared it.
+
+**Notes for next session:**
+- No pending code tasks
+- All copy, pricing, and security issues resolved
+
 ### Session — 2026-04-09 (sixty-fifth session)
 
 **Tasks completed:**
