@@ -22,16 +22,21 @@
       var subColor = isDark ? "#94a3b8" : "#64748b";
       var borderColor = isDark ? "#334155" : "#e2e8f0";
 
-      function escHtml(str) {
-        return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+      function el(tag, styles, attrs) {
+        var e = document.createElement(tag);
+        if (styles) e.setAttribute("style", styles);
+        if (attrs) Object.keys(attrs).forEach(function(k) { e.setAttribute(k, attrs[k]); });
+        return e;
       }
 
       function renderStars(rating) {
-        var s = "";
+        var wrap = el("span");
         for (var i = 1; i <= 5; i++) {
-          s += "<span style=\"color:" + (i <= rating ? "#f59e0b" : (isDark ? "#334155" : "#e2e8f0")) + ";font-size:16px;\">&#9733;</span>";
+          var s = el("span", "color:" + (i <= rating ? "#f59e0b" : (isDark ? "#334155" : "#e2e8f0")) + ";font-size:16px;");
+          s.textContent = "★";
+          wrap.appendChild(s);
         }
-        return s;
+        return wrap;
       }
 
       function formatDate(dateStr) {
@@ -40,54 +45,70 @@
       }
 
       function renderCard(review) {
-        return "<div style=\"background:" + cardBg + ";border:1px solid " + borderColor + ";border-radius:10px;padding:16px 18px;\">" +
-          "<div style=\"margin-bottom:6px;\">" + renderStars(review.rating) + "</div>" +
-          "<div style=\"font-size:14px;font-weight:600;color:" + textColor + ";margin-bottom:2px;\">" + escHtml(review.displayName) + "</div>" +
-          "<div style=\"font-size:12px;color:" + subColor + ";\">" + formatDate(review.createdAt) + "</div>" +
-          "</div>";
+        var card = el("div", "background:" + cardBg + ";border:1px solid " + borderColor + ";border-radius:10px;padding:16px 18px;");
+        var starsWrap = el("div", "margin-bottom:6px;");
+        starsWrap.appendChild(renderStars(review.rating));
+        card.appendChild(starsWrap);
+        var nameDiv = el("div", "font-size:14px;font-weight:600;color:" + textColor + ";margin-bottom:2px;");
+        nameDiv.textContent = review.displayName || "";
+        card.appendChild(nameDiv);
+        var dateDiv = el("div", "font-size:12px;color:" + subColor + ";");
+        dateDiv.textContent = formatDate(review.createdAt);
+        card.appendChild(dateDiv);
+        return card;
       }
 
-      var container = document.createElement("div");
-      container.setAttribute("style", "font-family:system-ui,sans-serif;");
+      function poweredBy() {
+        var p = el("div", "text-align:center;margin-top:10px;font-size:10px;color:" + subColor + ";opacity:0.6;");
+        p.textContent = "Powered by ReviewOptic";
+        return p;
+      }
+
+      var container = el("div", "font-family:system-ui,sans-serif;");
 
       if (data.layout === "carousel") {
         var cards = data.reviews;
         var current = 0;
 
-        var inner = "<div style=\"position:relative;background:" + bg + ";border:1px solid " + borderColor + ";border-radius:12px;padding:20px;\">" +
-          "<div id=\"rw-card\" style=\"min-height:90px;\">" + renderCard(cards[0]) + "</div>" +
-          "<div style=\"display:flex;align-items:center;justify-content:space-between;margin-top:14px;\">" +
-            "<button id=\"rw-prev\" style=\"background:none;border:1px solid " + borderColor + ";border-radius:6px;padding:4px 10px;cursor:pointer;color:" + subColor + ";font-size:16px;\">&#8592;</button>" +
-            "<span id=\"rw-dots\" style=\"font-size:12px;color:" + subColor + ";\">1 / " + cards.length + "</span>" +
-            "<button id=\"rw-next\" style=\"background:none;border:1px solid " + borderColor + ";border-radius:6px;padding:4px 10px;cursor:pointer;color:" + subColor + ";font-size:16px;\">&#8594;</button>" +
-          "</div>" +
-          "<div style=\"text-align:center;margin-top:10px;font-size:10px;color:" + subColor + ";opacity:0.6;\">Powered by ReviewOptic</div>" +
-          "</div>";
+        var outer = el("div", "position:relative;background:" + bg + ";border:1px solid " + borderColor + ";border-radius:12px;padding:20px;");
+        var cardEl = el("div", "min-height:90px;");
+        cardEl.setAttribute("id", "rw-card");
+        cardEl.appendChild(renderCard(cards[0]));
+        outer.appendChild(cardEl);
 
-        container.innerHTML = inner;
-        document.currentScript ? script.parentNode.insertBefore(container, script) : document.body.appendChild(container);
+        var nav = el("div", "display:flex;align-items:center;justify-content:space-between;margin-top:14px;");
+        var prevBtn = el("button", "background:none;border:1px solid " + borderColor + ";border-radius:6px;padding:4px 10px;cursor:pointer;color:" + subColor + ";font-size:16px;");
+        prevBtn.textContent = "←";
+        var dotsEl = el("span", "font-size:12px;color:" + subColor + ";");
+        dotsEl.textContent = "1 / " + cards.length;
+        var nextBtn = el("button", "background:none;border:1px solid " + borderColor + ";border-radius:6px;padding:4px 10px;cursor:pointer;color:" + subColor + ";font-size:16px;");
+        nextBtn.textContent = "→";
+        nav.appendChild(prevBtn);
+        nav.appendChild(dotsEl);
+        nav.appendChild(nextBtn);
+        outer.appendChild(nav);
+        outer.appendChild(poweredBy());
+        container.appendChild(outer);
+        script.parentNode.insertBefore(container, script);
 
-        var cardEl = container.querySelector("#rw-card");
-        var dotsEl = container.querySelector("#rw-dots");
-
-        container.querySelector("#rw-prev").addEventListener("click", function () {
+        prevBtn.addEventListener("click", function () {
           current = (current - 1 + cards.length) % cards.length;
-          cardEl.innerHTML = renderCard(cards[current]);
+          while (cardEl.firstChild) cardEl.removeChild(cardEl.firstChild);
+          cardEl.appendChild(renderCard(cards[current]));
           dotsEl.textContent = (current + 1) + " / " + cards.length;
         });
-        container.querySelector("#rw-next").addEventListener("click", function () {
+        nextBtn.addEventListener("click", function () {
           current = (current + 1) % cards.length;
-          cardEl.innerHTML = renderCard(cards[current]);
+          while (cardEl.firstChild) cardEl.removeChild(cardEl.firstChild);
+          cardEl.appendChild(renderCard(cards[current]));
           dotsEl.textContent = (current + 1) + " / " + cards.length;
         });
 
       } else {
-        // Grid layout
-        var gridStyle = "display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;";
-        var cardsHtml = data.reviews.map(renderCard).join("");
-        container.innerHTML =
-          "<div style=\"" + gridStyle + "\">" + cardsHtml + "</div>" +
-          "<div style=\"text-align:center;margin-top:10px;font-size:10px;color:" + subColor + ";opacity:0.6;\">Powered by ReviewOptic</div>";
+        var grid = el("div", "display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;");
+        data.reviews.forEach(function(review) { grid.appendChild(renderCard(review)); });
+        container.appendChild(grid);
+        container.appendChild(poweredBy());
         script.parentNode.insertBefore(container, script);
       }
     })

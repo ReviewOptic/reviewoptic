@@ -52,7 +52,7 @@ const PLATFORM_FOOTER = `
 
 export async function sendVerificationEmail(to: string, verifyUrl: string) {
   if (!process.env.RESEND_API_KEY) {
-    console.log(`[verify email] No RESEND_API_KEY. Verify link for ${to}: ${verifyUrl}`);
+    console.log("[verify email] No RESEND_API_KEY - skipping");
     return;
   }
   const tmpl = await getEmailTemplateOverride("verification");
@@ -167,11 +167,11 @@ export async function sendReviewEmail(
   template?: { subject: string; body: string } | null,
   selectedPlatforms?: { name: string; url: string }[]
 ): Promise<void> {
-  console.log(`[sendReviewEmail] called for ${customer.email}, hasKey=${!!process.env.RESEND_API_KEY}`);
+  console.log(`[sendReviewEmail] called, hasKey=${!!process.env.RESEND_API_KEY}`);
   if (!customer.email) return;
 
   if (!process.env.RESEND_API_KEY) {
-    console.log(`[review request] No RESEND_API_KEY. Would email ${customer.email}`);
+    console.log("[review request] No RESEND_API_KEY - skipping");
     return;
   }
 
@@ -214,7 +214,7 @@ export async function sendReviewEmail(
     </div>`;
   }
 
-  console.log(`[sendReviewEmail] sending to=${customer.email} subject="${subject}"`);
+  console.log(`[sendReviewEmail] sending subject="${subject}"`);
   const resend = new Resend(process.env.RESEND_API_KEY);
   const result = await resend.emails.send({
     from: customerFrom(settings),
@@ -234,7 +234,7 @@ export async function sendPreScreenEmail(
 ): Promise<void> {
   if (!customer.email) return;
   if (!process.env.RESEND_API_KEY) {
-    console.log(`[pre-screen email] No RESEND_API_KEY. Would email ${customer.email}`);
+    console.log("[pre-screen email] No RESEND_API_KEY - skipping");
     return;
   }
 
@@ -288,7 +288,7 @@ export async function sendSubscriberReviewRequestEmail(
   appUrl: string
 ): Promise<void> {
   if (!process.env.RESEND_API_KEY) {
-    console.log(`[subscriber review request] No RESEND_API_KEY. Would email ${subscriber.email}`);
+    console.log("[subscriber review request] No RESEND_API_KEY - skipping");
     return;
   }
   const { getEffectiveTemplate, renderBodyHtml } = await import("./systemEmailTemplates");
@@ -339,7 +339,7 @@ export async function sendFollowUpEmail(
 ): Promise<void> {
   if (!customer.email) return;
   if (!process.env.RESEND_API_KEY) {
-    console.log(`[follow-up email] No RESEND_API_KEY. Would email ${customer.email}`);
+    console.log("[follow-up email] No RESEND_API_KEY - skipping");
     return;
   }
 
@@ -389,12 +389,12 @@ export async function sendFollowUpEmail(
       </div>
     `,
   });
-  console.log(`[follow-up email] sent to ${customer.email}`);
+  console.log("[follow-up email] sent");
 }
 
 export async function sendPlatformReviewRequest(user: { id: string; email: string; firstName: string; companyName: string }, isFollowUp: boolean) {
   if (!process.env.RESEND_API_KEY) {
-    console.log(`[platform review request] No RESEND_API_KEY. Would email ${user.email}`);
+    console.log("[platform review request] No RESEND_API_KEY - skipping");
     return;
   }
 
@@ -456,7 +456,7 @@ export async function sendPlatformReviewRequest(user: { id: string; email: strin
       </div>
     `,
   });
-  console.log(`[platform review request] Sent to ${user.email} (followUp=${isFollowUp})`);
+  console.log(`[platform review request] sent (followUp=${isFollowUp})`);
 }
 
 export async function sendCancellationEmail(to: string, firstName: string, accessEndsDate: string, reactivateUrl: string) {
