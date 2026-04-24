@@ -2747,20 +2747,22 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const pagesData = await pagesRes.json() as { data: Array<{ access_token: string; id: string; name: string }>; error?: any };
       console.log("FB pages response:", JSON.stringify(pagesData));
       if (!pagesData.data?.length) {
-        const permsRes = await fetch(`https://graph.facebook.com/v18.0/me/permissions?access_token=${tokenData.access_token}`);
-        const permsData = await permsRes.json() as { data: Array<{ permission: string; status: string }> };
-        const granted = (permsData.data || []).filter(p => p.status === "granted").map(p => p.permission);
-        const declined = (permsData.data || []).filter(p => p.status === "declined").map(p => p.permission);
-        return res.status(400).send(`
-          <html><body style="font-family:sans-serif;max-width:560px;margin:60px auto;padding:20px">
-          <h2>No Facebook Page found</h2>
-          <p>Facebook authenticated successfully, but returned no Pages.</p>
-          <p style="margin-top:20px;font-size:13px;color:#555"><strong>Permissions granted:</strong> ${granted.join(", ") || "none"}</p>
-          <p style="font-size:13px;color:#c00"><strong>Permissions declined:</strong> ${declined.join(", ") || "none"}</p>
-          <p style="margin-top:20px">Copy everything below and send it to support:</p>
-          <textarea readonly style="width:100%;height:80px;font-size:12px;font-family:monospace;background:#f5f5f5;border:1px solid #ccc;padding:8px">pages: ${JSON.stringify(pagesData)}
-permissions: ${JSON.stringify(permsData)}</textarea>
-          <p style="margin-top:20px"><a href="/auth/facebook">Try connecting again</a></p>
+        // New Page Experience pages don't appear in /me/accounts on API v15+.
+        // Store the user token in session and ask the user to enter their Page URL directly.
+        (req.session as any).fbUserToken = tokenData.access_token;
+        return res.send(`
+          <html><body style="font-family:sans-serif;max-width:500px;margin:60px auto;padding:20px">
+          <h2>One more step</h2>
+          <p>Facebook connected, but your Page wasn't returned automatically (this happens with newer-style Facebook Pages).</p>
+          <p>Please enter your Facebook Page URL below so we can link it directly:</p>
+          <form method="POST" action="/auth/facebook/page" style="margin-top:16px">
+            <input name="pageUrl" type="text" placeholder="https://www.facebook.com/YourPageName"
+              style="width:100%;padding:8px;font-size:14px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box" required />
+            <button type="submit"
+              style="margin-top:12px;padding:10px 20px;background:#1877F2;color:#fff;border:none;border-radius:4px;font-size:14px;cursor:pointer">
+              Connect Page
+            </button>
+          </form>
           </body></html>
         `);
       }
@@ -2777,6 +2779,39 @@ permissions: ${JSON.stringify(permsData)}</textarea>
     } catch (err) {
       console.error("Facebook OAuth error:", err);
       res.status(500).send("Facebook OAuth failed. Check server logs.");
+    }
+  });
+
+  app.post("/auth/facebook/page", async (req, res) => {
+    const accountId = req.session.accountId;
+    const userToken = (req.session as any).fbUserToken;
+    if (!accountId || !userToken) return res.status(401).send("Session expired. Please <a href='/auth/facebook'>try connecting again</a>.");
+    const { pageUrl } = req.body as { pageUrl: string };
+    // Extract page identifier from URL or use as-is
+    let pageId = pageUrl.trim();
+    const match = pageId.match(/facebook\.com\/(?:profile\.php\?id=)?([^/?&#]+)/);
+    if (match) pageId = match[1];
+    try {
+      const pageRes = await fetch(`https://graph.facebook.com/v18.0/${encodeURIComponent(pageId)}?fields=access_token,id,name,instagram_business_account&access_token=${userToken}`);
+      const pageData = await pageRes.json() as { access_token?: string; id?: string; name?: string; instagram_business_account?: { id: string }; error?: any };
+      console.log("FB direct page response:", JSON.stringify(pageData));
+      if (!pageData.access_token || !pageData.id) {
+        return res.status(400).send(`
+          <html><body style="font-family:sans-serif;max-width:500px;margin:60px auto;padding:20px">
+          <h2>Couldn't connect that Page</h2>
+          <p>We couldn't get access to <strong>${pageId}</strong>. Make sure you entered the correct Page URL and that you're an admin of the Page.</p>
+          <p style="font-size:12px;color:#888">Error: ${JSON.stringify(pageData.error || pageData)}</p>
+          <p><a href="javascript:history.back()">← Try a different URL</a></p>
+          </body></html>
+        `);
+      }
+      const instagramBusinessAccountId = pageData.instagram_business_account?.id || "";
+      await storage.upsertSettings(accountId, { facebookPageAccessToken: pageData.access_token, facebookPageId: pageData.id, instagramBusinessAccountId });
+      delete (req.session as any).fbUserToken;
+      res.redirect(`${process.env.APP_URL || "https://www.reviewoptic.com"}/?tab=settings&connected=facebook`);
+    } catch (err) {
+      console.error("FB direct page error:", err);
+      res.status(500).send("Something went wrong. Please <a href='/auth/facebook'>try connecting again</a>.");
     }
   });
 
