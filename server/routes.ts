@@ -2749,9 +2749,46 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       console.log("FB pages response:", JSON.stringify(pagesData));
       if (!pagesData.data?.length) {
         // New Page Experience pages don't appear in /me/accounts on API v15+.
-        // Store the user token in session and redirect back into the app to ask for the Page URL.
-        (req.session as any).fbUserToken = tokenData.access_token;
         const appUrl = process.env.APP_URL || `https://${process.env.REPLIT_DEV_DOMAIN}` || "http://localhost:5000";
+
+        // Helper: given a page ID, fetch token + IG and save
+        const connectPageById = async (pageId: string): Promise<boolean> => {
+          try {
+            const pageRes = await fetch(`https://graph.facebook.com/v18.0/${pageId}?fields=access_token,id,name,instagram_business_account&access_token=${tokenData.access_token}`);
+            const pageData = await pageRes.json() as { access_token?: string; id?: string; instagram_business_account?: { id: string } };
+            if (!pageData.access_token || !pageData.id) return false;
+            const instagramBusinessAccountId = pageData.instagram_business_account?.id || "";
+            await storage.upsertSettings(accountId, { facebookPageAccessToken: pageData.access_token, facebookPageId: pageData.id, instagramBusinessAccountId });
+            return true;
+          } catch { return false; }
+        };
+
+        // 1. Try debug_token to extract page IDs from granular_scopes (works for New Page Experience)
+        try {
+          const appToken = `${appId}|${appSecret}`;
+          const debugRes = await fetch(`https://graph.facebook.com/v18.0/debug_token?input_token=${tokenData.access_token}&access_token=${encodeURIComponent(appToken)}`);
+          const debugData = await debugRes.json() as { data?: { granular_scopes?: Array<{ scope: string; target_ids?: string[] }> } };
+          const pageIds = (debugData.data?.granular_scopes || [])
+            .filter(s => s.target_ids?.length)
+            .flatMap(s => s.target_ids!);
+          const uniquePageIds = [...new Set(pageIds)];
+          for (const pageId of uniquePageIds) {
+            if (await connectPageById(pageId)) {
+              return res.redirect(`${appUrl}/settings?tab=social&connected=facebook`);
+            }
+          }
+        } catch { /* fall through */ }
+
+        // 2. Try previously stored page ID (silent reconnect)
+        const existingSettings = await storage.getSettings(accountId);
+        if (existingSettings?.facebookPageId) {
+          if (await connectPageById(existingSettings.facebookPageId)) {
+            return res.redirect(`${appUrl}/settings?tab=social&connected=facebook`);
+          }
+        }
+
+        // 3. Last resort — ask the user to enter their Page URL
+        (req.session as any).fbUserToken = tokenData.access_token;
         return res.redirect(`${appUrl}/settings?tab=social&fbmanual=1`);
       }
       const page = pagesData.data[0];
