@@ -186,6 +186,23 @@ Your job is to be the developer they would hire if they could afford a great one
 
 *(Sessions 18–58 archived to CLAUDE_ARCHIVE.md)*
 
+### Session — 2026-04-24 (sixty-seventh session)
+
+**Tasks completed:**
+- **No code changes** — this was a configuration and discovery session.
+- **Meta Business Verification confirmed**: Meta finally approved business verification, unblocking Facebook/Instagram and the WhatsApp path.
+- **FB/IG autoposting audited**: Feature is fully code-complete. Credentials (`FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`) were already set. Feature was hidden because `SOCIAL_ENABLED` env var was not set.
+- **WhatsApp sending audited**: Feature is fully code-complete and runs through Twilio (not Meta's direct API). Twilio credentials (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM`) were already set. Feature was hidden because `WHATSAPP_ENABLED` env var was not set.
+- **`APP_URL` fixed**: Was set to `reviewoptic.com` (missing `https://`), which would have broken the Facebook OAuth redirect. Corrected to `https://www.reviewoptic.com` in Replit Secrets.
+- **Feature flags enabled**: Added `SOCIAL_ENABLED=true` and `WHATSAPP_ENABLED=true` to Replit Secrets. App redeployed.
+
+**Notes for next session:**
+- **Test Facebook connect flow**: Go to Settings → Social and connect a Facebook page. Confirm it links the Instagram account too. Then trigger a review and check it posts to both.
+- **Switch Facebook app to Live mode**: In Meta Developer Portal → your app → switch from Development to Live. In Development mode only app admins can connect their Facebook account. Also confirm `https://www.reviewoptic.com/auth/facebook/callback` is listed under Facebook Login → Valid OAuth Redirect URIs.
+- **Test WhatsApp sending**: Send a test review request via WhatsApp from the customer detail page and confirm it arrives.
+- WhatsApp runs through Twilio — Meta App Review is not required for this to work.
+- No pending code tasks.
+
 ### Session — 2026-04-16 (sixty-sixth session)
 
 **Tasks completed:**
