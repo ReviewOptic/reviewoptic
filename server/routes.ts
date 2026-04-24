@@ -2740,10 +2740,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           code,
         }),
       });
-      const tokenData = await tokenRes.json() as { access_token: string };
-      const pagesRes = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${tokenData.access_token}`);
-      const pagesData = await pagesRes.json() as { data: Array<{ access_token: string; id: string }> };
-      if (!pagesData.data?.length) return res.status(400).send("No Facebook Pages found on this account.");
+      const tokenData = await tokenRes.json() as { access_token: string; error?: any };
+      console.log("FB token response:", JSON.stringify(tokenData));
+      if (!tokenData.access_token) return res.status(400).send(`Facebook token error: ${JSON.stringify(tokenData)}`);
+      const pagesRes = await fetch(`https://graph.facebook.com/v18.0/me/accounts?fields=id,name,access_token&access_token=${tokenData.access_token}`);
+      const pagesData = await pagesRes.json() as { data: Array<{ access_token: string; id: string; name: string }>; error?: any };
+      console.log("FB pages response:", JSON.stringify(pagesData));
+      if (!pagesData.data?.length) return res.status(400).send(`No Facebook Pages found. API response: ${JSON.stringify(pagesData)}`);
       const page = pagesData.data[0];
       // Also fetch linked Instagram Business Account
       let instagramBusinessAccountId = "";

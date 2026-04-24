@@ -186,6 +186,19 @@ Your job is to be the developer they would hire if they could afford a great one
 
 *(Sessions 18–58 archived to CLAUDE_ARCHIVE.md)*
 
+### Session — 2026-04-24 (sixty-eighth session)
+
+**Tasks completed:**
+- **Facebook OAuth redirect URI fixed**: Added `https://www.reviewoptic.com/auth/facebook/callback` to the Valid OAuth Redirect URIs in Meta Developer Portal. The connect flow now gets past the redirect error.
+- **Facebook debugging improved**: The callback now logs the raw token and pages API responses to the server console, and shows the actual Facebook API error in the browser instead of a generic message. This will make diagnosing the next issue much easier.
+- **Stale Facebook auth identified**: Facebook was reusing a previously cached authorization with incomplete permissions, causing "No Facebook Pages found." Fix: user needs to go to facebook.com → Settings → Apps and Websites → remove ReviewOptic, then reconnect fresh.
+
+**Notes for next session:**
+- **Complete Facebook connect**: User needs to remove ReviewOptic from their Facebook Apps and Websites settings first, then retry connecting from Settings → Social. The improved error message will now show the actual API response if it fails again.
+- **Switch Facebook app to Live mode**: Still needs to be done in Meta Developer Portal → your app → Development → Live. Until this is done, only the app admin can connect.
+- **Test WhatsApp sending**: Not yet tested — send a test request from a customer detail page and confirm it arrives.
+- No other pending code tasks.
+
 ### Session — 2026-04-24 (sixty-seventh session)
 
 **Tasks completed:**
