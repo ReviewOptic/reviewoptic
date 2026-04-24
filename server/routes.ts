@@ -2717,7 +2717,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       scope: "pages_manage_posts,pages_read_engagement,pages_show_list",
       state: oauthState,
       response_type: "code",
-      auth_type: "rerequest",
     });
     res.redirect(`https://www.facebook.com/v18.0/dialog/oauth?${params}`);
   });
@@ -2748,30 +2747,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const pagesData = await pagesRes.json() as { data: Array<{ access_token: string; id: string; name: string }>; error?: any };
       console.log("FB pages response:", JSON.stringify(pagesData));
       if (!pagesData.data?.length) {
-        const appId = process.env.FACEBOOK_APP_ID;
-        const retryParams = new URLSearchParams({
-          client_id: appId!,
-          redirect_uri: `${process.env.APP_URL}/auth/facebook/callback`,
-          scope: "pages_manage_posts,pages_read_engagement,pages_show_list",
-          state: oauthState,
-          response_type: "code",
-          auth_type: "rerequest",
-        });
-        const retryUrl = `/auth/facebook?retry=1`;
+        const permsRes = await fetch(`https://graph.facebook.com/v18.0/me/permissions?access_token=${tokenData.access_token}`);
+        const permsData = await permsRes.json() as { data: Array<{ permission: string; status: string }> };
+        const granted = (permsData.data || []).filter(p => p.status === "granted").map(p => p.permission);
+        const declined = (permsData.data || []).filter(p => p.status === "declined").map(p => p.permission);
         return res.status(400).send(`
-          <html><body style="font-family:sans-serif;max-width:500px;margin:60px auto;padding:20px">
+          <html><body style="font-family:sans-serif;max-width:560px;margin:60px auto;padding:20px">
           <h2>No Facebook Page found</h2>
-          <p>Your Facebook account is connected, but ReviewOptic wasn't given access to any Pages.</p>
-          <p><strong>This usually happens because during the Facebook login, there's a step asking "Which pages do you want to give access to?" — and no page was selected.</strong></p>
-          <p>To fix it:</p>
-          <ol>
-            <li>Go to <a href="https://www.facebook.com/settings?tab=applications" target="_blank">facebook.com → Settings → Apps and Websites</a></li>
-            <li>Remove <strong>ReviewOptic</strong> from the list</li>
-            <li><a href="${retryUrl}">Click here to connect again</a></li>
-            <li>When Facebook shows the screen asking which pages to give access — <strong>make sure your page is selected</strong></li>
-          </ol>
-          <p style="margin-top:30px;font-size:13px;color:#555">Copy this and send it to support:</p>
-          <textarea readonly style="width:100%;height:120px;font-size:12px;font-family:monospace;background:#f5f5f5;border:1px solid #ccc;padding:8px">${JSON.stringify(pagesData, null, 2)}</textarea>
+          <p>Facebook authenticated successfully, but returned no Pages.</p>
+          <p style="margin-top:20px;font-size:13px;color:#555"><strong>Permissions granted:</strong> ${granted.join(", ") || "none"}</p>
+          <p style="font-size:13px;color:#c00"><strong>Permissions declined:</strong> ${declined.join(", ") || "none"}</p>
+          <p style="margin-top:20px">Copy everything below and send it to support:</p>
+          <textarea readonly style="width:100%;height:80px;font-size:12px;font-family:monospace;background:#f5f5f5;border:1px solid #ccc;padding:8px">pages: ${JSON.stringify(pagesData)}
+permissions: ${JSON.stringify(permsData)}</textarea>
+          <p style="margin-top:20px"><a href="/auth/facebook">Try connecting again</a></p>
           </body></html>
         `);
       }
