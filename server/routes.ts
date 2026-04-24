@@ -2717,6 +2717,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       scope: "pages_manage_posts,pages_read_engagement,pages_show_list",
       state: oauthState,
       response_type: "code",
+      auth_type: "rerequest",
     });
     res.redirect(`https://www.facebook.com/v18.0/dialog/oauth?${params}`);
   });
@@ -2746,7 +2747,34 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const pagesRes = await fetch(`https://graph.facebook.com/v18.0/me/accounts?fields=id,name,access_token&access_token=${tokenData.access_token}`);
       const pagesData = await pagesRes.json() as { data: Array<{ access_token: string; id: string; name: string }>; error?: any };
       console.log("FB pages response:", JSON.stringify(pagesData));
-      if (!pagesData.data?.length) return res.status(400).send(`No Facebook Pages found. API response: ${JSON.stringify(pagesData)}`);
+      if (!pagesData.data?.length) {
+        const appId = process.env.FACEBOOK_APP_ID;
+        const retryParams = new URLSearchParams({
+          client_id: appId!,
+          redirect_uri: `${process.env.APP_URL}/auth/facebook/callback`,
+          scope: "pages_manage_posts,pages_read_engagement,pages_show_list",
+          state: oauthState,
+          response_type: "code",
+          auth_type: "rerequest",
+        });
+        const retryUrl = `/auth/facebook?retry=1`;
+        return res.status(400).send(`
+          <html><body style="font-family:sans-serif;max-width:500px;margin:60px auto;padding:20px">
+          <h2>No Facebook Page found</h2>
+          <p>Your Facebook account is connected, but ReviewOptic wasn't given access to any Pages.</p>
+          <p><strong>This usually happens because during the Facebook login, there's a step asking "Which pages do you want to give access to?" — and no page was selected.</strong></p>
+          <p>To fix it:</p>
+          <ol>
+            <li>Go to <a href="https://www.facebook.com/settings?tab=applications" target="_blank">facebook.com → Settings → Apps and Websites</a></li>
+            <li>Remove <strong>ReviewOptic</strong> from the list</li>
+            <li><a href="${retryUrl}">Click here to connect again</a></li>
+            <li>When Facebook shows the screen asking which pages to give access — <strong>make sure your page is selected</strong></li>
+          </ol>
+          <p style="margin-top:30px;font-size:13px;color:#555">Copy this and send it to support:</p>
+          <textarea readonly style="width:100%;height:120px;font-size:12px;font-family:monospace;background:#f5f5f5;border:1px solid #ccc;padding:8px">${JSON.stringify(pagesData, null, 2)}</textarea>
+          </body></html>
+        `);
+      }
       const page = pagesData.data[0];
       // Also fetch linked Instagram Business Account
       let instagramBusinessAccountId = "";
