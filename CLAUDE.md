@@ -186,6 +186,31 @@ Your job is to be the developer they would hire if they could afford a great one
 
 *(Sessions 18–58 archived to CLAUDE_ARCHIVE.md)*
 
+### Session — 2026-04-24 (sixty-ninth session)
+
+**Tasks completed:**
+- **Facebook "New Page Experience" connect fixed**: Root cause — Facebook API v15+ no longer returns "New Page Experience" pages via `/me/accounts`, even with all permissions granted (`pages_show_list`, `pages_manage_posts`, `pages_read_engagement` all confirmed granted). Fixed with a 3-step fallback chain in the callback:
+  1. Try `debug_token` granular_scopes to extract the page ID Facebook actually authorized (works silently, no user input)
+  2. Try previously stored `facebookPageId` for silent reconnect
+  3. Last resort: redirect to Settings → Social with inline page URL input
+- **Facebook OAuth redirect fixed**: Was redirecting to `/?tab=settings` (Dashboard) instead of `/settings?tab=social`. Fixed all OAuth redirects (Facebook, LinkedIn, fbmanual) to use `/settings?tab=social`.
+- **Instagram auto-connect fixed**: Manual page connection flow was fetching `instagram_business_account` using the user token instead of the page token — returned nothing even when IG was linked. Fixed to use page token for the IG lookup.
+- **Instagram messaging updated**: Now clearly explains that Instagram posting requires a Facebook Page connection (Meta's API requirement, not our limitation). If FB connected but no IG found, shows a direct link to Facebook's help page for linking IG to a Page.
+- **LinkedIn OAuth fixed**: Was requesting `r_organization_social` scope (requires LinkedIn Marketing Developer Platform — formal review). Changed to `openid profile w_member_social`. Also added "Sign In with LinkedIn using OpenID Connect" product to LinkedIn app. Posts now as the member's personal profile instead of a company page. Callback uses `/v2/userinfo` (OpenID) to get person ID.
+- **LinkedIn redirect URI fixed**: Added `https://www.reviewoptic.com/auth/linkedin/callback` to LinkedIn Developer Portal. Kept localhost URL alongside it.
+- **Settings page inline FB connect**: When manual URL entry is needed (last resort), user now sees a clean inline input in the Settings Social tab — no more raw HTML form page.
+
+**Architecture notes:**
+- Facebook page token flow: `debug_token?input_token={user_token}&access_token={app_id}|{app_secret}` returns `granular_scopes` with `target_ids` — these are the page IDs the user actually authorized. We iterate them and call `/{page_id}?fields=access_token,instagram_business_account` with the user token to get the page token.
+- LinkedIn: posts as `urn:li:person:{sub}` where `sub` comes from `/v2/userinfo`. Person ID stored in `linkedinOrganizationId` field (field name is legacy, value is now person ID).
+- LinkedIn tokens expire after 60 days — user will need to reconnect periodically. No expiry notification shown proactively; only show a dialog when token is actually expired (not yet implemented).
+
+**Pending:**
+- **Switch Facebook app to Live mode**: Still in Development mode in Meta Developer Portal → your app. Until switched to Live, only the app admin (you) can connect Facebook. Other users cannot connect.
+- **Test WhatsApp sending**: Still untested — send a test request from a customer detail page.
+- **Test Facebook/Instagram posting**: Connect both and trigger a 4/5-star review to confirm a card posts to both.
+- **Test LinkedIn posting**: Confirm a review card posts to your personal LinkedIn profile after connecting.
+
 ### Session — 2026-04-24 (sixty-eighth session)
 
 **Tasks completed:**

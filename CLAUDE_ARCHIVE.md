@@ -4,6 +4,64 @@ Older session logs moved here to keep CLAUDE.md under 30k chars.
 
 ---
 
+### Session — 2026-04-08 (fifty-ninth session)
+
+**Tasks completed:**
+- **Claira Edwards investigation**: Logs showed her registration POST never hit the server — she loaded the register page at 11:32 PM, then tried to submit during a server restart around 2 AM (SIGTERM). Browser showed Safari's "can't establish a secure connection" error. She was already in the DB from before (now visible via new pending registrations section). Fixed: improved network error message in register form ("Unable to reach the server — please try again").
+- **Full delete for admin-managed users**: `DELETE /api/admin/user/:userId` now also removes the user from the admin's own customer list (they were auto-added at registration). Previously left a stale customer record.
+- **Resend verification button in admin panel**: Added a blue mail icon button next to each unverified pending user. Calls `/api/auth/resend-verification` — one click to resend without the user having to re-attempt registration.
+- **Former subscribers — Customers page**: When a user cancels or deletes, they're now moved (not deleted) in the admin's customer list. Status `"subscriber_cancelled"` (amber badge) for cancellations, `"subscriber_deleted"` (grey badge) for account deletions. Deleted accounts automatically get `do_not_contact = true`; cancelled accounts only if they were `email_unsubscribed`. Both filtered out of the main Customers list and shown in a collapsible "Former subscribers" section at the bottom.
+- **Subscriber review request**: New daily job sends a 1–5 star rating email to admin's customers (ReviewOptic subscribers) who joined 30+ days ago and haven't been contacted. Creates a proper `review_request` record so the rating flow works normally. Template (`subscriber_review_request`) is editable via a new "ReviewOptic admin templates" section in the admin panel Emails tab — clearly separated from system emails and dialogue boxes. Test button included.
+- **Favicon updated**: Replaced generic orange favicon with the proper ReviewOptic icon. Resized to 256×256 PNG.
+- **Privacy Policy section 3 corrected**: Both customer-facing messages and ReviewOptic's own marketing emails now correctly state they include an unsubscribe link for opt-out.
+
+### Session — 2026-04-08 (sixtieth session)
+
+**Tasks completed:**
+- **Customer delete is now immediate and permanent**: Changed `deleteCustomer()` to hard-delete immediately. Removed 30-day purge job, `/api/customers/deleted` endpoint, and the Deleted tab.
+- **Favicon fixed**: Updated `favicon.png` in `client/public/` to the proper ReviewOptic icon.
+- **Privacy Policy section 3 corrected**: Removed incorrect "opt out by contacting us" wording.
+
+### Session — 2026-04-08 (sixty-first session)
+
+**Tasks completed:**
+- **Email verification crash fixed**: Added try/catch to verify-email route, server-side retry (800ms), pool error handler, client-side auto-retry (2s).
+- **Verification email moved to after payment**: Only sent from `billing/confirm` now.
+- **Logo fixed in emails**: Hardcoded to `https://www.reviewoptic.com/logo.png`.
+- **30-day free trial copy**: Updated across all pages.
+- **Non-www redirect middleware**: Added Express 301 redirect.
+
+### Session — 2026-04-09 (sixty-second session)
+
+**Tasks completed:**
+- **Non-www redirect DNS confirmed working**.
+- **Referral programme built**: Full implementation — `/referral/:slug`, `referral_rewarded` column, Stripe balance credits, `GET /api/referrals/stats`, Settings Referral tab updated, T&Cs section 21 added.
+- **Plan rename + price update**: "Lite" → "Standard" in UI, Pro monthly £49→£39, Pro annual £539→£429.
+
+### Session — 2026-04-09 (sixty-third session)
+
+**Tasks completed:**
+- **reviewoptic.com redirect fully live**: Deleted conflicting URL Redirect Record in Namecheap. Added correct A Record and TXT verification records.
+- **Checkout loading state added**: Spinner on "Get started"/upgrade buttons.
+- **Settings: manual Save button**: Replaced auto-save-while-typing.
+- **Admin new user notification**: Emails hello@reviewoptic.com on every new registration.
+- **Delete customer confirmation**: Confirmation dialog before delete.
+
+### Session — 2026-04-09 (sixty-fourth session)
+
+**Tasks completed:**
+- **Referral reward notification email**: Added `referral_reward` to `DEFAULT_EMAIL_TEMPLATES` with `adminOnly: true`.
+- **Login page headline fixed**: Removed "on autopilot" from headline.
+- **Login feature cards trimmed**: Cut from 10 to 6.
+- **Voice/video copy corrected**: Recordings play on landing page, not embedded in email.
+
+### Session — 2026-04-09 (sixty-fifth session)
+
+**Tasks completed:**
+- **FAQ copy accuracy fixes**: Pro annual prices corrected, trial reminder changed from "2 days" to "a few days".
+
+---
+
 ### Session — 2026-03-11
 
 **Tasks completed:**
