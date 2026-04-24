@@ -240,9 +240,10 @@ async function postReviewToSocial(review: Review, customer: Customer, settings: 
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${settings.linkedinAccessToken}`,
+          "X-Restli-Protocol-Version": "2.0.0",
         },
         body: JSON.stringify({
-          author: `urn:li:organization:${settings.linkedinOrganizationId}`,
+          author: `urn:li:person:${settings.linkedinOrganizationId}`,
           lifecycleState: "PUBLISHED",
           specificContent: {
             "com.linkedin.ugc.ShareContent": {
@@ -2813,7 +2814,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       response_type: "code",
       client_id: clientId,
       redirect_uri: `${process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000")}/auth/linkedin/callback`,
-      scope: "w_member_social,r_organization_social",
+      scope: "openid profile w_member_social",
       state: oauthState,
     });
     res.redirect(`https://www.linkedin.com/oauth/v2/authorization?${params}`);
@@ -2840,16 +2841,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }),
       });
       const tokenData = await tokenRes.json() as { access_token: string };
-      const orgsRes = await fetch("https://api.linkedin.com/v2/organizationAcls?q=roleAssignee&role=ADMINISTRATOR", {
+      const meRes = await fetch("https://api.linkedin.com/v2/userinfo", {
         headers: { Authorization: `Bearer ${tokenData.access_token}` },
       });
-      const orgsData = await orgsRes.json() as { elements: Array<{ organization: string }> };
-      let orgId = "";
-      if (orgsData.elements?.length) {
-        const urn = orgsData.elements[0].organization;
-        orgId = urn.split(":").pop() || "";
-      }
-      await storage.upsertSettings(accountId, { linkedinAccessToken: tokenData.access_token, linkedinOrganizationId: orgId });
+      const meData = await meRes.json() as { sub: string; name?: string };
+      await storage.upsertSettings(accountId, { linkedinAccessToken: tokenData.access_token, linkedinOrganizationId: meData.sub || "" });
       res.redirect(`${process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000")}/?tab=settings&connected=linkedin`);
     } catch (err) {
       console.error("LinkedIn OAuth error:", err);
