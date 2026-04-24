@@ -48,6 +48,28 @@ export default function Settings() {
   const [cropAspect, setCropAspect] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [fbManual, setFbManual] = useState(() => new URLSearchParams(window.location.search).get("fbmanual") === "1");
+  const [fbPageUrl, setFbPageUrl] = useState("");
+  const [fbPageLoading, setFbPageLoading] = useState(false);
+
+  const connectFbPage = async () => {
+    if (!fbPageUrl.trim()) return;
+    setFbPageLoading(true);
+    try {
+      const res = await apiRequest("POST", "/api/social/facebook/page", { pageUrl: fbPageUrl });
+      if (!res.ok) {
+        const data = await res.json();
+        toast({ title: "Couldn't connect Page", description: data.error, variant: "destructive" });
+      } else {
+        setFbManual(false);
+        setFbPageUrl("");
+        queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+        toast({ title: "Facebook Page connected!" });
+      }
+    } finally {
+      setFbPageLoading(false);
+    }
+  };
 
   const onCropComplete = useCallback((_: any, pixels: any) => {
     setCroppedAreaPixels(pixels);
@@ -625,37 +647,56 @@ export default function Settings() {
               </CardHeader>
               <CardContent className="space-y-5 pb-5">
                 {/* Facebook row */}
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <FaFacebook className="w-8 h-8 flex-shrink-0 text-[#1877F2]" />
-                    <div>
-                      <p className="text-[13.5px] font-medium">Facebook</p>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <FaFacebook className="w-8 h-8 flex-shrink-0 text-[#1877F2]" />
+                      <div>
+                        <p className="text-[13.5px] font-medium">Facebook</p>
+                        {settings?.facebookPageAccessToken ? (
+                          <p className="text-[12px] text-green-600 font-medium">Connected</p>
+                        ) : fbManual ? (
+                          <p className="text-[12px] text-amber-600">Enter your Page URL to finish connecting</p>
+                        ) : (
+                          <p className="text-[12px] text-muted-foreground">Not connected</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
                       {settings?.facebookPageAccessToken ? (
-                        <p className="text-[12px] text-green-600 font-medium">Connected</p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-[12px] text-destructive border-destructive/30 hover:bg-destructive/5"
+                          onClick={async () => {
+                            await fetch("/api/social/facebook", { method: "DELETE" });
+                            queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+                          }}
+                        >
+                          Disconnect
+                        </Button>
                       ) : (
-                        <p className="text-[12px] text-muted-foreground">Not connected</p>
+                        <Button variant="outline" size="sm" className="text-[12px]" onClick={() => window.location.href = "/auth/facebook"}>
+                          Connect Facebook
+                        </Button>
                       )}
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    {settings?.facebookPageAccessToken ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-[12px] text-destructive border-destructive/30 hover:bg-destructive/5"
-                        onClick={async () => {
-                          await fetch("/api/social/facebook", { method: "DELETE" });
-                          queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
-                        }}
-                      >
-                        Disconnect
+                  {fbManual && !settings?.facebookPageAccessToken && (
+                    <div className="flex gap-2 items-center pl-11">
+                      <Input
+                        value={fbPageUrl}
+                        onChange={e => setFbPageUrl(e.target.value)}
+                        placeholder="https://www.facebook.com/YourPageName"
+                        className="text-[12px] h-8"
+                        onKeyDown={e => e.key === "Enter" && connectFbPage()}
+                        autoFocus
+                      />
+                      <Button size="sm" className="text-[12px] h-8 shrink-0" onClick={connectFbPage} disabled={fbPageLoading}>
+                        {fbPageLoading ? "Connecting…" : "Connect"}
                       </Button>
-                    ) : (
-                      <Button variant="outline" size="sm" className="text-[12px]" onClick={() => window.location.href = "/auth/facebook"}>
-                        Connect Facebook
-                      </Button>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="border-t border-border" />
@@ -667,11 +708,19 @@ export default function Settings() {
                     <div>
                       <p className="text-[13.5px] font-medium">Instagram</p>
                       {(settings as any)?.instagramBusinessAccountId ? (
-                        <p className="text-[12px] text-green-600 font-medium">Connected via Facebook Page</p>
+                        <p className="text-[12px] text-green-600 font-medium">Connected</p>
                       ) : settings?.facebookPageAccessToken ? (
-                        <p className="text-[12px] text-amber-600">Facebook connected — no Instagram Business account found. Link one in Meta Business Suite.</p>
+                        <p className="text-[12px] text-amber-600">
+                          No Instagram Business account found on your Facebook Page.{" "}
+                          <a href="https://www.facebook.com/help/1148909221857370" target="_blank" rel="noopener noreferrer" className="underline">
+                            Link your Instagram account to your Page
+                          </a>
+                          {" "}then disconnect and reconnect Facebook here.
+                        </p>
                       ) : (
-                        <p className="text-[12px] text-muted-foreground">Connect Facebook first — Instagram links automatically if your Page has an Instagram Business account</p>
+                        <p className="text-[12px] text-muted-foreground">
+                          Connects automatically when you connect Facebook — Instagram's API requires a linked Facebook Page to enable posting.
+                        </p>
                       )}
                     </div>
                   </div>
