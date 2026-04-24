@@ -2752,7 +2752,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         // Store the user token in session and redirect back into the app to ask for the Page URL.
         (req.session as any).fbUserToken = tokenData.access_token;
         const appUrl = process.env.APP_URL || `https://${process.env.REPLIT_DEV_DOMAIN}` || "http://localhost:5000";
-        return res.redirect(`${appUrl}/?tab=settings&fbmanual=1`);
+        return res.redirect(`${appUrl}/settings?tab=social&fbmanual=1`);
       }
       const page = pagesData.data[0];
       // Also fetch linked Instagram Business Account
@@ -2763,7 +2763,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         instagramBusinessAccountId = igData.instagram_business_account?.id || "";
       } catch { /* optional */ }
       await storage.upsertSettings(accountId, { facebookPageAccessToken: page.access_token, facebookPageId: page.id, instagramBusinessAccountId });
-      res.redirect(`${process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000")}/?tab=settings&connected=facebook`);
+      res.redirect(`${process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000")}/settings?tab=social&connected=facebook`);
     } catch (err) {
       console.error("Facebook OAuth error:", err);
       res.status(500).send("Facebook OAuth failed. Check server logs.");
@@ -2846,7 +2846,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       });
       const meData = await meRes.json() as { sub: string; name?: string };
       await storage.upsertSettings(accountId, { linkedinAccessToken: tokenData.access_token, linkedinOrganizationId: meData.sub || "" });
-      res.redirect(`${process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000")}/?tab=settings&connected=linkedin`);
+      res.redirect(`${process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000")}/settings?tab=social&connected=linkedin`);
     } catch (err) {
       console.error("LinkedIn OAuth error:", err);
       res.status(500).send("LinkedIn OAuth failed. Check server logs.");
