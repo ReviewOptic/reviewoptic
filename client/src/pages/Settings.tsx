@@ -204,14 +204,14 @@ export default function Settings() {
   };
 
   if (isLoading) return (
-    <div className="px-6 py-7 max-w-5xl mx-auto space-y-4">
+    <div className="px-6 py-7 max-w-7xl mx-auto space-y-4">
       {[1,2,3].map(i => <Skeleton key={i} className="h-40 w-full" />)}
     </div>
   );
 
   return (
-    <div className="px-6 py-7 max-w-5xl mx-auto">
-      <div className="-mx-6 -mt-7 px-6 h-28 flex items-center justify-between mb-6 border-b" style={{ backgroundColor: "#0E679D", borderColor: "#0a527e" }}>
+    <>
+      <div className="px-6 h-28 flex items-center justify-between border-b" style={{ backgroundColor: "#0E679D", borderColor: "#0a527e" }}>
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-white">Settings</h1>
           <p className="text-[13.5px] text-white/70 mt-0.5">Configure your ReviewOptic account</p>
@@ -223,6 +223,7 @@ export default function Settings() {
           </Button>
         </div>
       </div>
+      <div className="px-6 pt-6 max-w-7xl mx-auto">
 
       <Tabs value={activeTab} onValueChange={tab => { setActiveTab(tab); navigate(`/settings?tab=${tab}`, { replace: true }); }}>
         <div className="flex flex-col gap-4 md:flex-row md:gap-6 md:items-start">
@@ -1476,6 +1477,7 @@ function IntegrationsTab() {
           </Button>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </>
   );
 }

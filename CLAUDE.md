@@ -186,6 +186,26 @@ Your job is to be the developer they would hire if they could afford a great one
 
 *(Sessions 18–65 archived to CLAUDE_ARCHIVE.md)*
 
+### Session — 2026-04-26 (seventieth session)
+
+**Tasks completed:**
+- **Header band height unified**: All 6 page headers (Dashboard, Analytics, Customers, Settings, Templates, Tutorial) and the sidebar logo box now use a fixed `h-28` (112px) height. Previously, variable padding (`pt-7 pb-5/6`) + different content amounts made each page's header a slightly different height, causing the bottom border of the header to sit above or below the white logo box on different tabs.
+- **Header bands span full width**: Each page header was inside its page's `max-w-X mx-auto` content container, causing visible gaps between the blue header band and the sidebar on narrower max-width pages (Templates `max-w-4xl`, Settings `max-w-5xl`). Fixed by extracting the header div out of the max-width container — headers now use a React fragment (`<>`) wrapping a full-width header + a separate max-width content div.
+- **Content width standardised**: All page content wrappers changed to `max-w-7xl` (was `max-w-4xl` on Templates, `max-w-5xl` on Settings/Tutorial, `max-w-6xl` on Analytics, no constraint on Dashboard). Now all tabs have consistent content width at typical desktop viewport sizes.
+- **Customers header buttons styled white**: Archived, Import, Export CSV, Download CSV Template, and Add Customer buttons in the blue header were using default/outline styles (dark text, light backgrounds). All now styled white — outline buttons use `text-white border-white/40 hover:bg-white/10`, Add Customer uses solid `bg-white text-[#0E679D]` as the primary CTA.
+- **Customers mobile restored**: When we removed `flex-col sm:flex-row sm:items-center` to simplify the header, it broke the mobile stacking layout. Fixed with `flex-col md:flex-row md:items-center md:h-28 py-5 md:py-0` so mobile stacks title above buttons, desktop is the fixed-height row.
+- **Analytics header cleaned up**: Removed separate business name text line from header (was making Analytics taller than other pages); business name now shown inline in subtitle if present.
+- **Dashboard header padding normalised**: Changed `pb-5` to `pb-6` to match all other pages.
+
+**Architecture notes:**
+- Page structure pattern (all 5 non-Dashboard pages): `<> <header full-width h-28 /> <div px-6 pt-5/6 max-w-7xl mx-auto> ...content... </div> </>`
+- Dashboard doesn't use the fragment pattern — outer wrapper has no max-width, content div has `max-w-7xl mx-auto`.
+- Sidebar logo box uses `h-28 flex items-center justify-center` — fixed height matches desktop page headers.
+- `h-28` (112px) on page headers is desktop-only concern; on mobile the sidebar is hidden so alignment doesn't matter. Customers uses `md:h-28` with `py-5` on mobile.
+
+**Pending:**
+- Same as session 69 — Facebook Live mode switch, WhatsApp test, FB/IG posting test, LinkedIn posting test.
+
 ### Session — 2026-04-24 (sixty-ninth session)
 
 **Tasks completed:**

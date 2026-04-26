@@ -284,7 +284,7 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
     .map(r => ({ ...r, customerName: customerMap[r.customerId] || "Customer" }));
 
   return (
-    <div className="max-w-6xl mx-auto" style={{ backgroundColor: "#FFFFFF", minHeight: "100%" }}>
+    <div style={{ backgroundColor: "#FFFFFF", minHeight: "100%" }}>
 
       {/* Intro welcome popup */}
       <Dialog open={showIntro}>
@@ -341,7 +341,7 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
         </div>
       </div>
 
-      <div className="px-6 py-6 space-y-6">
+      <div className="px-6 py-6 max-w-7xl mx-auto space-y-6">
 
       <OnboardingChecklist />
 

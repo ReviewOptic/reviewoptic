@@ -875,8 +875,8 @@ export default function Customers() {
   }
 
   return (
-    <div className="px-6 py-7 max-w-7xl mx-auto">
-      <div className="-mx-6 -mt-7 px-6 h-28 flex items-center justify-between gap-4 mb-6 border-b" style={{ backgroundColor: "#0E679D", borderColor: "#0a527e" }}>
+    <>
+      <div className="px-6 py-5 md:py-0 md:h-28 flex flex-col md:flex-row md:items-center justify-between gap-3 border-b" style={{ backgroundColor: "#0E679D", borderColor: "#0a527e" }}>
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-white">Customers</h1>
           <p className="text-[13.5px] text-white/70 mt-0.5">
@@ -918,6 +918,7 @@ export default function Customers() {
           )}
         </div>
       </div>
+      <div className="px-6 pt-6 max-w-7xl mx-auto">
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 mb-5">
@@ -1284,7 +1285,8 @@ export default function Customers() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </>
   );
 }
 

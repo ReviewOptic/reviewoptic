@@ -392,12 +392,12 @@ export default function Analytics() {
   ];
 
   return (
-    <div className="px-6 py-7 max-w-6xl mx-auto space-y-5">
-      {/* Header */}
-      <div className="-mx-6 -mt-7 px-6 h-28 flex flex-col justify-center mb-1 border-b" style={{ backgroundColor: "#0E679D", borderColor: "#0a527e" }}>
+    <>
+      <div className="px-6 h-28 flex flex-col justify-center border-b" style={{ backgroundColor: "#0E679D", borderColor: "#0a527e" }}>
         <h1 className="text-2xl font-bold tracking-tight text-white">Analytics</h1>
         <p className="text-[13px] text-white/70 mt-0.5">{businessName ? `${businessName} · ` : ""}Track your review request performance</p>
       </div>
+      <div className="px-6 pt-5 max-w-7xl mx-auto space-y-5">
 
       {/* Controls bar */}
       <div className="space-y-2">
@@ -962,6 +962,7 @@ export default function Analytics() {
       })()}
 
       </div>{/* end pdf export target */}
-    </div>
+      </div>
+    </>
   );
 }
