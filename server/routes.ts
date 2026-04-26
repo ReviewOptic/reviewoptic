@@ -169,15 +169,16 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
 async function postReviewToSocial(review: Review, customer: Customer, settings: Settings) {
   if (!settings.socialPostEnabled) return;
   const stars = (review as any).stars ?? (review as any).rating ?? 5;
+  const initials = customer.name.trim().split(/\s+/).map(p => p[0]?.toUpperCase() + ".").join(" ");
   const caption = settings.socialPostMessage
     .replace("{stars}", String(stars))
-    .replace("{customer_name}", customer.name);
+    .replace("{customer_name}", initials);
 
   // Generate review card image (for Facebook photo post + Instagram)
   let imageUrl = "";
   if (isCloudinaryConfigured()) {
     try {
-      const cardBuffer = await generateReviewCard(stars, customer.name, settings.businessName);
+      const cardBuffer = await generateReviewCard(stars, initials, settings.businessName);
       imageUrl = await uploadBufferToCloudinary(cardBuffer, "review-cards");
     } catch (err) {
       console.error("Review card generation error:", err);
@@ -528,6 +529,42 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.post("/api/auth/change-email", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const { email } = req.body;
+      if (!email || !email.includes("@")) return res.status(400).json({ message: "A valid email address is required." });
+      const normalised = email.trim().toLowerCase();
+
+      const existing = await storage.getUserByEmail(normalised);
+      if (existing && existing.id !== userId) return res.status(409).json({ message: "That email address is already in use." });
+
+      const newToken = randomUUID();
+      await pool.query(
+        `UPDATE users SET email = $1, email_verified = false, verification_token = $2 WHERE id = $3`,
+        [normalised, newToken, userId]
+      );
+
+      // Keep Stripe customer email in sync
+      const { rows } = await pool.query(`SELECT stripe_customer_id FROM users WHERE id = $1`, [userId]);
+      const stripeCustomerId = rows[0]?.stripe_customer_id;
+      if (stripeCustomerId) {
+        await stripe.customers.update(stripeCustomerId, { email: normalised }).catch(() => {});
+      }
+
+      const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000");
+      const verifyUrl = `${appUrl}/verify-email?token=${newToken}`;
+      await sendVerificationEmail(normalised, verifyUrl).catch(err =>
+        console.error("[change-email] Failed to send verification email:", err.message)
+      );
+
+      res.json({ success: true });
+    } catch (err) {
+      console.error("[change-email]", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
   app.post("/api/auth/resend-verification", async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ message: "Email is required" });
@@ -706,6 +743,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       next();
     }).catch(() => res.status(500).json({ message: "Server error" }));
   }
+
+  app.delete("/api/admin/reset-own-data", requireAdmin, async (req, res) => {
+    const accountId = req.session.accountId!;
+    await pool.query(`DELETE FROM review_requests WHERE account_id = $1`, [accountId]);
+    await pool.query(`DELETE FROM private_feedback WHERE account_id = $1`, [accountId]);
+    await pool.query(`DELETE FROM activity_log WHERE account_id = $1`, [accountId]);
+    await pool.query(`UPDATE customers SET status = 'pending_request' WHERE account_id = $1`, [accountId]);
+    res.json({ success: true });
+  });
 
   app.get("/api/admin/fix-templates", requireAdmin, async (req, res) => {
     await pool.query(`UPDATE templates SET body = 'Just checking in! We''d love to hear from you — tap below:' WHERE template_type = 'follow_up_1' AND channel = 'sms'`);

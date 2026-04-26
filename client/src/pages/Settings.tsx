@@ -365,7 +365,7 @@ export default function Settings() {
                     className="bg-muted cursor-not-allowed"
                     data-testid="input-business-email"
                   />
-                  <p className="text-[11.5px] text-muted-foreground">This is set from your account email and cannot be changed.</p>
+                  <ChangeEmailButton />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[12.5px]">Password</Label>
@@ -786,7 +786,7 @@ export default function Settings() {
                       placeholder="⭐ We just received a {stars}★ review! Thank you {customer_name}!"
                     />
                     <p className="text-[11.5px] text-muted-foreground">
-                      Use <code className="bg-muted px-1 rounded text-[11px]">{"{stars}"}</code> and <code className="bg-muted px-1 rounded text-[11px]">{"{customer_name}"}</code> as placeholders.
+                      Use <code className="bg-muted px-1 rounded text-[11px]">{"{stars}"}</code> and <code className="bg-muted px-1 rounded text-[11px]">{"{customer_name}"}</code> as placeholders. Customer name shows as initials only (e.g. J. S.) to protect privacy.
                     </p>
                   </div>
                 )}
@@ -1142,6 +1142,61 @@ function TeamTab() {
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function ChangeEmailButton() {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const save = async () => {
+    if (!newEmail.includes("@")) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/change-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: newEmail }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ title: "Error", description: data.message, variant: "destructive" });
+      } else {
+        toast({ title: "Verification email sent", description: `A verification link has been sent to ${newEmail}. Click it to confirm your new address.` });
+        setOpen(false);
+        setNewEmail("");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!open) {
+    return (
+      <p className="text-[11.5px] text-muted-foreground">
+        Need to correct your email?{" "}
+        <button onClick={() => setOpen(true)} className="underline text-primary">Change it here</button>
+      </p>
+    );
+  }
+
+  return (
+    <div className="flex gap-2 items-center">
+      <Input
+        type="email"
+        placeholder="Enter new email address"
+        value={newEmail}
+        onChange={e => setNewEmail(e.target.value)}
+        className="text-[13px]"
+        autoFocus
+      />
+      <Button size="sm" onClick={save} disabled={loading || !newEmail.includes("@")}>
+        {loading ? "Saving…" : "Save"}
+      </Button>
+      <Button size="sm" variant="ghost" onClick={() => { setOpen(false); setNewEmail(""); }}>Cancel</Button>
     </div>
   );
 }

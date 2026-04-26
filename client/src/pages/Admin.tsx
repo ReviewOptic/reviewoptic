@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Shield, LogIn, CheckCircle2, XCircle, Trash2, ShieldCheck, ShieldOff, Ban,
   Users, BarChart3, TrendingUp, TrendingDown, AlertTriangle, AlertCircle,
-  CheckCircle, RefreshCw, Download, Zap, Target, Activity, Printer, Mail,
+  CheckCircle, RefreshCw, Download, Zap, Target, Activity, Printer, Mail, Wrench,
 } from "lucide-react";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
@@ -95,7 +95,9 @@ export default function Admin() {
   const [, navigate] = useLocation();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
-  const [tab, setTab] = useState<"metrics" | "users" | "cancelled" | "deleted" | "emails">("metrics");
+  const [tab, setTab] = useState<"metrics" | "users" | "cancelled" | "deleted" | "emails" | "tools">("metrics");
+  const [resetConfirm, setResetConfirm] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
   const [planFilter, setPlanFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [metricsLoading, setMetricsLoading] = useState(true);
@@ -230,6 +232,7 @@ export default function Admin() {
     { id: "deleted", label: "Deleted", icon: Trash2 },
     { id: "metrics", label: "Metrics", icon: BarChart3 },
     { id: "emails", label: "Emails", icon: Zap },
+    { id: "tools", label: "Tools", icon: Wrench },
   ] as const;
 
   const alertIcon = (s: string) => s === "green" ? <CheckCircle className="w-4 h-4 text-green-500" /> : s === "red" ? <AlertCircle className="w-4 h-4 text-red-500" /> : <AlertTriangle className="w-4 h-4 text-yellow-500" />;
@@ -1099,6 +1102,33 @@ export default function Admin() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {tab === "tools" && (
+        <div className="space-y-4 p-4">
+          <div className="border border-border rounded-xl p-5 space-y-3">
+            <div>
+              <p className="text-sm font-semibold">Clear Test Data</p>
+              <p className="text-xs text-muted-foreground mt-1">Deletes all review requests, activity, and private feedback from your admin account. Your customer list is kept — only test activity is cleared.</p>
+            </div>
+            {!resetConfirm ? (
+              <Button variant="destructive" size="sm" onClick={() => setResetConfirm(true)}>Clear test data</Button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Button variant="destructive" size="sm" disabled={resetLoading} onClick={async () => {
+                  setResetLoading(true);
+                  await fetch("/api/admin/reset-own-data", { method: "DELETE", credentials: "include" });
+                  setResetLoading(false);
+                  setResetConfirm(false);
+                  queryClient.invalidateQueries();
+                }}>
+                  {resetLoading ? "Clearing…" : "Yes, clear it"}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setResetConfirm(false)}>Cancel</Button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

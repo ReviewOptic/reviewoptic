@@ -954,3 +954,70 @@ Older session logs moved here to keep CLAUDE.md under 30k chars.
 
 **Notes for next session:**
 - **Referral programme** — still the top pending code task
+
+### Session — 2026-04-09 (sixty-fifth session)
+
+**Tasks completed:**
+- **FAQ copy accuracy fixes**: Pro annual prices were stale from last session's reprice — corrected £539→£429 and £588→£468. Trial reminder changed from "2 days" to "a few days" (Stripe fires invoice.upcoming 3 days before, not 2).
+- **FAQ and Pricing page audited**: No other inaccuracies found. Pricing meta description ("follow-ups handled on autopilot") is correctly specific. All pricing, feature descriptions, and process descriptions checked as accurate.
+
+**Notes for next session:**
+- All copy and pricing is now accurate and up to date
+- No pending code tasks
+- Waiting on Meta/WhatsApp externally as before
+
+### Session — 2026-04-09 (sixty-fourth session)
+
+**Tasks completed:**
+- **Referral reward notification email added to admin templates**: `referral_reward` added to `DEFAULT_EMAIL_TEMPLATES` with `adminOnly: true` — appears in Admin → Emails → ReviewOptic admin templates. Subject/body now editable. Variables: `{{first_name}}`, `{{credit_amount}}`. `sendReferralRewardEmail` updated to use the template system via `getEffectiveTemplate`.
+- **Login page headline fixed**: Removed "on autopilot" from headline (only follow-ups are automated, not initial requests). New subheading: "Send review requests in seconds. ReviewOptic follows up automatically — so no opportunity is ever missed."
+- **Login feature cards trimmed**: Cut from 10 to 6 — kept highest-impact items (Every review grows your business, Send in seconds, Automatic follow-ups, Personal voice & video, Turn unhappy customers, AI insights).
+- **Voice/video copy corrected**: Was incorrectly saying recordings are "embedded in email" — they actually play on the review landing page when the customer clicks the link. Fixed in both Login.tsx and Features.tsx. Also removed inaccurate "record once, reuse" claim.
+
+**Architecture notes:**
+- Voice/video recordings: stored in Cloudinary, URL saved on the `review_requests` record. Played on the `/review/:id` landing page (ReviewLanding.tsx), NOT embedded in emails. The email just contains the link — the recording plays when the customer opens that link.
+- Referral reward email: uses `getEffectiveTemplate("referral_reward")` so subject/body are DB-overridable from admin panel.
+
+### Session — 2026-04-09 (sixty-third session)
+
+**Tasks completed:**
+- **reviewoptic.com redirect now fully live**: Root cause was a URL Redirect Record in Namecheap conflicting with the A Record — fixed by deleting the URL Redirect Record. Added correct A Record (34.111.179.208) and two TXT verification records for Replit domain verification.
+- **Checkout loading state added**: "Get started" / upgrade buttons on Pricing page now show a spinner while the checkout session is being created.
+- **Settings: manual Save button**: Replaced auto-save-while-typing with a Save button. Still auto-saves silently on navigate-away if required fields are filled.
+- **Admin new user notification**: Every new registration sends an email to hello@reviewoptic.com with the user's name, email, and company.
+- **Delete customer confirmation**: Clicking Delete on a customer now shows a confirmation dialog before proceeding.
+
+### Session — 2026-04-09 (sixty-second session)
+
+**Tasks completed:**
+- **Non-www redirect DNS confirmed working**: Redirect fully live via Express middleware + second custom domain in Replit.
+- **Referral programme built**: Full implementation — `/referral/:slug` route, `referred_by_account_id` DB column, `referral_rewarded` boolean, Stripe customer balance transaction for reward, `GET /api/referrals/stats` endpoint, Settings Referral tab updated with real data, T&Cs section 21 added.
+- **Plan rename + price update**: "Lite" → "Standard" in UI. Pro monthly: £49→£39. Pro annual: £539→£429. Standard unchanged: £29/month, £319/year.
+
+**Architecture notes:**
+- Referral reward: `billing/confirm` → `stripe.customers.createBalanceTransaction(referrerCustomerId, { amount: -monthlyAmount, currency: "gbp" })`. Internal DB plan_type stays `"lite"` for Standard subscribers.
+
+### Session — 2026-04-08 (sixty-first session)
+
+**Tasks completed:**
+- **Email verification crash fixed**: Added try/catch to verify-email route, server-side retry (800ms), `pool.on("error")` handler, client-side auto-retry (2s).
+- **Verification email moved to after payment**: Only sent from `billing/confirm`. Register.tsx resend button removed.
+- **Logo fixed in emails**: Hardcoded `LOGO_URL` to `https://www.reviewoptic.com/logo.png`.
+- **30-day free trial copy**: Updated from 14 days across Pricing, FAQ, T&Cs, Register page, incomplete-registration email.
+- **Non-www redirect middleware**: Added Express 301-redirect middleware.
+
+### Session — 2026-04-08 (sixtieth session)
+
+**Tasks completed:**
+- **Customer delete is now immediate and permanent**: Hard-delete instead of soft-delete. Removed 30-day purge job, deleted endpoint, Deleted tab.
+- **Favicon fixed**: Updated to proper ReviewOptic icon.
+- **Privacy Policy section 3 corrected**: Both email types now correctly state they include an unsubscribe link.
+
+### Session — 2026-04-08 (fifty-ninth session)
+
+**Tasks completed:**
+- **Claira Edwards investigation**: Network error during server restart. Improved error message in register form.
+- **Full delete for admin-managed users**: DELETE endpoint now also removes stale customer record.
+- **Resend verification button in admin panel**: Blue mail icon next to each unverified pending user.
+- **Former subscribers — Customers page**: Cancelled/deleted users moved to collapsible "Former subscribers" section with status badges.
+- **Subscriber review request**: Daily job sends rating email to admin's customers 30+ days after joining. Template editable via admin panel.
