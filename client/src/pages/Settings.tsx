@@ -211,10 +211,10 @@ export default function Settings() {
 
   return (
     <div className="px-6 py-7 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between -mx-6 -mt-7 px-6 py-5 mb-6 bg-primary/[0.07] border-b border-primary/10">
+      <div className="-mx-6 -mt-7 px-6 h-28 flex items-center justify-between mb-6 border-b" style={{ backgroundColor: "#0E679D", borderColor: "#0a527e" }}>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-          <p className="text-[13.5px] text-muted-foreground mt-0.5">Configure your ReviewOptic account</p>
+          <h1 className="text-2xl font-bold tracking-tight text-white">Settings</h1>
+          <p className="text-[13.5px] text-white/70 mt-0.5">Configure your ReviewOptic account</p>
         </div>
         <div className="flex items-center gap-2">
           {saveStatus === "saved" && <span className="text-green-600 flex items-center gap-1 text-[12.5px]"><Check className="w-3.5 h-3.5" /> Saved</span>}

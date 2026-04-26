@@ -394,10 +394,9 @@ export default function Analytics() {
   return (
     <div className="px-6 py-7 max-w-6xl mx-auto space-y-5">
       {/* Header */}
-      <div className="-mx-6 -mt-7 px-6 py-5 mb-1 bg-primary/[0.07] border-b border-primary/10">
-        <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
-        {businessName && <p className="text-[14px] font-medium mt-0.5">{businessName}</p>}
-        <p className="text-[13px] text-muted-foreground mt-0.5">Track your review request performance</p>
+      <div className="-mx-6 -mt-7 px-6 h-28 flex flex-col justify-center mb-1 border-b" style={{ backgroundColor: "#0E679D", borderColor: "#0a527e" }}>
+        <h1 className="text-2xl font-bold tracking-tight text-white">Analytics</h1>
+        <p className="text-[13px] text-white/70 mt-0.5">{businessName ? `${businessName} · ` : ""}Track your review request performance</p>
       </div>
 
       {/* Controls bar */}

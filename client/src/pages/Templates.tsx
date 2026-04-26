@@ -1157,9 +1157,9 @@ export default function Templates() {
 
   return (
     <div className="px-6 py-7 max-w-4xl mx-auto">
-      <div className="-mx-6 -mt-7 px-6 py-5 mb-6 bg-primary/[0.07] border-b border-primary/10">
-        <h1 className="text-2xl font-bold tracking-tight">Message Templates</h1>
-        <p className="text-[13.5px] text-muted-foreground mt-0.5">
+      <div className="-mx-6 -mt-7 px-6 h-28 flex flex-col justify-center mb-6 border-b" style={{ backgroundColor: "#0E679D", borderColor: "#0a527e" }}>
+        <h1 className="text-2xl font-bold tracking-tight text-white">Message Templates</h1>
+        <p className="text-[13.5px] text-white/70 mt-0.5">
           Customise the messages sent to your customers at each stage of the review journey.
         </p>
       </div>

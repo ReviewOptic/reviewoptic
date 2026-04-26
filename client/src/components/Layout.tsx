@@ -28,7 +28,11 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 }
 
 function LogoOrText() {
-  return <img src="/logo.png" alt="ReviewOptic" className="w-full max-w-[200px] h-auto object-contain" />;
+  return (
+    <div className="w-full flex items-center justify-center py-3 px-4">
+      <img src="/logo.png" alt="ReviewOptic" className="w-full max-w-[200px] h-auto object-contain" />
+    </div>
+  );
 }
 
 const navItems = [
@@ -70,11 +74,8 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
 
   return (
     <>
-      <div className="flex items-center justify-between px-5 py-5 border-b border-sidebar-border">
+      <div className="flex items-center justify-center border-b h-28" style={{ backgroundColor: "#FFFFFF", borderColor: "#d1d5db" }}>
         <LogoOrText />
-        <div className="ml-2 shrink-0">
-          <NotificationBell buttonClassName="text-white/70 hover:bg-white/10 hover:text-white" />
-        </div>
       </div>
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {navItems.filter(item => !(user?.isAdmin && item.href === "/tutorial")).map((item) => {
@@ -143,10 +144,61 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   );
 }
 
+// ─── THEME TOGGLE ────────────────────────────────────────────────────────────
+// One layout: white logo square, everything else same colour.
+// Toggle picks the colour: #0E679D (deep blue) or #64A1C2 (light blue)
+
+const COLOURS = {
+  deep: { bg: "#0E679D", sidebar: "210 84% 33%", border: "210 84% 27%", accent: "210 70% 27%" },
+  light: { bg: "#64A1C2", sidebar: "204 40% 58%", border: "204 35% 50%", accent: "204 35% 50%" },
+};
+
+function applyTheme(isLight: boolean) {
+  const c = isLight ? COLOURS.light : COLOURS.deep;
+  const root = document.documentElement;
+  root.style.setProperty("--sidebar", c.sidebar);
+  root.style.setProperty("--sidebar-border", c.border);
+  root.style.setProperty("--sidebar-accent", c.accent);
+  root.style.setProperty("--sidebar-foreground", "0 0% 100%");
+  localStorage.setItem("sidebar-colour", isLight ? "light" : "deep");
+  window.dispatchEvent(new CustomEvent("sidebar-theme-change", { detail: { isLight } }));
+}
+
+export function initTheme() {
+  applyTheme(localStorage.getItem("sidebar-colour") === "light");
+}
+
+export function useSidebarColour() {
+  const [isLight, setIsLight] = useState(() => localStorage.getItem("sidebar-colour") === "light");
+  useEffect(() => {
+    const handler = (e: Event) => setIsLight((e as CustomEvent).detail.isLight);
+    window.addEventListener("sidebar-theme-change", handler);
+    return () => window.removeEventListener("sidebar-theme-change", handler);
+  }, []);
+  return isLight ? COLOURS.light.bg : COLOURS.deep.bg;
+}
+
+function ThemeToggle() {
+  const [isLight, setIsLight] = useState(() => localStorage.getItem("sidebar-colour") === "light");
+  useEffect(() => {
+    const handler = (e: Event) => { setIsLight((e as CustomEvent).detail.isLight); };
+    window.addEventListener("sidebar-theme-change", handler);
+    return () => window.removeEventListener("sidebar-theme-change", handler);
+  }, []);
+  return (
+    <button
+      onClick={() => applyTheme(!isLight)}
+      className="w-full mt-2 flex items-center justify-center px-3 py-2 rounded-lg border border-white/30 text-[12px] font-medium text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+    >
+      🎨 Colour: {isLight ? "#64A1C2 light blue" : "#0E679D deep blue"} — switch
+    </button>
+  );
+}
+
 // ─── NOTIFICATION BELL ───────────────────────────────────────────────────────
 type Notification = { id: string; type: string; title: string; body: string; link: string; read: boolean; created_at: string };
 
-function NotificationBell({ buttonClassName }: { buttonClassName?: string } = {}) {
+export function NotificationBell({ buttonClassName }: { buttonClassName?: string } = {}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const [, navigate] = useLocation();
@@ -501,7 +553,8 @@ function MobileOverlay({ open, onClose }: { open: boolean; onClose: () => void }
     <div className="fixed inset-0 z-40 md:hidden" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50" />
       <aside
-        className="absolute left-0 top-0 bottom-0 w-64 bg-sidebar border-r border-sidebar-border z-50 flex flex-col"
+        className="absolute left-0 top-0 bottom-0 w-64 border-r z-50 flex flex-col"
+        style={{ backgroundColor: "#0E679D", borderColor: "#0a527e" }}
         onClick={e => e.stopPropagation()}
       >
         <div className="absolute top-3 right-3">
@@ -525,7 +578,7 @@ function ClassicLayout({ children }: { children: ReactNode }) {
   return (
     <ErrorBoundary>
       <div className="flex h-screen bg-background overflow-hidden">
-        <aside className="hidden md:flex flex-col w-60 bg-sidebar border-r border-sidebar-border flex-shrink-0">
+        <aside className="hidden md:flex flex-col w-60 border-r flex-shrink-0" style={{ backgroundColor: "#0E679D", borderColor: "#0a527e" }}>
           <SidebarContent />
         </aside>
         <MobileOverlay open={mobileOpen} onClose={() => setMobileOpen(false)} />

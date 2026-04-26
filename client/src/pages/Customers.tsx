@@ -876,18 +876,18 @@ export default function Customers() {
 
   return (
     <div className="px-6 py-7 max-w-7xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 -mx-6 -mt-7 px-6 py-5 mb-6 bg-primary/[0.07] border-b border-primary/10">
+      <div className="-mx-6 -mt-7 px-6 h-28 flex items-center justify-between gap-4 mb-6 border-b" style={{ backgroundColor: "#0E679D", borderColor: "#0a527e" }}>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Customers</h1>
-          <p className="text-[13.5px] text-muted-foreground mt-0.5">
+          <h1 className="text-2xl font-bold tracking-tight text-white">Customers</h1>
+          <p className="text-[13.5px] text-white/70 mt-0.5">
             {`${customers?.length || 0} total customers`}
           </p>
         </div>
         <div className="flex flex-wrap items-start gap-2">
           <Button
-            variant={showArchived ? "default" : "outline"}
+            variant="outline"
             size="sm"
-            className="gap-1.5"
+            className={showArchived ? "gap-1.5 bg-white text-[#0E679D] border-white hover:bg-white/90" : "gap-1.5 text-white border-white/40 hover:bg-white/10 bg-transparent"}
             onClick={() => setShowArchived(v => !v)}
           >
             <Archive className="w-3.5 h-3.5" />
@@ -897,20 +897,20 @@ export default function Customers() {
             <>
               <div className="flex flex-col items-center gap-1">
                 <div className="flex gap-1.5 w-full">
-                  <Button variant="outline" size="sm" className="gap-1.5 flex-1" onClick={() => setShowImport(true)} data-testid="button-import-csv">
+                  <Button variant="outline" size="sm" className="gap-1.5 flex-1 text-white border-white/40 hover:bg-white/10 hover:text-white bg-transparent" onClick={() => setShowImport(true)} data-testid="button-import-csv">
                     <Upload className="w-3.5 h-3.5" />
                     Import
                   </Button>
-                  <Button variant="outline" size="sm" className="gap-1.5 flex-1" onClick={exportCSV} disabled={!displayList.length}>
+                  <Button variant="outline" size="sm" className="gap-1.5 flex-1 text-white border-white/40 hover:bg-white/10 hover:text-white bg-transparent" onClick={exportCSV} disabled={!displayList.length}>
                     <Download className="w-3.5 h-3.5" />
                     Export
                   </Button>
                 </div>
-                <a href="/customer-import-template.csv" download className="text-[13px] text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors">
+                <a href="/customer-import-template.csv" download className="text-[13px] text-white/70 underline underline-offset-2 hover:text-white transition-colors">
                   Download CSV template
                 </a>
               </div>
-              <Button size="sm" className="gap-1.5" onClick={() => setShowAdd(true)} data-testid="button-add-customer">
+              <Button size="sm" className="gap-1.5 bg-white text-[#0E679D] hover:bg-white/90" onClick={() => setShowAdd(true)} data-testid="button-add-customer">
                 <Plus className="w-3.5 h-3.5" />
                 Add Customer
               </Button>

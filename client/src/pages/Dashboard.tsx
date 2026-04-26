@@ -19,6 +19,7 @@ import type { ActivityLog, Customer, Settings, ReviewRequest } from "@shared/sch
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { NotificationBell } from "@/components/Layout";
 
 const activityIcons: Record<string, React.ReactNode> = {
   customer_added: <Users className="w-3.5 h-3.5" />,
@@ -283,7 +284,7 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
     .map(r => ({ ...r, customerName: customerMap[r.customerId] || "Customer" }));
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto" style={{ backgroundColor: "#FFFFFF", minHeight: "100%" }}>
 
       {/* Intro welcome popup */}
       <Dialog open={showIntro}>
@@ -324,16 +325,20 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
       </Dialog>
 
       {/* Page header band */}
-      <div className="bg-primary/[0.07] border-b border-primary/10 px-6 pt-7 pb-5 flex items-start justify-between gap-4">
+      <div className="px-6 h-28 flex items-center justify-between gap-4 border-b"
+        style={{ backgroundColor: "#0E679D", borderColor: "#0a527e" }}>
         <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">
+          <h1 className="text-2xl font-bold tracking-tight text-white">
             {getGreeting()}{settings?.ownerName ? `, ${settings.ownerName.trim().split(" ")[0]}` : ""}!
           </h1>
-          <p className="text-[13.5px] text-muted-foreground mt-0.5 italic">{quote}</p>
+          <p className="text-[13.5px] mt-0.5 italic text-white/70">{quote}</p>
         </div>
-        {settings?.logoUrl && (
-          <img src={settings.logoUrl} alt="Business logo" className="hidden sm:block h-auto object-contain flex-shrink-0 max-w-[160px]" loading="lazy" />
-        )}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {settings?.logoUrl && (
+            <img src={settings.logoUrl} alt="Business logo" className="hidden sm:block h-auto object-contain max-w-[140px]" loading="lazy" />
+          )}
+          <NotificationBell buttonClassName="text-white/80 hover:bg-white/10 hover:text-white" />
+        </div>
       </div>
 
       <div className="px-6 py-6 space-y-6">

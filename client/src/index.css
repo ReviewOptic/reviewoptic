@@ -17,7 +17,7 @@
   --background: 0 0% 100%;
   --foreground: 203 40% 12%;
   --border: 73 12% 88%;
-  --card: 210 20% 98%;
+  --card: 73 18% 86%;
   --card-foreground: 203 40% 12%;
   --card-border: 73 10% 91%;
   --sidebar: 210 25% 97%;
@@ -369,3 +369,12 @@ html[data-theme="flat"] .shadcn-card {
   border: 1px solid hsl(214 15% 89%) !important;
   box-shadow: none !important;
 }
+
+/* Theme B — brand blue sidebar */
+body.theme-brand aside,
+body.theme-brand [class*="w-64"][class*="bg-sidebar"],
+body.theme-brand [class*="w-60"][class*="bg-sidebar"] {
+  background-color: #0E679D !important;
+  border-color: #0a527e !important;
+}
+body.theme-brand .bg-sidebar-accent { background-color: #0a527e !important; }

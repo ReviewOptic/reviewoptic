@@ -306,9 +306,9 @@ export default function Tutorial() {
 
   return (
     <div className="px-6 py-7 max-w-5xl mx-auto space-y-6">
-      <div className="-mx-6 -mt-7 px-6 py-5 mb-1 bg-primary/[0.07] border-b border-primary/10">
-        <h1 className="text-2xl font-bold tracking-tight">Tutorials &amp; Guides</h1>
-        <p className="text-muted-foreground text-sm mt-1">Everything you need to get the most out of ReviewOptic.</p>
+      <div className="-mx-6 -mt-7 px-6 h-28 flex flex-col justify-center mb-1 border-b" style={{ backgroundColor: "#0E679D", borderColor: "#0a527e" }}>
+        <h1 className="text-2xl font-bold tracking-tight text-white">Tutorials &amp; Guides</h1>
+        <p className="text-white/70 text-sm mt-1">Everything you need to get the most out of ReviewOptic.</p>
       </div>
 
       {/* Tabs */}
