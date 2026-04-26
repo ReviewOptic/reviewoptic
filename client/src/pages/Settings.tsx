@@ -820,7 +820,8 @@ export default function Settings() {
         </div>{/* end flex row */}
       </Tabs>
 
-    </div>
+      </div>
+    </>
   );
 }
 
@@ -1477,7 +1478,6 @@ function IntegrationsTab() {
           </Button>
         </CardContent>
       </Card>
-      </div>
-    </>
+    </div>
   );
 }
