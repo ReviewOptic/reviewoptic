@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import { useState, useEffect, useCallback, useRef } from "react";
 import Cropper from "react-easy-crop";
 import { Save, ExternalLink, Copy, Check, Globe, Bell, FileCode, Star, Share2, Upload, X, Trash2, UserPlus, Mic, Video, Gift, Zap, QrCode, Download, RefreshCw } from "lucide-react";
-import { FaFacebook, FaInstagram, FaLinkedin } from "react-icons/fa";
+import { FaFacebook, FaInstagram } from "react-icons/fa";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -729,42 +729,6 @@ export default function Settings() {
 
                 <div className="border-t border-border" />
 
-                {/* LinkedIn row */}
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <FaLinkedin className="w-8 h-8 flex-shrink-0 text-[#0A66C2]" />
-                    <div>
-                      <p className="text-[13.5px] font-medium">LinkedIn</p>
-                      {settings?.linkedinAccessToken ? (
-                        <p className="text-[12px] text-green-600 font-medium">Connected</p>
-                      ) : (
-                        <p className="text-[12px] text-muted-foreground">Not connected</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    {settings?.linkedinAccessToken ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-[12px] text-destructive border-destructive/30 hover:bg-destructive/5"
-                        onClick={async () => {
-                          await fetch("/api/social/linkedin", { method: "DELETE" });
-                          queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
-                        }}
-                      >
-                        Disconnect
-                      </Button>
-                    ) : (
-                      <Button variant="outline" size="sm" className="text-[12px]" onClick={() => window.location.href = "/auth/linkedin"}>
-                        Connect LinkedIn
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="border-t border-border" />
-
                 {/* Auto-post toggle */}
                 <div className="flex items-center justify-between">
                   <div>
@@ -1303,10 +1267,6 @@ function ReferralTab() {
               {
                 label: "X (Twitter)",
                 url: `https://twitter.com/intent/tweet?text=${encodeURIComponent(`I've been using ReviewOptic to send review requests and follow up on autopilot — really useful for any business. Check it out:`)}&url=${encodeURIComponent(referralLink)}`,
-              },
-              {
-                label: "LinkedIn",
-                url: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(referralLink)}`,
               },
               {
                 label: "Email",

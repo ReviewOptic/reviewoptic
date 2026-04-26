@@ -68,7 +68,7 @@ const FEATURES = [
     category: "Marketing & Integrations",
     items: [
       "Embeddable review widget for your website",
-      "Auto-post 4 & 5-star review cards to Facebook, Instagram & LinkedIn",
+      "Auto-post 4 & 5-star review cards to Facebook & Instagram",
       "AI chat assistant for review management advice",
       "Custom branding with your logo",
       "Logo position control (left, centre, right)",
@@ -111,7 +111,7 @@ export default function Features() {
     "Multiple named message templates per channel (email, SMS, WhatsApp)",
   ]);
   const SMS_TAGS = [!smsEnabled && "SMS", !whatsappEnabled && "WhatsApp"].filter(Boolean) as string[];
-  const SOCIAL_ITEMS = new Set(["Auto-post 4 & 5-star review cards to Facebook, Instagram & LinkedIn"]);
+  const SOCIAL_ITEMS = new Set(["Auto-post 4 & 5-star review cards to Facebook & Instagram"]);
 
   return (
     <div className="min-h-screen bg-gray-50 py-16 px-4">

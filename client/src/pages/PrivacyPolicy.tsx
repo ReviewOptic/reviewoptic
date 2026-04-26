@@ -77,7 +77,6 @@ export default function PrivacyPolicy() {
               <li><strong className="text-foreground">OpenAI</strong> — powers AI features including template generation and the AI chat assistant</li>
               <li><strong className="text-foreground">ElevenLabs</strong> — powers voice cloning to personalise audio review requests</li>
               <li><strong className="text-foreground">Meta (Facebook/Instagram)</strong> — if you connect your Facebook Page for auto-posting</li>
-              <li><strong className="text-foreground">LinkedIn</strong> — if you connect your LinkedIn account</li>
             </ul>
             <p className="text-muted-foreground leading-relaxed mt-3">
               All third-party providers are GDPR-compliant. Where required, Data Processing Agreements are in place — either entered into directly by ReviewOptic as part of our service sign-up, or governed by each provider's standard DPA terms which form part of their service agreement.

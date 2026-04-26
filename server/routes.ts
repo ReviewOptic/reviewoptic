@@ -234,31 +234,6 @@ async function postReviewToSocial(review: Review, customer: Customer, settings: 
     }
   }
 
-  if (settings.linkedinAccessToken && settings.linkedinOrganizationId) {
-    try {
-      await fetch("https://api.linkedin.com/v2/ugcPosts", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${settings.linkedinAccessToken}`,
-          "X-Restli-Protocol-Version": "2.0.0",
-        },
-        body: JSON.stringify({
-          author: `urn:li:person:${settings.linkedinOrganizationId}`,
-          lifecycleState: "PUBLISHED",
-          specificContent: {
-            "com.linkedin.ugc.ShareContent": {
-              shareCommentary: { text: caption },
-              shareMediaCategory: "NONE",
-            },
-          },
-          visibility: { "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC" },
-        }),
-      });
-    } catch (err) {
-      console.error("LinkedIn post error:", err);
-    }
-  }
 }
 
 const logoUpload = multer({
@@ -2886,58 +2861,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.delete("/api/social/facebook", requireAuth, async (req, res) => {
     await storage.upsertSettings(req.session.accountId!, { facebookPageAccessToken: "", facebookPageId: "", instagramBusinessAccountId: "" });
-    res.json({ success: true });
-  });
-
-  app.get("/auth/linkedin", requireAuth, async (req, res) => {
-    const clientId = process.env.LINKEDIN_CLIENT_ID;
-    if (!clientId) return res.status(400).send("LinkedIn Client ID not configured on the server.");
-    oauthState = randomUUID();
-    const params = new URLSearchParams({
-      response_type: "code",
-      client_id: clientId,
-      redirect_uri: `${process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000")}/auth/linkedin/callback`,
-      scope: "openid profile w_member_social",
-      state: oauthState,
-    });
-    res.redirect(`https://www.linkedin.com/oauth/v2/authorization?${params}`);
-  });
-
-  app.get("/auth/linkedin/callback", async (req, res) => {
-    const { code, state } = req.query as { code: string; state: string };
-    if (state !== oauthState) return res.status(400).send("Invalid OAuth state.");
-    const clientId = process.env.LINKEDIN_CLIENT_ID;
-    const clientSecret = process.env.LINKEDIN_CLIENT_SECRET;
-    if (!clientId || !clientSecret) return res.status(500).send("LinkedIn credentials not configured on server.");
-    const accountId = req.session.accountId;
-    if (!accountId) return res.status(401).send("Not authenticated.");
-    try {
-      const tokenRes = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          grant_type: "authorization_code",
-          code,
-          client_id: clientId,
-          client_secret: clientSecret,
-          redirect_uri: `${process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000")}/auth/linkedin/callback`,
-        }),
-      });
-      const tokenData = await tokenRes.json() as { access_token: string };
-      const meRes = await fetch("https://api.linkedin.com/v2/userinfo", {
-        headers: { Authorization: `Bearer ${tokenData.access_token}` },
-      });
-      const meData = await meRes.json() as { sub: string; name?: string };
-      await storage.upsertSettings(accountId, { linkedinAccessToken: tokenData.access_token, linkedinOrganizationId: meData.sub || "" });
-      res.redirect(`${process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000")}/settings?tab=social&connected=linkedin`);
-    } catch (err) {
-      console.error("LinkedIn OAuth error:", err);
-      res.status(500).send("LinkedIn OAuth failed. Check server logs.");
-    }
-  });
-
-  app.delete("/api/social/linkedin", requireAuth, async (req, res) => {
-    await storage.upsertSettings(req.session.accountId!, { linkedinAccessToken: "", linkedinOrganizationId: "" });
     res.json({ success: true });
   });
 

@@ -233,7 +233,7 @@ export default function TermsAndConditions() {
             <h2 className="text-lg font-semibold mb-2">17. Third-party services</h2>
             <p className="text-muted-foreground leading-relaxed">
               ReviewOptic integrates with third-party services including Stripe, Twilio, Google,
-              Facebook, Instagram, LinkedIn, OpenAI, and ElevenLabs. We have no control over these
+              Facebook, Instagram, OpenAI, and ElevenLabs. We have no control over these
               services and accept no liability for their availability, accuracy, actions, or failure.
               Your use of any third-party service is subject to that service's own terms and conditions.
               We are not responsible for any loss or damage caused by your reliance on third-party
