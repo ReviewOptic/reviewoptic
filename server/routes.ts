@@ -2736,7 +2736,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const params = new URLSearchParams({
       client_id: appId,
       redirect_uri: `${process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000")}/auth/facebook/callback`,
-      scope: "pages_manage_posts,pages_read_engagement,pages_show_list",
+      scope: "pages_manage_posts,pages_read_engagement,pages_show_list,instagram_basic,instagram_content_publish",
       state: oauthState,
       response_type: "code",
     });
