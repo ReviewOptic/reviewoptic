@@ -174,6 +174,7 @@ export default function Admin() {
     queryClient.clear(); await refreshUser(); navigate("/");
   };
   const verifyUser = async (userId: string) => { const r = await fetch(`/api/admin/verify-user/${userId}`, { method: "POST", credentials: "include" }); if (r.ok) await loadUsers(); };
+  const grantAccess = async (userId: string) => { const r = await fetch(`/api/admin/grant-access/${userId}`, { method: "POST", credentials: "include" }); if (r.ok) { await loadUsers(); await loadPendingUsers(); } };
   const toggleAdmin = async (userId: string) => { const r = await fetch(`/api/admin/toggle-admin/${userId}`, { method: "POST", credentials: "include" }); if (r.ok) await loadUsers(); };
   const toggleSuspend = async (userId: string) => { const r = await fetch(`/api/admin/toggle-suspend/${userId}`, { method: "POST", credentials: "include" }); if (r.ok) await loadUsers(); };
   const deleteUser = async (userId: string) => { const r = await fetch(`/api/admin/user/${userId}`, { method: "DELETE", credentials: "include" }); if (r.ok) { setConfirmDelete(null); await loadUsers(); await loadPendingUsers(); } };
@@ -1033,6 +1034,7 @@ export default function Admin() {
                     <td className="px-3 py-3">
                       <div className="flex items-center gap-1.5 justify-end">
                         {!u.emailVerified && <Button size="sm" variant="outline" onClick={() => verifyUser(u.id)} title="Verify email"><CheckCircle2 className="w-3.5 h-3.5" /></Button>}
+                        {!u.isAdmin && u.planType === "free" && <Button size="sm" variant="outline" onClick={() => grantAccess(u.id)} title="Grant full access (bypass payment)" className="border-green-400 text-green-700 hover:bg-green-50"><ShieldCheck className="w-3.5 h-3.5" /></Button>}
                         {u.id !== user?.id && !u.isAdmin && <Button size="sm" variant="outline" onClick={() => toggleSuspend(u.id)} title={u.isSuspended ? "Unsuspend account" : "Suspend account"} className={u.isSuspended ? "border-orange-400 text-orange-600" : ""}><Ban className="w-3.5 h-3.5" /></Button>}
                         {u.id !== user?.id && <Button size="sm" variant="outline" onClick={() => toggleAdmin(u.id)} title={u.isAdmin ? "Remove admin" : "Make admin"}>{u.isAdmin ? <ShieldOff className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}</Button>}
                         {u.id !== user?.id && <Button size="sm" variant="outline" onClick={() => impersonate(u.id)} title="Impersonate"><LogIn className="w-3.5 h-3.5" /></Button>}

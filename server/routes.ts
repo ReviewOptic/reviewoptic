@@ -792,6 +792,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ success: true });
   });
 
+  app.post("/api/admin/grant-access/:userId", requireAdmin, async (req, res) => {
+    const target = await storage.getUser(String(req.params.userId));
+    if (!target) return res.status(404).json({ message: "User not found" });
+    if (target.isAdmin) return res.status(400).json({ message: "Cannot modify an admin account" });
+    await pool.query(
+      `UPDATE users SET plan_type = 'standard', plan_period = 'monthly', email_verified = true, verification_token = NULL WHERE id = $1`,
+      [req.params.userId]
+    );
+    res.json({ success: true });
+  });
+
   app.delete("/api/admin/user/:userId", requireAdmin, async (req, res) => {
     const target = await storage.getUser(String(req.params.userId));
     if (!target) return res.status(404).json({ message: "User not found" });
