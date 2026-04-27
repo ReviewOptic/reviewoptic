@@ -91,49 +91,30 @@ function PlanCancelled() {
   );
 }
 
-function RootRoute() {
-  const { user, loading } = useAuth();
-  if (loading) return <PageLoader />;
-  if (!user) return <Home />;
-  if (user.requiresPayment) return null;
-  if (user.isSuspended) return <AccountSuspended />;
-  return (
-    <Layout>
-      <Dashboard />
-    </Layout>
-  );
-}
-
 function ProtectedRoutes() {
   const { user, loading } = useAuth();
   const [location, navigate] = useLocation();
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!loading && !user && location !== "/") {
       navigate("/login");
     } else if (!loading && user && user.requiresPayment) {
       navigate("/pricing");
     }
-  }, [user, loading]);
+  }, [user, loading, location]);
 
-  if (loading) {
-    return <PageLoader />;
-  }
+  if (loading) return <PageLoader />;
 
-  if (user?.isSuspended) {
-    return <AccountSuspended />;
-  }
+  if (location === "/" && !user) return <Home />;
 
-  if (!user || user.requiresPayment) {
-    return null;
-  }
+  if (user?.isSuspended) return <AccountSuspended />;
 
-  // Cancelled plan — full access to browse but the banner blocks sending
-  // (blocking at API level in requireAuth)
+  if (!user || user.requiresPayment) return null;
 
   return (
     <Layout>
       <Switch>
+        <Route path="/" component={Dashboard} />
         <Route path="/customers/:id" component={CustomerDetail} />
         <Route path="/customers" component={Customers} />
         <Route path="/templates" component={Templates} />
@@ -152,7 +133,6 @@ function ProtectedRoutes() {
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={RootRoute} />
       <Route path="/review-landing" component={ReviewLanding} />
       <Route path="/review" component={ReviewLanding} />
       <Route path="/privacy" component={PrivacyPolicy} />
