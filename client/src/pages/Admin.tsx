@@ -1087,6 +1087,7 @@ export default function Admin() {
                                 <Mail className="w-3.5 h-3.5 text-blue-500" />
                               </Button>
                             )}
+                            <Button size="sm" variant="outline" onClick={() => grantAccess(u.id)} title="Grant full access (bypass payment)" className="border-green-400 text-green-700 hover:bg-green-50"><ShieldCheck className="w-3.5 h-3.5" /></Button>
                             {confirmDelete === u.id ? (
                               <div className="flex items-center gap-1">
                                 <Button size="sm" variant="destructive" onClick={() => deleteUser(u.id)}>Confirm</Button>
