@@ -447,10 +447,10 @@ export default function Analytics() {
         </div>
         {/* Row 3: custom date inputs */}
         {period === "custom" && (
-          <div className="flex items-center gap-2">
-            <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="h-7 text-[11px] w-36 shrink-0" />
-            <span className="text-[11px] text-muted-foreground shrink-0">–</span>
-            <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="h-7 text-[11px] w-36 shrink-0" />
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+            <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="h-7 text-[11px] w-full sm:w-36" />
+            <span className="text-[11px] text-muted-foreground hidden sm:inline">–</span>
+            <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="h-7 text-[11px] w-full sm:w-36" />
           </div>
         )}
       </div>

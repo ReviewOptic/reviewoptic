@@ -1171,7 +1171,7 @@ export default function Templates() {
         </div>
       ) : (
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <div className="flex flex-nowrap overflow-x-hidden gap-0.5 mb-5 border-b border-border pb-3">
+          <div className="flex flex-nowrap overflow-x-auto no-scrollbar gap-0.5 mb-5 border-b border-border pb-3">
             {([
               { value: "ratings",    icon: <Star className="w-3.5 h-3.5" />,                          label: "Ratings" },
               { value: "email",      icon: <Mail className="w-3.5 h-3.5" />,                          label: "Email" },

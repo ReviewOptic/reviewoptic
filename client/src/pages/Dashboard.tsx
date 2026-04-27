@@ -414,7 +414,7 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
           ...(!user?.isAdmin && user?.role !== "member" ? [{ label: "Billing", icon: CreditCard, path: "/billing" }] : []),
         ];
         return (
-          <div className="grid sm:hidden gap-1.5" style={{ gridTemplateColumns: `repeat(${links.length}, 1fr)` }}>
+          <div className="grid grid-cols-3 sm:hidden gap-1.5">
             {links.map(link => (
               <button
                 key={link.path}

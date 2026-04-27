@@ -398,7 +398,7 @@ export default function Settings() {
               <div className="space-y-1.5">
                 <Label className="text-[12.5px]">Default Send Channel</Label>
                 <Select value={form.defaultChannel} onValueChange={v => setForm(f => ({ ...f, defaultChannel: v }))}>
-                  <SelectTrigger className="w-48" data-testid="select-default-channel">
+                  <SelectTrigger className="w-full sm:w-48" data-testid="select-default-channel">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -574,7 +574,7 @@ export default function Settings() {
               </p>
 
               {/* Config controls */}
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-[12.5px]">Minimum stars</Label>
                   <select
