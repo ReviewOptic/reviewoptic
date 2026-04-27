@@ -254,7 +254,6 @@ Your job is to be the developer they would hire if they could afford a great one
 **Pending (carried forward):**
 - Retry Meta verification for WhatsApp number (2-hour lockout expires ~20:50 BST 2026-04-27)
 - Retry screencast upload for Facebook App Review submission
-- Test LinkedIn posting end-to-end
 
 ### Session — 2026-04-24 (sixty-eighth session)
 
