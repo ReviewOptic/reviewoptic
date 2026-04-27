@@ -231,6 +231,31 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Test Facebook/Instagram posting**: Connect both and trigger a 4/5-star review to confirm a card posts to both.
 - **Test LinkedIn posting**: Confirm a review card posts to your personal LinkedIn profile after connecting.
 
+### Session — 2026-04-27 (seventy-first session)
+
+**Tasks completed:**
+- **Instagram permissions added to Facebook OAuth scope**: `instagram_basic` and `instagram_content_publish` were missing from the Facebook OAuth scope in `server/routes.ts`. Without these, the page token didn't have Instagram permissions even when an IG account was linked. Added both to the scope — users connecting Facebook are now prompted to grant Instagram permissions too. After reconnecting, Instagram auto-posts started working correctly.
+- **Facebook App Review submission prepared**: Walked through the full Meta App Review submission — identified correct permissions (`pages_show_list`, `pages_manage_posts`, `pages_read_engagement`, `instagram_basic`, `instagram_business_basic`, `instagram_content_publish`, `public_profile`), removed incorrect ones (`business_management`, `pages_manage_engagement`), wrote all usage descriptions for each permission.
+- **Facebook app confirmed already Live**: App was already in Live mode — not Development mode as previously assumed. The "Feature Unavailable" error for other users was due to missing OAuth redirect URI and unsubmitted App Review permissions, not Development mode.
+- **WhatsApp `TWILIO_WHATSAPP_FROM` secret fixed**: Secret had an invisible LRM Unicode character before the `+` sign, causing Twilio to reject the sender as invalid. Also clarified the secret should be just the number (`+447863750348`) without `whatsapp:` prefix — the code adds that itself.
+
+**WhatsApp status — BLOCKED on Meta verification:**
+- `+447863750348` was missing from Meta WhatsApp Manager (WABA) — user re-added it this session
+- Meta sent a verification code to the number but it wasn't received in time — now in a 2-hour lockout before retry
+- **Next session: retry Meta verification for `+447863750348`** — choose SMS when prompted, enter the code, then test WhatsApp sending from ReviewOptic
+- Do NOT delete the WhatsApp sender in Twilio — that triggers a 2-5 day re-approval wait
+
+**Facebook/Instagram App Review status — BLOCKED on screencast upload:**
+- All permission descriptions written and submitted
+- Meta's screencast upload tool kept throwing errors (known flakiness issue)
+- **Next session: retry uploading screencasts** — same files, just Meta's uploader being unreliable
+- Screencast needed: one video showing FB connect flow + post appearing on both Facebook and Instagram
+
+**Pending (carried forward):**
+- Retry Meta verification for WhatsApp number (2-hour lockout expires ~20:50 BST 2026-04-27)
+- Retry screencast upload for Facebook App Review submission
+- Test LinkedIn posting end-to-end
+
 ### Session — 2026-04-24 (sixty-eighth session)
 
 **Tasks completed:**
