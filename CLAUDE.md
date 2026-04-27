@@ -231,6 +231,32 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Test Facebook/Instagram posting**: Connect both and trigger a 4/5-star review to confirm a card posts to both.
 - **Test LinkedIn posting**: Confirm a review card posts to your personal LinkedIn profile after connecting.
 
+### Session — 2026-04-27 (seventy-second session)
+
+**Tasks completed:**
+- **Facebook App Review — data handling questions answered**: Walked through all Meta App Review data handling questions. Answers: Yes to data processors (Replit, Inc. — cloud hosting/infrastructure, United States); data controller = ReviewOptic Limited; No to national security data sharing; None of the above for public authority request policies.
+- **Meta reviewer test account created**: Added `POST /api/admin/grant-access/:userId` endpoint that sets `plan_type = 'standard'`, `email_verified = true`, bypassing Stripe — for creating test accounts for Meta reviewers. Added green shield button in admin panel pending users section. Test account: `meta-reviewer@reviewoptic.com` / `met@rev!ewer` (already unlocked).
+- **Facebook App Review — reviewer instructions written**: Full instructions covering login, Facebook connect flow via Settings → Social, and how to trigger a review card post to FB + Instagram.
+- **Facebook App Review — submitted but waiting**: All questions answered, screencasts uploaded (Meta's uploader was flaky last session but worked this session). Instagram API test calls showing "not tested" — Meta says data can take 24 hours to register. **Next session: check if Instagram test calls have registered, then submit.**
+- **Mobile layout fixes across 5 pages**:
+  - Dashboard: quick links grid was `repeat(N, 1fr)` (5-6 icons in one row) → fixed to `grid-cols-3`
+  - Settings: widget config `grid-cols-3` → `grid-cols-1 sm:grid-cols-3`; default channel select `w-48` → `w-full sm:w-48`
+  - Templates: tab bar `overflow-x-hidden` → `overflow-x-auto no-scrollbar` (tabs were being cut off)
+  - Analytics: custom date inputs stacked vertically on mobile (`flex-col sm:flex-row`)
+- **New landing page built** (`client/src/pages/Home.tsx`): Full marketing landing page at `reviewoptic.com` with sticky nav bar (logo, Features/How It Works/Pricing/FAQ links, Sign In + Start Free Trial buttons, mobile hamburger menu), hero section, The Problem, How It Works (3 steps), Features grid (9 cards), Pricing (Standard £29/Pro £39), FAQ accordion, footer CTA, footer links. Two video placeholders for future video content.
+- **Landing page routing fixed**: Initial approach of adding `"/"` first in Wouter Switch broke all routes (Wouter matches "/" as prefix of everything). Fixed by handling it inside `ProtectedRoutes` — logged-out users at "/" see Home, logged-in users see Dashboard. No existing `navigate("/")` calls needed changing.
+- **Landing page crash fixed**: `useEffect` import accidentally removed from Home.tsx when cleaning up auth code — caused blank screen with `ReferenceError: useEffect is not defined`.
+
+**Architecture notes:**
+- Landing page routing: `ProtectedRoutes` checks `location === "/" && !user` → renders `<Home />`. All other auth logic unchanged.
+- Admin grant-access endpoint: `POST /api/admin/grant-access/:userId` — sets plan to standard + verifies email. Button shows in pending users section (green shield icon). Safe — blocks admin accounts.
+- Landing page is self-contained in `Home.tsx` with no external dependencies beyond existing hooks. Video placeholders use `<Video />` icon from lucide — swap for `<video>` tags when ready.
+
+**Pending:**
+- **WhatsApp**: Retry Meta verification for `+447863750348` — lockout from session 71 has expired, should be able to retry now. Once verified, test WhatsApp sending from a customer detail page.
+- **Facebook App Review**: Check if Instagram API test calls have registered (can take 24 hours), then submit the review.
+- **Landing page**: Content and design review — user to check on desktop and mobile and flag any copy/layout changes needed. Video slots ready to drop real videos in.
+
 ### Session — 2026-04-27 (seventy-first session)
 
 **Tasks completed:**
