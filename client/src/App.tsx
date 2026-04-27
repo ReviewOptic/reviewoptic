@@ -34,6 +34,7 @@ const Billing = lazy(() => import("@/pages/Billing"));
 const Tutorial = lazy(() => import("@/pages/Tutorial"));
 const FAQ = lazy(() => import("@/pages/FAQ"));
 const Scan = lazy(() => import("@/pages/Scan"));
+const Home = lazy(() => import("@/pages/Home"));
 
 function PageLoader() {
   return (
@@ -139,6 +140,7 @@ function ProtectedRoutes() {
 function Router() {
   return (
     <Switch>
+      <Route path="/home" component={Home} />
       <Route path="/review-landing" component={ReviewLanding} />
       <Route path="/review" component={ReviewLanding} />
       <Route path="/privacy" component={PrivacyPolicy} />
