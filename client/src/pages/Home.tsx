@@ -1,6 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
-import { useAuth } from "@/hooks/use-auth";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import {
   Star, Send, BarChart2, MessageSquare, Mail, Smartphone,
@@ -115,15 +114,10 @@ export default function Home() {
     "/"
   );
 
-  const { user } = useAuth();
   const [, navigate] = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    if (user) navigate("/");
-  }, [user]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);

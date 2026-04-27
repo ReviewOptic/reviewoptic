@@ -91,6 +91,19 @@ function PlanCancelled() {
   );
 }
 
+function RootRoute() {
+  const { user, loading } = useAuth();
+  if (loading) return <PageLoader />;
+  if (!user) return <Home />;
+  if (user.requiresPayment) return null;
+  if (user.isSuspended) return <AccountSuspended />;
+  return (
+    <Layout>
+      <Dashboard />
+    </Layout>
+  );
+}
+
 function ProtectedRoutes() {
   const { user, loading } = useAuth();
   const [location, navigate] = useLocation();
@@ -121,7 +134,6 @@ function ProtectedRoutes() {
   return (
     <Layout>
       <Switch>
-        <Route path="/" component={Dashboard} />
         <Route path="/customers/:id" component={CustomerDetail} />
         <Route path="/customers" component={Customers} />
         <Route path="/templates" component={Templates} />
@@ -140,7 +152,7 @@ function ProtectedRoutes() {
 function Router() {
   return (
     <Switch>
-      <Route path="/home" component={Home} />
+      <Route path="/" component={RootRoute} />
       <Route path="/review-landing" component={ReviewLanding} />
       <Route path="/review" component={ReviewLanding} />
       <Route path="/privacy" component={PrivacyPolicy} />
