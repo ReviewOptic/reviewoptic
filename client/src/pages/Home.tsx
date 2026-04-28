@@ -133,7 +133,7 @@ export default function Home() {
       <nav className={`fixed top-0 left-0 right-0 z-50 bg-white transition-all duration-200 ${scrolled ? "shadow-sm border-b border-gray-100" : ""}`}>
         <div className="max-w-6xl mx-auto px-5 flex items-stretch relative">
           {/* Page links — absolutely centred across full nav width */}
-          <div className="hidden md:flex absolute bottom-0 left-0 right-0 items-center justify-center gap-7 h-10 pointer-events-none">
+          <div className="hidden md:flex absolute bottom-0 left-1/2 -translate-x-1/2 items-center gap-7 h-10 pointer-events-none whitespace-nowrap">
             {NAV_LINKS.map(l => (
               <button key={l.label} onClick={() => scrollTo(l.href.slice(1))} className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors pointer-events-auto">
                 {l.label}
