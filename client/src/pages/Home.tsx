@@ -131,39 +131,27 @@ export default function Home() {
 
       {/* ── NAV ── */}
       <nav className={`fixed top-0 left-0 right-0 z-50 bg-white transition-all duration-200 ${scrolled ? "shadow-sm border-b border-gray-100" : ""}`}>
-        {/* Desktop nav — CSS grid: logo spans both rows, links truly centred */}
-        <div className="hidden md:grid max-w-6xl mx-auto px-5" style={{ gridTemplateColumns: 'auto 1fr auto', gridTemplateRows: '56px 40px' }}>
-          {/* Logo — spans both rows */}
-          <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="flex items-center pr-8" style={{ gridRow: '1 / 3', gridColumn: '1' }}>
-            <img src="/logo.png" alt="ReviewOptic" className="h-20 w-auto object-contain" />
+        <div className="max-w-6xl mx-auto px-5 h-20 flex items-center justify-between">
+          {/* Logo */}
+          <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
+            <img src="/logo.png" alt="ReviewOptic" className="h-14 w-auto object-contain" />
           </button>
-          {/* Top centre — empty, just carries the border */}
-          <div className="border-b border-gray-100" style={{ gridRow: '1', gridColumn: '2' }} />
-          {/* Right — CTAs + socials, spans both rows */}
-          <div className="flex items-center justify-end gap-3" style={{ gridRow: '1 / 3', gridColumn: '3' }}>
-            <button onClick={() => navigate("/login")} className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors px-3 py-1">Sign In</button>
-            <button onClick={() => navigate("/register")} className="text-sm font-semibold text-white px-4 py-1.5 rounded-lg transition-opacity hover:opacity-90" style={{ backgroundColor: PRIMARY }}>Start Free Trial</button>
-            <div className="w-px h-5 bg-gray-200 mx-1" />
-            <a href="https://www.instagram.com/reviewopticapp/" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-700 transition-colors p-1"><FaInstagram size={16} /></a>
-            <a href="https://www.linkedin.com/company/reviewoptic" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-700 transition-colors p-1"><FaLinkedin size={16} /></a>
-            <a href="https://www.facebook.com/reviewopticapp/" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-700 transition-colors p-1"><FaFacebook size={16} /></a>
-          </div>
-          {/* Bottom centre — page links, truly centred */}
-          <div className="flex items-center justify-center gap-7" style={{ gridRow: '2', gridColumn: '2' }}>
+
+          {/* Centre links — desktop only */}
+          <div className="hidden md:flex items-center gap-7">
             {NAV_LINKS.map(l => (
               <button key={l.label} onClick={() => scrollTo(l.href.slice(1))} className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors">{l.label}</button>
             ))}
           </div>
-        </div>
 
-        {/* Mobile nav */}
-        <div className="md:hidden max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
-          <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
-            <img src="/logo.png" alt="ReviewOptic" className="h-12 w-auto object-contain" />
-          </button>
-          <button className="p-2 text-gray-600" onClick={() => setMenuOpen(o => !o)}>
-            {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
+          {/* Right — CTAs + mobile hamburger */}
+          <div className="flex items-center gap-3">
+            <button onClick={() => navigate("/login")} className="hidden md:block text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors px-3 py-1.5">Sign In</button>
+            <button onClick={() => navigate("/register")} className="hidden md:block text-sm font-semibold text-white px-4 py-2 rounded-lg transition-opacity hover:opacity-90" style={{ backgroundColor: PRIMARY }}>Start Free Trial</button>
+            <button className="md:hidden p-2 text-gray-600" onClick={() => setMenuOpen(o => !o)}>
+              {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
         </div>
 
         {/* Mobile menu */}
@@ -184,7 +172,7 @@ export default function Home() {
       </nav>
 
       {/* ── HERO ── */}
-      <section className="pt-48 pb-24 px-5 text-white text-center" style={{ backgroundColor: PRIMARY }}>
+      <section className="pt-36 pb-24 px-5 text-white text-center" style={{ backgroundColor: PRIMARY }}>
         <div className="max-w-4xl mx-auto">
           <div className="inline-flex items-center gap-2 bg-white/15 border border-white/25 rounded-full px-4 py-1.5 text-sm font-medium mb-6">
             <Star className="w-3.5 h-3.5 fill-white" />
