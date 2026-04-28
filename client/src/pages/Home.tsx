@@ -185,8 +185,8 @@ export default function Home() {
             <Star className="w-3.5 h-3.5 fill-white" />
             30-day free trial — cancel anytime
           </div>
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-tight tracking-tight mb-6">
-            Most Businesses Have Happy Customers.<br className="hidden sm:block" /> Few Have the Reviews to Prove It.
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold leading-snug tracking-tight mb-6">
+            Most Businesses Have Happy Customers.<br /> Few Have the Reviews to Prove It.
           </h1>
           <p className="text-lg sm:text-xl text-white/85 leading-relaxed max-w-2xl mx-auto mb-10">
             ReviewOptic makes it effortless to ask — so the reviews actually come in. Email, SMS, WhatsApp. Automatic follow-ups. AI-powered messages. All on autopilot.
