@@ -363,15 +363,14 @@ export default function Home() {
 
       {/* ── FOOTER ── */}
       <footer className="bg-gray-900 text-gray-400 py-10 px-5">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
-          <a href="mailto:hello@reviewoptic.com" className="text-gray-400 hover:text-white transition-colors">hello@reviewoptic.com</a>
+        <div className="max-w-6xl mx-auto text-sm text-center space-y-3">
           <div className="flex flex-wrap justify-center gap-5">
             <button onClick={() => navigate("/privacy")} className="hover:text-white transition-colors">Privacy Policy</button>
             <button onClick={() => navigate("/terms")} className="hover:text-white transition-colors">Terms & Conditions</button>
             <button onClick={() => navigate("/pricing")} className="hover:text-white transition-colors">Pricing</button>
             <button onClick={() => navigate("/faq")} className="hover:text-white transition-colors">FAQ</button>
           </div>
-          <p>© {new Date().getFullYear()} ReviewOptic Limited</p>
+          <p>© {new Date().getFullYear()} ReviewOptic Limited &nbsp;·&nbsp; <a href="mailto:hello@reviewoptic.com" className="hover:text-white transition-colors">hello@reviewoptic.com</a></p>
         </div>
       </footer>
 
