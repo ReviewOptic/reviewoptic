@@ -134,7 +134,7 @@ export default function Home() {
         <div className="relative max-w-6xl mx-auto px-5 flex flex-col">
 
           {/* Top row: logo + CTAs + socials */}
-          <div className="flex items-center justify-between py-3">
+          <div className="flex items-center justify-between pt-2 pb-3 border-b border-gray-100">
             <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="flex items-center">
               <img src="/logo.png" alt="ReviewOptic" className="h-20 w-auto object-contain" />
             </button>
