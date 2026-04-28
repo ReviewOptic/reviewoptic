@@ -179,7 +179,7 @@ export default function Home() {
       </nav>
 
       {/* ── HERO ── */}
-      <section className="pt-32 pb-24 px-5 text-white text-center" style={{ backgroundColor: PRIMARY }}>
+      <section className="pt-44 pb-24 px-5 text-white text-center" style={{ backgroundColor: PRIMARY }}>
         <div className="max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-2 bg-white/15 border border-white/25 rounded-full px-4 py-1.5 text-sm font-medium mb-6">
             <Star className="w-3.5 h-3.5 fill-white" />
