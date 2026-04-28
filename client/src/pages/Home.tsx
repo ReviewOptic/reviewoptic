@@ -139,8 +139,8 @@ export default function Home() {
           </button>
           {/* Top centre — empty, just carries the border */}
           <div className="border-b border-gray-100" style={{ gridRow: '1', gridColumn: '2' }} />
-          {/* Top right — CTAs + socials */}
-          <div className="flex items-center justify-end gap-3 border-b border-gray-100" style={{ gridRow: '1', gridColumn: '3' }}>
+          {/* Right — CTAs + socials, spans both rows */}
+          <div className="flex items-center justify-end gap-3" style={{ gridRow: '1 / 3', gridColumn: '3' }}>
             <button onClick={() => navigate("/login")} className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors px-3 py-1">Sign In</button>
             <button onClick={() => navigate("/register")} className="text-sm font-semibold text-white px-4 py-1.5 rounded-lg transition-opacity hover:opacity-90" style={{ backgroundColor: PRIMARY }}>Start Free Trial</button>
             <div className="w-px h-5 bg-gray-200 mx-1" />
@@ -154,8 +154,6 @@ export default function Home() {
               <button key={l.label} onClick={() => scrollTo(l.href.slice(1))} className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors">{l.label}</button>
             ))}
           </div>
-          {/* Bottom right — empty */}
-          <div style={{ gridRow: '2', gridColumn: '3' }} />
         </div>
 
         {/* Mobile nav */}
