@@ -185,7 +185,7 @@ export default function Home() {
             <Star className="w-3.5 h-3.5 fill-white" />
             30-day free trial — cancel anytime
           </div>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black leading-snug tracking-tight mb-6 drop-shadow-md">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black leading-snug tracking-tight mb-8 drop-shadow-md">
             Most Businesses Have Happy Customers.<br /> Few Have the Reviews to Prove It.
           </h1>
           <p className="text-lg sm:text-xl text-white/85 leading-relaxed max-w-2xl mx-auto mb-10">
