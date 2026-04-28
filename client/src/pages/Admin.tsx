@@ -270,6 +270,13 @@ export default function Admin() {
         <div className="flex items-center gap-3">
           <Shield className="w-5 h-5 text-primary" />
           <h1 className="text-xl font-bold">Admin Panel</h1>
+          <Button size="sm" variant="outline" className="ml-4 text-purple-700 border-purple-400 hover:bg-purple-50" onClick={async () => {
+            if (!confirm("Reset and reseed demo@reviewoptic.com with fresh demo data?")) return;
+            const r = await fetch("/api/admin/seed-demo", { method: "POST", credentials: "include" });
+            const d = await r.json();
+            if (d.success) alert(`Demo account ready!\nEmail: ${d.email}\nPassword: ${d.password}`);
+            else alert("Failed to seed demo account");
+          }}>Seed Demo Account</Button>
         </div>
         {tab === "metrics" && (
           <div className="flex flex-wrap items-center gap-2 print:hidden">

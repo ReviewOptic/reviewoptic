@@ -803,6 +803,152 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ success: true });
   });
 
+  app.post("/api/admin/seed-demo", requireAdmin, async (req, res) => {
+    const demoEmail = "demo@reviewoptic.com";
+    const demoPassword = "Demo1234!";
+
+    // Wipe existing demo account if present
+    const existing = await storage.getUserByEmail(demoEmail);
+    if (existing) {
+      await pool.query(`DELETE FROM activity_log WHERE account_id = $1`, [existing.accountId]);
+      await pool.query(`DELETE FROM private_feedback WHERE account_id = $1`, [existing.accountId]);
+      await pool.query(`DELETE FROM reviews WHERE account_id = $1`, [existing.accountId]);
+      await pool.query(`DELETE FROM review_requests WHERE account_id = $1`, [existing.accountId]);
+      await pool.query(`DELETE FROM customers WHERE account_id = $1`, [existing.accountId]);
+      await pool.query(`DELETE FROM settings WHERE account_id = $1`, [existing.accountId]);
+      await pool.query(`DELETE FROM users WHERE id = $1`, [existing.id]);
+      await pool.query(`DELETE FROM accounts WHERE id = $1`, [existing.accountId]);
+    }
+
+    // Create account + user
+    const account = await storage.createAccount();
+    const hashed = await bcrypt.hash(demoPassword, 10);
+    const user = await storage.createUser({
+      accountId: account.id,
+      email: demoEmail,
+      password: hashed,
+      emailVerified: true,
+      verificationToken: null,
+      firstName: "James",
+      lastName: "Hartley",
+      companyName: "Hartley Plumbing & Heating",
+    });
+    await pool.query(
+      `UPDATE users SET plan_type = 'pro', plan_period = 'monthly', email_verified = true, verification_token = NULL WHERE id = $1`,
+      [user.id]
+    );
+
+    // Settings
+    await storage.upsertSettings(account.id, {
+      ownerName: "James Hartley",
+      businessName: "Hartley Plumbing & Heating",
+      businessEmail: demoEmail,
+      googleReviewLink: "https://g.page/r/demo-review-link",
+      defaultChannel: "email",
+      followUpEnabled: true,
+      followUp1Days: 3,
+      followUp2Days: 7,
+      followUp3Days: 14,
+      maxFollowUps: 2,
+    });
+
+    const aid = account.id;
+    const now = new Date();
+    const daysAgo = (d: number) => new Date(now.getTime() - d * 86400000);
+
+    const CUSTOMERS = [
+      { name: "Sarah Mitchell", email: "sarah.m@example.com", service: "Boiler service", status: "review_received", daysAgo: 2, rating: 5, channel: "email" },
+      { name: "Tom Archer", email: "tom.a@example.com", service: "Emergency leak repair", status: "review_received", daysAgo: 4, rating: 5, channel: "email" },
+      { name: "Claire Hughes", email: "claire.h@example.com", service: "Bathroom installation", status: "review_received", daysAgo: 6, rating: 5, channel: "sms" },
+      { name: "David Okafor", email: "david.o@example.com", service: "Radiator replacement", status: "review_received", daysAgo: 8, rating: 4, channel: "email" },
+      { name: "Emma Patel", email: "emma.p@example.com", service: "Annual boiler service", status: "review_received", daysAgo: 10, rating: 5, channel: "email" },
+      { name: "Mark Stevens", email: "mark.s@example.com", service: "Central heating install", status: "review_received", daysAgo: 13, rating: 5, channel: "email" },
+      { name: "Laura Jennings", email: "laura.j@example.com", service: "Bathroom installation", status: "review_received", daysAgo: 15, rating: 5, channel: "sms" },
+      { name: "Ryan Clarke", email: "ryan.c@example.com", service: "Boiler repair", status: "review_received", daysAgo: 18, rating: 4, channel: "email" },
+      { name: "Sophie Ward", email: "sophie.w@example.com", service: "Leak detection", status: "review_received", daysAgo: 20, rating: 5, channel: "email" },
+      { name: "James Thornton", email: "james.t@example.com", service: "Boiler service", status: "review_received", daysAgo: 23, rating: 5, channel: "email" },
+      { name: "Natalie Fox", email: "natalie.f@example.com", service: "Radiator fitting", status: "review_received", daysAgo: 26, rating: 5, channel: "sms" },
+      { name: "Ben Morrison", email: "ben.m@example.com", service: "Power flush", status: "review_received", daysAgo: 30, rating: 3, channel: "email", privateFeedback: true },
+      { name: "Hannah Brooks", email: "hannah.b@example.com", service: "Bathroom installation", status: "review_received", daysAgo: 33, rating: 5, channel: "email" },
+      { name: "Oliver Grant", email: "oliver.g@example.com", service: "Boiler replacement", status: "review_received", daysAgo: 37, rating: 5, channel: "email" },
+      { name: "Zoe Campbell", email: "zoe.c@example.com", service: "Emergency callout", status: "review_received", daysAgo: 40, rating: 4, channel: "sms" },
+      { name: "Chris Walton", email: "chris.w@example.com", service: "Boiler service", status: "sent", daysAgo: 1, channel: "email" },
+      { name: "Amy Dixon", email: "amy.d@example.com", service: "Leak repair", status: "sent", daysAgo: 2, channel: "email" },
+      { name: "Paul Nwosu", email: "paul.n@example.com", service: "Radiator installation", status: "sent", daysAgo: 3, channel: "sms" },
+      { name: "Lucy Hamilton", email: "lucy.h@example.com", service: "Annual service", status: "pending_request", daysAgo: 0, channel: "email" },
+      { name: "Steve Carr", email: "steve.c@example.com", service: "Bathroom refit", status: "pending_request", daysAgo: 0, channel: "email" },
+      { name: "Fiona Blake", email: "fiona.b@example.com", service: "Boiler repair", status: "review_received", daysAgo: 50, rating: 5, channel: "email" },
+      { name: "Dan Marsh", email: "dan.m@example.com", service: "Central heating", status: "review_received", daysAgo: 55, rating: 5, channel: "email" },
+      { name: "Karen Price", email: "karen.p@example.com", service: "Boiler service", status: "review_received", daysAgo: 60, rating: 4, channel: "sms" },
+      { name: "Mike Lawson", email: "mike.l@example.com", service: "Emergency repair", status: "review_received", daysAgo: 65, rating: 5, channel: "email" },
+      { name: "Rachel Stone", email: "rachel.s@example.com", service: "Bathroom installation", status: "review_received", daysAgo: 70, rating: 5, channel: "email" },
+      { name: "Neil Foster", email: "neil.f@example.com", service: "Boiler replacement", status: "review_received", daysAgo: 75, rating: 3, channel: "email", privateFeedback: true },
+      { name: "Diane Cooper", email: "diane.c@example.com", service: "Radiator repair", status: "review_received", daysAgo: 80, rating: 5, channel: "email" },
+      { name: "Gary Webb", email: "gary.w@example.com", service: "Leak detection", status: "review_received", daysAgo: 85, rating: 5, channel: "sms" },
+    ];
+
+    const REVIEW_TEXTS: Record<number, string[]> = {
+      5: [
+        "Absolutely brilliant service. James arrived on time, sorted the problem quickly and left everything spotless. Would highly recommend.",
+        "Fantastic work! Very professional and friendly. Best plumber I've used in years.",
+        "Incredible service from start to finish. Diagnosed the issue within minutes and had it fixed same day. 5 stars without hesitation.",
+        "James and his team are outstanding. Polite, tidy, and very fairly priced. Will definitely use again.",
+        "Really impressed. Came out the same day and fixed a problem two other plumbers couldn't solve. Brilliant.",
+      ],
+      4: [
+        "Great service overall. Job done well and on time. Very happy with the result.",
+        "Good work, friendly and professional. Arrived slightly later than expected but kept us informed.",
+        "Really pleased with the work carried out. Would use again.",
+      ],
+      3: [
+        "Job was done but took longer than expected. Communication could have been better.",
+        "Decent work but a bit pricey for what it was.",
+      ],
+    };
+
+    for (const c of CUSTOMERS) {
+      const custId = randomUUID();
+      const createdAt = daysAgo(c.daysAgo + 1);
+      await pool.query(
+        `INSERT INTO customers (id, account_id, name, email, service_type, status, channel, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [custId, aid, c.name, c.email, c.service, c.status, c.channel, createdAt]
+      );
+
+      if (c.status === "review_received" || c.status === "sent") {
+        const reqId = randomUUID();
+        const sentAt = daysAgo(c.daysAgo);
+        await pool.query(
+          `INSERT INTO review_requests (id, account_id, customer_id, status, channel, sent_at, created_at, follow_up_count, rating)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+          [reqId, aid, custId, c.status === "sent" ? "sent" : "completed", c.channel, sentAt, sentAt, c.rating && c.rating >= 4 ? 0 : 1, c.rating || null]
+        );
+
+        if (c.status === "review_received" && c.rating) {
+          if (c.rating >= 4) {
+            const reviewId = randomUUID();
+            const texts = REVIEW_TEXTS[c.rating] || REVIEW_TEXTS[5];
+            const text = texts[Math.floor(Math.random() * texts.length)];
+            await pool.query(
+              `INSERT INTO reviews (id, account_id, customer_id, platform, stars, review_text, created_at)
+               VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+              [reviewId, aid, custId, "google", c.rating, text, sentAt]
+            );
+          } else if ((c as any).privateFeedback) {
+            const fbId = randomUUID();
+            await pool.query(
+              `INSERT INTO private_feedback (id, account_id, customer_id, review_request_id, stars, message, created_at)
+               VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+              [fbId, aid, custId, reqId, c.rating, REVIEW_TEXTS[3][0], sentAt]
+            );
+          }
+        }
+      }
+    }
+
+    res.json({ success: true, email: demoEmail, password: demoPassword });
+  });
+
   app.delete("/api/admin/user/:userId", requireAdmin, async (req, res) => {
     const target = await storage.getUser(String(req.params.userId));
     if (!target) return res.status(404).json({ message: "User not found" });
