@@ -134,7 +134,7 @@ export default function Home() {
           {/* Logo */}
           <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="flex items-center">
             <div className="bg-white rounded-lg px-4 py-2">
-              <img src="/logo.png" alt="ReviewOptic" className="h-9 w-auto object-contain" />
+              <img src="/logo.png" alt="ReviewOptic" className="h-14 w-auto object-contain" />
             </div>
           </button>
 
