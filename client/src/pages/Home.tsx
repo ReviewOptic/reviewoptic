@@ -131,15 +131,17 @@ export default function Home() {
 
       {/* ── NAV ── */}
       <nav className={`fixed top-0 left-0 right-0 z-50 bg-white transition-all duration-200 ${scrolled ? "shadow-sm border-b border-gray-100" : ""}`}>
-        <div className="relative max-w-6xl mx-auto px-5 flex flex-col">
+        <div className="max-w-6xl mx-auto px-5 flex items-stretch">
 
-          {/* Top row: logo + CTAs + socials */}
-          <div className="flex items-center justify-between pt-1 pb-1 border-b border-gray-100">
-            <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="flex items-center">
-              <img src="/logo.png" alt="ReviewOptic" className="h-20 w-auto object-contain" />
-            </button>
+          {/* Logo — spans full height of both rows */}
+          <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="flex items-center py-2 pr-8 shrink-0">
+            <img src="/logo.png" alt="ReviewOptic" className="h-20 w-auto object-contain" />
+          </button>
 
-            <div className="hidden md:flex items-center gap-3">
+          {/* Right side: two stacked rows */}
+          <div className="hidden md:flex flex-col flex-1">
+            {/* Top: CTAs + socials */}
+            <div className="flex items-center justify-end gap-3 flex-1 border-b border-gray-100">
               <button onClick={() => navigate("/login")} className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors px-3 py-1">
                 Sign In
               </button>
@@ -157,19 +159,21 @@ export default function Home() {
                 <FaFacebook size={16} />
               </a>
             </div>
-
-            <button className="md:hidden p-2 text-gray-600" onClick={() => setMenuOpen(o => !o)}>
-              {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
+            {/* Bottom: page links centred */}
+            <div className="flex items-center justify-center gap-7 flex-1">
+              {NAV_LINKS.map(l => (
+                <button key={l.label} onClick={() => scrollTo(l.href.slice(1))} className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors">
+                  {l.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Bottom row: page links, truly centred */}
-          <div className="hidden md:flex items-center justify-center gap-7 pb-2">
-            {NAV_LINKS.map(l => (
-              <button key={l.label} onClick={() => scrollTo(l.href.slice(1))} className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors">
-                {l.label}
-              </button>
-            ))}
+          {/* Mobile hamburger */}
+          <div className="md:hidden flex items-center ml-auto">
+            <button className="p-2 text-gray-600" onClick={() => setMenuOpen(o => !o)}>
+              {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
           </div>
         </div>
 
