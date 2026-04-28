@@ -180,12 +180,12 @@ export default function Home() {
 
       {/* ── HERO ── */}
       <section className="pt-44 pb-24 px-5 text-white text-center" style={{ backgroundColor: PRIMARY }}>
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           <div className="inline-flex items-center gap-2 bg-white/15 border border-white/25 rounded-full px-4 py-1.5 text-sm font-medium mb-6">
             <Star className="w-3.5 h-3.5 fill-white" />
             30-day free trial — cancel anytime
           </div>
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black leading-snug tracking-tight mb-8 drop-shadow-md">
+          <h1 className="font-black leading-snug tracking-tight mb-8 drop-shadow-md" style={{ fontSize: "clamp(1.5rem, 2.8vw, 3rem)" }}>
             Most Businesses Have Happy Customers.<br /> Few Have the Reviews to Prove It.
           </h1>
           <p className="text-lg sm:text-xl text-white/85 leading-relaxed max-w-2xl mx-auto mb-10">
