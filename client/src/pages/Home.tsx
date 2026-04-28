@@ -141,7 +141,7 @@ export default function Home() {
           {/* Right side: two stacked rows */}
           <div className="hidden md:flex flex-col flex-1">
             {/* Top: CTAs + socials */}
-            <div className="flex items-center justify-end gap-3 flex-1 border-b border-gray-100">
+            <div className="flex items-center justify-end gap-3 h-14 border-b border-gray-100">
               <button onClick={() => navigate("/login")} className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors px-3 py-1">
                 Sign In
               </button>
@@ -160,7 +160,7 @@ export default function Home() {
               </a>
             </div>
             {/* Bottom: page links centred */}
-            <div className="flex items-center justify-center gap-7 flex-1">
+            <div className="flex items-center justify-center gap-7 flex-1 min-h-0">
               {NAV_LINKS.map(l => (
                 <button key={l.label} onClick={() => scrollTo(l.href.slice(1))} className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors">
                   {l.label}
