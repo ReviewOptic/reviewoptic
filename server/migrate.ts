@@ -526,6 +526,9 @@ export async function runMigrations() {
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS payment_failed_at TIMESTAMP`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS payment_failed_count INTEGER NOT NULL DEFAULT 0`);
 
+    // Business type — used to personalise insight email benchmarks and AI tips
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS business_type TEXT NOT NULL DEFAULT ''`);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();

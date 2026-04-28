@@ -1021,3 +1021,70 @@ Older session logs moved here to keep CLAUDE.md under 30k chars.
 - **Resend verification button in admin panel**: Blue mail icon next to each unverified pending user.
 - **Former subscribers — Customers page**: Cancelled/deleted users moved to collapsible "Former subscribers" section with status badges.
 - **Subscriber review request**: Daily job sends rating email to admin's customers 30+ days after joining. Template editable via admin panel.
+
+### Session — 2026-04-16 (sixty-sixth session)
+
+**Tasks completed:**
+- **Settings page crash fixed**: `formRef = useRef(form)` was declared on line 44 before `form` was declared on line 81 — JavaScript temporal dead zone threw a ReferenceError, caught by ErrorBoundary, showing "Something went wrong." Fixed by moving `formRef` to after the `form` useState declaration.
+- **Security vulnerabilities fixed** (required to unblock Replit deployment):
+  - `server/elevenlabs.ts`: replaced `execSync` with string interpolation → `execFileSync` with args arrays (command injection fix)
+  - `server/routes.ts`: rewrote SMS STOP handler to use `ANY($1::text[])` array parameter instead of dynamic placeholder construction
+  - `client/public/widget.js`: fully rewrote using `createElement`/`appendChild`/`textContent` — no `innerHTML` anywhere
+  - `server/email.ts`: removed all customer/user email addresses from `console.log` statements (GDPR/PII compliance)
+- **Dependency updates**: all packages patched (axios, drizzle-orm, lodash, minimatch, vite, rollup etc.), npm overrides added to force patched versions for transitive deps
+- **Replit scanner deadlock**: scanner was stuck scanning old deployed version and blocking new deploy. Replit support manually cleared it.
+
+### Session — 2026-04-24 (sixty-seventh session)
+
+**Tasks completed:**
+- **No code changes** — this was a configuration and discovery session.
+- **Meta Business Verification confirmed**: Meta finally approved business verification, unblocking Facebook/Instagram and the WhatsApp path.
+- **FB/IG autoposting audited**: Feature is fully code-complete. Credentials (`FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`) were already set. Feature was hidden because `SOCIAL_ENABLED` env var was not set.
+- **WhatsApp sending audited**: Feature is fully code-complete and runs through Twilio (not Meta's direct API). Twilio credentials (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM`) were already set. Feature was hidden because `WHATSAPP_ENABLED` env var was not set.
+- **`APP_URL` fixed**: Was set to `reviewoptic.com` (missing `https://`), which would have broken the Facebook OAuth redirect. Corrected to `https://www.reviewoptic.com` in Replit Secrets.
+- **Feature flags enabled**: Added `SOCIAL_ENABLED=true` and `WHATSAPP_ENABLED=true` to Replit Secrets. App redeployed.
+
+### Session — 2026-04-24 (sixty-eighth session)
+
+**Tasks completed:**
+- **Facebook OAuth redirect URI fixed**: Added `https://www.reviewoptic.com/auth/facebook/callback` to the Valid OAuth Redirect URIs in Meta Developer Portal. The connect flow now gets past the redirect error.
+- **Facebook debugging improved**: The callback now logs the raw token and pages API responses to the server console, and shows the actual Facebook API error in the browser instead of a generic message.
+- **Stale Facebook auth identified**: Facebook was reusing a previously cached authorization with incomplete permissions, causing "No Facebook Pages found." Fix: user needs to remove ReviewOptic from Facebook Apps and Websites settings, then reconnect fresh.
+
+### Session — 2026-04-24 (sixty-ninth session)
+
+**Tasks completed:**
+- **Facebook "New Page Experience" connect fixed**: Root cause — Facebook API v15+ no longer returns "New Page Experience" pages via `/me/accounts`. Fixed with a 3-step fallback chain in the callback: (1) debug_token granular_scopes, (2) previously stored facebookPageId, (3) redirect to Settings with inline page URL input.
+- **Facebook OAuth redirect fixed**: Was redirecting to `/?tab=settings` — fixed all OAuth redirects (Facebook, LinkedIn, fbmanual) to use `/settings?tab=social`.
+- **Instagram auto-connect fixed**: Manual page connection flow now uses page token (not user token) for the IG lookup.
+- **LinkedIn OAuth fixed**: Changed scope to `openid profile w_member_social`. Posts as member's personal profile. Callback uses `/v2/userinfo` (OpenID) to get person ID.
+- **LinkedIn redirect URI fixed**: Added `https://www.reviewoptic.com/auth/linkedin/callback` to LinkedIn Developer Portal.
+- **Settings page inline FB connect**: When manual URL entry is needed, user sees a clean inline input in Settings Social tab.
+
+**Architecture notes:**
+- Facebook page token flow: `debug_token` returns `granular_scopes` with `target_ids` — page IDs the user authorized.
+- LinkedIn: posts as `urn:li:person:{sub}` where `sub` comes from `/v2/userinfo`. Person ID stored in `linkedinOrganizationId` field.
+
+### Session — 2026-04-26 (seventieth session)
+
+**Tasks completed:**
+- **Header band height unified**: All 6 page headers and sidebar logo box now use fixed `h-28` (112px) height.
+- **Header bands span full width**: Extracted header div out of max-width containers — headers now full-width using React fragment pattern.
+- **Content width standardised**: All page content wrappers changed to `max-w-7xl`.
+- **Customers header buttons styled white**: All buttons in blue header now styled white.
+- **Customers mobile restored**: Fixed with `flex-col md:flex-row md:items-center md:h-28 py-5 md:py-0`.
+- **Analytics header cleaned up**: Removed separate business name text line.
+- **Dashboard header padding normalised**: Changed `pb-5` to `pb-6`.
+
+**Architecture notes:**
+- Page structure pattern: `<> <header full-width h-28 /> <div px-6 pt-5/6 max-w-7xl mx-auto> ...content... </div> </>`
+- Sidebar logo box uses `h-28 flex items-center justify-center`.
+
+### Session — 2026-04-27 (seventy-first session)
+
+**Tasks completed:**
+- **Instagram permissions added to Facebook OAuth scope**: `instagram_basic` and `instagram_content_publish` were missing from scope in `server/routes.ts`. Added both — users now prompted to grant Instagram permissions on Facebook connect.
+- **Facebook App Review submission prepared**: Identified correct permissions, removed incorrect ones (`business_management`, `pages_manage_engagement`), wrote all usage descriptions.
+- **Facebook app confirmed already Live**: App was already in Live mode — not Development mode as previously assumed.
+- **WhatsApp `TWILIO_WHATSAPP_FROM` secret fixed**: Secret had an invisible LRM Unicode character before the `+` sign causing Twilio to reject the sender.
+

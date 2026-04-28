@@ -184,52 +184,53 @@ Your job is to be the developer they would hire if they could afford a great one
 
 ## SESSION LOGS
 
-*(Sessions 18–65 archived to CLAUDE_ARCHIVE.md)*
+*(Sessions 18–74 archived to CLAUDE_ARCHIVE.md)*
 
-### Session — 2026-04-26 (seventieth session)
-
-**Tasks completed:**
-- **Header band height unified**: All 6 page headers (Dashboard, Analytics, Customers, Settings, Templates, Tutorial) and the sidebar logo box now use a fixed `h-28` (112px) height. Previously, variable padding (`pt-7 pb-5/6`) + different content amounts made each page's header a slightly different height, causing the bottom border of the header to sit above or below the white logo box on different tabs.
-- **Header bands span full width**: Each page header was inside its page's `max-w-X mx-auto` content container, causing visible gaps between the blue header band and the sidebar on narrower max-width pages (Templates `max-w-4xl`, Settings `max-w-5xl`). Fixed by extracting the header div out of the max-width container — headers now use a React fragment (`<>`) wrapping a full-width header + a separate max-width content div.
-- **Content width standardised**: All page content wrappers changed to `max-w-7xl` (was `max-w-4xl` on Templates, `max-w-5xl` on Settings/Tutorial, `max-w-6xl` on Analytics, no constraint on Dashboard). Now all tabs have consistent content width at typical desktop viewport sizes.
-- **Customers header buttons styled white**: Archived, Import, Export CSV, Download CSV Template, and Add Customer buttons in the blue header were using default/outline styles (dark text, light backgrounds). All now styled white — outline buttons use `text-white border-white/40 hover:bg-white/10`, Add Customer uses solid `bg-white text-[#0E679D]` as the primary CTA.
-- **Customers mobile restored**: When we removed `flex-col sm:flex-row sm:items-center` to simplify the header, it broke the mobile stacking layout. Fixed with `flex-col md:flex-row md:items-center md:h-28 py-5 md:py-0` so mobile stacks title above buttons, desktop is the fixed-height row.
-- **Analytics header cleaned up**: Removed separate business name text line from header (was making Analytics taller than other pages); business name now shown inline in subtitle if present.
-- **Dashboard header padding normalised**: Changed `pb-5` to `pb-6` to match all other pages.
-
-**Architecture notes:**
-- Page structure pattern (all 5 non-Dashboard pages): `<> <header full-width h-28 /> <div px-6 pt-5/6 max-w-7xl mx-auto> ...content... </div> </>`
-- Dashboard doesn't use the fragment pattern — outer wrapper has no max-width, content div has `max-w-7xl mx-auto`.
-- Sidebar logo box uses `h-28 flex items-center justify-center` — fixed height matches desktop page headers.
-- `h-28` (112px) on page headers is desktop-only concern; on mobile the sidebar is hidden so alignment doesn't matter. Customers uses `md:h-28` with `py-5` on mobile.
-
-**Pending:**
-- Same as session 69 — Facebook Live mode switch, WhatsApp test, FB/IG posting test, LinkedIn posting test.
-
-### Session — 2026-04-24 (sixty-ninth session)
+### Session — 2026-04-28 (seventy-fifth session)
 
 **Tasks completed:**
-- **Facebook "New Page Experience" connect fixed**: Root cause — Facebook API v15+ no longer returns "New Page Experience" pages via `/me/accounts`, even with all permissions granted (`pages_show_list`, `pages_manage_posts`, `pages_read_engagement` all confirmed granted). Fixed with a 3-step fallback chain in the callback:
-  1. Try `debug_token` granular_scopes to extract the page ID Facebook actually authorized (works silently, no user input)
-  2. Try previously stored `facebookPageId` for silent reconnect
-  3. Last resort: redirect to Settings → Social with inline page URL input
-- **Facebook OAuth redirect fixed**: Was redirecting to `/?tab=settings` (Dashboard) instead of `/settings?tab=social`. Fixed all OAuth redirects (Facebook, LinkedIn, fbmanual) to use `/settings?tab=social`.
-- **Instagram auto-connect fixed**: Manual page connection flow was fetching `instagram_business_account` using the user token instead of the page token — returned nothing even when IG was linked. Fixed to use page token for the IG lookup.
-- **Instagram messaging updated**: Now clearly explains that Instagram posting requires a Facebook Page connection (Meta's API requirement, not our limitation). If FB connected but no IG found, shows a direct link to Facebook's help page for linking IG to a Page.
-- **LinkedIn OAuth fixed**: Was requesting `r_organization_social` scope (requires LinkedIn Marketing Developer Platform — formal review). Changed to `openid profile w_member_social`. Also added "Sign In with LinkedIn using OpenID Connect" product to LinkedIn app. Posts now as the member's personal profile instead of a company page. Callback uses `/v2/userinfo` (OpenID) to get person ID.
-- **LinkedIn redirect URI fixed**: Added `https://www.reviewoptic.com/auth/linkedin/callback` to LinkedIn Developer Portal. Kept localhost URL alongside it.
-- **Settings page inline FB connect**: When manual URL entry is needed (last resort), user now sees a clean inline input in the Settings Social tab — no more raw HTML form page.
+- **Edit Contact blank fields fixed**: `EditCustomerDialog` was using `useState(() => {...})` to seed the form instead of `useEffect(() => {...}, [customer])`. `useState` initialiser only runs once on mount — fields were always blank on open. Fixed in `Customers.tsx:492`.
+- **Analytics daily trend line made literal**: Daily requests chart now plots by actual `sent_at` date (not `created_at`). Daily clicks chart now plots by actual `clicked_at` date (separate query). Previously both were grouped by `created_at` (send date), meaning clicks always appeared on the wrong day.
+- **Scheduled request send-day tracking fixed**: `doSend()` now stamps `sent_at = NOW()` after the message actually fires. Previously `sent_at` was set at scheduling time, so scheduled requests appeared in analytics on the day they were scheduled, not the day they were delivered.
+- **Channel daily chart fixed**: Same `sent_at` / `clicked_at` split applied to the per-channel daily breakdown chart.
+- **Insight emails root cause found and fixed**: `getUserStats` in `insightEmail.ts` was querying `review_platform_clicks` using `created_at`, but that table only has `clicked_at`. This threw for every user, was swallowed by the try/catch, and no insight emails were ever sent. Fixed: `created_at` → `clicked_at`.
+- **Insight emails greatly enhanced**:
+  - Added **best day to send** (from `clicked_at` day-of-week over last 30 days) to stats table
+  - Added **rating distribution** — visual bar chart (green/amber/red) showing star breakdown
+  - Added **"Tips to get more reviews"** section — AI-generated, 3 tips tailored to their actual stats and industry
+  - Added **"How you compare"** section — industry-specific benchmarks (conversion range, avg rating, top platform, insight note)
+- **Business Type field added**: New dropdown in Settings → Business Details. 23 industry options (plumber, electrician, salon, restaurant, dentist, etc.). Stored as `settings.business_type`. Used to personalise both the AI tips prompt and the benchmark comparisons in insight emails. Helper note on the field explains this. Falls back to generic benchmarks if not set.
 
 **Architecture notes:**
-- Facebook page token flow: `debug_token?input_token={user_token}&access_token={app_id}|{app_secret}` returns `granular_scopes` with `target_ids` — these are the page IDs the user actually authorized. We iterate them and call `/{page_id}?fields=access_token,instagram_business_account` with the user token to get the page token.
-- LinkedIn: posts as `urn:li:person:{sub}` where `sub` comes from `/v2/userinfo`. Person ID stored in `linkedinOrganizationId` field (field name is legacy, value is now person ID).
-- LinkedIn tokens expire after 60 days — user will need to reconnect periodically. No expiry notification shown proactively; only show a dialog when token is actually expired (not yet implemented).
+- Analytics daily chart now uses two separate SQL queries (sent_at and clicked_at) merged into `dailyData`. Same pattern for `channelDailyData`. Overall funnel totals still use `created_at` — unchanged.
+- `business_type` added to `shared/schema.ts` (Drizzle) + `server/migrate.ts` (DB). Drizzle's `upsertSettings` picks it up automatically — no API changes needed.
+- `BENCHMARKS` map in `insightEmail.ts` keyed by `business_type` value. Each entry has: `label`, `conversionRange`, `ratingRange`, `topPlatform`, `insightNote`. Falls back to `DEFAULT_BENCHMARK` if type not set.
 
 **Pending:**
-- **Switch Facebook app to Live mode**: Still in Development mode in Meta Developer Portal → your app. Until switched to Live, only the app admin (you) can connect Facebook. Other users cannot connect.
-- **Test WhatsApp sending**: Still untested — send a test request from a customer detail page.
-- **Test Facebook/Instagram posting**: Connect both and trigger a 4/5-star review to confirm a card posts to both.
-- **Test LinkedIn posting**: Confirm a review card posts to your personal LinkedIn profile after connecting.
+- **Re-seed demo account**: Hit "Seed Demo Account" in Admin to rebuild with corrected data (from session 74).
+- **Facebook App Review**: Check if `instagram_content_publish` test calls have registered, then submit.
+- **WhatsApp**: Check if `+447863750348` flipped from Pending → Active in Meta, then test sending.
+- **Landing page videos**: Hero and How It Works video placeholders ready to swap in when recorded.
+
+### Session — 2026-04-28 (seventy-fourth session)
+
+**Tasks completed:**
+- **Analytics bug investigated**: User reported 1-3 star ratings not showing in analytics. Audited the full analytics endpoint and confirmed real accounts are correct — the `/rate` endpoint saves `rating` and sets `status = "clicked"` for all star levels 1-5. No bug in production.
+- **Demo seed analytics bug fixed**: Root cause was that the seed inserted review requests with `status = "completed"` for rated customers, but analytics counts clicks via `status = 'clicked'`. Fixed: seed now uses `status = "clicked"` for rated requests, adds `clicked_at` timestamp, and removes incorrect `follow_up_count` logic.
+- **Demo seed customer statuses fixed**: Customers were inserted with `status = "review_received"` which isn't in statusConfig — showed as "Pending". Fixed: `review_received` → `review_completed`, `privateFeedback` → `feedback_left`.
+- **"Feedback Left" status added**: Customers who give 1-3 stars now get `customers.status = "feedback_left"` instead of staying as "Request Sent". Updated everywhere: `/rate` endpoint, `Customers.tsx` statusConfig + filter dropdown (amber badge), `CustomerDetail.tsx` statusMap, analytics PIPELINE_ORDER.
+- **Full analytics audit (real accounts)**: All metrics confirmed correct — sent, clicked, rating distribution, sentiment split, private feedback count, best day, follow-up, template performance, platform clicks. All good.
+
+**Architecture notes:**
+- `customers.status` flow: `pending_request` → `request_sent` → (`clicked` via platform button OR `feedback_left` via 1-3 star rating) → `review_completed` / `no_response`
+- Two "clicked" concepts: `review_requests.status = 'clicked'` set for all star ratings 1-5 (analytics funnel counts this). `customers.status = 'clicked'` only set on platform button click (pipeline widget). Different metrics, both correct.
+- Demo account: re-seed from Admin panel (purple button) to pick up all fixes.
+
+**Pending:**
+- **Re-seed demo account**: Hit "Seed Demo Account" in Admin to rebuild with corrected data.
+- **Facebook App Review**: Check if `instagram_content_publish` / `instagram_basic` test calls have registered, then submit.
+- **WhatsApp**: `+447863750348` still "Pending" in Meta — check if flipped to Active, then test sending.
+- **Landing page videos**: Hero and How It Works video placeholders ready to swap in when recorded.
 
 ### Session — 2026-04-28 (seventy-third session)
 
@@ -282,73 +283,4 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Facebook App Review**: Check if Instagram API test calls have registered (can take 24 hours), then submit the review.
 - **Landing page**: Content and design review — user to check on desktop and mobile and flag any copy/layout changes needed. Video slots ready to drop real videos in.
 
-### Session — 2026-04-27 (seventy-first session)
-
-**Tasks completed:**
-- **Instagram permissions added to Facebook OAuth scope**: `instagram_basic` and `instagram_content_publish` were missing from the Facebook OAuth scope in `server/routes.ts`. Without these, the page token didn't have Instagram permissions even when an IG account was linked. Added both to the scope — users connecting Facebook are now prompted to grant Instagram permissions too. After reconnecting, Instagram auto-posts started working correctly.
-- **Facebook App Review submission prepared**: Walked through the full Meta App Review submission — identified correct permissions (`pages_show_list`, `pages_manage_posts`, `pages_read_engagement`, `instagram_basic`, `instagram_business_basic`, `instagram_content_publish`, `public_profile`), removed incorrect ones (`business_management`, `pages_manage_engagement`), wrote all usage descriptions for each permission.
-- **Facebook app confirmed already Live**: App was already in Live mode — not Development mode as previously assumed. The "Feature Unavailable" error for other users was due to missing OAuth redirect URI and unsubmitted App Review permissions, not Development mode.
-- **WhatsApp `TWILIO_WHATSAPP_FROM` secret fixed**: Secret had an invisible LRM Unicode character before the `+` sign, causing Twilio to reject the sender as invalid. Also clarified the secret should be just the number (`+447863750348`) without `whatsapp:` prefix — the code adds that itself.
-
-**WhatsApp status — BLOCKED on Meta verification:**
-- `+447863750348` was missing from Meta WhatsApp Manager (WABA) — user re-added it this session
-- Meta sent a verification code to the number but it wasn't received in time — now in a 2-hour lockout before retry
-- **Next session: retry Meta verification for `+447863750348`** — choose SMS when prompted, enter the code, then test WhatsApp sending from ReviewOptic
-- Do NOT delete the WhatsApp sender in Twilio — that triggers a 2-5 day re-approval wait
-
-**Facebook/Instagram App Review status — BLOCKED on screencast upload:**
-- All permission descriptions written and submitted
-- Meta's screencast upload tool kept throwing errors (known flakiness issue)
-- **Next session: retry uploading screencasts** — same files, just Meta's uploader being unreliable
-- Screencast needed: one video showing FB connect flow + post appearing on both Facebook and Instagram
-
-**Pending (carried forward):**
-- Retry Meta verification for WhatsApp number (2-hour lockout expires ~20:50 BST 2026-04-27)
-- Retry screencast upload for Facebook App Review submission
-
-### Session — 2026-04-24 (sixty-eighth session)
-
-**Tasks completed:**
-- **Facebook OAuth redirect URI fixed**: Added `https://www.reviewoptic.com/auth/facebook/callback` to the Valid OAuth Redirect URIs in Meta Developer Portal. The connect flow now gets past the redirect error.
-- **Facebook debugging improved**: The callback now logs the raw token and pages API responses to the server console, and shows the actual Facebook API error in the browser instead of a generic message. This will make diagnosing the next issue much easier.
-- **Stale Facebook auth identified**: Facebook was reusing a previously cached authorization with incomplete permissions, causing "No Facebook Pages found." Fix: user needs to go to facebook.com → Settings → Apps and Websites → remove ReviewOptic, then reconnect fresh.
-
-**Notes for next session:**
-- **Complete Facebook connect**: User needs to remove ReviewOptic from their Facebook Apps and Websites settings first, then retry connecting from Settings → Social. The improved error message will now show the actual API response if it fails again.
-- **Switch Facebook app to Live mode**: Still needs to be done in Meta Developer Portal → your app → Development → Live. Until this is done, only the app admin can connect.
-- **Test WhatsApp sending**: Not yet tested — send a test request from a customer detail page and confirm it arrives.
-- No other pending code tasks.
-
-### Session — 2026-04-24 (sixty-seventh session)
-
-**Tasks completed:**
-- **No code changes** — this was a configuration and discovery session.
-- **Meta Business Verification confirmed**: Meta finally approved business verification, unblocking Facebook/Instagram and the WhatsApp path.
-- **FB/IG autoposting audited**: Feature is fully code-complete. Credentials (`FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`) were already set. Feature was hidden because `SOCIAL_ENABLED` env var was not set.
-- **WhatsApp sending audited**: Feature is fully code-complete and runs through Twilio (not Meta's direct API). Twilio credentials (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM`) were already set. Feature was hidden because `WHATSAPP_ENABLED` env var was not set.
-- **`APP_URL` fixed**: Was set to `reviewoptic.com` (missing `https://`), which would have broken the Facebook OAuth redirect. Corrected to `https://www.reviewoptic.com` in Replit Secrets.
-- **Feature flags enabled**: Added `SOCIAL_ENABLED=true` and `WHATSAPP_ENABLED=true` to Replit Secrets. App redeployed.
-
-**Notes for next session:**
-- **Test Facebook connect flow**: Go to Settings → Social and connect a Facebook page. Confirm it links the Instagram account too. Then trigger a review and check it posts to both.
-- **Switch Facebook app to Live mode**: In Meta Developer Portal → your app → switch from Development to Live. In Development mode only app admins can connect their Facebook account. Also confirm `https://www.reviewoptic.com/auth/facebook/callback` is listed under Facebook Login → Valid OAuth Redirect URIs.
-- **Test WhatsApp sending**: Send a test review request via WhatsApp from the customer detail page and confirm it arrives.
-- WhatsApp runs through Twilio — Meta App Review is not required for this to work.
-- No pending code tasks.
-
-### Session — 2026-04-16 (sixty-sixth session)
-
-**Tasks completed:**
-- **Settings page crash fixed**: `formRef = useRef(form)` was declared on line 44 before `form` was declared on line 81 — JavaScript temporal dead zone threw a ReferenceError, caught by ErrorBoundary, showing "Something went wrong." Fixed by moving `formRef` to after the `form` useState declaration.
-- **Security vulnerabilities fixed** (required to unblock Replit deployment):
-  - `server/elevenlabs.ts`: replaced `execSync` with string interpolation → `execFileSync` with args arrays (command injection fix)
-  - `server/routes.ts`: rewrote SMS STOP handler to use `ANY($1::text[])` array parameter instead of dynamic placeholder construction
-  - `client/public/widget.js`: fully rewrote using `createElement`/`appendChild`/`textContent` — no `innerHTML` anywhere
-  - `server/email.ts`: removed all customer/user email addresses from `console.log` statements (GDPR/PII compliance)
-- **Dependency updates**: all packages patched (axios, drizzle-orm, lodash, minimatch, vite, rollup etc.), npm overrides added to force patched versions for transitive deps
-- **Replit scanner deadlock**: scanner was stuck scanning old deployed version and blocking new deploy. Replit support manually cleared it.
-
-**Notes for next session:**
-- No pending code tasks
-- All copy, pricing, and security issues resolved
 

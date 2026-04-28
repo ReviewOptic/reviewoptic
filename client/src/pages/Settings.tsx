@@ -103,6 +103,7 @@ export default function Settings() {
     ownerName: "",
     businessName: "",
     businessEmail: "",
+    businessType: "",
     websiteUrl: "",
     logoUrl: "",
     logoPosition: "left",
@@ -134,6 +135,7 @@ export default function Settings() {
         ownerName: settings.ownerName || [user?.firstName, user?.lastName].filter(Boolean).join(" "),
         businessName: settings.businessName || user?.companyName || "",
         businessEmail: settings.businessEmail || user?.email || "",
+        businessType: settings.businessType || "",
         websiteUrl: settings.websiteUrl || "",
         logoUrl: settings.logoUrl || "",
         logoPosition: settings.logoPosition || "left",
@@ -385,6 +387,40 @@ export default function Settings() {
                     ))}
                   </select>
                 </div>}
+                <div className="space-y-1.5">
+                  <Label className="text-[12.5px]">Business Type</Label>
+                  <select
+                    value={form.businessType}
+                    onChange={e => setForm(f => ({ ...f, businessType: e.target.value }))}
+                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="">Select your business type</option>
+                    <option value="plumber">Plumber / Heating Engineer</option>
+                    <option value="electrician">Electrician</option>
+                    <option value="builder">Builder / General Contractor</option>
+                    <option value="landscaping">Landscaping / Gardener</option>
+                    <option value="cleaning">Cleaning Service</option>
+                    <option value="salon">Hair Salon / Barber</option>
+                    <option value="beauty">Beauty / Spa / Nails</option>
+                    <option value="restaurant">Restaurant / Café / Takeaway</option>
+                    <option value="dentist">Dentist</option>
+                    <option value="healthcare">GP / Doctor / Clinic</option>
+                    <option value="optician">Optician</option>
+                    <option value="physio">Physiotherapist / Chiropractor</option>
+                    <option value="fitness">Personal Trainer / Gym</option>
+                    <option value="estate_agent">Estate Agent</option>
+                    <option value="letting_agent">Letting Agent</option>
+                    <option value="garage">Car Mechanic / Garage</option>
+                    <option value="accountant">Accountant</option>
+                    <option value="solicitor">Solicitor / Legal</option>
+                    <option value="financial">Financial Adviser</option>
+                    <option value="hotel">Hotel / B&B / Guesthouse</option>
+                    <option value="vet">Vet / Pet Services</option>
+                    <option value="nursery">Nursery / Childcare</option>
+                    <option value="other">Other</option>
+                  </select>
+                  <p className="text-[11px] text-muted-foreground">Used to personalise your weekly insight emails and industry benchmarks</p>
+                </div>
                 <div className="space-y-1.5">
                   <Label className="text-[12.5px]">Website</Label>
                   <Input

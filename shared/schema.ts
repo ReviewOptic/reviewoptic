@@ -130,6 +130,7 @@ export const settings = pgTable("settings", {
   videoMessageUrl: text("video_message_url").notNull().default(""),
   elevenLabsVoiceId: text("elevenlabs_voice_id").notNull().default(""),
   notifyRatings: boolean("notify_ratings").notNull().default(true),
+  businessType: text("business_type").notNull().default(""),
 });
 
 export const insertCustomerSchema = createInsertSchema(customers).omit({ createdAt: true });

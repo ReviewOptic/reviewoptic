@@ -2145,6 +2145,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const body = `Hi ${firstName} 👋\n\nThank you for choosing ${settings.businessName}! We'd love to hear how we did.\n\nTap the link below to rate your experience — it only takes a second:\n${ratingLink}\n\nReply STOP to opt out.`;
         await sendWhatsAppMessage(customer.phone!, body);
       }
+      // Stamp actual delivery time so analytics plots by real send day, not scheduling day
+      await pool.query(`UPDATE review_requests SET sent_at = NOW() WHERE id = $1`, [rr.id]).catch(() => {});
     };
 
     if (isScheduled) {
@@ -2605,49 +2607,77 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const sent = parseInt(totals[0]?.sent || "0");
     const clicked = parseInt(totals[0]?.clicked || "0");
 
-    // Daily requests (by sent date) and clicks (by click date) from review_requests
+    // Daily requests by actual sent_at, clicks by actual clicked_at
     const dailyData: Record<string, { date: string; requests: number; clicks: number }> = {};
     for (let i = 0; i <= days; i++) {
       const d = new Date(cutoff.getTime() + i * 24 * 60 * 60 * 1000);
       const key = d.toISOString().split("T")[0];
       dailyData[key] = { date: key, requests: 0, clicks: 0 };
     }
-    const { rows: dailyRows } = await pool.query(`
-      SELECT DATE(created_at) as date, COUNT(*) as requests,
-             COUNT(CASE WHEN status = 'clicked' THEN 1 END) as clicks
-      FROM review_requests WHERE ${baseWhere}
-      GROUP BY DATE(created_at)
-    `, baseParams);
-    dailyRows.forEach((r: any) => {
+    // Build sent_at-based WHERE (same filters, different date column)
+    const sentParams: any[] = [accountId, cutoff, cutoffEnd];
+    let sentWhere = `account_id = $1 AND sent_at >= $2 AND sent_at <= $3`;
+    if (channel !== "all") { sentParams.push(channel); sentWhere += ` AND channel = $${sentParams.length}`; }
+    if (userId) { sentParams.push(userId); sentWhere += ` AND sent_by_user_id = $${sentParams.length}`; }
+
+    const { rows: dailySentRows } = await pool.query(`
+      SELECT DATE(sent_at) as date, COUNT(*) as requests
+      FROM review_requests WHERE ${sentWhere}
+      GROUP BY DATE(sent_at)
+    `, sentParams);
+    dailySentRows.forEach((r: any) => {
       const key = r.date instanceof Date ? r.date.toISOString().split("T")[0] : String(r.date);
-      if (dailyData[key]) {
-        dailyData[key].requests = parseInt(r.requests);
-        dailyData[key].clicks = parseInt(r.clicks);
-      }
+      if (dailyData[key]) dailyData[key].requests = parseInt(r.requests);
     });
 
-    // Daily by channel (all channels, ignore channel filter for this chart)
+    // Build clicked_at-based WHERE
+    const clickParams: any[] = [accountId, cutoff, cutoffEnd];
+    let clickWhere = `account_id = $1 AND clicked_at >= $2 AND clicked_at <= $3 AND clicked_at IS NOT NULL`;
+    if (channel !== "all") { clickParams.push(channel); clickWhere += ` AND channel = $${clickParams.length}`; }
+    if (userId) { clickParams.push(userId); clickWhere += ` AND sent_by_user_id = $${clickParams.length}`; }
+
+    const { rows: dailyClickRows } = await pool.query(`
+      SELECT DATE(clicked_at) as date, COUNT(*) as clicks
+      FROM review_requests WHERE ${clickWhere}
+      GROUP BY DATE(clicked_at)
+    `, clickParams);
+    dailyClickRows.forEach((r: any) => {
+      const key = r.date instanceof Date ? r.date.toISOString().split("T")[0] : String(r.date);
+      if (dailyData[key]) dailyData[key].clicks = parseInt(r.clicks);
+    });
+
+    // Daily by channel — requests by sent_at, clicks by clicked_at
     const channelDailyData: Record<string, { date: string; email: number; sms: number; whatsapp: number; emailClicks: number; smsClicks: number; whatsappClicks: number }> = {};
     for (let i = 0; i <= days; i++) {
       const d = new Date(cutoff.getTime() + i * 24 * 60 * 60 * 1000);
       const key = d.toISOString().split("T")[0];
       channelDailyData[key] = { date: key, email: 0, sms: 0, whatsapp: 0, emailClicks: 0, smsClicks: 0, whatsappClicks: 0 };
     }
-    const { rows: chDailyRows } = await pool.query(`
-      SELECT DATE(created_at) as date, channel,
-             COUNT(*) as requests,
-             COUNT(CASE WHEN status = 'clicked' THEN 1 END) as clicks
-      FROM review_requests WHERE account_id = $1 AND created_at >= $2 AND created_at <= $3
-      GROUP BY DATE(created_at), channel
+    const { rows: chSentRows } = await pool.query(`
+      SELECT DATE(sent_at) as date, channel, COUNT(*) as requests
+      FROM review_requests WHERE account_id = $1 AND sent_at >= $2 AND sent_at <= $3
+      GROUP BY DATE(sent_at), channel
     `, [accountId, cutoff, cutoffEnd]);
-    chDailyRows.forEach((r: any) => {
+    chSentRows.forEach((r: any) => {
       const key = r.date instanceof Date ? r.date.toISOString().split("T")[0] : String(r.date);
       if (!channelDailyData[key]) return;
-      const ch = r.channel as string;
-      const req = parseInt(r.requests); const cl = parseInt(r.clicks);
-      if (ch === "email") { channelDailyData[key].email += req; channelDailyData[key].emailClicks += cl; }
-      else if (ch === "sms") { channelDailyData[key].sms += req; channelDailyData[key].smsClicks += cl; }
-      else if (ch === "whatsapp") { channelDailyData[key].whatsapp += req; channelDailyData[key].whatsappClicks += cl; }
+      const ch = r.channel as string; const req = parseInt(r.requests);
+      if (ch === "email") channelDailyData[key].email += req;
+      else if (ch === "sms") channelDailyData[key].sms += req;
+      else if (ch === "whatsapp") channelDailyData[key].whatsapp += req;
+    });
+    const { rows: chClickRows } = await pool.query(`
+      SELECT DATE(clicked_at) as date, channel, COUNT(*) as clicks
+      FROM review_requests WHERE account_id = $1 AND clicked_at >= $2 AND clicked_at <= $3 AND clicked_at IS NOT NULL
+      GROUP BY DATE(clicked_at), channel
+    `, [accountId, cutoff, cutoffEnd]);
+    chClickRows.forEach((r: any) => {
+      const key = r.date instanceof Date ? r.date.toISOString().split("T")[0] : String(r.date);
+      if (!channelDailyData[key]) return;
+      const ch = r.channel as string; const cl = parseInt(r.clicks);
+      if (ch === "email") channelDailyData[key].emailClicks += cl;
+      else if (ch === "sms") channelDailyData[key].smsClicks += cl;
+      else if (ch === "whatsapp") channelDailyData[key].whatsappClicks += cl;
     });
 
     // Channel breakdown

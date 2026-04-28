@@ -489,7 +489,7 @@ function EditCustomerDialog({ customer, open, onClose }: { customer: Customer | 
   const { toast } = useToast();
   const [form, setForm] = useState({ name: "", email: "", phone: "", serviceDate: "", serviceType: "", notes: "", channel: "email" });
 
-  useState(() => {
+  useEffect(() => {
     if (customer) setForm({
       name: customer.name || "",
       email: customer.email || "",
@@ -499,7 +499,7 @@ function EditCustomerDialog({ customer, open, onClose }: { customer: Customer | 
       notes: customer.notes || "",
       channel: customer.channel || "email",
     });
-  });
+  }, [customer]);
 
   const mutation = useMutation({
     mutationFn: async () => apiRequest("PATCH", `/api/customers/${customer?.id}`, form),
