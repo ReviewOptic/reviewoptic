@@ -2750,6 +2750,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       scope: "pages_manage_posts,pages_read_engagement,pages_show_list,instagram_basic,instagram_content_publish,business_management",
       state: oauthState,
       response_type: "code",
+      auth_type: "rerequest",
     });
     res.redirect(`https://www.facebook.com/v18.0/dialog/oauth?${params}`);
   });
