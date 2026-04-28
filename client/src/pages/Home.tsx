@@ -131,7 +131,15 @@ export default function Home() {
 
       {/* ── NAV ── */}
       <nav className={`fixed top-0 left-0 right-0 z-50 bg-white transition-all duration-200 ${scrolled ? "shadow-sm border-b border-gray-100" : ""}`}>
-        <div className="max-w-6xl mx-auto px-5 flex items-stretch">
+        <div className="max-w-6xl mx-auto px-5 flex items-stretch relative">
+          {/* Page links — absolutely centred across full nav width */}
+          <div className="hidden md:flex absolute bottom-0 left-0 right-0 items-center justify-center gap-7 h-10 pointer-events-none">
+            {NAV_LINKS.map(l => (
+              <button key={l.label} onClick={() => scrollTo(l.href.slice(1))} className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors pointer-events-auto">
+                {l.label}
+              </button>
+            ))}
+          </div>
 
           {/* Logo — spans full height of both rows */}
           <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="flex items-center py-2 pr-8 shrink-0">
@@ -159,14 +167,8 @@ export default function Home() {
                 <FaFacebook size={16} />
               </a>
             </div>
-            {/* Bottom: page links centred */}
-            <div className="flex items-center justify-center gap-7 flex-1 min-h-0">
-              {NAV_LINKS.map(l => (
-                <button key={l.label} onClick={() => scrollTo(l.href.slice(1))} className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors">
-                  {l.label}
-                </button>
-              ))}
-            </div>
+            {/* Bottom: spacer to keep right column height correct */}
+            <div className="flex-1 min-h-0" />
           </div>
 
           {/* Mobile hamburger */}
