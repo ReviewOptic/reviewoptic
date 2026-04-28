@@ -130,10 +130,10 @@ export default function Home() {
 
       {/* ── NAV ── */}
       <nav className={`fixed top-0 left-0 right-0 z-50 bg-white transition-all duration-200 ${scrolled ? "shadow-sm border-b border-gray-100" : ""}`}>
-        <div className="max-w-6xl mx-auto px-5 h-32 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
           {/* Logo */}
           <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="flex items-center">
-            <img src="/logo.png" alt="ReviewOptic" className="h-28 w-auto object-contain" />
+            <img src="/logo.png" alt="ReviewOptic" className="h-10 w-auto object-contain" />
           </button>
 
           {/* Desktop links */}
