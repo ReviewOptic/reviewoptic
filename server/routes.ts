@@ -909,19 +909,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     for (const c of CUSTOMERS) {
       const custId = randomUUID();
       const createdAt = daysAgo(c.daysAgo + 1);
+      const custStatus = (c as any).privateFeedback ? "feedback_left"
+        : c.status === "review_received" ? "review_completed"
+        : c.status;
       await pool.query(
         `INSERT INTO customers (id, account_id, name, email, service_type, status, channel, created_at)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-        [custId, aid, c.name, c.email, c.service, c.status, c.channel, createdAt]
+        [custId, aid, c.name, c.email, c.service, custStatus, c.channel, createdAt]
       );
 
       if (c.status === "review_received" || c.status === "sent") {
         const reqId = randomUUID();
         const sentAt = daysAgo(c.daysAgo);
+        const reqStatus = c.status === "sent" ? "sent" : "clicked";
+        const clickedAt = c.rating ? sentAt : null;
         await pool.query(
-          `INSERT INTO review_requests (id, account_id, customer_id, status, channel, sent_at, created_at, follow_up_count, rating)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-          [reqId, aid, custId, c.status === "sent" ? "sent" : "completed", c.channel, sentAt, sentAt, c.rating && c.rating >= 4 ? 0 : 1, c.rating || null]
+          `INSERT INTO review_requests (id, account_id, customer_id, status, channel, sent_at, created_at, follow_up_count, rating, clicked_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+          [reqId, aid, custId, reqStatus, c.channel, sentAt, sentAt, 0, c.rating || null, clickedAt]
         );
 
         if (c.status === "review_received" && c.rating) {
@@ -1588,6 +1593,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         status: "clicked",
         clickedAt: new Date(),
       });
+
+      // For low ratings, update customer status so they don't show as "Request Sent"
+      if (rating <= 3) {
+        const lowRatingCustomer = await storage.getCustomer(request.customerId, request.accountId);
+        if (lowRatingCustomer) {
+          await storage.updateCustomer(lowRatingCustomer.id, { status: "feedback_left" }, request.accountId);
+        }
+      }
 
       const settings = await storage.getSettings(request.accountId);
       const platformMap: Record<string, string> = {
@@ -2831,6 +2844,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         { status: "follow_up_2_sent", label: "Follow-up 2 Sent" },
         { status: "follow_up_3_sent", label: "Follow-up 3 Sent" },
         { status: "clicked", label: "Clicked" },
+        { status: "feedback_left", label: "Feedback Left" },
         { status: "no_response", label: "No Response" },
       ];
       pipelineData = PIPELINE_ORDER.map(({ status, label }) => {

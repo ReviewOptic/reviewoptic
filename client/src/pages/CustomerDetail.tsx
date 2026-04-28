@@ -393,6 +393,7 @@ export default function CustomerDetail() {
     pending_request: { label: "Pending", color: "bg-muted text-muted-foreground" },
     request_sent: { label: "Request Sent", color: "bg-blue-100 text-blue-700" },
     clicked: { label: "Clicked Link", color: "bg-purple-100 text-purple-700" },
+    feedback_left: { label: "Feedback Left", color: "bg-amber-100 text-amber-700" },
     review_completed: { label: "Reviewed", color: "bg-green-100 text-green-700" },
     no_response: { label: "No Response", color: "bg-orange-100 text-orange-700" },
   };

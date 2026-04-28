@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import {
   Plus, Search, Send, MoreHorizontal, Ban, Trash2, Users,
-  Upload, Download, X, CheckCircle2, Clock, Star, Eye, AlertCircle, Edit2, Sparkles, RefreshCw, Mic, Video, Archive, ArchiveRestore, CalendarClock, ArrowLeft, XCircle, ChevronDown
+  Upload, Download, X, CheckCircle2, Clock, Star, Eye, AlertCircle, Edit2, Sparkles, RefreshCw, Mic, Video, Archive, ArchiveRestore, CalendarClock, ArrowLeft, XCircle, ChevronDown, MessageSquare
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.R
   follow_up_2_sent: { label: "Follow-up 2 Sent", color: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400", icon: <Send className="w-3 h-3" /> },
   follow_up_3_sent: { label: "Follow-up 3 Sent", color: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400", icon: <Send className="w-3 h-3" /> },
   clicked: { label: "Clicked", color: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400", icon: <Eye className="w-3 h-3" /> },
+  feedback_left: { label: "Feedback Left", color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", icon: <MessageSquare className="w-3 h-3" /> },
   review_completed: { label: "Reviewed", color: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400", icon: <Star className="w-3 h-3" /> },
   no_response: { label: "No Response", color: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400", icon: <AlertCircle className="w-3 h-3" /> },
   do_not_contact: { label: "Do Not Contact", color: "bg-destructive/10 text-destructive", icon: <Ban className="w-3 h-3" /> },
@@ -849,6 +850,7 @@ export default function Customers() {
     { value: "pending_request", label: "Pending" },
     { value: "request_sent", label: "Sent" },
     { value: "clicked", label: "Clicked" },
+    { value: "feedback_left", label: "Feedback Left" },
     { value: "review_completed", label: "Reviewed" },
     { value: "no_response", label: "No Response" },
     { value: "dnc", label: "Do Not Contact" },
