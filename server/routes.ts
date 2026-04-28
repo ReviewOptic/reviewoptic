@@ -946,6 +946,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
     }
 
+    // Seed activity log
+    const activityEntries = CUSTOMERS.filter(c => c.status !== "pending_request").slice(0, 15);
+    for (const c of activityEntries) {
+      const logId = randomUUID();
+      const type = c.status === "review_received" ? "review_received" : "request_sent";
+      const message = c.status === "review_received"
+        ? `${c.name} left a ${(c as any).rating}-star review on Google`
+        : `Review request sent to ${c.name} via ${c.channel}`;
+      await pool.query(
+        `INSERT INTO activity_log (id, account_id, type, customer_name, message, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6)`,
+        [logId, aid, type, c.name, message, daysAgo(c.daysAgo)]
+      );
+    }
+
     res.json({ success: true, email: demoEmail, password: demoPassword });
   });
 
