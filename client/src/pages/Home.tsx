@@ -133,7 +133,7 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-5 h-20 flex items-center justify-between">
           {/* Logo */}
           <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="flex items-center">
-            <img src="/logo.png" alt="ReviewOptic" className="h-16 w-auto object-contain" />
+            <img src="/logo.png" alt="ReviewOptic" className="h-20 w-auto object-contain" />
           </button>
 
           {/* Desktop links */}
