@@ -364,9 +364,8 @@ export default function Home() {
       {/* ── FOOTER ── */}
       <footer className="bg-gray-900 text-gray-400 py-10 px-5">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
-          <div className="flex items-center gap-2">
-            <Star className="w-4 h-4 fill-current" style={{ color: PRIMARY }} />
-            <span className="font-semibold text-white">ReviewOptic</span>
+          <div className="bg-white rounded-lg px-3 py-1.5">
+            <img src="/logo.png" alt="ReviewOptic" className="h-8 w-auto object-contain" />
           </div>
           <div className="flex flex-wrap justify-center gap-5">
             <button onClick={() => navigate("/privacy")} className="hover:text-white transition-colors">Privacy Policy</button>
