@@ -231,6 +231,31 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Test Facebook/Instagram posting**: Connect both and trigger a 4/5-star review to confirm a card posts to both.
 - **Test LinkedIn posting**: Confirm a review card posts to your personal LinkedIn profile after connecting.
 
+### Session — 2026-04-28 (seventy-third session)
+
+**Tasks completed:**
+- **`business_management` added back to Facebook OAuth scope**: Previously removed in session 71 as "incorrect", but Meta's Instagram API with Facebook Login page explicitly lists it as required. Added back to the scope in `server/routes.ts`. Users reconnecting Facebook will now be prompted to grant this permission.
+- **Stale Instagram/LinkedIn secrets deleted**: `INSTAGRAM_APP_SECRET`, `INSTAGRAM_APP_ID`, `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET` removed from Replit — none are used by the code. ReviewOptic uses only `FACEBOOK_APP_ID` / `FACEBOOK_APP_SECRET` for all Facebook/Instagram functionality.
+- **Facebook App Review — Graph API Explorer test calls made**: Manually triggered API calls via Graph API Explorer to register test events for all 6 permissions: `pages_show_list`, `business_management`, `pages_read_engagement`, `instagram_basic`, `instagram_content_publish`, `pages_manage_posts`. Calls returned errors (expected — Explorer uses user token not page token) but should register with Meta's system.
+- **Landing page nav — white background**: Switched from blue nav to white nav so the logo sits naturally without a coloured container. Nav links back to dark grey, CTA button blue.
+- **Landing page nav — logo image**: Replaced Star icon + text wordmark with actual `/logo.png` image. Final size: `h-24` in a `h-24` nav bar.
+- **Landing page hero — lightened**: Changed dark gradient (`#0a527e → #0E679D → #1a8fd1`) to flat `#0E679D` — matches logged-in theme, less dark.
+- **Landing page copy — credit card fix**: Removed all instances of "no credit card required" — a card IS required to start the trial. Replaced with "cancel anytime". FAQ answer updated to accurately state card details are needed upfront.
+- **Landing page hero padding**: Increased `pt-32` → `pt-44` to clear the taller nav bar.
+
+**WhatsApp status:**
+- Number `+447863750348` showing as "Pending" in Meta WhatsApp Manager — waiting for Meta to approve.
+
+**Facebook App Review status:**
+- `instagram_content_publish` still showing 0 test calls — Graph API Explorer call to `/17841441789522801/media` returned empty array, should register. Waiting for Meta's system to update.
+- `public_profile` shows 0 — this is a basic permission, does not require App Review, can be ignored.
+- Likely ready to submit once test calls register. If still blocked, submit anyway — human reviewers evaluate the screencast.
+
+**Pending:**
+- **Facebook App Review**: Check if test calls have registered, then submit. If `instagram_content_publish` still shows 0, submit anyway.
+- **WhatsApp**: Wait for `+447863750348` to flip from Pending → Active in Meta WhatsApp Manager, then test sending from a customer detail page.
+- **Landing page**: Further content/design tweaks as needed — video slots still empty.
+
 ### Session — 2026-04-27 (seventy-second session)
 
 **Tasks completed:**
