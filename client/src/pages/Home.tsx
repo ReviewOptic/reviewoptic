@@ -96,7 +96,7 @@ const SHARED_FEATURES = [
 
 const FAQS = [
   { q: "How does the free trial work?", a: "Every new account gets a 30-day free trial with full access. You won't be charged until the trial ends — and you can cancel anytime before then." },
-  { q: "Do I need a credit card to sign up?", a: "You don't need a card to create your account. You'll need to enter payment details when you select your plan, but nothing is charged until after your 30-day trial." },
+  { q: "Do I need a credit card to sign up?", a: "Yes, you'll need to enter payment details when selecting your plan. Nothing is charged until your 30-day free trial ends — and you can cancel anytime before then." },
   { q: "What platforms does ReviewOptic work with?", a: "Google, Trustpilot, Facebook, Checkatrade, TripAdvisor, MyBuilder, and any other platform with a direct review link." },
   { q: "What's the difference between Standard and Pro?", a: "Standard allows up to 10 review requests per month. Pro gives you unlimited requests and team member access. All other features are included on both plans." },
   { q: "Do follow-ups count toward my monthly limit?", a: "No. Only the initial request counts. Automatic follow-ups (up to 3 per customer) are sent on top of that at no extra cost." },
@@ -183,7 +183,7 @@ export default function Home() {
         <div className="max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-2 bg-white/15 border border-white/25 rounded-full px-4 py-1.5 text-sm font-medium mb-6">
             <Star className="w-3.5 h-3.5 fill-white" />
-            30-day free trial — no credit card required
+            30-day free trial — cancel anytime
           </div>
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-tight tracking-tight mb-6">
             Most Businesses Have Happy Customers.<br className="hidden sm:block" /> Few Have the Reviews to Prove It.
@@ -354,7 +354,7 @@ export default function Home() {
       <section className="py-24 px-5 text-white text-center" style={{ backgroundColor: PRIMARY }}>
         <div className="max-w-2xl mx-auto">
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">Ready to Start Getting More Reviews?</h2>
-          <p className="text-white/80 text-lg mb-10">Join businesses across the UK growing their reputation on autopilot. 30-day free trial. No credit card needed to get started.</p>
+          <p className="text-white/80 text-lg mb-10">Join businesses across the UK growing their reputation on autopilot. 30-day free trial. Cancel anytime.</p>
           <button onClick={() => navigate("/register")} className="inline-flex items-center gap-2 bg-white font-semibold px-8 py-4 rounded-xl text-base hover:bg-gray-50 transition-colors" style={{ color: PRIMARY }}>
             Start Your Free Trial <ArrowRight className="w-4 h-4" />
           </button>
