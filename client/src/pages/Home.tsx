@@ -129,18 +129,19 @@ export default function Home() {
     <div className="min-h-screen bg-white text-gray-900 font-sans">
 
       {/* ── NAV ── */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-200 ${scrolled ? "bg-white/95 backdrop-blur border-b border-gray-200 shadow-sm" : "bg-transparent"}`}>
+      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-200 ${scrolled ? "shadow-md" : ""}`} style={{ backgroundColor: PRIMARY }}>
         <div className="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
           {/* Logo */}
-          <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="flex items-center gap-2">
-            <Star className="w-5 h-5 fill-current" style={{ color: PRIMARY }} />
-            <span className="font-bold text-lg tracking-tight" style={{ color: PRIMARY }}>ReviewOptic</span>
+          <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="flex items-center">
+            <div className="bg-white rounded-lg px-3 py-1.5">
+              <img src="/logo.png" alt="ReviewOptic" className="h-7 w-auto object-contain" />
+            </div>
           </button>
 
           {/* Desktop links */}
           <div className="hidden md:flex items-center gap-6">
             {NAV_LINKS.map(l => (
-              <button key={l.label} onClick={() => scrollTo(l.href.slice(1))} className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">
+              <button key={l.label} onClick={() => scrollTo(l.href.slice(1))} className="text-sm font-medium text-white/80 hover:text-white transition-colors">
                 {l.label}
               </button>
             ))}
@@ -148,31 +149,31 @@ export default function Home() {
 
           {/* Desktop CTAs */}
           <div className="hidden md:flex items-center gap-3">
-            <button onClick={() => navigate("/login")} className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors px-3 py-1.5">
+            <button onClick={() => navigate("/login")} className="text-sm font-medium text-white/80 hover:text-white transition-colors px-3 py-1.5">
               Sign In
             </button>
-            <button onClick={() => navigate("/register")} className="text-sm font-semibold text-white px-4 py-2 rounded-lg transition-opacity hover:opacity-90" style={{ backgroundColor: PRIMARY }}>
+            <button onClick={() => navigate("/register")} className="text-sm font-semibold px-4 py-2 rounded-lg transition-opacity hover:opacity-90 bg-white" style={{ color: PRIMARY }}>
               Start Free Trial
             </button>
           </div>
 
           {/* Mobile hamburger */}
-          <button className="md:hidden p-2 text-gray-600" onClick={() => setMenuOpen(o => !o)}>
+          <button className="md:hidden p-2 text-white" onClick={() => setMenuOpen(o => !o)}>
             {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
 
         {/* Mobile menu */}
         {menuOpen && (
-          <div className="md:hidden bg-white border-t border-gray-100 px-5 py-4 flex flex-col gap-4">
+          <div className="md:hidden border-t border-white/20 px-5 py-4 flex flex-col gap-4" style={{ backgroundColor: PRIMARY }}>
             {NAV_LINKS.map(l => (
-              <button key={l.label} onClick={() => { scrollTo(l.href.slice(1)); setMenuOpen(false); }} className="text-sm font-medium text-gray-700 text-left">
+              <button key={l.label} onClick={() => { scrollTo(l.href.slice(1)); setMenuOpen(false); }} className="text-sm font-medium text-white/80 text-left">
                 {l.label}
               </button>
             ))}
-            <hr className="border-gray-100" />
-            <button onClick={() => navigate("/login")} className="text-sm font-medium text-gray-700 text-left">Sign In</button>
-            <button onClick={() => navigate("/register")} className="text-sm font-semibold text-white px-4 py-2.5 rounded-lg w-full" style={{ backgroundColor: PRIMARY }}>
+            <hr className="border-white/20" />
+            <button onClick={() => navigate("/login")} className="text-sm font-medium text-white/80 text-left">Sign In</button>
+            <button onClick={() => navigate("/register")} className="text-sm font-semibold px-4 py-2.5 rounded-lg w-full bg-white" style={{ color: PRIMARY }}>
               Start Free Trial
             </button>
           </div>
@@ -180,7 +181,7 @@ export default function Home() {
       </nav>
 
       {/* ── HERO ── */}
-      <section className="pt-32 pb-24 px-5 text-white text-center" style={{ background: `linear-gradient(135deg, #0a527e 0%, ${PRIMARY} 60%, #1a8fd1 100%)` }}>
+      <section className="pt-32 pb-24 px-5 text-white text-center" style={{ backgroundColor: PRIMARY }}>
         <div className="max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-2 bg-white/15 border border-white/25 rounded-full px-4 py-1.5 text-sm font-medium mb-6">
             <Star className="w-3.5 h-3.5 fill-white" />
@@ -352,7 +353,7 @@ export default function Home() {
       </section>
 
       {/* ── FINAL CTA ── */}
-      <section className="py-24 px-5 text-white text-center" style={{ background: `linear-gradient(135deg, #0a527e 0%, ${PRIMARY} 60%, #1a8fd1 100%)` }}>
+      <section className="py-24 px-5 text-white text-center" style={{ backgroundColor: PRIMARY }}>
         <div className="max-w-2xl mx-auto">
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">Ready to Start Getting More Reviews?</h2>
           <p className="text-white/80 text-lg mb-10">Join businesses across the UK growing their reputation on autopilot. 30-day free trial. No credit card needed to get started.</p>
