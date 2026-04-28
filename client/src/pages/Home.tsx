@@ -130,45 +130,46 @@ export default function Home() {
     <div className="min-h-screen bg-white text-gray-900 font-sans">
 
       {/* ── NAV ── */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 bg-white transition-all duration-200 ${scrolled ? "shadow-sm border-b border-gray-100" : ""}`}>
-        <div className="max-w-6xl mx-auto px-5 h-24 flex items-center justify-between">
-          {/* Logo */}
+      <nav className={`fixed top-0 left-0 right-0 z-50 bg-white transition-all duration-200 ${scrolled ? "shadow-sm" : ""}`}>
+        {/* Top row: logo + socials + CTAs */}
+        <div className="max-w-6xl mx-auto px-5 h-20 flex items-center justify-between border-b border-gray-100">
           <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="flex items-center">
-            <img src="/logo.png" alt="ReviewOptic" className="h-24 w-auto object-contain" />
+            <img src="/logo.png" alt="ReviewOptic" className="h-16 w-auto object-contain" />
           </button>
 
-          {/* Desktop links */}
-          <div className="hidden md:flex items-center gap-6">
-            {NAV_LINKS.map(l => (
-              <button key={l.label} onClick={() => scrollTo(l.href.slice(1))} className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">
-                {l.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Desktop CTAs */}
           <div className="hidden md:flex items-center gap-3">
-            <a href="https://www.instagram.com/reviewopticapp/" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-700 transition-colors p-1">
-              <FaInstagram size={18} />
-            </a>
-            <a href="https://www.linkedin.com/company/reviewoptic" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-700 transition-colors p-1">
-              <FaLinkedin size={18} />
-            </a>
-            <a href="https://www.facebook.com/reviewopticapp/" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-700 transition-colors p-1 mr-2">
-              <FaFacebook size={18} />
-            </a>
             <button onClick={() => navigate("/login")} className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors px-3 py-1.5">
               Sign In
             </button>
             <button onClick={() => navigate("/register")} className="text-sm font-semibold text-white px-4 py-2 rounded-lg transition-opacity hover:opacity-90" style={{ backgroundColor: PRIMARY }}>
               Start Free Trial
             </button>
+            <div className="w-px h-5 bg-gray-200 mx-1" />
+            <a href="https://www.instagram.com/reviewopticapp/" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-700 transition-colors p-1">
+              <FaInstagram size={18} />
+            </a>
+            <a href="https://www.linkedin.com/company/reviewoptic" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-700 transition-colors p-1">
+              <FaLinkedin size={18} />
+            </a>
+            <a href="https://www.facebook.com/reviewopticapp/" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-700 transition-colors p-1">
+              <FaFacebook size={18} />
+            </a>
           </div>
 
-          {/* Mobile hamburger */}
           <button className="md:hidden p-2 text-gray-600" onClick={() => setMenuOpen(o => !o)}>
             {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
+        </div>
+
+        {/* Bottom row: page links (desktop only) */}
+        <div className="hidden md:block border-b border-gray-100">
+          <div className="max-w-6xl mx-auto px-5 h-10 flex items-center justify-center gap-7">
+            {NAV_LINKS.map(l => (
+              <button key={l.label} onClick={() => scrollTo(l.href.slice(1))} className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors">
+                {l.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Mobile menu */}
@@ -189,7 +190,7 @@ export default function Home() {
       </nav>
 
       {/* ── HERO ── */}
-      <section className="pt-44 pb-24 px-5 text-white text-center" style={{ backgroundColor: PRIMARY }}>
+      <section className="pt-52 pb-24 px-5 text-white text-center" style={{ backgroundColor: PRIMARY }}>
         <div className="max-w-4xl mx-auto">
           <div className="inline-flex items-center gap-2 bg-white/15 border border-white/25 rounded-full px-4 py-1.5 text-sm font-medium mb-6">
             <Star className="w-3.5 h-3.5 fill-white" />
