@@ -139,7 +139,7 @@ export default function Home() {
           </button>
 
           {/* Right side: two stacked rows */}
-          <div className="hidden md:flex flex-col flex-1">
+          <div className="hidden md:flex flex-col flex-1 h-full">
             {/* Top: CTAs + socials */}
             <div className="flex items-center justify-end gap-3 h-14 border-b border-gray-100">
               <button onClick={() => navigate("/login")} className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors px-3 py-1">
