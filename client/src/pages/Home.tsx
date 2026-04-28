@@ -131,10 +131,10 @@ export default function Home() {
 
       {/* ── NAV ── */}
       <nav className={`fixed top-0 left-0 right-0 z-50 bg-white transition-all duration-200 ${scrolled ? "shadow-sm border-b border-gray-100" : ""}`}>
-        <div className="max-w-6xl mx-auto px-5 h-20 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-5 h-24 flex items-center justify-between">
           {/* Logo */}
           <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
-            <img src="/logo.png" alt="ReviewOptic" className="h-14 w-auto object-contain" />
+            <img src="/logo.png" alt="ReviewOptic" className="h-20 w-auto object-contain" />
           </button>
 
           {/* Centre links — desktop only */}
@@ -362,6 +362,11 @@ export default function Home() {
             <button onClick={() => navigate("/terms")} className="hover:text-white transition-colors">Terms & Conditions</button>
             <button onClick={() => navigate("/pricing")} className="hover:text-white transition-colors">Pricing</button>
             <button onClick={() => navigate("/faq")} className="hover:text-white transition-colors">FAQ</button>
+          </div>
+          <div className="flex items-center justify-center gap-4 mb-1">
+            <a href="https://www.instagram.com/reviewopticapp/" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors"><FaInstagram size={18} /></a>
+            <a href="https://www.linkedin.com/company/reviewoptic" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors"><FaLinkedin size={18} /></a>
+            <a href="https://www.facebook.com/reviewopticapp/" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors"><FaFacebook size={18} /></a>
           </div>
           <p>© {new Date().getFullYear()} ReviewOptic Limited &nbsp;·&nbsp; <a href="mailto:hello@reviewoptic.com" className="hover:text-white transition-colors">hello@reviewoptic.com</a></p>
         </div>
