@@ -6,6 +6,7 @@ import {
   CheckCircle2, ChevronDown, ChevronUp, Menu, X, ArrowRight,
   Zap, Shield, Users, Globe, Video, Bell
 } from "lucide-react";
+import { FaInstagram, FaLinkedin, FaFacebook } from "react-icons/fa";
 
 const PRIMARY = "#0E679D";
 
@@ -147,6 +148,15 @@ export default function Home() {
 
           {/* Desktop CTAs */}
           <div className="hidden md:flex items-center gap-3">
+            <a href="https://www.instagram.com/reviewopticapp/" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-700 transition-colors p-1">
+              <FaInstagram size={18} />
+            </a>
+            <a href="https://www.linkedin.com/company/reviewoptic" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-700 transition-colors p-1">
+              <FaLinkedin size={18} />
+            </a>
+            <a href="https://www.facebook.com/reviewopticapp/" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-700 transition-colors p-1 mr-2">
+              <FaFacebook size={18} />
+            </a>
             <button onClick={() => navigate("/login")} className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors px-3 py-1.5">
               Sign In
             </button>
