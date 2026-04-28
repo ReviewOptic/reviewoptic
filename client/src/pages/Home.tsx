@@ -364,7 +364,7 @@ export default function Home() {
       {/* ── FOOTER ── */}
       <footer className="bg-gray-900 text-gray-400 py-10 px-5">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
-          <span className="font-semibold text-white">ReviewOptic</span>
+          <a href="mailto:hello@reviewoptic.com" className="text-gray-400 hover:text-white transition-colors">hello@reviewoptic.com</a>
           <div className="flex flex-wrap justify-center gap-5">
             <button onClick={() => navigate("/privacy")} className="hover:text-white transition-colors">Privacy Policy</button>
             <button onClick={() => navigate("/terms")} className="hover:text-white transition-colors">Terms & Conditions</button>
