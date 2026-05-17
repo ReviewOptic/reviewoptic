@@ -186,6 +186,25 @@ Your job is to be the developer they would hire if they could afford a great one
 
 *(Sessions 18–74 archived to CLAUDE_ARCHIVE.md)*
 
+### Session — 2026-05-17 (seventy-sixth session)
+
+**Tasks completed:**
+- **Facebook App Review — resubmission prepared**: Meta rejected all permissions due to screencast not showing full end-to-end flow. Use case was confirmed as allowed. Worked through each permission's feedback one by one.
+- **`pages_read_engagement` removed then re-added**: Initially removed from OAuth scope as Meta flagged it as unused. Later discovered Meta requires it as a mandatory companion permission to `pages_manage_posts`. Added back to scope in `server/routes.ts`.
+- **Descriptions written for all 6 permissions**: Tailored descriptions written for `instagram_business_basic`, `instagram_basic`, `instagram_content_publish`, `pages_show_list`, `pages_manage_posts`, `pages_read_engagement`. All include "Note for reviewer" explaining Instagram auto-connects through Facebook (no separate Instagram login), plus test account credentials.
+- **`auth_type` tested and reverted**: Briefly changed to `reauthorize` to force fresh login for screencast recording, then reverted to `rerequest` — correct behaviour for real users.
+
+**Architecture notes:**
+- OAuth scope in `server/routes.ts:2955`: `pages_manage_posts, pages_read_engagement, pages_show_list, instagram_basic, instagram_content_publish, business_management`
+- `pages_read_engagement` must stay even though not actively used — Meta policy requires it alongside `pages_manage_posts`
+- `business_management` is in the scope but not in Meta's App Review list — likely auto-approved, leave as is
+
+**Pending:**
+- **Facebook App Review screencast**: Record new screencast using Loom showing: (1) start logged out of Facebook, (2) Settings → Social disconnected, (3) full Meta login + permissions grant, (4) Instagram auto-connects, (5) send review request, (6) customer receives email and leaves 5-star review, (7) review card appears on Facebook Page and Instagram. Upload same video to all 6 permission slots and submit.
+- **Re-seed demo account**: Hit "Seed Demo Account" in Admin to rebuild with corrected data.
+- **WhatsApp**: Check if `+447863750348` flipped from Pending → Active in Meta WhatsApp Manager, then test sending.
+- **Landing page videos**: Hero and How It Works video placeholders ready to swap in when recorded.
+
 ### Session — 2026-04-28 (seventy-fifth session)
 
 **Tasks completed:**
