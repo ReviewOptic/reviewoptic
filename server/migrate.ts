@@ -533,6 +533,9 @@ export async function runMigrations() {
     await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS instagram_username TEXT NOT NULL DEFAULT ''`);
     await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS instagram_profile_pic_url TEXT NOT NULL DEFAULT ''`);
 
+    // Facebook page name — displayed in Settings alongside "Connected"
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS facebook_page_name TEXT NOT NULL DEFAULT ''`);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();

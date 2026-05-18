@@ -691,7 +691,7 @@ export default function Settings() {
                       <div>
                         <p className="text-[13.5px] font-medium">Facebook</p>
                         {settings?.facebookPageAccessToken ? (
-                          <p className="text-[12px] text-green-600 font-medium">Connected</p>
+                          <p className="text-[12px] text-green-600 font-medium">Connected{(settings as any)?.facebookPageName ? ` · ${(settings as any).facebookPageName}` : ""}</p>
                         ) : fbManual ? (
                           <p className="text-[12px] text-amber-600">Enter your Page URL to finish connecting</p>
                         ) : (

@@ -223,11 +223,15 @@ async function postReviewToSocial(review: Review, customer: Customer, settings: 
       const container = await containerRes.json() as any;
       if (container.id) {
         // Step 2: publish container
-        await fetch(`https://graph.facebook.com/v18.0/${settings.instagramBusinessAccountId}/media_publish`, {
+        const publishRes = await fetch(`https://graph.facebook.com/v18.0/${settings.instagramBusinessAccountId}/media_publish`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ creation_id: container.id, access_token: settings.facebookPageAccessToken }),
         });
+        const publishData = await publishRes.json() as any;
+        if (publishData.error) console.error("Instagram publish error:", JSON.stringify(publishData.error));
+      } else {
+        console.error("Instagram container error:", JSON.stringify(container));
       }
     } catch (err) {
       console.error("Instagram post error:", err);
@@ -2955,7 +2959,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       scope: "pages_manage_posts,pages_read_engagement,pages_show_list,instagram_basic,instagram_content_publish,business_management",
       state,
       response_type: "code",
-      auth_type: "reauthorize",
+      auth_type: "rerequest",
     });
     res.redirect(`https://www.facebook.com/v18.0/dialog/oauth?${params}`);
   });
@@ -2993,8 +2997,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const connectPageById = async (pageId: string): Promise<boolean> => {
           try {
             const pageRes = await fetch(`https://graph.facebook.com/v18.0/${pageId}?fields=access_token,id,name,instagram_business_account&access_token=${tokenData.access_token}`);
-            const pageData = await pageRes.json() as { access_token?: string; id?: string; instagram_business_account?: { id: string } };
+            const pageData = await pageRes.json() as { access_token?: string; id?: string; name?: string; instagram_business_account?: { id: string } };
             if (!pageData.access_token || !pageData.id) return false;
+            const facebookPageName = pageData.name || "";
             const instagramBusinessAccountId = pageData.instagram_business_account?.id || "";
             let instagramUsername = "", instagramProfilePicUrl = "";
             if (instagramBusinessAccountId) {
@@ -3005,7 +3010,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
                 instagramProfilePicUrl = igProfile.profile_picture_url || "";
               } catch { /* optional */ }
             }
-            await storage.upsertSettings(accountId, { facebookPageAccessToken: pageData.access_token, facebookPageId: pageData.id, instagramBusinessAccountId, instagramUsername, instagramProfilePicUrl });
+            await storage.upsertSettings(accountId, { facebookPageAccessToken: pageData.access_token, facebookPageId: pageData.id, facebookPageName, instagramBusinessAccountId, instagramUsername, instagramProfilePicUrl });
             return true;
           } catch { return false; }
         };
@@ -3052,7 +3057,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           instagramProfilePicUrl = igProfile.profile_picture_url || "";
         }
       } catch { /* optional */ }
-      await storage.upsertSettings(accountId, { facebookPageAccessToken: page.access_token, facebookPageId: page.id, instagramBusinessAccountId, instagramUsername, instagramProfilePicUrl });
+      await storage.upsertSettings(accountId, { facebookPageAccessToken: page.access_token, facebookPageId: page.id, facebookPageName: page.name || "", instagramBusinessAccountId, instagramUsername, instagramProfilePicUrl });
       res.redirect(`${process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000")}/settings?tab=social&connected=facebook`);
     } catch (err) {
       console.error("Facebook OAuth error:", err);
@@ -3088,7 +3093,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           instagramProfilePicUrl = igProfile.profile_picture_url || "";
         }
       } catch { /* optional */ }
-      await storage.upsertSettings(accountId, { facebookPageAccessToken: pageData.access_token, facebookPageId: pageData.id, instagramBusinessAccountId, instagramUsername, instagramProfilePicUrl });
+      await storage.upsertSettings(accountId, { facebookPageAccessToken: pageData.access_token, facebookPageId: pageData.id, facebookPageName: pageData.name || "", instagramBusinessAccountId, instagramUsername, instagramProfilePicUrl });
       delete req.session.fbUserToken;
       res.json({ success: true });
     } catch (err) {
@@ -3098,7 +3103,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.delete("/api/social/facebook", requireAuth, async (req, res) => {
-    await storage.upsertSettings(req.session.accountId!, { facebookPageAccessToken: "", facebookPageId: "", instagramBusinessAccountId: "", instagramUsername: "", instagramProfilePicUrl: "" });
+    await storage.upsertSettings(req.session.accountId!, { facebookPageAccessToken: "", facebookPageId: "", facebookPageName: "", instagramBusinessAccountId: "", instagramUsername: "", instagramProfilePicUrl: "" });
     res.json({ success: true });
   });
 

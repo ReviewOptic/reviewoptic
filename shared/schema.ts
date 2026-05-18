@@ -119,6 +119,7 @@ export const settings = pgTable("settings", {
   linkedinClientSecret: text("linkedin_client_secret").notNull().default(""),
   facebookPageAccessToken: text("facebook_page_access_token").notNull().default(""),
   facebookPageId: text("facebook_page_id").notNull().default(""),
+  facebookPageName: text("facebook_page_name").notNull().default(""),
   linkedinAccessToken: text("linkedin_access_token").notNull().default(""),
   linkedinOrganizationId: text("linkedin_organization_id").notNull().default(""),
   instagramBusinessAccountId: text("instagram_business_account_id").notNull().default(""),
