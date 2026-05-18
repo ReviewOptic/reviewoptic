@@ -186,6 +186,27 @@ Your job is to be the developer they would hire if they could afford a great one
 
 *(Sessions 18–74 archived to CLAUDE_ARCHIVE.md)*
 
+### Session — 2026-05-18 (seventy-eighth session)
+
+**Tasks completed:**
+- **`auth_type=reauthorize` reverted**: Changed back to `rerequest` in `server/routes.ts`. Was causing Facebook to show a "Reconnect" dialog forcing password re-entry for all users — not suitable for real users.
+- **Facebook page name now stored and displayed**: Added `facebook_page_name` column to schema + DB migration. Fetched and stored in all three OAuth connection paths. Settings → Social now shows `Connected · [Page Name]` for Facebook, matching how Instagram shows `@username`.
+- **Instagram auto-post error logging improved**: Instagram publish step now logs the actual API error if it fails, instead of swallowing it silently.
+- **Screencast recorded for Meta App Review**: Captions written to match the actual flow (Facebook already logged in → Edit Settings → permissions screen). Screencast done and ready to submit once Meta's App Review portal is back up (was throwing generic error at time of session).
+- **Inbound SMS receiver built**: Added `POST /api/twilio/inbound-sms` endpoint that stores the last received SMS in memory. Added "Check Inbound SMS" button to Admin panel that shows the stored message in an alert. Twilio webhook on `+447863750348` is now pointed at `https://reviewoptic.com/api/twilio/inbound-sms`. Next time Meta sends the OTP, it will be captured and readable from the Admin panel.
+
+**Root cause of Instagram not posting in previous screencast**: `instagramBusinessAccountId` was empty after the `reauthorize` OAuth run — the reconnect during recording didn't save the Instagram ID. Fixed by reverting `auth_type` and ensuring all three OAuth paths save it correctly.
+
+**⚠️ LESSON LEARNED**: When OTP/verification codes can't be received directly, build a webhook receiver in the app immediately — don't send the user down the path of third-party tools (webhook.site) and manual console hunting first.
+
+**Pending:**
+- **Facebook App Review**: Screencast recorded, submission blocked by Meta portal error ("Something went wrong"). Try again next session — Meta's portal should be back up.
+- **Reconnect Facebook**: DB shows Facebook currently disconnected (credentials empty). Go to Settings → Social → Connect Facebook, then turn Auto-Post Reviews toggle back on.
+- **WhatsApp OTP**: Meta rate-limited after too many verification attempts. Wait ~15 minutes, then: click "Send verification code" in Meta WhatsApp Manager → go to Admin panel → click "Check Inbound SMS" → copy the OTP → paste into Meta. Twilio webhook is already configured.
+- **WhatsApp Business Verification**: If OTP flow works but number still won't activate, check Meta Business Manager → Settings → Business Info for green "Verified" badge. Missing business verification can block WhatsApp number activation.
+- **Re-seed demo account**: Do this fresh right before recording homepage/landing page videos.
+- **Landing page videos**: Hero and How It Works placeholders ready to swap in when recorded.
+
 ### Session — 2026-05-18 (seventy-seventh session)
 
 **Tasks completed:**
