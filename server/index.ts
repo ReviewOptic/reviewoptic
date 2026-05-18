@@ -54,6 +54,8 @@ declare module "express-session" {
     userRole: string;
     originalUserId: string;
     originalAccountId: string;
+    fbOauthState: string;
+    fbUserToken: string;
   }
 }
 

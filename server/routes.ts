@@ -2943,17 +2943,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // Social OAuth (protected)
-  let oauthState = "";
-
   app.get("/auth/facebook", requireAuth, async (req, res) => {
     const appId = process.env.FACEBOOK_APP_ID;
     if (!appId) return res.status(400).send("Facebook App ID not configured on the server.");
-    oauthState = randomUUID();
+    const state = randomUUID();
+    req.session.fbOauthState = state;
+    await new Promise<void>((resolve, reject) => req.session.save(err => err ? reject(err) : resolve()));
     const params = new URLSearchParams({
       client_id: appId,
       redirect_uri: `${process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000")}/auth/facebook/callback`,
       scope: "pages_manage_posts,pages_read_engagement,pages_show_list,instagram_basic,instagram_content_publish,business_management",
-      state: oauthState,
+      state,
       response_type: "code",
     });
     res.redirect(`https://www.facebook.com/v18.0/dialog/oauth?${params}`);
@@ -2961,7 +2961,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.get("/auth/facebook/callback", async (req, res) => {
     const { code, state } = req.query as { code: string; state: string };
-    if (state !== oauthState) return res.status(400).send("Invalid OAuth state.");
+    if (!state || state !== req.session.fbOauthState) return res.status(400).send("Invalid OAuth state — please try connecting again.");
     const appId = process.env.FACEBOOK_APP_ID;
     const appSecret = process.env.FACEBOOK_APP_SECRET;
     if (!appId || !appSecret) return res.status(500).send("Facebook credentials not configured on server.");
@@ -3025,7 +3025,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
 
         // 3. Last resort — ask the user to enter their Page URL
-        (req.session as any).fbUserToken = tokenData.access_token;
+        req.session.fbUserToken = tokenData.access_token;
         return res.redirect(`${appUrl}/settings?tab=social&fbmanual=1`);
       }
       const page = pagesData.data[0];
@@ -3046,7 +3046,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/social/facebook/page", requireAuth, async (req, res) => {
     const accountId = req.session.accountId!;
-    const userToken = (req.session as any).fbUserToken;
+    const userToken = req.session.fbUserToken;
     if (!userToken) return res.status(400).json({ error: "Session expired. Please reconnect Facebook." });
     const { pageUrl } = req.body as { pageUrl: string };
     let pageId = (pageUrl || "").trim();
@@ -3067,7 +3067,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         instagramBusinessAccountId = igData.instagram_business_account?.id || "";
       } catch { /* optional */ }
       await storage.upsertSettings(accountId, { facebookPageAccessToken: pageData.access_token, facebookPageId: pageData.id, instagramBusinessAccountId });
-      delete (req.session as any).fbUserToken;
+      delete req.session.fbUserToken;
       res.json({ success: true });
     } catch (err) {
       console.error("FB direct page error:", err);
