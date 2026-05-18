@@ -186,6 +186,30 @@ Your job is to be the developer they would hire if they could afford a great one
 
 *(Sessions 18–74 archived to CLAUDE_ARCHIVE.md)*
 
+### Session — 2026-05-18 (seventy-seventh session)
+
+**Tasks completed:**
+- **Facebook OAuth state bug fixed**: `oauthState` was stored as an in-memory variable in `server/routes.ts`. Replit restarts the server frequently — if a restart happened between the user clicking "Connect Facebook" and Facebook redirecting back, the state check failed silently and the connection was never saved. Fixed by storing `fbOauthState` in the session (Postgres-backed), so server restarts can't break the flow. Also typed `fbUserToken` properly in the session type declaration.
+- **Facebook credentials wiped for screencast**: Cleared `facebook_page_access_token`, `facebook_page_id`, `instagram_business_account_id` from DB directly so Settings showed clean "Connect Facebook" state for recording.
+- **`auth_type=reauthorize` re-added for screencast**: Facebook was showing a "Reconnect" dialog (skipping the permissions screen) because it remembered the previous connection. Added `auth_type=reauthorize` to force the full re-auth + permissions screen. **⚠️ MUST REVERT after screencast is submitted — not suitable for real users.**
+- **Instagram profile info now fetched and displayed**: Meta's App Review feedback for `instagram_business_basic` requires the app to show the connected Instagram account's profile info (username, profile picture). Added `instagramUsername` and `instagramProfilePicUrl` fields to schema + DB migration. These are fetched from the Graph API at connect time and stored. Settings → Social now shows the Instagram profile picture (in place of the icon) and `@username` alongside "Connected". Applied to all three connect paths (auto, `connectPageById` helper, manual page URL entry) and cleared on disconnect.
+- **Screencast re-recorded**: User re-recorded with the new Instagram profile info visible in Settings.
+
+**Architecture notes:**
+- `fbOauthState` and `fbUserToken` added to `SessionData` type in `server/index.ts` — session saved to Postgres via `connect-pg-simple`.
+- Instagram profile fetch: `GET /v18.0/{ig-user-id}?fields=username,profile_picture_url&access_token={page-token}` — requires `instagram_business_basic` permission.
+- New DB columns: `settings.instagram_username`, `settings.instagram_profile_pic_url` (both `TEXT NOT NULL DEFAULT ''`). Migration in `server/migrate.ts`.
+
+**⚠️ IMPORTANT — must do next session:**
+- **Revert `auth_type=reauthorize`** in `server/routes.ts` after the screencast is submitted to Meta. Remove that one line from the OAuth params. Real users should not be forced to re-enter their Facebook password every time they connect.
+
+**Pending:**
+- **Facebook App Review**: Finish writing updated descriptions for all permissions per Meta's feedback, re-record screencasts with Instagram profile info visible, then submit. `instagram_business_basic` description needs to: (1) provide test account credentials, (2) point reviewer to Settings → Social to see the Instagram username/profile pic, (3) state it's a dependency for `instagram_content_publish`.
+- **Revert `auth_type=reauthorize`** once screencast is submitted.
+- **Re-seed demo account**: Hit "Seed Demo Account" in Admin to rebuild with corrected data.
+- **WhatsApp**: Check if `+447863750348` flipped from Pending → Active in Meta WhatsApp Manager, then test sending.
+- **Landing page videos**: Hero and How It Works video placeholders ready to swap in when recorded.
+
 ### Session — 2026-05-17 (seventy-sixth session)
 
 **Tasks completed:**
