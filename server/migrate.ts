@@ -529,6 +529,10 @@ export async function runMigrations() {
     // Business type — used to personalise insight email benchmarks and AI tips
     await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS business_type TEXT NOT NULL DEFAULT ''`);
 
+    // Instagram profile info — displayed in Settings so reviewers can see connected account
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS instagram_username TEXT NOT NULL DEFAULT ''`);
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS instagram_profile_pic_url TEXT NOT NULL DEFAULT ''`);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();

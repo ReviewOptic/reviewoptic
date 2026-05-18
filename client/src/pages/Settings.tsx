@@ -741,11 +741,17 @@ export default function Settings() {
                 {/* Instagram row */}
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <FaInstagram className="w-8 h-8 flex-shrink-0 text-[#E1306C]" />
+                    {(settings as any)?.instagramProfilePicUrl ? (
+                      <img src={(settings as any).instagramProfilePicUrl} alt="Instagram profile" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                    ) : (
+                      <FaInstagram className="w-8 h-8 flex-shrink-0 text-[#E1306C]" />
+                    )}
                     <div>
                       <p className="text-[13.5px] font-medium">Instagram</p>
                       {(settings as any)?.instagramBusinessAccountId ? (
-                        <p className="text-[12px] text-green-600 font-medium">Connected</p>
+                        <div>
+                          <p className="text-[12px] text-green-600 font-medium">Connected{(settings as any)?.instagramUsername ? ` · @${(settings as any).instagramUsername}` : ""}</p>
+                        </div>
                       ) : settings?.facebookPageAccessToken ? (
                         <p className="text-[12px] text-amber-600">
                           No Instagram Business account found on your Facebook Page.{" "}

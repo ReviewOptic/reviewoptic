@@ -122,6 +122,8 @@ export const settings = pgTable("settings", {
   linkedinAccessToken: text("linkedin_access_token").notNull().default(""),
   linkedinOrganizationId: text("linkedin_organization_id").notNull().default(""),
   instagramBusinessAccountId: text("instagram_business_account_id").notNull().default(""),
+  instagramUsername: text("instagram_username").notNull().default(""),
+  instagramProfilePicUrl: text("instagram_profile_pic_url").notNull().default(""),
   socialPostEnabled: boolean("social_post_enabled").notNull().default(false),
   socialPostMessage: text("social_post_message").notNull().default("⭐ We just received a {stars}★ review! Thank you {customer_name}!"),
   country: text("country").notNull().default(""),
