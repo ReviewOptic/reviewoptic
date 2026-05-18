@@ -1059,6 +1059,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ success: true });
   });
 
+  // Twilio inbound SMS receiver — stores last received message so OTP codes can be read from admin panel
+  let lastInboundSms: { from: string; body: string; receivedAt: string } | null = null;
+  app.post("/api/twilio/inbound-sms", (req, res) => {
+    const { From, Body } = req.body as { From?: string; Body?: string };
+    lastInboundSms = { from: From || "unknown", body: Body || "", receivedAt: new Date().toISOString() };
+    console.log(`[inbound-sms] From: ${From} Body: ${Body}`);
+    res.set("Content-Type", "text/xml").send("<Response></Response>");
+  });
+  app.get("/api/admin/last-sms", requireAdmin, (_req, res) => {
+    res.json(lastInboundSms || { from: "", body: "", receivedAt: "" });
+  });
+
   app.get("/api/admin/metrics", requireAdmin, async (req, res) => {
     try {
       // Date range filter — applied to charts, feed, feature usage, top users
