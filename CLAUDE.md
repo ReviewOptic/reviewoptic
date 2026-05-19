@@ -186,6 +186,28 @@ Your job is to be the developer they would hire if they could afford a great one
 
 *(Sessions 18–74 archived to CLAUDE_ARCHIVE.md)*
 
+### Session — 2026-05-19 (seventy-ninth session)
+
+**Tasks completed:**
+- **Inbound SMS receiver removed**: The `POST /api/twilio/inbound-sms` endpoint, `GET /api/admin/last-sms` endpoint, and "Check Inbound SMS" admin button were all removed. The approach didn't work — Meta's OTP SMS was being filtered by UK carrier networks before reaching Twilio, even though the Twilio number itself can receive regular SMS fine (confirmed by test). Code cleaned up from `server/routes.ts` and `client/src/pages/Admin.tsx`.
+- **Facebook App Review resubmitted**: User successfully resubmitted App Review through Meta's portal (portal error from session 78 is now resolved).
+- **Facebook reconnected**: User went to Settings → Social → Connect Facebook and reconnected successfully.
+
+**WhatsApp OTP — root cause found, parked:**
+- The Twilio number `+447863750348` is a UK mobile number with SMS capability (confirmed — personal SMS test received fine).
+- Meta's OTP SMS specifically does not arrive — zero trace in Twilio message logs. This is UK carrier filtering of Meta's international shortcode, not a Twilio config issue.
+- Voice call option not available in Meta's WhatsApp Manager UI (no delivery method choice shown).
+- **Parked.** Two options if revisited: (1) raise a Twilio support ticket asking why Meta/Facebook OTP SMS is blocked on the number; (2) use a physical UK SIM (e.g. free Giffgaff SIM) as the WhatsApp Business number instead — guaranteed to receive OTPs.
+
+**⚠️ LESSON LEARNED**: Don't build in-memory webhook receivers for OTPs when the delivery channel itself is unreliable. Diagnose whether the SMS can arrive at all (quick test: send a personal SMS to the number) before building the receiver.
+
+**Pending:**
+- **Facebook App Review**: Resubmitted this session — awaiting Meta's response.
+- **Auto-Post Reviews toggle**: Facebook is reconnected — make sure the Auto-Post Reviews toggle in Settings → Social is turned back on.
+- **WhatsApp**: Parked — see root cause above. Options: Twilio support ticket or physical SIM.
+- **Re-seed demo account**: Do this fresh right before recording landing page videos.
+- **Landing page videos**: Hero and How It Works placeholders ready to swap in when recorded.
+
 ### Session — 2026-05-18 (seventy-eighth session)
 
 **Tasks completed:**

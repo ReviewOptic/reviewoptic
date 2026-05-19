@@ -277,12 +277,6 @@ export default function Admin() {
             if (d.success) alert(`Demo account ready!\nEmail: ${d.email}\nPassword: ${d.password}`);
             else alert("Failed to seed demo account");
           }}>Seed Demo Account</Button>
-          <Button size="sm" variant="outline" className="ml-2 text-blue-700 border-blue-400 hover:bg-blue-50" onClick={async () => {
-            const r = await fetch("/api/admin/last-sms", { credentials: "include" });
-            const d = await r.json();
-            if (d.body) alert(`From: ${d.from}\nReceived: ${d.receivedAt}\n\nMessage:\n${d.body}`);
-            else alert("No SMS received yet. Make sure the Twilio webhook is pointed at:\n\n${window.location.origin}/api/twilio/inbound-sms");
-          }}>Check Inbound SMS</Button>
         </div>
         {tab === "metrics" && (
           <div className="flex flex-wrap items-center gap-2 print:hidden">
