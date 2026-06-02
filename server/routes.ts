@@ -1877,7 +1877,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           email: row.email || "",
           phone: row.phone || "",
           serviceType: row.service_type || "",
-          serviceDate: row.service_date || null,
+          serviceDate: row.service_date || "",
           notes: row.notes || "",
           namePronunciation: "",
           accountId: req.session.accountId,
