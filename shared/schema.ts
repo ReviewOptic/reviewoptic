@@ -136,6 +136,12 @@ export const settings = pgTable("settings", {
   businessType: text("business_type").notNull().default(""),
 });
 
+export const serverState = pgTable("server_state", {
+  key: varchar("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const insertCustomerSchema = createInsertSchema(customers).omit({ createdAt: true });
 export const insertReviewRequestSchema = createInsertSchema(reviewRequests).omit({ createdAt: true });
 export const insertReviewSchema = createInsertSchema(reviews).omit({ createdAt: true });
