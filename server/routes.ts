@@ -2341,23 +2341,55 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (template.channel === "email") {
         if (!user.email) return res.status(400).json({ message: "No email address on your account" });
         if (!process.env.RESEND_API_KEY) return res.status(503).json({ message: "Email not configured" });
-        const { Resend } = await import("resend");
-        const resend = new Resend(process.env.RESEND_API_KEY);
-        const subject = `[TEST] ${template.subject || "Template preview"}`;
-        const opening = (template as any).opening || (template as any).subject || "";
-        const bodyHtml = resolvedBody.replace(/\n/g, "<br>");
-        await resend.emails.send({
-          from: `${settings.businessName} <noreply@reviewoptic.com>`,
-          to: user.email,
-          subject,
-          html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
-            <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:6px;padding:10px 14px;font-size:13px;color:#92400e;margin-bottom:20px">
-              This is a test — only you will receive this.
-            </div>
-            ${opening ? `<p style="font-weight:600;margin-bottom:12px">${opening}</p>` : ""}
-            <div style="font-size:15px;line-height:1.6;color:#111">${bodyHtml}</div>
-          </div>`,
-        });
+
+        // Build a dummy customer using the logged-in user's own details
+        const dummyCustomer = {
+          id: "test-customer-id",
+          accountId: req.session.accountId!,
+          name: fullName,
+          email: user.email,
+          phone: "",
+          serviceDate: "",
+          serviceType: "your recent service",
+          notes: "",
+          status: "request_sent",
+          doNotContact: false,
+          archived: false,
+          namePronunciation: "",
+          channel: "email",
+          createdAt: new Date(),
+          deletedAt: null,
+        };
+
+        // Assemble real platform links from settings
+        const platformMap: Record<string, string> = {
+          google: settings.googleReviewLink || "",
+          facebook: settings.facebookReviewLink || "",
+          trustpilot: settings.trustpilotLink || "",
+          tripadvisor: settings.tripadvisorLink || "",
+          checkatrade: settings.checkatradeLink || "",
+          mybuilder: settings.mybuilderLink || "",
+        };
+        const platformNames: Record<string, string> = { google: "Google", facebook: "Facebook", trustpilot: "Trustpilot", tripadvisor: "TripAdvisor", checkatrade: "Checkatrade", mybuilder: "MyBuilder" };
+        const selectedPlatforms = Object.entries(platformMap)
+          .filter(([, url]) => url)
+          .map(([key, url]) => ({ name: platformNames[key], url }));
+
+        const type = template.templateType;
+        const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://reviewoptic.com");
+
+        if (type.startsWith("follow_up")) {
+          const { sendFollowUpEmail } = await import("./email");
+          await sendFollowUpEmail(dummyCustomer as any, settings, `${appUrl}/review-landing?rid=test`, { subject: template.subject, body: template.body }, "[TEST] ");
+        } else if (type === "response_positive" || type === "response_negative") {
+          const { sendReviewEmail } = await import("./email");
+          await sendReviewEmail(dummyCustomer as any, settings, { subject: template.subject, body: template.body }, selectedPlatforms, "[TEST] ");
+        } else {
+          // pre-screen / initial — sends the star-rating email
+          const { sendPreScreenEmail } = await import("./email");
+          await sendPreScreenEmail(dummyCustomer as any, settings, "test-request-id", appUrl, "[TEST] ");
+        }
+
         return res.json({ message: `Test email sent to ${user.email}` });
       }
 

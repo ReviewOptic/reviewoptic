@@ -184,7 +184,7 @@ Your job is to be the developer they would hire if they could afford a great one
 
 ## SESSION LOGS
 
-*(Sessions 18–74 archived to CLAUDE_ARCHIVE.md)*
+*(Sessions 18–75 archived to CLAUDE_ARCHIVE.md)*
 
 ### Session — 2026-05-19 (seventy-ninth session)
 
@@ -251,8 +251,6 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Revert `auth_type=reauthorize`** once screencast is submitted.
 - **Re-seed demo account**: Hit "Seed Demo Account" in Admin to rebuild with corrected data.
 - **WhatsApp**: Check if `+447863750348` flipped from Pending → Active in Meta WhatsApp Manager, then test sending.
-- **Landing page videos**: Hero and How It Works video placeholders ready to swap in when recorded.
-
 ### Session — 2026-05-17 (seventy-sixth session)
 
 **Tasks completed:**
@@ -271,102 +269,4 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Re-seed demo account**: Hit "Seed Demo Account" in Admin to rebuild with corrected data.
 - **WhatsApp**: Check if `+447863750348` flipped from Pending → Active in Meta WhatsApp Manager, then test sending.
 - **Landing page videos**: Hero and How It Works video placeholders ready to swap in when recorded.
-
-### Session — 2026-04-28 (seventy-fifth session)
-
-**Tasks completed:**
-- **Edit Contact blank fields fixed**: `EditCustomerDialog` was using `useState(() => {...})` to seed the form instead of `useEffect(() => {...}, [customer])`. `useState` initialiser only runs once on mount — fields were always blank on open. Fixed in `Customers.tsx:492`.
-- **Analytics daily trend line made literal**: Daily requests chart now plots by actual `sent_at` date (not `created_at`). Daily clicks chart now plots by actual `clicked_at` date (separate query). Previously both were grouped by `created_at` (send date), meaning clicks always appeared on the wrong day.
-- **Scheduled request send-day tracking fixed**: `doSend()` now stamps `sent_at = NOW()` after the message actually fires. Previously `sent_at` was set at scheduling time, so scheduled requests appeared in analytics on the day they were scheduled, not the day they were delivered.
-- **Channel daily chart fixed**: Same `sent_at` / `clicked_at` split applied to the per-channel daily breakdown chart.
-- **Insight emails root cause found and fixed**: `getUserStats` in `insightEmail.ts` was querying `review_platform_clicks` using `created_at`, but that table only has `clicked_at`. This threw for every user, was swallowed by the try/catch, and no insight emails were ever sent. Fixed: `created_at` → `clicked_at`.
-- **Insight emails greatly enhanced**:
-  - Added **best day to send** (from `clicked_at` day-of-week over last 30 days) to stats table
-  - Added **rating distribution** — visual bar chart (green/amber/red) showing star breakdown
-  - Added **"Tips to get more reviews"** section — AI-generated, 3 tips tailored to their actual stats and industry
-  - Added **"How you compare"** section — industry-specific benchmarks (conversion range, avg rating, top platform, insight note)
-- **Business Type field added**: New dropdown in Settings → Business Details. 23 industry options (plumber, electrician, salon, restaurant, dentist, etc.). Stored as `settings.business_type`. Used to personalise both the AI tips prompt and the benchmark comparisons in insight emails. Helper note on the field explains this. Falls back to generic benchmarks if not set.
-
-**Architecture notes:**
-- Analytics daily chart now uses two separate SQL queries (sent_at and clicked_at) merged into `dailyData`. Same pattern for `channelDailyData`. Overall funnel totals still use `created_at` — unchanged.
-- `business_type` added to `shared/schema.ts` (Drizzle) + `server/migrate.ts` (DB). Drizzle's `upsertSettings` picks it up automatically — no API changes needed.
-- `BENCHMARKS` map in `insightEmail.ts` keyed by `business_type` value. Each entry has: `label`, `conversionRange`, `ratingRange`, `topPlatform`, `insightNote`. Falls back to `DEFAULT_BENCHMARK` if type not set.
-
-**Pending:**
-- **Re-seed demo account**: Hit "Seed Demo Account" in Admin to rebuild with corrected data (from session 74).
-- **Facebook App Review**: Check if `instagram_content_publish` test calls have registered, then submit.
-- **WhatsApp**: Check if `+447863750348` flipped from Pending → Active in Meta, then test sending.
-- **Landing page videos**: Hero and How It Works video placeholders ready to swap in when recorded.
-
-### Session — 2026-04-28 (seventy-fourth session)
-
-**Tasks completed:**
-- **Analytics bug investigated**: User reported 1-3 star ratings not showing in analytics. Audited the full analytics endpoint and confirmed real accounts are correct — the `/rate` endpoint saves `rating` and sets `status = "clicked"` for all star levels 1-5. No bug in production.
-- **Demo seed analytics bug fixed**: Root cause was that the seed inserted review requests with `status = "completed"` for rated customers, but analytics counts clicks via `status = 'clicked'`. Fixed: seed now uses `status = "clicked"` for rated requests, adds `clicked_at` timestamp, and removes incorrect `follow_up_count` logic.
-- **Demo seed customer statuses fixed**: Customers were inserted with `status = "review_received"` which isn't in statusConfig — showed as "Pending". Fixed: `review_received` → `review_completed`, `privateFeedback` → `feedback_left`.
-- **"Feedback Left" status added**: Customers who give 1-3 stars now get `customers.status = "feedback_left"` instead of staying as "Request Sent". Updated everywhere: `/rate` endpoint, `Customers.tsx` statusConfig + filter dropdown (amber badge), `CustomerDetail.tsx` statusMap, analytics PIPELINE_ORDER.
-- **Full analytics audit (real accounts)**: All metrics confirmed correct — sent, clicked, rating distribution, sentiment split, private feedback count, best day, follow-up, template performance, platform clicks. All good.
-
-**Architecture notes:**
-- `customers.status` flow: `pending_request` → `request_sent` → (`clicked` via platform button OR `feedback_left` via 1-3 star rating) → `review_completed` / `no_response`
-- Two "clicked" concepts: `review_requests.status = 'clicked'` set for all star ratings 1-5 (analytics funnel counts this). `customers.status = 'clicked'` only set on platform button click (pipeline widget). Different metrics, both correct.
-- Demo account: re-seed from Admin panel (purple button) to pick up all fixes.
-
-**Pending:**
-- **Re-seed demo account**: Hit "Seed Demo Account" in Admin to rebuild with corrected data.
-- **Facebook App Review**: Check if `instagram_content_publish` / `instagram_basic` test calls have registered, then submit.
-- **WhatsApp**: `+447863750348` still "Pending" in Meta — check if flipped to Active, then test sending.
-- **Landing page videos**: Hero and How It Works video placeholders ready to swap in when recorded.
-
-### Session — 2026-04-28 (seventy-third session)
-
-**Tasks completed:**
-- **`business_management` added back to Facebook OAuth scope**: Previously removed in session 71 as "incorrect", but Meta's Instagram API with Facebook Login page explicitly lists it as required. Added back to the scope in `server/routes.ts`. Users reconnecting Facebook will now be prompted to grant this permission.
-- **Stale Instagram/LinkedIn secrets deleted**: `INSTAGRAM_APP_SECRET`, `INSTAGRAM_APP_ID`, `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET` removed from Replit — none are used by the code. ReviewOptic uses only `FACEBOOK_APP_ID` / `FACEBOOK_APP_SECRET` for all Facebook/Instagram functionality.
-- **Facebook App Review — Graph API Explorer test calls made**: Manually triggered API calls via Graph API Explorer to register test events for all 6 permissions: `pages_show_list`, `business_management`, `pages_read_engagement`, `instagram_basic`, `instagram_content_publish`, `pages_manage_posts`. Calls returned errors (expected — Explorer uses user token not page token) but should register with Meta's system.
-- **Landing page nav — white background**: Switched from blue nav to white nav so the logo sits naturally without a coloured container. Nav links back to dark grey, CTA button blue.
-- **Landing page nav — logo image**: Replaced Star icon + text wordmark with actual `/logo.png` image. Final size: `h-24` in a `h-24` nav bar.
-- **Landing page hero — lightened**: Changed dark gradient (`#0a527e → #0E679D → #1a8fd1`) to flat `#0E679D` — matches logged-in theme, less dark.
-- **Landing page copy — credit card fix**: Removed all instances of "no credit card required" — a card IS required to start the trial. Replaced with "cancel anytime". FAQ answer updated to accurately state card details are needed upfront.
-- **Landing page hero padding**: Increased `pt-32` → `pt-44` to clear the taller nav bar.
-
-**WhatsApp status:**
-- Number `+447863750348` showing as "Pending" in Meta WhatsApp Manager — waiting for Meta to approve.
-
-**Facebook App Review status:**
-- `instagram_content_publish` still showing 0 test calls — Graph API Explorer call to `/17841441789522801/media` returned empty array, should register. Waiting for Meta's system to update.
-- `public_profile` shows 0 — this is a basic permission, does not require App Review, can be ignored.
-- Likely ready to submit once test calls register. If still blocked, submit anyway — human reviewers evaluate the screencast.
-
-**Pending:**
-- **Facebook App Review**: Check if test calls have registered, then submit. If `instagram_content_publish` still shows 0, submit anyway.
-- **WhatsApp**: Wait for `+447863750348` to flip from Pending → Active in Meta WhatsApp Manager, then test sending from a customer detail page.
-- **Landing page**: Further content/design tweaks as needed — video slots still empty.
-
-### Session — 2026-04-27 (seventy-second session)
-
-**Tasks completed:**
-- **Facebook App Review — data handling questions answered**: Walked through all Meta App Review data handling questions. Answers: Yes to data processors (Replit, Inc. — cloud hosting/infrastructure, United States); data controller = ReviewOptic Limited; No to national security data sharing; None of the above for public authority request policies.
-- **Meta reviewer test account created**: Added `POST /api/admin/grant-access/:userId` endpoint that sets `plan_type = 'standard'`, `email_verified = true`, bypassing Stripe — for creating test accounts for Meta reviewers. Added green shield button in admin panel pending users section. Test account: `meta-reviewer@reviewoptic.com` / `met@rev!ewer` (already unlocked).
-- **Facebook App Review — reviewer instructions written**: Full instructions covering login, Facebook connect flow via Settings → Social, and how to trigger a review card post to FB + Instagram.
-- **Facebook App Review — submitted but waiting**: All questions answered, screencasts uploaded (Meta's uploader was flaky last session but worked this session). Instagram API test calls showing "not tested" — Meta says data can take 24 hours to register. **Next session: check if Instagram test calls have registered, then submit.**
-- **Mobile layout fixes across 5 pages**:
-  - Dashboard: quick links grid was `repeat(N, 1fr)` (5-6 icons in one row) → fixed to `grid-cols-3`
-  - Settings: widget config `grid-cols-3` → `grid-cols-1 sm:grid-cols-3`; default channel select `w-48` → `w-full sm:w-48`
-  - Templates: tab bar `overflow-x-hidden` → `overflow-x-auto no-scrollbar` (tabs were being cut off)
-  - Analytics: custom date inputs stacked vertically on mobile (`flex-col sm:flex-row`)
-- **New landing page built** (`client/src/pages/Home.tsx`): Full marketing landing page at `reviewoptic.com` with sticky nav bar (logo, Features/How It Works/Pricing/FAQ links, Sign In + Start Free Trial buttons, mobile hamburger menu), hero section, The Problem, How It Works (3 steps), Features grid (9 cards), Pricing (Standard £29/Pro £39), FAQ accordion, footer CTA, footer links. Two video placeholders for future video content.
-- **Landing page routing fixed**: Initial approach of adding `"/"` first in Wouter Switch broke all routes (Wouter matches "/" as prefix of everything). Fixed by handling it inside `ProtectedRoutes` — logged-out users at "/" see Home, logged-in users see Dashboard. No existing `navigate("/")` calls needed changing.
-- **Landing page crash fixed**: `useEffect` import accidentally removed from Home.tsx when cleaning up auth code — caused blank screen with `ReferenceError: useEffect is not defined`.
-
-**Architecture notes:**
-- Landing page routing: `ProtectedRoutes` checks `location === "/" && !user` → renders `<Home />`. All other auth logic unchanged.
-- Admin grant-access endpoint: `POST /api/admin/grant-access/:userId` — sets plan to standard + verifies email. Button shows in pending users section (green shield icon). Safe — blocks admin accounts.
-- Landing page is self-contained in `Home.tsx` with no external dependencies beyond existing hooks. Video placeholders use `<Video />` icon from lucide — swap for `<video>` tags when ready.
-
-**Pending:**
-- **WhatsApp**: Retry Meta verification for `+447863750348` — lockout from session 71 has expired, should be able to retry now. Once verified, test WhatsApp sending from a customer detail page.
-- **Facebook App Review**: Check if Instagram API test calls have registered (can take 24 hours), then submit the review.
-- **Landing page**: Content and design review — user to check on desktop and mobile and flag any copy/layout changes needed. Video slots ready to drop real videos in.
-
 

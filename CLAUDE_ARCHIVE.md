@@ -1088,3 +1088,42 @@ Older session logs moved here to keep CLAUDE.md under 30k chars.
 - **Facebook app confirmed already Live**: App was already in Live mode — not Development mode as previously assumed.
 - **WhatsApp `TWILIO_WHATSAPP_FROM` secret fixed**: Secret had an invisible LRM Unicode character before the `+` sign causing Twilio to reject the sender.
 
+
+### Session — 2026-04-27 (seventy-second session)
+
+**Tasks completed:**
+- **Facebook App Review — data handling questions answered**: Walked through all Meta App Review data handling questions. Answers: Yes to data processors (Replit, Inc. — cloud hosting/infrastructure, United States); data controller = ReviewOptic Limited; No to national security data sharing; None of the above for public authority request policies.
+- **Meta reviewer test account created**: Added `POST /api/admin/grant-access/:userId` endpoint that sets `plan_type = 'standard'`, `email_verified = true`, bypassing Stripe — for creating test accounts for Meta reviewers. Added green shield button in admin panel pending users section. Test account: `meta-reviewer@reviewoptic.com` / `met@rev!ewer` (already unlocked).
+- **Facebook App Review — reviewer instructions written**: Full instructions covering login, Facebook connect flow via Settings → Social, and how to trigger a review card post to FB + Instagram.
+- **Facebook App Review — submitted but waiting**: All questions answered, screencasts uploaded. Instagram API test calls showing "not tested" — Meta says data can take 24 hours to register.
+- **Mobile layout fixes across 5 pages**: Dashboard grid, Settings widget config, Templates tab bar, Analytics date inputs.
+- **New landing page built** (`client/src/pages/Home.tsx`): Full marketing landing page at `reviewoptic.com` with sticky nav, hero, features, pricing, FAQ, footer.
+- **Landing page routing fixed**: Handled inside `ProtectedRoutes` — logged-out users at "/" see Home, logged-in users see Dashboard.
+
+### Session — 2026-04-28 (seventy-third session)
+
+**Tasks completed:**
+- **`business_management` added back to Facebook OAuth scope**: Required per Meta's Instagram API with Facebook Login docs.
+- **Stale Instagram/LinkedIn secrets deleted**: `INSTAGRAM_APP_SECRET`, `INSTAGRAM_APP_ID`, `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET` removed from Replit.
+- **Facebook App Review — Graph API Explorer test calls made**: Manually triggered API calls to register test events for all 6 permissions.
+- **Landing page nav — white background, logo image, lightened hero, credit card copy fix, hero padding**.
+
+### Session — 2026-04-28 (seventy-fourth session)
+
+**Tasks completed:**
+- **Analytics bug investigated**: Real accounts confirmed correct — no bug in production.
+- **Demo seed analytics bug fixed**: seed now uses `status = "clicked"` for rated requests, adds `clicked_at` timestamp.
+- **Demo seed customer statuses fixed**: `review_received` → `review_completed`, `privateFeedback` → `feedback_left`.
+- **"Feedback Left" status added**: Customers who give 1-3 stars get `customers.status = "feedback_left"`. Updated `/rate` endpoint, `Customers.tsx`, `CustomerDetail.tsx`, analytics PIPELINE_ORDER.
+- **Full analytics audit (real accounts)**: All metrics confirmed correct.
+
+### Session — 2026-04-28 (seventy-fifth session)
+
+**Tasks completed:**
+- **Edit Contact blank fields fixed**: `EditCustomerDialog` switched from `useState` → `useEffect` to seed form. Fixed in `Customers.tsx:492`.
+- **Analytics daily trend line made literal**: Daily requests chart plots by `sent_at`; daily clicks chart by `clicked_at`.
+- **Scheduled request send-day tracking fixed**: `doSend()` now stamps `sent_at = NOW()` after message fires.
+- **Channel daily chart fixed**: Same `sent_at` / `clicked_at` split applied.
+- **Insight emails root cause found and fixed**: `getUserStats` was querying `review_platform_clicks` using `created_at` — table only has `clicked_at`. Fixed.
+- **Insight emails greatly enhanced**: Added best day to send, rating distribution bar chart, AI tips section, industry benchmarks section.
+- **Business Type field added**: New dropdown in Settings → Business Details. 23 industry options. Stored as `settings.business_type`. Used for AI tips + benchmark comparisons in insight emails.

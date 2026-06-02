@@ -16,7 +16,7 @@ function customerFrom(settings: Settings): string {
 const LOGO_URL = `https://www.reviewoptic.com/logo.png`;
 const LOGO_HTML = `<div style="margin-bottom:28px;">
   <a href="https://www.reviewoptic.com" style="text-decoration:none;">
-    <img src="${LOGO_URL}" alt="ReviewOptic" style="width:100%;max-width:200px;height:auto;object-fit:contain;display:block;" />
+    <img src="${LOGO_URL}" alt="ReviewOptic" style="width:100%;max-width:280px;height:auto;object-fit:contain;display:block;" />
   </a>
 </div>`;
 
@@ -25,28 +25,31 @@ function customerLogoHtml(settings: Settings): string {
   const logoSrc = settings.logoUrl?.startsWith("http") ? settings.logoUrl : settings.logoUrl ? `${baseUrl}${settings.logoUrl}` : "";
   if (!logoSrc) return "";
   const websiteHref = settings.websiteUrl ? (settings.websiteUrl.startsWith("http") ? settings.websiteUrl : `https://${settings.websiteUrl}`) : "";
-  const img = `<img src="${logoSrc}" alt="${settings.businessName}" style="width:100%;max-width:200px;height:auto;object-fit:contain;display:block;" />`;
+  const img = `<img src="${logoSrc}" alt="${settings.businessName}" style="width:100%;max-width:280px;height:auto;object-fit:contain;display:block;" />`;
   const linked = websiteHref ? `<a href="${websiteHref}" target="_blank" style="text-decoration:none;">${img}</a>` : img;
   return `<div style="margin-bottom:28px;">${linked}</div>`;
 }
 const POWERED_BY_FOOTER = `
-  <div style="border-top:1px solid #e5e7eb;margin-top:32px;padding-top:16px;text-align:center;">
-    <span style="font-size:11px;color:#9ca3af;">Powered by <a href="https://reviewoptic.com" style="color:#9ca3af;text-decoration:underline;">ReviewOptic</a></span>
+  <div style="border-top:1px solid #e5e7eb;margin-top:32px;padding-top:20px;text-align:center;">
+    <p style="font-size:11px;color:#9ca3af;margin:0 0 8px;">Powered by</p>
+    <a href="https://reviewoptic.com" style="text-decoration:none;display:inline-block;">
+      <img src="${LOGO_URL}" alt="ReviewOptic" style="width:100%;max-width:120px;height:auto;object-fit:contain;display:block;" />
+    </a>
   </div>`;
 
 const PLATFORM_FOOTER = `
   <div style="border-top:1px solid #e5e7eb;margin-top:32px;padding-top:24px;text-align:center;">
-    <p style="font-size:13px;color:#555;margin:0 0 12px;">Know someone who could benefit from ReviewOptic?</p>
+    <p style="font-size:13px;color:#555;margin:0 0 12px;text-align:center;">Know someone who could benefit from ReviewOptic?</p>
     <a href="https://reviewoptic.com/pricing" style="display:inline-block;background:#2563eb;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;">Refer a friend</a>
     <div style="border-top:1px solid #e5e7eb;margin-top:24px;padding-top:16px;">
-      <span style="font-size:11px;color:#9ca3af;">Powered by <a href="https://reviewoptic.com" style="color:#9ca3af;text-decoration:underline;">ReviewOptic</a></span>
-      <div style="margin-top:8px;">
+      <p style="font-size:11px;color:#9ca3af;text-align:center;margin:0 0 8px;">Powered by <a href="https://reviewoptic.com" style="color:#9ca3af;text-decoration:underline;">ReviewOptic</a></p>
+      <p style="font-size:11px;color:#9ca3af;text-align:center;margin:0;">
         <a href="https://reviewoptic.com/privacy" style="font-size:11px;color:#9ca3af;text-decoration:underline;margin:0 8px;">Privacy Policy</a>
         &nbsp;&middot;&nbsp;
         <a href="https://reviewoptic.com/terms" style="font-size:11px;color:#9ca3af;text-decoration:underline;margin:0 8px;">Terms &amp; Conditions</a>
         &nbsp;&middot;&nbsp;
         <a href="https://reviewoptic.com/faq" style="font-size:11px;color:#9ca3af;text-decoration:underline;margin:0 8px;">FAQ</a>
-      </div>
+      </p>
     </div>
   </div>`;
 
@@ -143,21 +146,21 @@ function applyMergeTags(text: string, customer: Customer, settings: Settings, re
 function customerUnsubscribeFooter(customerId: string): string {
   const unsubUrl = `${APP_URL}/api/unsubscribe/customer?cid=${encodeURIComponent(customerId)}`;
   return `
-  <div style="border-top:1px solid #e5e7eb;margin-top:32px;padding-top:16px;text-align:center;">
-    <span style="font-size:11px;color:#9ca3af;">
+  <div style="border-top:1px solid #e5e7eb;margin-top:32px;padding-top:16px;">
+    <p style="font-size:11px;color:#9ca3af;text-align:center;margin:0;">
       Don't want to receive emails like this?
       <a href="${unsubUrl}" style="color:#9ca3af;text-decoration:underline;">Unsubscribe</a>
-    </span>
+    </p>
   </div>`;
 }
 
 function platformUnsubscribeFooter(userId: string): string {
   const unsubUrl = `${APP_URL}/api/unsubscribe/platform?uid=${encodeURIComponent(userId)}`;
   return `
-  <div style="border-top:1px solid #e5e7eb;margin-top:8px;padding-top:12px;text-align:center;">
-    <span style="font-size:11px;color:#9ca3af;">
+  <div style="border-top:1px solid #e5e7eb;margin-top:8px;padding-top:12px;">
+    <p style="font-size:11px;color:#9ca3af;text-align:center;margin:0;">
       <a href="${unsubUrl}" style="color:#9ca3af;text-decoration:underline;">Unsubscribe from ReviewOptic emails</a>
-    </span>
+    </p>
   </div>`;
 }
 
@@ -165,7 +168,8 @@ export async function sendReviewEmail(
   customer: Customer,
   settings: Settings,
   template?: { subject: string; body: string } | null,
-  selectedPlatforms?: { name: string; url: string }[]
+  selectedPlatforms?: { name: string; url: string }[],
+  subjectPrefix?: string
 ): Promise<void> {
   console.log(`[sendReviewEmail] called, hasKey=${!!process.env.RESEND_API_KEY}`);
   if (!customer.email) return;
@@ -189,13 +193,16 @@ export async function sendReviewEmail(
   let html: string;
 
   const defaultSubject = `How was your experience with ${settings.businessName}?`;
+  const renderBodyParagraphs = (text: string) =>
+    text.split(/\n\n+/).map(p => `<p style="color:#555;margin:0 0 16px;line-height:1.6;">${p.replace(/\n/g, "<br>")}</p>`).join("");
+
   if (template?.body) {
     subject = applyMergeTags(template.subject || defaultSubject, customer, settings, primaryLink);
     const bodyText = applyMergeTags(template.body, customer, settings, primaryLink);
     html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:32px 24px;color:#111;">
       ${logoHtml}
-      ${bodyText.replace(/\n/g, "<br>")}
-      ${platforms.length ? `<br><br>${platformButtons}` : ""}
+      ${renderBodyParagraphs(bodyText)}
+      ${platforms.length ? `<div style="text-align:center;margin:8px 0 0;">${platformButtons}</div>` : ""}
       ${POWERED_BY_FOOTER}
       ${customerUnsubscribeFooter(customer.id)}
     </div>`;
@@ -208,12 +215,13 @@ export async function sendReviewEmail(
       <p style="color:#555;margin:0 0 24px;line-height:1.6;">
         Thank you for choosing ${settings.businessName}. We'd love to hear about your experience — it only takes a minute and means a lot to us.
       </p>
-      ${platformButtons}
+      <div style="text-align:center;">${platformButtons}</div>
       ${POWERED_BY_FOOTER}
       ${customerUnsubscribeFooter(customer.id)}
     </div>`;
   }
 
+  if (subjectPrefix) subject = subjectPrefix + subject;
   console.log(`[sendReviewEmail] sending subject="${subject}"`);
   const resend = new Resend(process.env.RESEND_API_KEY);
   const result = await resend.emails.send({
@@ -230,7 +238,8 @@ export async function sendPreScreenEmail(
   customer: Customer,
   settings: Settings,
   requestId: string,
-  appUrl: string
+  appUrl: string,
+  subjectPrefix?: string
 ): Promise<void> {
   if (!customer.email) return;
   if (!process.env.RESEND_API_KEY) {
@@ -241,9 +250,10 @@ export async function sendPreScreenEmail(
   const firstName = customer.name.split(" ")[0];
   const logoHtml = customerLogoHtml(settings);
   const tmpl = await getEmailTemplateOverride("pre_screen");
-  const subject = tmpl?.subject
+  let subject = tmpl?.subject
     ? tmpl.subject.replace("{{business_name}}", settings.businessName)
     : `How would you rate your experience with ${settings.businessName}?`;
+  if (subjectPrefix) subject = subjectPrefix + subject;
   const introHtml = tmpl?.body
     ? renderBodyHtml(tmpl.body, { "{{first_name}}": firstName, "{{business_name}}": settings.businessName })
     : `<p style="color:#555;margin:0 0 28px;line-height:1.6;">Thank you for choosing ${settings.businessName}! How would you rate your experience? Tap a star below:</p>`;
@@ -263,7 +273,7 @@ export async function sendPreScreenEmail(
     to: customer.email,
     subject,
     html: `
-      <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#111;">
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:32px 24px;color:#111;">
         ${logoHtml}
         <h2 style="font-size:20px;font-weight:700;margin:0 0 8px;">Hi ${firstName},</h2>
         ${introHtml}
@@ -335,7 +345,8 @@ export async function sendFollowUpEmail(
   customer: Customer,
   settings: Settings,
   ratingLink: string,
-  template?: { subject: string; body: string } | null
+  template?: { subject: string; body: string } | null,
+  subjectPrefix?: string
 ): Promise<void> {
   if (!customer.email) return;
   if (!process.env.RESEND_API_KEY) {
@@ -362,9 +373,10 @@ export async function sendFollowUpEmail(
     return out;
   };
 
-  const subject = template?.subject
+  let subject = template?.subject
     ? resolve(template.subject)
     : `Just checking in — ${settings.businessName} would love your feedback`;
+  if (subjectPrefix) subject = subjectPrefix + subject;
   const body = template?.body
     ? resolve(template.body)
     : `Just a quick follow-up from ${settings.businessName} — we'd love to hear how we did! Tap the button below to leave your rating.`;
@@ -376,11 +388,11 @@ export async function sendFollowUpEmail(
     to: customer.email,
     subject,
     html: `
-      <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#111;">
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:32px 24px;color:#111;">
         ${logoHtml}
-        <p style="color:#555;margin:0 0 28px;line-height:1.6;">${body.replace(/\n/g, "<br/>")}</p>
-        <div style="text-align:center;margin:0 0 32px;">
-          <a href="${ratingLink}" style="display:inline-block;background:#111;color:#fff;font-size:15px;font-weight:600;padding:14px 32px;border-radius:8px;text-decoration:none;">
+        ${body.split(/\n\n+/).map(p => `<p style="color:#555;margin:0 0 16px;line-height:1.6;">${p.replace(/\n/g, "<br/>")}</p>`).join("")}
+        <div style="text-align:center;margin:8px 0 32px;">
+          <a href="${ratingLink}" style="display:inline-block;background:#2563eb;color:#fff;font-size:15px;font-weight:600;padding:14px 32px;border-radius:8px;text-decoration:none;">
             Rate your experience &rarr;
           </a>
         </div>

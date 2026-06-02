@@ -155,7 +155,19 @@ async function sendInsightEmail(stats: UserStats, insights: string, userId: stri
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   const periodLabel = frequency === "weekly" ? "Weekly" : "Monthly";
-  const monthName = new Date().toLocaleString("en-GB", { month: "long", year: "numeric" });
+  const now = new Date();
+  const periodDateLabel = frequency === "weekly"
+    ? (() => {
+        const end = new Date(now);
+        end.setDate(end.getDate() - 1);
+        const start = new Date(end);
+        start.setDate(start.getDate() - 6);
+        const fmt = (d: Date) => d.toLocaleString("en-GB", { day: "numeric", month: "short" });
+        const yearSuffix = start.getFullYear() !== end.getFullYear() || end.getFullYear() !== now.getFullYear()
+          ? ` ${end.getFullYear()}` : ` ${now.getFullYear()}`;
+        return `${fmt(start)} – ${fmt(end)}${yearSuffix}`;
+      })()
+    : now.toLocaleString("en-GB", { month: "long", year: "numeric" });
   const ratingChange = stats.avgRatingLastMonth ? (stats.avgRating - stats.avgRatingLastMonth) : null;
   const reviewChange = stats.reviewsThisMonth - stats.reviewsLastMonth;
   const benchmark = BENCHMARKS[stats.businessType] || DEFAULT_BENCHMARK;
@@ -233,12 +245,12 @@ async function sendInsightEmail(stats: UserStats, insights: string, userId: stri
   await resend.emails.send({
     from: "ReviewOptic <noreply@reviewoptic.com>",
     to: stats.email,
-    subject: `Your ${periodLabel.toLowerCase()} review report — ${monthName}`,
+    subject: `Your ${periodLabel.toLowerCase()} review report — ${periodDateLabel}`,
     html: `
       <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#111;">
         <div style="margin-bottom:28px;"><a href="https://reviewoptic.com" style="text-decoration:none;"><img src="${logoUrl}/logo.png" alt="ReviewOptic" style="height:36px;max-width:180px;object-fit:contain;display:block;" /></a></div>
         <h2 style="font-size:20px;font-weight:700;margin:0 0 4px;">${periodLabel} Review Report</h2>
-        <p style="color:#888;font-size:13px;margin:0 0 24px;">${monthName} · ${stats.businessName}</p>
+        <p style="color:#888;font-size:13px;margin:0 0 24px;">${periodDateLabel} · ${stats.businessName}</p>
 
         <table style="width:100%;border-collapse:collapse;">
           ${statRow("New reviews this period", String(stats.reviewsThisMonth), reviewChange !== 0 ? `${reviewChange >= 0 ? "+" : ""}${reviewChange} vs last period` : undefined)}
