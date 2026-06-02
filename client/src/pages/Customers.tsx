@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import {
   Plus, Search, Send, MoreHorizontal, Ban, Trash2, Users,
-  Upload, Download, X, CheckCircle2, Clock, Star, Eye, AlertCircle, Edit2, Sparkles, RefreshCw, Mic, Video, Archive, ArchiveRestore, CalendarClock, ArrowLeft, XCircle, ChevronDown, MessageSquare
+  Upload, Download, X, CheckCircle2, Clock, Star, Eye, AlertCircle, Edit2, Sparkles, RefreshCw, Mic, Video, Archive, ArchiveRestore, CalendarClock, ArrowLeft, XCircle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, MessageSquare
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,8 +47,22 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.R
   subscriber_deleted: { label: "Deleted account", color: "bg-muted text-muted-foreground", icon: <Trash2 className="w-3 h-3" /> },
 };
 
-function StatusBadge({ status, doNotContact }: { status: string; doNotContact: boolean }) {
-  const s = doNotContact ? statusConfig.do_not_contact : (statusConfig[status] || statusConfig.pending_request);
+function StatusBadge({ status, doNotContact, rating }: { status: string; doNotContact: boolean; rating?: number | null }) {
+  if (doNotContact) {
+    const s = statusConfig.do_not_contact;
+    return <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium", s.color)}>{s.icon} {s.label}</span>;
+  }
+  if (status === "pending_request") return null;
+  if (status === "review_completed" || status === "feedback_left") {
+    const stars = rating ?? 0;
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+        <Star className="w-3 h-3 fill-current" />
+        Rated {stars}★
+      </span>
+    );
+  }
+  const s = statusConfig[status] || statusConfig.pending_request;
   return (
     <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium", s.color)}>
       {s.icon} {s.label}
@@ -750,6 +764,12 @@ export default function Customers() {
   const [bulkChannel, setBulkChannel] = useState<"email" | "sms" | "whatsapp">("email");
   const [bulkSending, setBulkSending] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [pageSize, setPageSize] = useState<number | "all">(25);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [importDateFrom, setImportDateFrom] = useState("");
+  const [importDateTo, setImportDateTo] = useState("");
+  const [sortBy, setSortBy] = useState<"name" | "status" | "serviceType" | "createdAt">("createdAt");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const { user } = useAuth();
@@ -830,7 +850,10 @@ export default function Customers() {
     if (FORMER_STATUSES.includes(c.status)) return false;
     const matchesSearch = !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.email.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === "all" || (statusFilter === "dnc" ? c.doNotContact : c.status === statusFilter);
-    return matchesSearch && matchesStatus;
+    const d = c.createdAt ? new Date(c.createdAt) : null;
+    const matchesFrom = !importDateFrom || (d && d >= new Date(importDateFrom));
+    const matchesTo = !importDateTo || (d && d <= new Date(importDateTo + "T23:59:59"));
+    return matchesSearch && matchesStatus && matchesFrom && matchesTo;
   }) || [];
 
   const formerSubscribers = customers?.filter(c =>
@@ -844,6 +867,28 @@ export default function Customers() {
 
   const displayList = showArchived ? filteredArchived : filtered;
   const displayLoading = showArchived ? isLoadingArchived : isLoading;
+
+  const handleSort = (col: typeof sortBy) => {
+    if (sortBy === col) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortBy(col); setSortDir("asc"); }
+    setCurrentPage(1);
+  };
+
+  const sortedList = [...displayList].sort((a, b) => {
+    let aVal = "", bVal = "";
+    if (sortBy === "name") { aVal = a.name.toLowerCase(); bVal = b.name.toLowerCase(); }
+    else if (sortBy === "status") { aVal = a.status; bVal = b.status; }
+    else if (sortBy === "serviceType") { aVal = a.serviceType.toLowerCase(); bVal = b.serviceType.toLowerCase(); }
+    else { return sortDir === "desc" ? new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime() : new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(); }
+    return sortDir === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+  });
+
+  const effectivePageSize = pageSize === "all" ? sortedList.length : pageSize as number;
+  const totalPages = effectivePageSize > 0 ? Math.ceil(sortedList.length / effectivePageSize) : 1;
+  const pagedList = pageSize === "all" ? sortedList : sortedList.slice((currentPage - 1) * effectivePageSize, currentPage * effectivePageSize);
+
+  // Reset to page 1 when filters or sort change
+  useEffect(() => { setCurrentPage(1); }, [search, statusFilter, importDateFrom, importDateTo, sortBy, sortDir, showArchived]);
 
   const statusFilters = [
     { value: "all", label: "All" },
@@ -958,6 +1003,31 @@ export default function Customers() {
             ))}
           </div>
         )}
+        {!showArchived && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[12px] text-muted-foreground font-medium whitespace-nowrap">Import date:</span>
+            <input
+              type="date"
+              value={importDateFrom}
+              onChange={e => setImportDateFrom(e.target.value)}
+              className="h-9 px-2 text-[12.5px] rounded-md border border-input bg-background text-foreground"
+              placeholder="From"
+            />
+            <span className="text-[12px] text-muted-foreground">to</span>
+            <input
+              type="date"
+              value={importDateTo}
+              onChange={e => setImportDateTo(e.target.value)}
+              className="h-9 px-2 text-[12.5px] rounded-md border border-input bg-background text-foreground"
+              placeholder="To"
+            />
+            {(importDateFrom || importDateTo) && (
+              <button onClick={() => { setImportDateFrom(""); setImportDateTo(""); }} className="text-[12px] text-muted-foreground hover:text-foreground">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Table */}
@@ -976,12 +1046,17 @@ export default function Customers() {
                     />
                   </th>
                 )}
-                <th className="text-left px-4 py-3 text-[11.5px] font-semibold text-muted-foreground uppercase tracking-wider">Name</th>
-                <th className="text-left px-4 py-3 text-[11.5px] font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Email</th>
-                <th className="text-left px-4 py-3 text-[11.5px] font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Service</th>
-                <th className="text-left px-4 py-3 text-[11.5px] font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Status</th>
-                <th className="text-left px-4 py-3 text-[11.5px] font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Requests</th>
-                <th className="text-left px-4 py-3 text-[11.5px] font-semibold text-muted-foreground uppercase tracking-wider hidden lg:table-cell">Added</th>
+                {(["name", "email", "serviceType", "status", "requests", "createdAt"] as const).map(col => {
+                  const labels: Record<string, string> = { name: "Name", email: "Email", serviceType: "Service", status: "Status", requests: "Requests", createdAt: "Added" };
+                  const hidden: Record<string, string> = { name: "", email: "hidden sm:table-cell", serviceType: "hidden md:table-cell", status: "hidden sm:table-cell", requests: "hidden md:table-cell", createdAt: "hidden lg:table-cell" };
+                  const sortable = col === "name" || col === "serviceType" || col === "status" || col === "createdAt";
+                  const SortIcon = sortBy === col ? (sortDir === "asc" ? ChevronUp : ChevronDown) : null;
+                  return (
+                    <th key={col} className={cn("text-left px-4 py-3 text-[11.5px] font-semibold text-muted-foreground uppercase tracking-wider", sortable && "cursor-pointer select-none hover:text-foreground transition-colors", hidden[col])} onClick={sortable ? () => handleSort(col as any) : undefined}>
+                      <span className="inline-flex items-center gap-1">{labels[col]}{sortable && (SortIcon ? <SortIcon className="w-3 h-3" /> : <span className="w-3 h-3 opacity-0" />)}</span>
+                    </th>
+                  );
+                })}
                 <th className="px-4 py-3 w-12"></th>
               </tr>
             </thead>
@@ -1015,7 +1090,7 @@ export default function Customers() {
                   </td>
                 </tr>
               ) : (
-                displayList.map(customer => (
+                pagedList.map(customer => (
                   <tr
                     key={customer.id}
                     className="border-b border-border/50 hover:bg-muted/30 transition-colors"
@@ -1047,7 +1122,10 @@ export default function Customers() {
                         </button>
                         <p className="text-[11.5px] text-muted-foreground sm:hidden truncate">{customer.email}</p>
                         <div className="mt-1 sm:hidden">
-                          <StatusBadge status={customer.status} doNotContact={customer.doNotContact} />
+                          {(() => {
+                            const rating = allRequests.filter(r => r.customerId === customer.id && r.rating).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]?.rating;
+                            return <StatusBadge status={customer.status} doNotContact={customer.doNotContact} rating={rating} />;
+                          })()}
                         </div>
                       </div>
                     </td>
@@ -1058,20 +1136,10 @@ export default function Customers() {
                       <span className="text-[13px] text-muted-foreground">{customer.serviceType || "—"}</span>
                     </td>
                     <td className="px-4 py-3 hidden sm:table-cell">
-                      <div className="space-y-1">
-                        <StatusBadge status={customer.status} doNotContact={customer.doNotContact} />
-                        {(() => {
-                          const rating = allRequests.filter(r => r.customerId === customer.id && r.rating).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]?.rating;
-                          if (!rating) return null;
-                          return (
-                            <div className="flex gap-0.5">
-                              {[1,2,3,4,5].map(i => (
-                                <Star key={i} className={cn("w-3 h-3", i <= rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/20")} />
-                              ))}
-                            </div>
-                          );
-                        })()}
-                      </div>
+                      {(() => {
+                        const rating = allRequests.filter(r => r.customerId === customer.id && r.rating).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]?.rating;
+                        return <StatusBadge status={customer.status} doNotContact={customer.doNotContact} rating={rating} />;
+                      })()}
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
                       <span className="text-[13px] text-muted-foreground">
@@ -1079,8 +1147,8 @@ export default function Customers() {
                       </span>
                     </td>
                     <td className="px-4 py-3 hidden lg:table-cell">
-                      <span className="text-[12px] text-muted-foreground">
-                        {formatDistanceToNow(new Date(customer.createdAt), { addSuffix: true })}
+                      <span className="text-[12px] text-muted-foreground" title={formatDistanceToNow(new Date(customer.createdAt), { addSuffix: true })}>
+                        {new Date(customer.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -1172,6 +1240,36 @@ export default function Customers() {
             </tbody>
           </table>
         </div>
+        {sortedList.length > 0 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-border gap-3 flex-wrap">
+            <span className="text-[12px] text-muted-foreground">
+              {pageSize === "all"
+                ? `${sortedList.length} customer${sortedList.length !== 1 ? "s" : ""}`
+                : `${Math.min((currentPage - 1) * effectivePageSize + 1, sortedList.length)}–${Math.min(currentPage * effectivePageSize, sortedList.length)} of ${sortedList.length}`}
+            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[12px] text-muted-foreground">Per page:</span>
+              <Select value={String(pageSize)} onValueChange={v => { setPageSize(v === "all" ? "all" : Number(v)); setCurrentPage(1); }}>
+                <SelectTrigger className="h-7 w-20 text-[12px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {[5, 10, 15, 20, 25].map(n => <SelectItem key={n} value={String(n)} className="text-[12px]">{n}</SelectItem>)}
+                  <SelectItem value="all" className="text-[12px]">All</SelectItem>
+                </SelectContent>
+              </Select>
+              {pageSize !== "all" && totalPages > 1 && (
+                <>
+                  <Button variant="outline" size="icon" className="h-7 w-7" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </Button>
+                  <span className="text-[12px] text-muted-foreground">{currentPage} / {totalPages}</span>
+                  <Button variant="outline" size="icon" className="h-7 w-7" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)}>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Former subscribers section */}

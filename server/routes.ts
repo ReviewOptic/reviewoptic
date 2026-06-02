@@ -1599,12 +1599,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         clickedAt: new Date(),
       });
 
-      // For low ratings, update customer status so they don't show as "Request Sent"
-      if (rating <= 3) {
-        const lowRatingCustomer = await storage.getCustomer(request.customerId, request.accountId);
-        if (lowRatingCustomer) {
-          await storage.updateCustomer(lowRatingCustomer.id, { status: "feedback_left" }, request.accountId);
-        }
+      // Update customer status to reflect the rating
+      const ratedCustomer = await storage.getCustomer(request.customerId, request.accountId);
+      if (ratedCustomer) {
+        const newStatus = rating <= 3 ? "feedback_left" : "review_completed";
+        await storage.updateCustomer(ratedCustomer.id, { status: newStatus }, request.accountId);
       }
 
       const settings = await storage.getSettings(request.accountId);

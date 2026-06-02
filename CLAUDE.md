@@ -186,6 +186,27 @@ Your job is to be the developer they would hire if they could afford a great one
 
 *(Sessions 18–75 archived to CLAUDE_ARCHIVE.md)*
 
+### Session — 2026-06-03 (eighty-fourth session)
+
+**Tasks completed:**
+- **CSV import fixed** (`server/routes.ts`): `serviceDate` was being passed as `null` when blank, violating the NOT NULL DB constraint — every row failed. Fixed to `""`. Also improved the catch block to surface the actual DB error message instead of "failed to save".
+- **Follow-up emails no longer fire on every redeploy** (`server/index.ts`, `server/migrate.ts`): Added `server_state` DB table to persist last follow-up check timestamp. On startup, if last check was less than 4 hours ago, the check is skipped. The hourly `setInterval` still runs normally and stamps the time after each run. Schedule (3/7/14 days) is completely unchanged.
+- **24-hour guard added** (`server/storage.ts`): If any message was sent to a customer in the last 24 hours, follow-up checks skip them — prevents cascade of multiple follow-ups firing in rapid succession on same-day redeploys.
+- **Customer status display overhaul** (`client/src/pages/Customers.tsx`, `server/routes.ts`):
+  - Newly added customers (nothing sent) → blank, no badge (was showing "Pending")
+  - When 4–5★ rating submitted, customer status now correctly updates to `review_completed` (was staying stuck at request_sent)
+  - `review_completed` + `feedback_left` both show green "Rated X★" badge with actual star count — stars no longer shown separately below the badge
+  - `no_response` customers' links stay live — if they later rate, status updates to "Rated X★" correctly
+- **Customers table upgrades** (`client/src/pages/Customers.tsx`):
+  - **Page size selector**: 5, 10, 15, 20, 25, or All — with prev/next pagination at bottom of table
+  - **Import date filter**: From/To date inputs in filter row, with clear button
+  - **Added column**: now shows real date (e.g. "12 Jan 2026") instead of "3 days ago" — hover shows relative time
+  - **Sortable columns**: Name, Service, Status, Added — click to sort, click again to reverse, arrow indicator on active column
+
+**Pending:**
+- **Facebook App Review**: Still waiting on Meta's response.
+- **Re-seed demo account + landing page videos**: Paused by user.
+
 ### Session — 2026-06-03 (eighty-third session)
 
 **Tasks completed:**
