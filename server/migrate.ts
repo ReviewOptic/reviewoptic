@@ -536,8 +536,8 @@ export async function runMigrations() {
     // Facebook page name — displayed in Settings alongside "Connected"
     await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS facebook_page_name TEXT NOT NULL DEFAULT ''`);
 
-    // Server state — tracks last run times for scheduled jobs so redeploys don't retrigger them
-    await pool.query(`CREATE TABLE IF NOT EXISTS server_state (key VARCHAR PRIMARY KEY, value TEXT NOT NULL, updated_at TIMESTAMP NOT NULL DEFAULT NOW())`);
+    // Remove server_state table — no longer needed, was causing Drizzle deploy warnings
+    await pool.query(`DROP TABLE IF EXISTS server_state`);
 
     console.log("[migrate] Migrations complete");
   } finally {
