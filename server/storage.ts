@@ -392,6 +392,11 @@ export class DatabaseStorage implements IStorage {
         const firstSentAt = requests[0]?.sentAt;
         if (!firstSentAt) continue;
 
+        // Never send two messages to the same customer within 24 hours — prevents
+        // cascading follow-ups firing on rapid redeploys when original was sent long ago
+        const lastSentAt = requests[requests.length - 1]?.sentAt;
+        if (lastSentAt && (now.getTime() - new Date(lastSentAt).getTime()) < 24 * 60 * 60 * 1000) continue;
+
         // Skip customers who rated 1-3 stars — they're in the private feedback track
         const hasLowRating = requests.some(r => r.rating !== null && r.rating <= 3);
         if (hasLowRating) continue;

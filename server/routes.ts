@@ -1883,8 +1883,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           accountId: req.session.accountId,
         });
         imported++;
-      } catch {
-        skipped.push({ row: rowNum, reason: "failed to save" });
+      } catch (err: any) {
+        console.error(`[import] row ${rowNum} failed:`, err?.message || err);
+        skipped.push({ row: rowNum, reason: err?.message || "failed to save" });
       }
     }
     res.json({ imported, skipped });

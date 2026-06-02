@@ -220,8 +220,28 @@ app.use((req, res, next) => {
       log(`Scheduled send runner error: ${err.message}`);
     }
   };
-  await runScheduledChecks();
-  setInterval(runScheduledChecks, 60 * 60 * 1000);
+  // Only run follow-up checks on startup if it's been more than 4 hours since the last run.
+  // This prevents redeploys from immediately triggering follow-up emails.
+  // The setInterval below handles the ongoing schedule regardless.
+  const FOLLOW_UP_MIN_GAP_MS = 4 * 60 * 60 * 1000;
+  const maybeRunScheduledChecks = async () => {
+    try {
+      const { rows } = await pool.query(`SELECT value FROM server_state WHERE key = 'last_follow_up_check'`);
+      const lastRun = rows[0] ? new Date(rows[0].value) : null;
+      if (lastRun && (Date.now() - lastRun.getTime()) < FOLLOW_UP_MIN_GAP_MS) {
+        log(`Skipping follow-up check on startup — last run was ${Math.round((Date.now() - lastRun.getTime()) / 60000)} minutes ago`);
+        return;
+      }
+    } catch { /* server_state table may not exist yet on first boot — safe to run */ }
+    await runScheduledChecks();
+    await pool.query(`INSERT INTO server_state (key, value, updated_at) VALUES ('last_follow_up_check', NOW()::TEXT, NOW()) ON CONFLICT (key) DO UPDATE SET value = NOW()::TEXT, updated_at = NOW()`);
+  };
+  const runScheduledChecksAndStamp = async () => {
+    await runScheduledChecks();
+    await pool.query(`INSERT INTO server_state (key, value, updated_at) VALUES ('last_follow_up_check', NOW()::TEXT, NOW()) ON CONFLICT (key) DO UPDATE SET value = NOW()::TEXT, updated_at = NOW()`).catch(() => {});
+  };
+  await maybeRunScheduledChecks();
+  setInterval(runScheduledChecksAndStamp, 60 * 60 * 1000);
 
   // Monthly insight emails — checked once a day
   await runMonthlyInsightEmails().catch(console.error);
