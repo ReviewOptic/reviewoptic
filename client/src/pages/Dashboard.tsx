@@ -270,7 +270,11 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
   const noResponseCustomers = customers?.filter(c => c.status === "no_response" && !c.doNotContact) || [];
   const stalePendingCustomers = customers?.filter(c => {
     if (c.doNotContact || c.status !== "request_sent") return false;
-    const daysSince = (Date.now() - new Date(c.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+    const lastRequest = allRequests
+      .filter(r => r.customerId === c.id && r.sentAt)
+      .sort((a, b) => new Date(b.sentAt!).getTime() - new Date(a.sentAt!).getTime())[0];
+    const checkDate = lastRequest?.sentAt ? new Date(lastRequest.sentAt) : new Date(c.createdAt);
+    const daysSince = (Date.now() - checkDate.getTime()) / (1000 * 60 * 60 * 24);
     return daysSince > 14;
   }) || [];
 
@@ -450,7 +454,7 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
               <div className="flex items-center gap-2.5">
                 <Clock className="w-4 h-4 text-blue-600 shrink-0" />
                 <p className="text-[13px] text-blue-800 dark:text-blue-200">
-                  <span className="font-semibold">{stalePendingCustomers.length} customer{stalePendingCustomers.length !== 1 ? "s" : ""}</span> have been waiting over 14 days with no response.
+                  <span className="font-semibold">{stalePendingCustomers.length} customer{stalePendingCustomers.length !== 1 ? "s" : ""}</span> {stalePendingCustomers.length === 1 ? "has" : "have"} been waiting over 14 days with no response.
                 </p>
               </div>
               <Button size="sm" variant="outline" className="shrink-0 self-start sm:self-auto text-[12px] h-7 border-blue-300 hover:bg-blue-100" onClick={() => navigate("/customers")}>

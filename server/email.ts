@@ -13,9 +13,9 @@ function customerFrom(settings: Settings): string {
   return `${displayName} <noreply@reviewoptic.com>`;
 }
 
-const LOGO_URL = `https://www.reviewoptic.com/logo.png`;
+const LOGO_URL = `${APP_URL}/logo.png`;
 const LOGO_HTML = `<div style="margin-bottom:28px;">
-  <a href="https://www.reviewoptic.com" style="text-decoration:none;">
+  <a href="${APP_URL}" style="text-decoration:none;">
     <img src="${LOGO_URL}" alt="ReviewOptic" style="width:100%;max-width:280px;height:auto;object-fit:contain;display:block;" />
   </a>
 </div>`;
@@ -29,13 +29,20 @@ function customerLogoHtml(settings: Settings): string {
   const linked = websiteHref ? `<a href="${websiteHref}" target="_blank" style="text-decoration:none;">${img}</a>` : img;
   return `<div style="margin-bottom:28px;">${linked}</div>`;
 }
-const POWERED_BY_FOOTER = `
+function customerFooter(customerId: string): string {
+  const unsubUrl = `${APP_URL}/api/unsubscribe/customer?cid=${encodeURIComponent(customerId)}`;
+  return `
   <div style="border-top:1px solid #e5e7eb;margin-top:32px;padding-top:20px;text-align:center;">
-    <p style="font-size:11px;color:#9ca3af;margin:0 0 8px;">Powered by</p>
-    <a href="https://reviewoptic.com" style="text-decoration:none;display:inline-block;">
-      <img src="${LOGO_URL}" alt="ReviewOptic" style="width:100%;max-width:120px;height:auto;object-fit:contain;display:block;" />
+    <p style="font-size:11px;color:#9ca3af;margin:0 0 10px;">Powered by</p>
+    <a href="${APP_URL}" style="text-decoration:none;display:inline-block;margin-bottom:16px;">
+      <img src="${LOGO_URL}" alt="ReviewOptic" style="width:120px;height:auto;object-fit:contain;display:block;" />
     </a>
+    <p style="font-size:11px;color:#9ca3af;margin:0;">
+      Don't want to receive emails like this?
+      <a href="${unsubUrl}" style="color:#9ca3af;text-decoration:underline;">Unsubscribe</a>
+    </p>
   </div>`;
+}
 
 const PLATFORM_FOOTER = `
   <div style="border-top:1px solid #e5e7eb;margin-top:32px;padding-top:24px;text-align:center;">
@@ -143,16 +150,6 @@ function applyMergeTags(text: string, customer: Customer, settings: Settings, re
     .replace(/\{\{review_link\}\}/g, reviewLinkOverride || getReviewLink(settings));
 }
 
-function customerUnsubscribeFooter(customerId: string): string {
-  const unsubUrl = `${APP_URL}/api/unsubscribe/customer?cid=${encodeURIComponent(customerId)}`;
-  return `
-  <div style="border-top:1px solid #e5e7eb;margin-top:32px;padding-top:16px;">
-    <p style="font-size:11px;color:#9ca3af;text-align:center;margin:0;">
-      Don't want to receive emails like this?
-      <a href="${unsubUrl}" style="color:#9ca3af;text-decoration:underline;">Unsubscribe</a>
-    </p>
-  </div>`;
-}
 
 function platformUnsubscribeFooter(userId: string): string {
   const unsubUrl = `${APP_URL}/api/unsubscribe/platform?uid=${encodeURIComponent(userId)}`;
@@ -203,8 +200,7 @@ export async function sendReviewEmail(
       ${logoHtml}
       ${renderBodyParagraphs(bodyText)}
       ${platforms.length ? `<div style="text-align:center;margin:8px 0 0;">${platformButtons}</div>` : ""}
-      ${POWERED_BY_FOOTER}
-      ${customerUnsubscribeFooter(customer.id)}
+      ${customerFooter(customer.id)}
     </div>`;
   } else {
     const firstName = customer.name.split(" ")[0];
@@ -216,8 +212,7 @@ export async function sendReviewEmail(
         Thank you for choosing ${settings.businessName}. We'd love to hear about your experience — it only takes a minute and means a lot to us.
       </p>
       <div style="text-align:center;">${platformButtons}</div>
-      ${POWERED_BY_FOOTER}
-      ${customerUnsubscribeFooter(customer.id)}
+      ${customerFooter(customer.id)}
     </div>`;
   }
 
@@ -281,8 +276,7 @@ export async function sendPreScreenEmail(
           <tr>${stars}</tr>
         </table>
         <p style="text-align:center;color:#9ca3af;font-size:12px;margin:0 0 32px;">Tap a star to submit your rating</p>
-        ${POWERED_BY_FOOTER}
-        ${customerUnsubscribeFooter(customer.id)}
+        ${customerFooter(customer.id)}
         <img src="${appUrl}/api/track/${requestId}/open" width="1" height="1" alt="" style="display:block;border:0;width:1px;height:1px;" />
       </div>
     `,
@@ -396,8 +390,7 @@ export async function sendFollowUpEmail(
             Rate your experience &rarr;
           </a>
         </div>
-        ${POWERED_BY_FOOTER}
-        ${customerUnsubscribeFooter(customer.id)}
+        ${customerFooter(customer.id)}
       </div>
     `,
   });
