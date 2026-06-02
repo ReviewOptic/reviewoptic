@@ -532,10 +532,9 @@ export class DatabaseStorage implements IStorage {
             console.error(`[follow-up] Failed to send SMS to ${customer.phone}:`, err.message)
           );
         } else if (customer.channel === "whatsapp" && customer.phone) {
-          const isFinal = idx === 2;
-          const sid = isFinal
-            ? process.env.WHATSAPP_TEMPLATE_SID_FOLLOWUP_FINAL
-            : process.env.WHATSAPP_TEMPLATE_SID_FOLLOWUP;
+          const sid = idx === 0
+            ? process.env.WHATSAPP_TEMPLATE_SID_FOLLOWUP
+            : process.env.WHATSAPP_TEMPLATE_SID_FOLLOWUP_FINAL;
           if (!sid) {
             console.error(`[follow-up] WhatsApp template SID not configured for idx=${idx}`);
           } else {

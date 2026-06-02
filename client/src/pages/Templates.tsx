@@ -1262,9 +1262,9 @@ export default function Templates() {
             </div>
             <div className="space-y-3">
               {[
-                { label: "Initial request", body: `Hi [First name], thank you for choosing [Business name]! We'd love to hear how we did.\n\nTap the link below to leave us a quick rating — it only takes a second:\n\n[Review link]\n\nReply STOP to opt out.` },
-                { label: "Follow-up 1 & 2", body: `Hi [First name], just a quick follow-up from [Business name] — we'd love to hear how we did!\n\nTap the link below to leave us a rating whenever you're ready:\n\n[Review link]\n\nReply STOP to opt out.` },
-                { label: "Follow-up 3 (final)", body: `Hi [First name], this is our last message — we promise! If you ever get a moment, [Business name] would really appreciate your feedback.\n\nTap the link below:\n\n[Review link]\n\nReply STOP to opt out.` },
+                { label: "Initial request", body: `Hi [First name], thank you for choosing [Business name]!\nWe'd love to hear how we did.\n\nTap the link below to leave us a quick rating — it only takes a second:\n\n[Review link]\n\nReply STOP to opt out.` },
+                { label: "Follow-up 1", body: `Hi [First name], just a quick follow-up from [Business name] — we'd love to hear how we did!\n\nTap the link below to leave us a rating whenever you're ready:\n\n[Review link]\n\nReply STOP to opt out.` },
+                { label: "Follow-up 2 (final)", body: `Hi [First name], final follow-up from [Business name] — we'd love to hear how we did!\n\nTap the link below to leave us a rating whenever you're ready:\n\n[Review link]\n\nReply STOP to opt out.` },
               ].map(t => (
                 <div key={t.label} className="rounded-xl border border-border bg-muted/30 p-4">
                   <p className="text-[12px] font-semibold text-muted-foreground mb-2">{t.label}</p>

@@ -186,6 +186,25 @@ Your job is to be the developer they would hire if they could afford a great one
 
 *(Sessions 18–75 archived to CLAUDE_ARCHIVE.md)*
 
+### Session — 2026-06-03 (eighty-second session)
+
+**Tasks completed:**
+- **WhatsApp templates wired up**: All 3 Meta-approved templates created in Twilio, HX SIDs added to Replit secrets. Follow-up mapping fixed: idx 0 → `review_followup`, idx 1 & 2 → `review_followup2`.
+- **Templates page display updated**: WhatsApp tab now shows exact approved wording for all 3 templates.
+
+**Confirmed template wording (as approved by Meta):**
+- `review_request`: "Hi {{1}}, thank you for choosing {{2}}! We'd love to hear how we did. Tap the link below to leave us a quick rating — it only takes a second: {{3}} Reply STOP to opt out."
+- `review_followup`: "Hi {{1}}, just a quick follow-up from {{2}} — we'd love to hear how we did! Tap the link below to leave us a rating whenever you're ready: {{3}} Reply STOP to opt out."
+- `review_followup2`: "Hi {{1}}, final follow-up from {{2}} — we'd love to hear how we did! Tap the link below to leave us a rating whenever you're ready: {{3}} Reply STOP to opt out."
+
+**⚠️ FIRST THING NEXT SESSION:**
+Ask user if the WhatsApp test message came through successfully after redeploying with the new secrets.
+
+**Pending:**
+- **WhatsApp test**: Needs confirming next session — secrets added, app redeployed, test not yet confirmed.
+- **Facebook App Review**: Still waiting on Meta's response.
+- **Re-seed demo account + landing page videos**: Paused by user.
+
 ### Session — 2026-06-02 (eighty-first session)
 
 **Tasks completed:**
