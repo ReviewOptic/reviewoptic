@@ -1,8 +1,25 @@
 import { Resend } from "resend";
+import fs from "fs";
+import path from "path";
 import type { Customer, Settings } from "@shared/schema";
 import { getEmailTemplateOverride, getEffectiveTemplate, renderBodyHtml } from "./systemEmailTemplates";
 
 const APP_URL = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://reviewoptic.com");
+
+// Embed logo as base64 so it displays in all email clients without external image blocking
+function loadLogoBase64(): string {
+  const candidates = [
+    path.join(__dirname, "public", "logo.png"),           // production: dist/public/logo.png
+    path.join(process.cwd(), "client", "public", "logo.png"), // development
+  ];
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p)) return `data:image/png;base64,${fs.readFileSync(p).toString("base64")}`;
+    } catch {}
+  }
+  return `${APP_URL}/logo.png`; // fallback to URL if file not found
+}
+const LOGO_SRC = loadLogoBase64();
 
 export const REVIEWOPTIC_FROM = "Alicia & Rob - ReviewOptic <noreply@reviewoptic.com>";
 
@@ -13,10 +30,9 @@ function customerFrom(settings: Settings): string {
   return `${displayName} <noreply@reviewoptic.com>`;
 }
 
-const LOGO_URL = `${APP_URL}/logo.png`;
-const LOGO_HTML = `<div style="margin-bottom:28px;">
-  <a href="${APP_URL}" style="text-decoration:none;">
-    <img src="${LOGO_URL}" alt="ReviewOptic" style="width:100%;max-width:280px;height:auto;object-fit:contain;display:block;" />
+const LOGO_HTML = `<div style="margin-bottom:28px;text-align:center;">
+  <a href="${APP_URL}" style="text-decoration:none;display:inline-block;">
+    <img src="${LOGO_SRC}" alt="ReviewOptic" style="max-width:280px;width:100%;height:auto;display:block;" />
   </a>
 </div>`;
 
@@ -25,17 +41,17 @@ function customerLogoHtml(settings: Settings): string {
   const logoSrc = settings.logoUrl?.startsWith("http") ? settings.logoUrl : settings.logoUrl ? `${baseUrl}${settings.logoUrl}` : "";
   if (!logoSrc) return "";
   const websiteHref = settings.websiteUrl ? (settings.websiteUrl.startsWith("http") ? settings.websiteUrl : `https://${settings.websiteUrl}`) : "";
-  const img = `<img src="${logoSrc}" alt="${settings.businessName}" style="width:100%;max-width:280px;height:auto;object-fit:contain;display:block;" />`;
+  const img = `<img src="${logoSrc}" alt="${settings.businessName}" style="width:100%;max-width:280px;height:auto;object-fit:contain;display:block;margin:0 auto;" />`;
   const linked = websiteHref ? `<a href="${websiteHref}" target="_blank" style="text-decoration:none;">${img}</a>` : img;
-  return `<div style="margin-bottom:28px;">${linked}</div>`;
+  return `<div style="margin-bottom:28px;text-align:center;">${linked}</div>`;
 }
 function customerFooter(customerId: string): string {
   const unsubUrl = `${APP_URL}/api/unsubscribe/customer?cid=${encodeURIComponent(customerId)}`;
   return `
   <div style="border-top:1px solid #e5e7eb;margin-top:32px;padding-top:20px;text-align:center;">
-    <p style="font-size:11px;color:#9ca3af;margin:0 0 10px;">Powered by</p>
-    <a href="${APP_URL}" style="text-decoration:none;display:inline-block;margin-bottom:16px;">
-      <img src="${LOGO_URL}" alt="ReviewOptic" style="width:120px;height:auto;object-fit:contain;display:block;" />
+    <p style="font-size:11px;color:#9ca3af;margin:0 0 8px;">Powered by</p>
+    <a href="${APP_URL}" style="text-decoration:none;display:inline-block;margin-bottom:14px;">
+      <img src="${LOGO_SRC}" alt="ReviewOptic" style="width:100px;height:auto;display:block;" />
     </a>
     <p style="font-size:11px;color:#9ca3af;margin:0;">
       Don't want to receive emails like this?

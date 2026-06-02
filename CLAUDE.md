@@ -186,6 +186,28 @@ Your job is to be the developer they would hire if they could afford a great one
 
 *(Sessions 18–75 archived to CLAUDE_ARCHIVE.md)*
 
+### Session — 2026-06-02 (eightieth session)
+
+**Tasks completed:**
+- **CLAUDE.md trimmed**: Sessions 72–75 moved to CLAUDE_ARCHIVE.md.
+- **Email formatting overhauled** (`server/email.ts`):
+  - Logo size increased 200px → 280px across all emails
+  - Business logo centred (`margin:0 auto` + `text-align:center` on container)
+  - All customer emails normalised to 600px wide (was mixed 560/600)
+  - Follow-up CTA button changed from black `#111` → blue `#2563eb`
+  - Review request template body now uses proper `<p>` paragraphs (was raw `<br>` dumps)
+  - Platform review buttons centred in a `text-align:center` wrapper
+  - Unsubscribe + "Powered by" merged into single `customerFooter(customerId)` function — one clean bordered block, no double borders
+  - ReviewOptic logo embedded as base64 data URI so it always displays without external image blocking
+- **Test email fixed** (`server/routes.ts`): `/api/templates/:id/test-send` now calls the real send functions (`sendFollowUpEmail`, `sendReviewEmail`, `sendPreScreenEmail`) with a dummy customer, so the test email looks identical to what a customer receives. Only difference is `[TEST]` prefix in the subject.
+- **Insight email period label fixed** (`server/insightEmail.ts`): Weekly reports now show date range (e.g. `26 May – 1 Jun 2026`); monthly reports show month + year (e.g. `June 2026`). Was always showing month regardless of frequency.
+- **Dashboard stale customers fixed** (`client/src/pages/Dashboard.tsx`): "Waiting over 14 days" now checks `sentAt` on the review request (not `createdAt` on the customer record). Grammar fixed: "1 customer has" / "2 customers have".
+
+**Pending:**
+- **Facebook App Review**: Still waiting on Meta's response (resubmitted session 79).
+- **WhatsApp**: Parked — Twilio support ticket or physical SIM if revisiting.
+- **Re-seed demo account + landing page videos**: Paused by user.
+
 ### Session — 2026-05-19 (seventy-ninth session)
 
 **Tasks completed:**
