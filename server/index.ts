@@ -16,7 +16,7 @@ import { storage } from "./storage";
 import { runMigrations } from "./migrate";
 import { runMonthlyInsightEmails } from "./insightEmail";
 import { sendPlatformReviewRequest, sendPreScreenEmail } from "./email";
-import { sendReviewSMS, sendWhatsAppMessage } from "./sms";
+import { sendReviewSMS, sendWhatsAppMessage, sendWhatsAppTemplate } from "./sms";
 import { pool } from "./storage";
 import path from "path";
 import { execSync } from "child_process";
@@ -204,8 +204,9 @@ app.use((req, res, next) => {
             await sendReviewSMS(customer, settings, { subject: "", body } as any, []);
           } else if (customer.channel === "whatsapp") {
             const ratingLink = `${appUrl}/review?rid=${rr.id}`;
-            const body = `Hi ${firstName} 👋\n\nThank you for choosing ${settings.businessName}! We'd love to hear how we did.\n\nTap the link below to rate your experience:\n${ratingLink}\n\nReply STOP to opt out.`;
-            await sendWhatsAppMessage(customer.phone, body);
+            const sid = process.env.WHATSAPP_TEMPLATE_SID_REQUEST;
+            if (!sid) throw new Error("WHATSAPP_TEMPLATE_SID_REQUEST not configured");
+            await sendWhatsAppTemplate(customer.phone, sid, { "1": firstName, "2": settings.businessName, "3": ratingLink });
           }
           await pool.query(`UPDATE review_requests SET schedule_status = 'sent', status = 'sent', sent_at = NOW() WHERE id = $1`, [rr.id]);
           await pool.query(`UPDATE customers SET status = 'request_sent' WHERE id = $1`, [customer.id]);

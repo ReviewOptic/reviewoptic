@@ -186,6 +186,33 @@ Your job is to be the developer they would hire if they could afford a great one
 
 *(Sessions 18–75 archived to CLAUDE_ARCHIVE.md)*
 
+### Session — 2026-06-02 (eighty-first session)
+
+**Tasks completed:**
+- **Dashboard archived customers fix**: `stalePendingCustomers` filter now excludes archived customers (was showing archived customers as needing attention).
+- **Review landing page fix** (`client/src/pages/ReviewLanding.tsx`): 5-star rating was showing the negative feedback dialog when the API returned an ambiguous response (e.g. 409 already-rated). Fixed to use `selectedStar >= 4` as fallback for `highRating`.
+- **WhatsApp template API implemented** (`server/sms.ts`, `server/routes.ts`, `server/index.ts`, `server/storage.ts`):
+  - Added `sendWhatsAppTemplate()` function — sends via Twilio's content API using Meta-approved template SIDs
+  - All WhatsApp outbound messages (initial request, scheduled request, follow-ups) now use templates
+  - Private feedback replies stay free-form (allowed — within active conversation window)
+  - 3 env vars needed once Meta approves templates (see ⚠️ FIRST THING below)
+- **WhatsApp Templates page** (`client/src/pages/Templates.tsx`): WhatsApp tab now shows fixed template wording with explanation — no edit controls. Email and SMS templates still fully editable.
+
+**⚠️ FIRST THING NEXT SESSION — add Twilio template SIDs:**
+Meta-approved WhatsApp templates need their Twilio SIDs added as Replit env vars before WhatsApp sending will work. After Meta approves the 3 submitted templates:
+1. Go to Twilio Console → Content → Content Library (or search "Content" in Twilio)
+2. Find the 3 approved templates: `review_request`, `review_followup`, `review_followup_2`
+3. Copy each SID (format: `HXxxxxxxxxxxxxxxxxxxxxxxxxx`)
+4. Add to Replit Secrets:
+   - `WHATSAPP_TEMPLATE_SID_REQUEST` = SID for `review_request`
+   - `WHATSAPP_TEMPLATE_SID_FOLLOWUP` = SID for `review_followup`
+   - `WHATSAPP_TEMPLATE_SID_FOLLOWUP_FINAL` = SID for `review_followup_2`
+
+**Pending:**
+- **⚠️ WhatsApp template SIDs**: See above — needed before WhatsApp works.
+- **Facebook App Review**: Still waiting on Meta's response.
+- **Re-seed demo account + landing page videos**: Paused by user.
+
 ### Session — 2026-06-02 (eightieth session)
 
 **Tasks completed:**
@@ -199,14 +226,9 @@ Your job is to be the developer they would hire if they could afford a great one
   - Platform review buttons centred in a `text-align:center` wrapper
   - Unsubscribe + "Powered by" merged into single `customerFooter(customerId)` function — one clean bordered block, no double borders
   - ReviewOptic logo embedded as base64 data URI so it always displays without external image blocking
-- **Test email fixed** (`server/routes.ts`): `/api/templates/:id/test-send` now calls the real send functions (`sendFollowUpEmail`, `sendReviewEmail`, `sendPreScreenEmail`) with a dummy customer, so the test email looks identical to what a customer receives. Only difference is `[TEST]` prefix in the subject.
-- **Insight email period label fixed** (`server/insightEmail.ts`): Weekly reports now show date range (e.g. `26 May – 1 Jun 2026`); monthly reports show month + year (e.g. `June 2026`). Was always showing month regardless of frequency.
-- **Dashboard stale customers fixed** (`client/src/pages/Dashboard.tsx`): "Waiting over 14 days" now checks `sentAt` on the review request (not `createdAt` on the customer record). Grammar fixed: "1 customer has" / "2 customers have".
-
-**Pending:**
-- **Facebook App Review**: Still waiting on Meta's response (resubmitted session 79).
-- **WhatsApp**: Parked — Twilio support ticket or physical SIM if revisiting.
-- **Re-seed demo account + landing page videos**: Paused by user.
+- **Test email fixed** (`server/routes.ts`): Test emails now use real send functions with dummy customer — identical to what customer receives, only `[TEST]` in subject.
+- **Insight email period label fixed** (`server/insightEmail.ts`): Weekly shows date range, monthly shows month + year.
+- **Dashboard stale customers fixed** (`client/src/pages/Dashboard.tsx`): Uses `sentAt` from review request, not `createdAt`. Grammar fixed.
 
 ### Session — 2026-05-19 (seventy-ninth session)
 

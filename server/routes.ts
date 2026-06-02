@@ -14,7 +14,7 @@ import { sendVerificationEmail, sendPreScreenEmail, sendRatingNotificationEmail,
 import webpush from "web-push";
 import { generateReviewCard } from "./reviewCard";
 import { uploadBufferToCloudinary } from "./cloudinary";
-import { sendReviewSMS, sendWhatsAppMessage, sendPlainSMS } from "./sms";
+import { sendReviewSMS, sendWhatsAppMessage, sendWhatsAppTemplate, sendPlainSMS } from "./sms";
 import { isCloudinaryConfigured, uploadToCloudinary, deleteFromCloudinary } from "./cloudinary";
 import { cloneVoice, deleteVoice, generateNameAudio, stitchNameToFront } from "./elevenlabs";
 import type { Review, Customer, Settings } from "@shared/schema";
@@ -2147,8 +2147,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const body = `Hi ${firstName}, thanks for choosing ${settings.businessName}! Tap the link below to rate your experience — it only takes a second:\n${smsLink}`;
         await sendReviewSMS(customer, settings, { subject: "", body } as any, []);
       } else if (channel === "whatsapp") {
-        const body = `Hi ${firstName} 👋\n\nThank you for choosing ${settings.businessName}! We'd love to hear how we did.\n\nTap the link below to rate your experience — it only takes a second:\n${ratingLink}\n\nReply STOP to opt out.`;
-        await sendWhatsAppMessage(customer.phone!, body);
+        const sid = process.env.WHATSAPP_TEMPLATE_SID_REQUEST;
+        if (!sid) throw new Error("WHATSAPP_TEMPLATE_SID_REQUEST not configured");
+        await sendWhatsAppTemplate(customer.phone!, sid, { "1": firstName, "2": settings.businessName, "3": ratingLink });
       }
       // Stamp actual delivery time so analytics plots by real send day, not scheduling day
       await pool.query(`UPDATE review_requests SET sent_at = NOW() WHERE id = $1`, [rr.id]).catch(() => {});

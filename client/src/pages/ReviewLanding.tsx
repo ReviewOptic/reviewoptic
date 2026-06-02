@@ -148,8 +148,9 @@ export default function ReviewLanding() {
         body: JSON.stringify({ rating: selectedStar }),
       });
       const data = await res.json();
+      const isHigh = data.highRating !== undefined ? !!data.highRating : selectedStar >= 4;
       setRatedStar(selectedStar);
-      setHighRating(!!data.highRating);
+      setHighRating(isHigh);
       setPlatforms(data.platforms || []);
       setRecordingUrl(data.recordingUrl || "");
       setRecordingType(data.recordingType || "");
@@ -159,6 +160,7 @@ export default function ReviewLanding() {
       setDialogOpen(true);
     } catch {
       setRatedStar(selectedStar);
+      setHighRating(selectedStar >= 4);
       setRatingLocked(true);
       setDialogOpen(true);
     } finally {

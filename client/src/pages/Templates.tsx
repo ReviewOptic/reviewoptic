@@ -1226,7 +1226,7 @@ export default function Templates() {
           </TabsContent>
 
           {/* Follow-up tabs per channel */}
-          {(["email", "sms", "whatsapp"] as const).map(ch => (
+          {(["email", "sms"] as const).map(ch => (
             <TabsContent key={ch} value={ch} className="space-y-4">
               {!isReadOnly && (
                 <div className="flex justify-end">
@@ -1247,6 +1247,32 @@ export default function Templates() {
               <CustomTemplatesSection templates={byChannel[ch]} channel={ch} isReadOnly={isReadOnly} />
             </TabsContent>
           ))}
+
+          <TabsContent value="whatsapp" className="space-y-4">
+            <div className="rounded-xl border border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800 p-5">
+              <div className="flex items-start gap-3">
+                <MessageSquare className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-[13px] font-semibold text-green-800 dark:text-green-200 mb-1">WhatsApp templates are fixed</p>
+                  <p className="text-[12.5px] text-green-700 dark:text-green-300 leading-relaxed">
+                    WhatsApp messages are sent using Meta-approved templates. These cannot be edited — Meta requires pre-approved wording for all outbound WhatsApp messages. The customer's name, your business name, and the review link are filled in automatically when each message is sent.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-3">
+              {[
+                { label: "Initial request", body: `Hi [First name], thank you for choosing [Business name]! We'd love to hear how we did.\n\nTap the link below to leave us a quick rating — it only takes a second:\n\n[Review link]\n\nReply STOP to opt out.` },
+                { label: "Follow-up 1 & 2", body: `Hi [First name], just a quick follow-up from [Business name] — we'd love to hear how we did!\n\nTap the link below to leave us a rating whenever you're ready:\n\n[Review link]\n\nReply STOP to opt out.` },
+                { label: "Follow-up 3 (final)", body: `Hi [First name], this is our last message — we promise! If you ever get a moment, [Business name] would really appreciate your feedback.\n\nTap the link below:\n\n[Review link]\n\nReply STOP to opt out.` },
+              ].map(t => (
+                <div key={t.label} className="rounded-xl border border-border bg-muted/30 p-4">
+                  <p className="text-[12px] font-semibold text-muted-foreground mb-2">{t.label}</p>
+                  <p className="text-[12.5px] text-foreground whitespace-pre-line leading-relaxed">{t.body}</p>
+                </div>
+              ))}
+            </div>
+          </TabsContent>
 
           <TabsContent value="recordings">
             <RecordingsTab />

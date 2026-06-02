@@ -4,7 +4,7 @@ import pkg from "pg";
 const { Pool } = pkg;
 import { randomUUID } from "crypto";
 import { sendFollowUpEmail } from "./email";
-import { sendReviewSMS, sendWhatsAppMessage } from "./sms";
+import { sendReviewSMS, sendWhatsAppMessage, sendWhatsAppTemplate } from "./sms";
 import {
   accounts, customers, reviewRequests, reviews, privateFeedback, activityLog, templates, settings, users, passwordResetTokens, adminImpersonationLog,
   type Account,
@@ -532,18 +532,17 @@ export class DatabaseStorage implements IStorage {
             console.error(`[follow-up] Failed to send SMS to ${customer.phone}:`, err.message)
           );
         } else if (customer.channel === "whatsapp" && customer.phone) {
-          let waBody: string;
-          if (hasHighRating) {
-            const tmpl = allTemplates.find(t => t.channel === "whatsapp" && t.templateType === templateType && t.isDefault)
-              || allTemplates.find(t => t.channel === "whatsapp" && t.templateType === templateType)
-              || null;
-            waBody = resolveBody(tmpl) || `Hi ${firstName}, just following up — tap below to share your rating:\n${ratingLink}`;
+          const isFinal = idx === 2;
+          const sid = isFinal
+            ? process.env.WHATSAPP_TEMPLATE_SID_FOLLOWUP_FINAL
+            : process.env.WHATSAPP_TEMPLATE_SID_FOLLOWUP;
+          if (!sid) {
+            console.error(`[follow-up] WhatsApp template SID not configured for idx=${idx}`);
           } else {
-            waBody = `${genericWaTexts[idx]}\n${ratingLink}`;
+            sendWhatsAppTemplate(customer.phone, sid, { "1": firstName, "2": s.businessName, "3": ratingLink }).catch(err =>
+              console.error(`[follow-up] Failed to send WhatsApp to ${customer.phone}:`, err.message)
+            );
           }
-          sendWhatsAppMessage(customer.phone, waBody + "\n\nReply STOP to opt out.").catch(err =>
-            console.error(`[follow-up] Failed to send WhatsApp to ${customer.phone}:`, err.message)
-          );
         }
 
         totalSent++;

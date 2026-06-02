@@ -269,7 +269,7 @@ export default function Dashboard() {
 const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
   const noResponseCustomers = customers?.filter(c => c.status === "no_response" && !c.doNotContact) || [];
   const stalePendingCustomers = customers?.filter(c => {
-    if (c.doNotContact || c.status !== "request_sent") return false;
+    if (c.doNotContact || c.archived || c.status !== "request_sent") return false;
     const lastRequest = allRequests
       .filter(r => r.customerId === c.id && r.sentAt)
       .sort((a, b) => new Date(b.sentAt!).getTime() - new Date(a.sentAt!).getTime())[0];
