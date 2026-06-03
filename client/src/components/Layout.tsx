@@ -606,7 +606,7 @@ function ClassicLayout({ children }: { children: ReactNode }) {
             <LogoOrText />
             <NotificationBell />
           </header>
-          <main className="flex-1 overflow-y-auto">{children}</main>
+          <main className="flex-1 overflow-y-auto pb-20">{children}</main>
         </div>
         {!user?.isImpersonating && <ChatWidget />}
         <BackToTutorial />

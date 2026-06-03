@@ -4283,6 +4283,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       sendVerificationEmail, sendTeamInviteEmail, sendRatingNotificationEmail,
       sendCancellationEmail, sendSubscriptionEndedEmail, sendAccountDeletionEmail,
       sendSubscriptionConfirmationEmail, sendPlatformReviewRequest,
+      sendRenewalReminderEmail, sendPaymentFailedEmail, sendReferralRewardEmail,
     } = await import("./email");
 
     const dummyCustomer = {
@@ -4307,19 +4308,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           await sendVerificationEmail(adminEmail, `${appUrl}/verify-email?token=TEST_TOKEN_EXAMPLE`);
           break;
         case "reset":
-          const { Resend: ResendReset } = await import("resend");
-          const resendReset = new ResendReset(process.env.RESEND_API_KEY);
-          await resendReset.emails.send({
-            from: REVIEWOPTIC_FROM, to: adminEmail,
-            subject: "[TEST] Reset your ReviewOptic password",
-            html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
-              <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:6px;padding:10px 14px;font-size:13px;color:#92400e;margin-bottom:20px">TEST EMAIL — links are not real</div>
-              <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Reset your password</h2>
-              <p style="color:#555;margin:0 0 24px;line-height:1.6;">We received a request to reset your password. Click the button below to choose a new one. This link expires in 1 hour.</p>
-              <a href="#" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">Reset my password</a>
-              <p style="color:#999;font-size:12px;margin-top:32px;">If you didn't request this, you can safely ignore this email.</p>
-            </div>`,
-          });
+          await sendResetEmail(adminEmail, `${appUrl}/reset-password?token=TEST_TOKEN_EXAMPLE`);
           break;
         case "team_invite":
           await sendTeamInviteEmail(adminEmail, adminName, "Demo Plumbing Co", `${appUrl}/accept-invite?token=TEST_TOKEN`);
@@ -4376,37 +4365,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             `${appUrl}/pricing`);
           break;
         case "insight": {
-          const { runMonthlyInsightEmails } = await import("./insightEmail");
-          // Just send directly to admin with dummy stats
-          const resendInsight = new Resend(process.env.RESEND_API_KEY);
-          await resendInsight.emails.send({
-            from: "ReviewOptic <noreply@reviewoptic.com>",
-            to: adminEmail,
-            subject: "[TEST] Your weekly review report — April 2026",
-            html: `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#111;">
-              <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:6px;padding:10px 14px;font-size:13px;color:#92400e;margin-bottom:20px">TEST EMAIL — sample data</div>
-              <div style="margin-bottom:28px;"><a href="${appUrl}"><img src="${appUrl}/logo.png" alt="ReviewOptic" style="height:36px;max-width:180px;object-fit:contain;display:block;" /></a></div>
-              <h2 style="font-size:20px;font-weight:700;margin:0 0 4px;">Weekly Review Report</h2>
-              <p style="color:#888;font-size:13px;margin:0 0 24px;">April 2026 · Demo Plumbing Co</p>
-              <table style="width:100%;border-collapse:collapse;">
-                <tr><td style="padding:10px 0;border-bottom:1px solid #f0f0f0;color:#555;font-size:14px;">New reviews this period</td><td style="padding:10px 0;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600;font-size:14px;">12 <span style="font-size:12px;color:#16a34a">+4 vs last period</span></td></tr>
-                <tr><td style="padding:10px 0;border-bottom:1px solid #f0f0f0;color:#555;font-size:14px;">Average star rating</td><td style="padding:10px 0;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600;font-size:14px;">4.7 ⭐</td></tr>
-                <tr><td style="padding:10px 0;border-bottom:1px solid #f0f0f0;color:#555;font-size:14px;">Review requests sent</td><td style="padding:10px 0;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600;font-size:14px;">28</td></tr>
-                <tr><td style="padding:10px 0;border-bottom:1px solid #f0f0f0;color:#555;font-size:14px;">Conversion rate</td><td style="padding:10px 0;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600;font-size:14px;">43%</td></tr>
-                <tr><td style="padding:10px 0;color:#555;font-size:14px;">Total reviews (all time)</td><td style="padding:10px 0;text-align:right;font-weight:600;font-size:14px;">84</td></tr>
-              </table>
-              <div style="background:#f8fafc;border-radius:8px;padding:20px;margin-top:24px;">
-                <h3 style="font-size:15px;font-weight:700;margin:0 0 12px;">Your personalised insights</h3>
-                <p style="color:#444;font-size:14px;line-height:1.7;margin:0;">1. Great week — 12 new reviews is above your monthly average.<br>2. Your 43% conversion rate is strong. Keep the follow-ups coming.<br>3. Email is your best channel this week — try sending earlier in the day.</p>
-              </div>
-              <p style="color:#999;font-size:12px;margin-top:32px;line-height:1.6;">
-                You're receiving weekly review reports as a ReviewOptic subscriber.<br>
-                <a href="${appUrl}/settings?tab=notifications" style="color:#999;">Change email frequency</a> · <a href="${appUrl}/api/insight/opt-out?id=test&uid=test" style="color:#999;">Unsubscribe</a>
-              </p>
-            </div>`,
-          });
+          const { sendInsightEmailToUser } = await import("./insightEmail");
+          await sendInsightEmailToUser(req.session.userId!, req.session.accountId!, adminEmail, appUrl);
           break;
         }
+        case "renewal_reminder":
+          await sendRenewalReminderEmail(
+            adminEmail, adminName, "Pro",
+            new Date(Date.now() + 7 * 86400000).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }),
+            "£39.00", `${appUrl}/billing`
+          );
+          break;
+        case "payment_failed":
+          await sendPaymentFailedEmail(adminEmail, adminName, `${appUrl}/billing`);
+          break;
+        case "referral_reward":
+          await sendReferralRewardEmail(adminEmail, adminName, "£39.00");
+          break;
         case "platform_review":
           await sendPlatformReviewRequest({ id: req.session.userId!, email: adminEmail, firstName: adminName, companyName: "Demo Plumbing Co" }, false);
           break;

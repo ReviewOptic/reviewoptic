@@ -25,7 +25,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Customer, ReviewRequest, Template } from "@shared/schema";
+import type { Customer, ReviewRequest } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { TimePicker } from "@/components/ui/time-picker";
@@ -205,30 +205,11 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
   const [delay, setDelay] = useState("now");
   const [customTime, setCustomTime] = useState("");
   const [liteLimitResetDate, setLiteLimitResetDate] = useState<string | null>(null);
-  const [positiveTemplateId, setPositiveTemplateId] = useState<string>("");
-  const [negativeTemplateId, setNegativeTemplateId] = useState<string>("");
   const [emailRecordingType, setEmailRecordingType] = useState<"none" | "voice" | "video">("none");
   const [emailRecordingId, setEmailRecordingId] = useState<string | null>(null);
 
   const { data: settings } = useQuery<any>({ queryKey: ["/api/settings"] });
-  const { data: templates } = useQuery<Template[]>({ queryKey: ["/api/templates"] });
   const { data: recordings = [] } = useQuery<any[]>({ queryKey: ["/api/recordings"] });
-
-  const positiveTemplates = (templates || []).filter(t => t.channel === channel && t.templateType === "response_positive");
-  const negativeTemplates = (templates || []).filter(t => t.channel === channel && t.templateType === "response_negative");
-
-  // Auto-select first template when templates load or channel changes
-  useEffect(() => {
-    if (positiveTemplates.length > 0 && !positiveTemplates.find(t => t.id === positiveTemplateId)) {
-      setPositiveTemplateId(positiveTemplates[0].id);
-    }
-  }, [positiveTemplates.map(t => t.id).join(","), channel]);
-
-  useEffect(() => {
-    if (negativeTemplates.length > 0 && !negativeTemplates.find(t => t.id === negativeTemplateId)) {
-      setNegativeTemplateId(negativeTemplates[0].id);
-    }
-  }, [negativeTemplates.map(t => t.id).join(","), channel]);
 
   useEffect(() => {
     if (settings?.defaultSendTime && customTime === "" && delay === "now") {
@@ -265,10 +246,7 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
     || (emailRecordingType === "voice" && voiceRecs.length > 0)
     || (emailRecordingType === "video" && videoRecs.length > 0);
 
-  const canSend = !(delay === "custom" && !customTime)
-    && (positiveTemplates.length === 0 || !!positiveTemplateId)
-    && (negativeTemplates.length === 0 || !!negativeTemplateId)
-    && recordingAvailable;
+  const canSend = !(delay === "custom" && !customTime) && recordingAvailable;
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -281,8 +259,6 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
           : delay === "custom" && customTime ? new Date(customTime)
           : new Date(),
         selectedPlatforms: availablePlatforms.map(p => ({ name: p.name, url: p.url })),
-        positiveTemplateId: positiveTemplateId || undefined,
-        negativeTemplateId: negativeTemplateId || undefined,
         recordingId: emailRecordingType !== "none"
           ? (emailRecordingId ?? (recordings as any[]).find((r: any) => r.type === emailRecordingType)?.id ?? undefined)
           : undefined,
@@ -355,7 +331,7 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
           {/* Channel */}
           <div className="space-y-1.5">
             <Label className="text-[12.5px]">Send via</Label>
-            <Select value={channel} onValueChange={(v) => { setChannel(v); setPositiveTemplateId(""); setNegativeTemplateId(""); setEmailRecordingType("none"); setEmailRecordingId(null); }}>
+            <Select value={channel} onValueChange={(v) => { setChannel(v); setEmailRecordingType("none"); setEmailRecordingId(null); }}>
               <SelectTrigger data-testid="select-send-channel"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="email" disabled={!customer?.email}>Email</SelectItem>
@@ -450,43 +426,6 @@ function SendRequestDialog({ customer, open, onClose }: { customer: Customer | n
             );
           })()}
 
-          {/* After 4-5★ template */}
-          <div className="space-y-1.5">
-            <Label className="text-[12.5px]">After 4–5★ rating — response template</Label>
-            {positiveTemplates.length === 0 ? (
-              <p className="text-[12px] text-muted-foreground">
-                No {channel} template for 4–5★ yet. <a href="/?tab=templates" className="text-primary underline font-medium">Set one up in Templates</a>.
-              </p>
-            ) : (
-              <Select value={positiveTemplateId} onValueChange={v => setPositiveTemplateId(v)}>
-                <SelectTrigger className="text-[12.5px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {positiveTemplates.map(t => (
-                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-
-          {/* After 1-3★ template */}
-          <div className="space-y-1.5">
-            <Label className="text-[12.5px]">After 1–3★ rating — response template</Label>
-            {negativeTemplates.length === 0 ? (
-              <p className="text-[12px] text-muted-foreground">
-                No {channel} template for 1–3★ yet. <a href="/?tab=templates" className="text-primary underline font-medium">Set one up in Templates</a>.
-              </p>
-            ) : (
-              <Select value={negativeTemplateId} onValueChange={v => setNegativeTemplateId(v)}>
-                <SelectTrigger className="text-[12.5px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {negativeTemplates.map(t => (
-                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
@@ -766,8 +705,6 @@ export default function Customers() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [pageSize, setPageSize] = useState<number | "all">(25);
   const [currentPage, setCurrentPage] = useState(1);
-  const [importDateFrom, setImportDateFrom] = useState("");
-  const [importDateTo, setImportDateTo] = useState("");
   const [sortBy, setSortBy] = useState<"name" | "status" | "serviceType" | "createdAt">("createdAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const { toast } = useToast();
@@ -850,10 +787,7 @@ export default function Customers() {
     if (FORMER_STATUSES.includes(c.status)) return false;
     const matchesSearch = !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.email.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === "all" || (statusFilter === "dnc" ? c.doNotContact : c.status === statusFilter);
-    const d = c.createdAt ? new Date(c.createdAt) : null;
-    const matchesFrom = !importDateFrom || (d && d >= new Date(importDateFrom));
-    const matchesTo = !importDateTo || (d && d <= new Date(importDateTo + "T23:59:59"));
-    return matchesSearch && matchesStatus && matchesFrom && matchesTo;
+    return matchesSearch && matchesStatus;
   }) || [];
 
   const formerSubscribers = customers?.filter(c =>
@@ -888,7 +822,7 @@ export default function Customers() {
   const pagedList = pageSize === "all" ? sortedList : sortedList.slice((currentPage - 1) * effectivePageSize, currentPage * effectivePageSize);
 
   // Reset to page 1 when filters or sort change
-  useEffect(() => { setCurrentPage(1); }, [search, statusFilter, importDateFrom, importDateTo, sortBy, sortDir, showArchived]);
+  useEffect(() => { setCurrentPage(1); }, [search, statusFilter, sortBy, sortDir, showArchived]);
 
   const statusFilters = [
     { value: "all", label: "All" },
@@ -1001,31 +935,6 @@ export default function Customers() {
                 {f.label}
               </Button>
             ))}
-          </div>
-        )}
-        {!showArchived && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[12px] text-muted-foreground font-medium whitespace-nowrap">Import date:</span>
-            <input
-              type="date"
-              value={importDateFrom}
-              onChange={e => setImportDateFrom(e.target.value)}
-              className="h-9 px-2 text-[12.5px] rounded-md border border-input bg-background text-foreground"
-              placeholder="From"
-            />
-            <span className="text-[12px] text-muted-foreground">to</span>
-            <input
-              type="date"
-              value={importDateTo}
-              onChange={e => setImportDateTo(e.target.value)}
-              className="h-9 px-2 text-[12.5px] rounded-md border border-input bg-background text-foreground"
-              placeholder="To"
-            />
-            {(importDateFrom || importDateTo) && (
-              <button onClick={() => { setImportDateFrom(""); setImportDateTo(""); }} className="text-[12px] text-muted-foreground hover:text-foreground">
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
           </div>
         )}
       </div>

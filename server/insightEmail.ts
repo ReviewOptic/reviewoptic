@@ -289,6 +289,14 @@ async function sendInsightEmail(stats: UserStats, insights: string, userId: stri
   await pool.query(`INSERT INTO insight_email_log (id, user_id, account_id, email) VALUES ($1, $2, $3, $4)`, [logId, userId, accountId, stats.email]);
 }
 
+export async function sendInsightEmailToUser(userId: string, accountId: string, email: string, appUrl: string, frequency = "weekly"): Promise<void> {
+  const stats = await getUserStats(accountId);
+  if (!stats) throw new Error("No account settings found");
+  if (!stats.email) stats.email = email;
+  const insights = await generateInsights(stats);
+  await sendInsightEmail(stats, insights, userId, accountId, appUrl, frequency);
+}
+
 export async function runMonthlyInsightEmails(): Promise<void> {
   const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000");
 
