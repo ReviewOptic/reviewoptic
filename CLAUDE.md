@@ -186,6 +186,24 @@ Your job is to be the developer they would hire if they could afford a great one
 
 *(Sessions 18–75 archived to CLAUDE_ARCHIVE.md)*
 
+### Session — 2026-06-03 (eighty-fifth session)
+
+**Tasks completed:**
+- **Test emails fixed** (`server/routes.ts`, `server/insightEmail.ts`): Three email types were missing from the test-email switch entirely (`renewal_reminder`, `payment_failed`, `referral_reward`) — returning "Unknown email type" error and showing ✗ Failed in admin panel. Fixed. Also fixed `reset` (was custom HTML, now calls real function) and `insight` (was static dummy HTML, now calls real insight pipeline with admin's actual account stats via new exported `sendInsightEmailToUser` wrapper).
+- **"Need Help" button no longer blocks UI** (`client/src/components/Layout.tsx`): Added `pb-20` to the `<main>` element so page content always clears the floating button on every page.
+- **Import date filter removed from Customers tab** (`client/src/pages/Customers.tsx`): User only needs sortable columns (Name, Service, Status, Added) — date filter was unnecessary clutter. Removed state, filtering logic, and UI. Sort columns untouched.
+- **Template dropdowns removed from Send Review Request dialog** (`client/src/pages/Customers.tsx`): The "After 4–5★ template" and "After 1–3★ template" dropdowns were removed from the send dialog. Server already auto-selects the default template. Users edit templates in the Templates section; the text/voice/video toggle is the only choice needed when sending.
+- **Email format + unsubscribe consistency overhaul** (`server/email.ts`, `server/routes.ts`):
+  - Password reset email: was missing logo (URL not embedded) and had no footer — fixed, moved to `email.ts` as `sendResetPasswordEmail` with embedded logo + `PLATFORM_FOOTER`
+  - Private feedback notification: was inline HTML with URL logo and no footer — extracted to `sendPrivateFeedbackNotificationEmail` in `email.ts` with proper format
+  - Added `getUserUnsubscribeInfo(email)` helper — one DB call returning both `unsubscribed` flag and `userId` for footer link
+  - **Transactional emails** (verification, reset, team invite, subscription confirmation, cancellation, account deletion, payment failed, renewal reminder) — always send regardless of unsubscribe status
+  - **Non-transactional emails** (rating notification, private feedback, platform review request, referral reward, subscriber review request, incomplete registration) — now check `email_unsubscribed` first and skip if set; all have a personal unsubscribe link in footer via `platformUnsubscribeFooter(userId)`
+
+**Pending:**
+- **Facebook App Review**: Still waiting on Meta's response.
+- **Re-seed demo account + landing page videos**: Paused by user.
+
 ### Session — 2026-06-03 (eighty-fourth session)
 
 **Tasks completed:**

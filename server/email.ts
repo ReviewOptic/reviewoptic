@@ -3,6 +3,20 @@ import fs from "fs";
 import path from "path";
 import type { Customer, Settings } from "@shared/schema";
 import { getEmailTemplateOverride, getEffectiveTemplate, renderBodyHtml } from "./systemEmailTemplates";
+import { pool } from "./storage";
+
+async function getUserUnsubscribeInfo(email: string): Promise<{ unsubscribed: boolean; userId: string | null }> {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, COALESCE(email_unsubscribed, false) AS unsubscribed FROM users WHERE email = $1 LIMIT 1`,
+      [email]
+    );
+    if (!rows[0]) return { unsubscribed: false, userId: null };
+    return { unsubscribed: rows[0].unsubscribed, userId: rows[0].id };
+  } catch {
+    return { unsubscribed: false, userId: null };
+  }
+}
 
 const APP_URL = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://reviewoptic.com");
 
@@ -311,6 +325,8 @@ export async function sendSubscriberReviewRequestEmail(
     console.log("[subscriber review request] No RESEND_API_KEY - skipping");
     return;
   }
+  const { unsubscribed } = await getUserUnsubscribeInfo(subscriber.email);
+  if (unsubscribed) return;
   const { getEffectiveTemplate, renderBodyHtml } = await import("./systemEmailTemplates");
   const tmpl = await getEffectiveTemplate("subscriber_review_request");
   const firstName = subscriber.name.split(" ")[0];
@@ -343,6 +359,7 @@ export async function sendSubscriberReviewRequestEmail(
         </table>
         <p style="text-align:center;color:#9ca3af;font-size:12px;margin:0 0 32px;">Tap a star to submit your rating</p>
         ${PLATFORM_FOOTER}
+        ${platformUnsubscribeFooter(subscriber.id)}
         <img src="${appUrl}/api/track/${requestId}/open" width="1" height="1" alt="" style="display:block;border:0;width:1px;height:1px;" />
       </div>
     `,
@@ -418,6 +435,8 @@ export async function sendPlatformReviewRequest(user: { id: string; email: strin
     console.log("[platform review request] No RESEND_API_KEY - skipping");
     return;
   }
+  const { unsubscribed } = await getUserUnsubscribeInfo(user.email);
+  if (unsubscribed) return;
 
   const googleUrl = process.env.PLATFORM_REVIEW_GOOGLE_URL || "https://g.page/r/reviewoptic/review";
   const trustpilotUrl = process.env.PLATFORM_REVIEW_TRUSTPILOT_URL || "";
@@ -626,6 +645,8 @@ export async function sendRatingNotificationEmail(
   appUrl: string
 ) {
   if (!process.env.RESEND_API_KEY) return;
+  const { unsubscribed, userId } = await getUserUnsubscribeInfo(to);
+  if (unsubscribed) return;
   const resend = new Resend(process.env.RESEND_API_KEY);
   const stars = "\u2605".repeat(rating) + "\u2606".repeat(5 - rating);
   const tmpl = await getEmailTemplateOverride("rating_notification");
@@ -652,6 +673,7 @@ export async function sendRatingNotificationEmail(
           View in ReviewOptic
         </a>
         ${PLATFORM_FOOTER}
+        ${userId ? platformUnsubscribeFooter(userId) : ""}
       </div>
     `,
   });
@@ -728,6 +750,8 @@ export async function sendIncompleteRegistrationEmail(to: string, firstName: str
     console.log(`[incomplete-registration email] No RESEND_API_KEY. Would have sent to ${to}`);
     return;
   }
+  const { unsubscribed, userId } = await getUserUnsubscribeInfo(to);
+  if (unsubscribed) return;
   const resend = new Resend(process.env.RESEND_API_KEY);
   const name = firstName ? `, ${firstName}` : "";
   await resend.emails.send({
@@ -746,6 +770,7 @@ export async function sendIncompleteRegistrationEmail(to: string, firstName: str
         <p style="color:#555;margin:0 0 8px;line-height:1.6;">If you have any questions before signing up, just reply to this email — we're happy to help.</p>
         <p style="color:#999;font-size:12px;margin-top:16px;">Alicia &amp; Rob — ReviewOptic</p>
         ${PLATFORM_FOOTER}
+        ${userId ? platformUnsubscribeFooter(userId) : ""}
       </div>
     `,
   });
@@ -756,6 +781,8 @@ export async function sendReferralRewardEmail(to: string, firstName: string, cre
     console.log(`[referral-reward email] No RESEND_API_KEY. Would have sent to ${to}`);
     return;
   }
+  const { unsubscribed, userId } = await getUserUnsubscribeInfo(to);
+  if (unsubscribed) return;
   const resend = new Resend(process.env.RESEND_API_KEY);
   const { subject, body } = await getEffectiveTemplate("referral_reward");
   const bodyHtml = renderBodyHtml(body, { "{{first_name}}": firstName || "there", "{{credit_amount}}": creditAmount });
@@ -769,9 +796,67 @@ export async function sendReferralRewardEmail(to: string, firstName: string, cre
         ${bodyHtml}
         <p style="color:#999;font-size:12px;margin-top:16px;">Alicia &amp; Rob — ReviewOptic</p>
         ${PLATFORM_FOOTER}
+        ${userId ? platformUnsubscribeFooter(userId) : ""}
       </div>
     `,
   });
+}
+
+// Transactional — always sends, no unsubscribe check
+export async function sendResetPasswordEmail(to: string, resetUrl: string) {
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`[password reset] No RESEND_API_KEY. Reset link for ${to}: ${resetUrl}`);
+    return;
+  }
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  await resend.emails.send({
+    from: REVIEWOPTIC_FROM, to,
+    subject: "Reset your ReviewOptic password",
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
+        ${LOGO_HTML}
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Reset your password</h2>
+        <p style="color:#555;margin:0 0 24px;line-height:1.6;">We received a request to reset your password. Click the button below to choose a new one. This link expires in 1 hour.</p>
+        <a href="${resetUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">Reset my password</a>
+        <p style="color:#999;font-size:12px;margin-top:32px;line-height:1.6;">If you didn't request this, you can safely ignore this email. Your password won't change.</p>
+        ${PLATFORM_FOOTER}
+      </div>
+    `,
+  });
+}
+
+// Non-transactional — respects email_unsubscribed
+export async function sendPrivateFeedbackNotificationEmail(
+  to: string,
+  customerName: string,
+  rating: number,
+  message: string,
+  appUrl: string
+) {
+  if (!process.env.RESEND_API_KEY) return;
+  const { unsubscribed, userId } = await getUserUnsubscribeInfo(to);
+  if (unsubscribed) return;
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  await resend.emails.send({
+    from: REVIEWOPTIC_FROM, to,
+    subject: `Private feedback received from ${customerName} (${rating}★)`,
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
+        ${LOGO_HTML}
+        <h2 style="font-size:18px;font-weight:700;margin:0 0 8px;">Private feedback received</h2>
+        <p style="color:#555;margin:0 0 16px;line-height:1.6;">
+          <strong>${customerName}</strong> rated their experience <strong>${rating} star${rating === 1 ? "" : "s"}</strong> and left the following message:
+        </p>
+        <div style="background:#f5f5f5;border-left:4px solid #e5e7eb;padding:12px 16px;border-radius:4px;margin:0 0 24px;">
+          <p style="margin:0;font-style:italic;color:#333;">"${message}"</p>
+        </div>
+        <p style="color:#555;margin:0 0 24px;line-height:1.6;">This feedback is private — only you can see it. Log in to respond.</p>
+        <a href="${appUrl}" style="display:inline-block;background:#0E679D;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">View &amp; Respond in Dashboard</a>
+        ${PLATFORM_FOOTER}
+        ${userId ? platformUnsubscribeFooter(userId) : ""}
+      </div>
+    `,
+  }).catch(() => {});
 }
 
 export async function sendAdminNewUserEmail(firstName: string, lastName: string, email: string, companyName: string) {

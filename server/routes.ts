@@ -10,7 +10,7 @@ import bcrypt from "bcryptjs";
 import { Resend } from "resend";
 import OpenAI from "openai";
 import QRCode from "qrcode";
-import { sendVerificationEmail, sendPreScreenEmail, sendRatingNotificationEmail, REVIEWOPTIC_FROM } from "./email";
+import { sendVerificationEmail, sendPreScreenEmail, sendRatingNotificationEmail, sendResetPasswordEmail, sendPrivateFeedbackNotificationEmail, REVIEWOPTIC_FROM } from "./email";
 import webpush from "web-push";
 import { generateReviewCard } from "./reviewCard";
 import { uploadBufferToCloudinary } from "./cloudinary";
@@ -65,33 +65,6 @@ async function logUserSession(req: Request, userId: string, accountId: string) {
   } catch (_) {}
 }
 
-async function sendResetEmail(to: string, resetUrl: string) {
-  if (!process.env.RESEND_API_KEY) {
-    console.log(`[password reset] No RESEND_API_KEY set. Reset link for ${to}: ${resetUrl}`);
-    return;
-  }
-  const resend = new Resend(process.env.RESEND_API_KEY);
-  await resend.emails.send({
-    from: REVIEWOPTIC_FROM,
-    to,
-    subject: "Reset your ReviewOptic password",
-    html: `
-      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
-        <div style="margin-bottom:28px;"><a href="https://reviewoptic.com" style="text-decoration:none;"><img src="${process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://reviewoptic.com")}/logo.png" alt="ReviewOptic" style="height:36px;max-width:180px;object-fit:contain;display:block;" /></a></div>
-        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Reset your password</h2>
-        <p style="color:#555;margin:0 0 24px;line-height:1.6;">
-          We received a request to reset your password. Click the button below to choose a new one. This link expires in 1 hour.
-        </p>
-        <a href="${resetUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
-          Reset my password
-        </a>
-        <p style="color:#999;font-size:12px;margin-top:32px;line-height:1.6;">
-          If you didn't request this, you can safely ignore this email. Your password won't change.
-        </p>
-      </div>
-    `,
-  });
-}
 
 const uploadsDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
@@ -652,7 +625,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const token = await storage.createResetToken(user.id);
       const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000");
       const resetUrl = `${appUrl}/reset-password?token=${token}`;
-      await sendResetEmail(user.email, resetUrl).catch(err =>
+      await sendResetPasswordEmail(user.email, resetUrl).catch(err =>
         console.error("Failed to send reset email:", err)
       );
     }
@@ -1771,32 +1744,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       });
 
       // Email notification to business owner
-      if (process.env.RESEND_API_KEY) {
-        const settings = await storage.getSettings(request.accountId);
+      {
         const ownerUser = await pool.query(`SELECT email FROM users WHERE account_id = $1 AND role = 'owner' LIMIT 1`, [request.accountId]);
         const toEmail = ownerUser.rows[0]?.email;
+        const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://reviewoptic.com");
         if (toEmail) {
-          const resend = new Resend(process.env.RESEND_API_KEY);
-          const baseUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://reviewoptic.com");
-          await resend.emails.send({
-            from: REVIEWOPTIC_FROM,
-            to: toEmail,
-            subject: `Private feedback received from ${customer?.name || "a customer"} (${request.rating}★)`,
-            html: `
-              <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
-                <div style="margin-bottom:28px;"><img src="${baseUrl}/logo.png" alt="ReviewOptic" style="height:36px;max-width:180px;object-fit:contain;display:block;" /></div>
-                <h2 style="font-size:18px;font-weight:700;margin:0 0 8px;">Private feedback received</h2>
-                <p style="color:#555;margin:0 0 16px;line-height:1.6;">
-                  <strong>${customer?.name || "A customer"}</strong> rated their experience <strong>${request.rating} star${request.rating === 1 ? "" : "s"}</strong> and left the following message:
-                </p>
-                <div style="background:#f5f5f5;border-left:4px solid #e5e7eb;padding:12px 16px;border-radius:4px;margin:0 0 24px;">
-                  <p style="margin:0;font-style:italic;color:#333;">"${message}"</p>
-                </div>
-                <p style="color:#555;margin:0 0 24px;line-height:1.6;">This feedback is private — only you can see it. Log in to respond.</p>
-                <a href="${baseUrl}" style="display:inline-block;background:#0E679D;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">View &amp; Respond in Dashboard</a>
-              </div>
-            `,
-          }).catch(() => {});
+          sendPrivateFeedbackNotificationEmail(toEmail, customer?.name || "A customer", request.rating || 1, message, appUrl).catch(() => {});
         }
       }
 
@@ -4308,7 +4261,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           await sendVerificationEmail(adminEmail, `${appUrl}/verify-email?token=TEST_TOKEN_EXAMPLE`);
           break;
         case "reset":
-          await sendResetEmail(adminEmail, `${appUrl}/reset-password?token=TEST_TOKEN_EXAMPLE`);
+          await sendResetPasswordEmail(adminEmail, `${appUrl}/reset-password?token=TEST_TOKEN_EXAMPLE`);
           break;
         case "team_invite":
           await sendTeamInviteEmail(adminEmail, adminName, "Demo Plumbing Co", `${appUrl}/accept-invite?token=TEST_TOKEN`);
