@@ -275,6 +275,21 @@ Your job is to be the developer they would hire if they could afford a great one
 
 *(Sessions 77–82 archived to CLAUDE_ARCHIVE.md)*
 
+### Session — 2026-06-10 (eighty-eighth session)
+
+**Tasks completed:**
+- **Drizzle schema sync fixed** (`shared/schema.ts`): Replit deploy was warning "DROP TABLE platform_settings CASCADE" on every publish attempt. Root cause: tables created via our custom `migrate.ts` were never declared in `shared/schema.ts`, so Drizzle saw them as rogue and flagged them for deletion. Added all missing tables to schema.ts: `chatMessages`, `insightEmailLog`, `recordings`, `reviewPlatformClicks`, `notifications`, `pushSubscriptions`, `systemEmailTemplates`, `platformSettings`, `blogPosts`. Also added `uuid` import to schema.ts.
+- **Deployed successfully**: User approved the one-time DROP of `platform_settings` (no data loss — pixel IDs were never entered). migrate.ts recreates the table on startup. Future deploys will not show this warning.
+
+**Lessons learned:**
+- Every table created via `migrate.ts` must ALSO be declared in `shared/schema.ts` or Replit's drizzle-kit push will flag it for deletion on every deploy. Always keep both files in sync when adding new tables.
+
+**Pending:**
+- **Facebook App Review**: `instagram_business_basic` resubmitted 2026-06-10 — waiting ~2 weeks.
+- **Landing page videos**: Hero and "How It Works" placeholders ready to swap in.
+- **Tracking pixel IDs**: Now live — paste into Admin → Tracking once campaigns are set up.
+- **Blog**: Write first post to test the feature end to end.
+
 ### Session — 2026-06-10 (eighty-seventh session)
 
 **Tasks completed:**
