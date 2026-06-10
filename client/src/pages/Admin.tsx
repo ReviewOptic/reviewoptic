@@ -95,18 +95,66 @@ export default function Admin() {
   const [, navigate] = useLocation();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
-  const [tab, setTab] = useState<"metrics" | "users" | "cancelled" | "deleted" | "emails" | "tools" | "tracking">("metrics");
+  const [tab, setTab] = useState<"metrics" | "users" | "cancelled" | "deleted" | "emails" | "tools" | "tracking" | "blog">("metrics");
   const [resetConfirm, setResetConfirm] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [tracking, setTracking] = useState({ meta_pixel_id: "", google_tag_id: "", tiktok_pixel_id: "" });
   const [trackingLoaded, setTrackingLoaded] = useState(false);
   const [trackingSaving, setTrackingSaving] = useState(false);
   const [trackingSaved, setTrackingSaved] = useState(false);
+
+  // Blog state
+  interface BlogPostAdmin { id: string; title: string; slug: string; excerpt: string; published: boolean; published_at: string | null; created_at: string; }
+  const [blogPosts, setBlogPosts] = useState<BlogPostAdmin[]>([]);
+  const [blogLoaded, setBlogLoaded] = useState(false);
+  const [blogEditing, setBlogEditing] = useState<BlogPostAdmin | null>(null);
+  const [blogNew, setBlogNew] = useState(false);
+  const [blogForm, setBlogForm] = useState({ title: "", slug: "", excerpt: "", body: "", published: false });
+  const [blogSaving, setBlogSaving] = useState(false);
+  const [blogError, setBlogError] = useState("");
+
+  const loadBlog = () => fetch("/api/admin/blog", { credentials: "include" }).then(r => r.json()).then(d => { setBlogPosts(d); setBlogLoaded(true); });
+
   useEffect(() => {
     if (tab === "tracking" && !trackingLoaded) {
       fetch("/api/admin/tracking", { credentials: "include" }).then(r => r.json()).then(d => { setTracking(d); setTrackingLoaded(true); });
     }
-  }, [tab, trackingLoaded]);
+    if (tab === "blog" && !blogLoaded) { loadBlog(); }
+  }, [tab, trackingLoaded, blogLoaded]);
+
+  function slugify(s: string) { return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); }
+
+  function blogOpenNew() {
+    setBlogForm({ title: "", slug: "", excerpt: "", body: "", published: false });
+    setBlogEditing(null);
+    setBlogNew(true);
+    setBlogError("");
+  }
+
+  function blogOpenEdit(post: BlogPostAdmin) {
+    fetch(`/api/blog/${post.slug}`, { credentials: "include" }).then(r => r.json()).then(d => {
+      setBlogForm({ title: d.title, slug: d.slug, excerpt: d.excerpt, body: d.body, published: post.published });
+      setBlogEditing(post);
+      setBlogNew(true);
+      setBlogError("");
+    });
+  }
+
+  async function saveBlog() {
+    setBlogSaving(true); setBlogError("");
+    const method = blogEditing ? "PUT" : "POST";
+    const url = blogEditing ? `/api/admin/blog/${blogEditing.id}` : "/api/admin/blog";
+    const r = await fetch(url, { method, headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(blogForm) });
+    setBlogSaving(false);
+    if (!r.ok) { const d = await r.json(); setBlogError(d.message || "Save failed"); return; }
+    setBlogNew(false); setBlogEditing(null); setBlogLoaded(false); loadBlog();
+  }
+
+  async function deleteBlog(id: string) {
+    if (!confirm("Delete this post? This cannot be undone.")) return;
+    await fetch(`/api/admin/blog/${id}`, { method: "DELETE", credentials: "include" });
+    setBlogLoaded(false); loadBlog();
+  }
   const [planFilter, setPlanFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [metricsLoading, setMetricsLoading] = useState(true);
@@ -244,6 +292,7 @@ export default function Admin() {
     { id: "emails", label: "Emails", icon: Zap },
     { id: "tools", label: "Tools", icon: Wrench },
     { id: "tracking", label: "Tracking", icon: Radio },
+    { id: "blog", label: "Blog", icon: Mail },
   ] as const;
 
   const alertIcon = (s: string) => s === "green" ? <CheckCircle className="w-4 h-4 text-green-500" /> : s === "red" ? <AlertCircle className="w-4 h-4 text-red-500" /> : <AlertTriangle className="w-4 h-4 text-yellow-500" />;
@@ -1188,6 +1237,124 @@ export default function Admin() {
               {trackingSaving ? "Saving…" : trackingSaved ? "✓ Saved" : "Save Pixels"}
             </Button>
           </div>
+        </div>
+      )}
+
+      {/* ── BLOG TAB ── */}
+      {tab === "blog" && (
+        <div className="space-y-4">
+          {!blogNew ? (
+            <>
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-semibold">Blog Posts</h2>
+                <Button size="sm" onClick={blogOpenNew}>+ New Post</Button>
+              </div>
+
+              {!blogLoaded && <p className="text-sm text-muted-foreground">Loading…</p>}
+
+              {blogLoaded && blogPosts.length === 0 && (
+                <div className="border border-dashed border-border rounded-xl p-8 text-center">
+                  <p className="text-sm text-muted-foreground">No posts yet. Click "New Post" to write your first one.</p>
+                </div>
+              )}
+
+              {blogLoaded && blogPosts.length > 0 && (
+                <div className="border border-border rounded-xl overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/40">
+                      <tr>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground">Title</th>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Status</th>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Date</th>
+                        <th className="px-4 py-3" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {blogPosts.map(post => (
+                        <tr key={post.id} className="border-t border-border hover:bg-muted/20">
+                          <td className="px-4 py-3 font-medium max-w-xs truncate">{post.title}</td>
+                          <td className="px-4 py-3 hidden sm:table-cell">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${post.published ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"}`}>
+                              {post.published ? "Published" : "Draft"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-[12.5px] text-muted-foreground hidden md:table-cell">
+                            {post.published_at ? new Date(post.published_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-end gap-2">
+                              {post.published && (
+                                <a href={`/blog/${post.slug}`} target="_blank" rel="noopener noreferrer" className="text-[12px] text-muted-foreground hover:text-foreground transition-colors">View ↗</a>
+                              )}
+                              <Button size="sm" variant="outline" onClick={() => blogOpenEdit(post)}>Edit</Button>
+                              <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-600" onClick={() => deleteBlog(post.id)}>Delete</Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          ) : (
+            /* ── Post editor ── */
+            <div className="space-y-4 max-w-2xl">
+              <div className="flex items-center gap-3">
+                <Button size="sm" variant="outline" onClick={() => { setBlogNew(false); setBlogEditing(null); }}>← Back</Button>
+                <h2 className="text-base font-semibold">{blogEditing ? "Edit Post" : "New Post"}</h2>
+              </div>
+
+              {blogError && <p className="text-sm text-red-500">{blogError}</p>}
+
+              <div className="space-y-1.5">
+                <label className="text-[12.5px] font-medium">Title</label>
+                <Input
+                  value={blogForm.title}
+                  onChange={e => setBlogForm(f => ({ ...f, title: e.target.value, slug: blogEditing ? f.slug : slugify(e.target.value) }))}
+                  placeholder="e.g. How to Get More Google Reviews in 2025"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[12.5px] font-medium">URL slug</label>
+                <p className="text-[11px] text-muted-foreground">This becomes the page URL: reviewoptic.com/blog/<strong>{blogForm.slug || "your-slug-here"}</strong></p>
+                <Input value={blogForm.slug} onChange={e => setBlogForm(f => ({ ...f, slug: slugify(e.target.value) }))} placeholder="how-to-get-more-google-reviews" className="font-mono text-[13px]" />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[12.5px] font-medium">Excerpt <span className="text-muted-foreground font-normal">(1–2 sentences shown on the blog listing page)</span></label>
+                <Input value={blogForm.excerpt} onChange={e => setBlogForm(f => ({ ...f, excerpt: e.target.value }))} placeholder="A short summary of what this post is about…" />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[12.5px] font-medium">Body</label>
+                <p className="text-[11px] text-muted-foreground">Leave a blank line between paragraphs. Each paragraph appears as its own block.</p>
+                <textarea
+                  value={blogForm.body}
+                  onChange={e => setBlogForm(f => ({ ...f, body: e.target.value }))}
+                  rows={20}
+                  placeholder={"Start writing your post here...\n\nLeave a blank line to start a new paragraph."}
+                  className="w-full border border-input rounded-md px-3 py-2 text-[13px] leading-relaxed bg-background resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={blogForm.published} onChange={e => setBlogForm(f => ({ ...f, published: e.target.checked }))} className="w-4 h-4 rounded" />
+                  <span className="text-sm font-medium">Publish now</span>
+                </label>
+                <span className="text-[11.5px] text-muted-foreground">{blogForm.published ? "Will be visible at /blog" : "Saved as draft — not public yet"}</span>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <Button disabled={blogSaving || !blogForm.title || !blogForm.slug} onClick={saveBlog}>
+                  {blogSaving ? "Saving…" : blogEditing ? "Save Changes" : "Create Post"}
+                </Button>
+                <Button variant="outline" onClick={() => { setBlogNew(false); setBlogEditing(null); }}>Cancel</Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

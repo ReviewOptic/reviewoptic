@@ -4424,5 +4424,77 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ── Blog routes ──────────────────────────────────────────────────────────
+
+  // Public: list published posts
+  app.get("/api/blog", async (_req, res) => {
+    const { rows } = await pool.query(
+      `SELECT id, title, slug, excerpt, published_at FROM blog_posts WHERE published = true ORDER BY published_at DESC`
+    );
+    res.json(rows);
+  });
+
+  // Public: single post by slug
+  app.get("/api/blog/:slug", async (req, res) => {
+    const { rows } = await pool.query(
+      `SELECT id, title, slug, excerpt, body, published_at FROM blog_posts WHERE slug = $1 AND published = true`,
+      [req.params.slug]
+    );
+    if (!rows[0]) return res.status(404).json({ message: "Not found" });
+    res.json(rows[0]);
+  });
+
+  // Admin: list all posts (including drafts)
+  app.get("/api/admin/blog", requireAdmin, async (_req, res) => {
+    const { rows } = await pool.query(
+      `SELECT id, title, slug, excerpt, published, published_at, created_at FROM blog_posts ORDER BY created_at DESC`
+    );
+    res.json(rows);
+  });
+
+  // Admin: create post
+  app.post("/api/admin/blog", requireAdmin, async (req, res) => {
+    const { title, slug, excerpt, body, published } = req.body;
+    if (!title || !slug) return res.status(400).json({ message: "Title and slug are required" });
+    try {
+      const { rows } = await pool.query(
+        `INSERT INTO blog_posts (title, slug, excerpt, body, published, published_at)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+        [title.trim(), slug.trim(), excerpt?.trim() ?? "", body?.trim() ?? "", !!published, published ? new Date() : null]
+      );
+      res.json(rows[0]);
+    } catch (err: any) {
+      if (err.code === "23505") return res.status(409).json({ message: "Slug already in use — choose a different one" });
+      throw err;
+    }
+  });
+
+  // Admin: update post
+  app.put("/api/admin/blog/:id", requireAdmin, async (req, res) => {
+    const { title, slug, excerpt, body, published } = req.body;
+    if (!title || !slug) return res.status(400).json({ message: "Title and slug are required" });
+    const { rows: existing } = await pool.query(`SELECT published, published_at FROM blog_posts WHERE id = $1`, [req.params.id]);
+    if (!existing[0]) return res.status(404).json({ message: "Post not found" });
+    const wasPublished = existing[0].published;
+    const publishedAt = published && !wasPublished ? new Date() : (published ? existing[0].published_at : null);
+    try {
+      const { rows } = await pool.query(
+        `UPDATE blog_posts SET title=$1, slug=$2, excerpt=$3, body=$4, published=$5, published_at=$6, updated_at=NOW()
+         WHERE id=$7 RETURNING *`,
+        [title.trim(), slug.trim(), excerpt?.trim() ?? "", body?.trim() ?? "", !!published, publishedAt, req.params.id]
+      );
+      res.json(rows[0]);
+    } catch (err: any) {
+      if (err.code === "23505") return res.status(409).json({ message: "Slug already in use — choose a different one" });
+      throw err;
+    }
+  });
+
+  // Admin: delete post
+  app.delete("/api/admin/blog/:id", requireAdmin, async (req, res) => {
+    await pool.query(`DELETE FROM blog_posts WHERE id = $1`, [req.params.id]);
+    res.json({ ok: true });
+  });
+
   return httpServer;
 }

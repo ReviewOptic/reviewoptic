@@ -35,6 +35,8 @@ const Tutorial = lazy(() => import("@/pages/Tutorial"));
 const FAQ = lazy(() => import("@/pages/FAQ"));
 const Scan = lazy(() => import("@/pages/Scan"));
 const Home = lazy(() => import("@/pages/Home"));
+const Blog = lazy(() => import("@/pages/Blog"));
+const BlogPost = lazy(() => import("@/pages/BlogPost"));
 
 function useTrackingPixels() {
   useEffect(() => {
@@ -167,6 +169,8 @@ function Router() {
     <Switch>
       <Route path="/review-landing" component={ReviewLanding} />
       <Route path="/review" component={ReviewLanding} />
+      <Route path="/blog/:slug" component={BlogPost} />
+      <Route path="/blog" component={Blog} />
       <Route path="/privacy" component={PrivacyPolicy} />
       <Route path="/terms" component={TermsAndConditions} />
       <Route path="/pricing" component={Pricing} />

@@ -16,6 +16,7 @@ const NAV_LINKS = [
   { label: "How It Works", href: "#how-it-works" },
   { label: "Pricing", href: "#pricing" },
   { label: "FAQ", href: "#faq" },
+  { label: "Blog", href: "/blog" },
 ];
 
 const PAIN_POINTS = [
@@ -150,7 +151,7 @@ export default function Home() {
           {/* Centre links — desktop only */}
           <div className="hidden md:flex items-center gap-7">
             {NAV_LINKS.map(l => (
-              <button key={l.label} onClick={() => scrollTo(l.href.slice(1))} className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors">{l.label}</button>
+              <button key={l.label} onClick={() => l.href.startsWith("/") ? navigate(l.href) : scrollTo(l.href.slice(1))} className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors">{l.label}</button>
             ))}
           </div>
 
@@ -168,7 +169,7 @@ export default function Home() {
         {menuOpen && (
           <div className="md:hidden bg-white border-t border-gray-100 px-5 py-4 flex flex-col gap-4">
             {NAV_LINKS.map(l => (
-              <button key={l.label} onClick={() => { scrollTo(l.href.slice(1)); setMenuOpen(false); }} className="text-sm font-medium text-gray-700 text-left">
+              <button key={l.label} onClick={() => { l.href.startsWith("/") ? navigate(l.href) : scrollTo(l.href.slice(1)); setMenuOpen(false); }} className="text-sm font-medium text-gray-700 text-left">
                 {l.label}
               </button>
             ))}
@@ -352,6 +353,7 @@ export default function Home() {
       <footer className="bg-gray-900 text-gray-400 py-10 px-5">
         <div className="max-w-6xl mx-auto text-sm text-center space-y-3">
           <div className="flex flex-wrap justify-center gap-5">
+            <button onClick={() => navigate("/blog")} className="hover:text-white transition-colors">Blog</button>
             <button onClick={() => navigate("/privacy")} className="hover:text-white transition-colors">Privacy Policy</button>
             <button onClick={() => navigate("/terms")} className="hover:text-white transition-colors">Terms & Conditions</button>
             <button onClick={() => navigate("/pricing")} className="hover:text-white transition-colors">Pricing</button>

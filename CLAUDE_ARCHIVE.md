@@ -1156,3 +1156,30 @@ Older session logs moved here to keep CLAUDE.md under 30k chars.
 - **Inbound SMS receiver removed**: Meta's OTP SMS filtered by UK carrier networks — not a Twilio issue.
 - **Facebook App Review resubmitted** successfully.
 - **Facebook reconnected** by user.
+
+### Session — 2026-06-02 (eightieth session)
+
+**Tasks completed:**
+- **Email formatting overhauled** (`server/email.ts`): Logo 200px→280px, centred. All emails 600px wide. Follow-up CTA button black→blue. `customerFooter()` merges unsubscribe + "Powered by" into one block. ReviewOptic logo embedded as base64 data URI.
+- **Test email fixed**: Now uses real send functions — identical to customer receives, only `[TEST]` in subject.
+- **Insight email period label fixed**: Weekly shows date range, monthly shows month + year.
+- **Dashboard stale customers fixed**: Uses `sentAt` not `createdAt`.
+
+### Session — 2026-06-02 (eighty-first session)
+
+**Tasks completed:**
+- **Dashboard archived customers fix**: `stalePendingCustomers` excludes archived customers.
+- **Review landing page fix**: 5-star rating was showing negative feedback dialog on ambiguous API response (e.g. 409). Fixed to use `selectedStar >= 4` as fallback for `highRating`.
+- **WhatsApp template API implemented** (`server/sms.ts`): `sendWhatsAppTemplate()` sends via Twilio Content API using Meta-approved template SIDs. All WhatsApp outbound messages use templates. Private feedback replies stay free-form.
+- **WhatsApp Templates page**: Shows fixed template wording — no edit controls for WhatsApp.
+
+### Session — 2026-06-03 (eighty-second session)
+
+**Tasks completed:**
+- **WhatsApp templates wired up**: All 3 Meta-approved templates created in Twilio, HX SIDs added to Replit secrets.
+- **Templates page**: WhatsApp tab shows exact approved wording for all 3 templates.
+
+**Confirmed template wording (as approved by Meta):**
+- `review_request`: "Hi {{1}}, thank you for choosing {{2}}! We'd love to hear how we did. Tap the link below to leave us a quick rating — it only takes a second: {{3}} Reply STOP to opt out."
+- `review_followup`: "Hi {{1}}, just a quick follow-up from {{2}} — we'd love to hear how we did! Tap the link below to leave us a rating whenever you're ready: {{3}} Reply STOP to opt out."
+- `review_followup2`: "Hi {{1}}, final follow-up from {{2}} — we'd love to hear how we did! Tap the link below to leave us a rating whenever you're ready: {{3}} Reply STOP to opt out."

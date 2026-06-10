@@ -551,6 +551,21 @@ export async function runMigrations() {
     `);
     await pool.query(`INSERT INTO platform_settings (id) VALUES ('singleton') ON CONFLICT (id) DO NOTHING`);
 
+    // Blog posts — admin-authored, public-facing, SEO content
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS blog_posts (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        title TEXT NOT NULL,
+        slug TEXT NOT NULL UNIQUE,
+        excerpt TEXT NOT NULL DEFAULT '',
+        body TEXT NOT NULL DEFAULT '',
+        published BOOLEAN NOT NULL DEFAULT false,
+        published_at TIMESTAMP,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();
