@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { usePageMeta } from "@/hooks/use-page-meta";
-import { Menu, X, ArrowRight, Calendar } from "lucide-react";
+import { Menu, X, ArrowRight, ArrowLeft, Calendar } from "lucide-react";
 import { FaInstagram, FaLinkedin, FaFacebook } from "react-icons/fa";
 
 const PRIMARY = "#0E679D";
@@ -87,6 +87,9 @@ export default function Blog() {
 
       {/* ── POSTS ── */}
       <main className="max-w-4xl mx-auto px-5 py-16">
+        <button onClick={() => navigate("/")} className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-400 hover:text-gray-700 transition-colors mb-10">
+          <ArrowLeft className="w-4 h-4" /> Back to home
+        </button>
         {loading && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {[1, 2, 3].map(i => (

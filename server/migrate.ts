@@ -542,13 +542,15 @@ export async function runMigrations() {
     // Platform-wide tracking pixel config (admin-managed)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS platform_settings (
-        id TEXT PRIMARY KEY DEFAULT 'singleton',
+        id TEXT PRIMARY KEY,
         meta_pixel_id TEXT NOT NULL DEFAULT '',
         google_tag_id TEXT NOT NULL DEFAULT '',
         tiktok_pixel_id TEXT NOT NULL DEFAULT '',
         updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
+    // Remove DEFAULT 'singleton' from id if it exists (to match schema.ts definition)
+    await pool.query(`ALTER TABLE platform_settings ALTER COLUMN id DROP DEFAULT`);
     await pool.query(`INSERT INTO platform_settings (id) VALUES ('singleton') ON CONFLICT (id) DO NOTHING`);
 
     // Blog posts — admin-authored, public-facing, SEO content
