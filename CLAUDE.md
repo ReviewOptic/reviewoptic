@@ -196,16 +196,21 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Weekly auto-reseed of demo account** (`server/routes.ts`): Extracted seed logic into `seedDemoAccount()` function. On server startup, checks if demo data is >7 days stale and reseeds automatically. Weekly `setInterval` as ongoing backup.
 - **Mobile optimisation sweep** (all main pages): Bumped all `h-7` (28px) interactive buttons to `h-8` (32px) across Customers, Dashboard, Analytics, Templates. Dashboard quick links: larger icon, bigger text (`text-[11px]`), better padding (`py-3 px-2`, `min-h-[56px]`). Template toolbar wraps on mobile (`flex-wrap`). Confirmed: code splitting (lazy), skeleton loaders, and `loading="lazy"` on images already in place — no changes needed.
 
+- **Tracking pixels** (`server/migrate.ts`, `server/routes.ts`, `client/src/pages/Admin.tsx`, `client/src/App.tsx`): Added `platform_settings` DB table storing `meta_pixel_id`, `google_tag_id`, `tiktok_pixel_id`. Admin panel has new "Tracking" tab with inputs and Save. Public `GET /api/platform/tracking` endpoint returns IDs. `useTrackingPixels()` hook in App.tsx fires on app load and injects Meta Pixel, Google Tag Manager, and TikTok Pixel scripts dynamically. IDs fire once per session (guarded by script element ID check).
+
 **Architecture notes:**
 - `isDemo: boolean` added to `SessionData` (server) and `AuthUser` (client)
 - Demo-blocked 403s dispatch `demo-blocked` custom browser event — Layout listens and shows sign-up modal
 - `findDuplicateCustomer(accountId, email, phone)` in storage.ts uses `or()` from drizzle-orm — checks non-empty email OR phone
 - `forceAdd: true` in POST /api/customers body bypasses duplicate check
+- `platform_settings` is a singleton table (single row with `id='singleton'`) — use PATCH `/api/admin/tracking` to update, GET `/api/platform/tracking` to read publicly
+- GTM covers both GA4 analytics and Google Ads conversion tracking via one snippet (GTM-XXXXXXX format)
 
 **Pending:**
 - **Facebook App Review**: `instagram_business_basic` resubmitted 2026-06-10 — waiting ~2 weeks for response.
 - **Landing page videos**: Hero and "How It Works" video placeholders ready to swap in once recorded.
 - **Demo account**: Will auto-reseed on next deploy. No manual action needed.
+- **Tracking pixel IDs**: Admin needs to paste actual IDs into Admin → Tracking tab once advertising campaigns are set up (Meta Events Manager, Google Tag Manager, TikTok Ads Manager).
 
 ### Session — 2026-06-03 (eighty-fifth session)
 

@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Shield, LogIn, CheckCircle2, XCircle, Trash2, ShieldCheck, ShieldOff, Ban,
   Users, BarChart3, TrendingUp, TrendingDown, AlertTriangle, AlertCircle,
-  CheckCircle, RefreshCw, Download, Zap, Target, Activity, Printer, Mail, Wrench,
+  CheckCircle, RefreshCw, Download, Zap, Target, Activity, Printer, Mail, Wrench, Radio,
 } from "lucide-react";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
@@ -95,9 +95,18 @@ export default function Admin() {
   const [, navigate] = useLocation();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
-  const [tab, setTab] = useState<"metrics" | "users" | "cancelled" | "deleted" | "emails" | "tools">("metrics");
+  const [tab, setTab] = useState<"metrics" | "users" | "cancelled" | "deleted" | "emails" | "tools" | "tracking">("metrics");
   const [resetConfirm, setResetConfirm] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
+  const [tracking, setTracking] = useState({ meta_pixel_id: "", google_tag_id: "", tiktok_pixel_id: "" });
+  const [trackingLoaded, setTrackingLoaded] = useState(false);
+  const [trackingSaving, setTrackingSaving] = useState(false);
+  const [trackingSaved, setTrackingSaved] = useState(false);
+  useEffect(() => {
+    if (tab === "tracking" && !trackingLoaded) {
+      fetch("/api/admin/tracking", { credentials: "include" }).then(r => r.json()).then(d => { setTracking(d); setTrackingLoaded(true); });
+    }
+  }, [tab, trackingLoaded]);
   const [planFilter, setPlanFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [metricsLoading, setMetricsLoading] = useState(true);
@@ -234,6 +243,7 @@ export default function Admin() {
     { id: "metrics", label: "Metrics", icon: BarChart3 },
     { id: "emails", label: "Emails", icon: Zap },
     { id: "tools", label: "Tools", icon: Wrench },
+    { id: "tracking", label: "Tracking", icon: Radio },
   ] as const;
 
   const alertIcon = (s: string) => s === "green" ? <CheckCircle className="w-4 h-4 text-green-500" /> : s === "red" ? <AlertCircle className="w-4 h-4 text-red-500" /> : <AlertTriangle className="w-4 h-4 text-yellow-500" />;
@@ -1138,6 +1148,45 @@ export default function Admin() {
                 <Button variant="ghost" size="sm" onClick={() => setResetConfirm(false)}>Cancel</Button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {tab === "tracking" && (
+        <div className="space-y-4 p-4 max-w-xl">
+          <div className="border border-border rounded-xl p-5 space-y-5">
+            <div>
+              <p className="text-sm font-semibold">Tracking Pixels</p>
+              <p className="text-xs text-muted-foreground mt-1">Paste your pixel/tag IDs below. Leave blank to disable. Changes take effect on next page load.</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[12.5px] font-medium">Meta Pixel ID</label>
+              <p className="text-[11px] text-muted-foreground">Found in Meta Events Manager → your pixel → Settings. Format: 15–16 digit number e.g. <span className="font-mono">1234567890123456</span></p>
+              <Input placeholder="e.g. 1234567890123456" value={tracking.meta_pixel_id} onChange={e => setTracking(t => ({ ...t, meta_pixel_id: e.target.value }))} className="text-[13px] font-mono" />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[12.5px] font-medium">Google Tag Manager ID</label>
+              <p className="text-[11px] text-muted-foreground">Found in GTM → your container → Admin. Format: <span className="font-mono">GTM-XXXXXXX</span>. Covers GA4 and Google Ads conversion tracking.</p>
+              <Input placeholder="e.g. GTM-XXXXXXX" value={tracking.google_tag_id} onChange={e => setTracking(t => ({ ...t, google_tag_id: e.target.value }))} className="text-[13px] font-mono" />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[12.5px] font-medium">TikTok Pixel ID</label>
+              <p className="text-[11px] text-muted-foreground">Found in TikTok Ads Manager → Assets → Events → your pixel. Format: <span className="font-mono">CXXXXXXXXXXXXXXXXXX</span></p>
+              <Input placeholder="e.g. CXXXXXXXXXXXXXXXXXX" value={tracking.tiktok_pixel_id} onChange={e => setTracking(t => ({ ...t, tiktok_pixel_id: e.target.value }))} className="text-[13px] font-mono" />
+            </div>
+
+            <Button size="sm" disabled={trackingSaving} onClick={async () => {
+              setTrackingSaving(true);
+              await fetch("/api/admin/tracking", { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(tracking) });
+              setTrackingSaving(false);
+              setTrackingSaved(true);
+              setTimeout(() => setTrackingSaved(false), 3000);
+            }}>
+              {trackingSaving ? "Saving…" : trackingSaved ? "✓ Saved" : "Save Pixels"}
+            </Button>
           </div>
         </div>
       )}

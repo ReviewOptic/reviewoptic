@@ -539,6 +539,18 @@ export async function runMigrations() {
     // Remove server_state table — no longer needed, was causing Drizzle deploy warnings
     await pool.query(`DROP TABLE IF EXISTS server_state`);
 
+    // Platform-wide tracking pixel config (admin-managed)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS platform_settings (
+        id TEXT PRIMARY KEY DEFAULT 'singleton',
+        meta_pixel_id TEXT NOT NULL DEFAULT '',
+        google_tag_id TEXT NOT NULL DEFAULT '',
+        tiktok_pixel_id TEXT NOT NULL DEFAULT '',
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`INSERT INTO platform_settings (id) VALUES ('singleton') ON CONFLICT (id) DO NOTHING`);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();

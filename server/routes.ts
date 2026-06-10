@@ -1078,6 +1078,26 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
 
+  // Tracking pixels — public read, admin write
+  app.get("/api/platform/tracking", async (_req, res) => {
+    const { rows } = await pool.query(`SELECT meta_pixel_id, google_tag_id, tiktok_pixel_id FROM platform_settings WHERE id = 'singleton'`);
+    res.json(rows[0] || { meta_pixel_id: "", google_tag_id: "", tiktok_pixel_id: "" });
+  });
+
+  app.get("/api/admin/tracking", requireAdmin, async (_req, res) => {
+    const { rows } = await pool.query(`SELECT meta_pixel_id, google_tag_id, tiktok_pixel_id FROM platform_settings WHERE id = 'singleton'`);
+    res.json(rows[0] || { meta_pixel_id: "", google_tag_id: "", tiktok_pixel_id: "" });
+  });
+
+  app.patch("/api/admin/tracking", requireAdmin, async (req, res) => {
+    const { meta_pixel_id = "", google_tag_id = "", tiktok_pixel_id = "" } = req.body;
+    await pool.query(
+      `UPDATE platform_settings SET meta_pixel_id = $1, google_tag_id = $2, tiktok_pixel_id = $3, updated_at = NOW() WHERE id = 'singleton'`,
+      [meta_pixel_id.trim(), google_tag_id.trim(), tiktok_pixel_id.trim()]
+    );
+    res.json({ success: true });
+  });
+
   app.get("/api/admin/metrics", requireAdmin, async (req, res) => {
     try {
       // Date range filter — applied to charts, feed, feature usage, top users
