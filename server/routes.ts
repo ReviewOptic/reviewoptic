@@ -70,6 +70,11 @@ const uploadsDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 // Auth middleware
+function requireNotDemo(req: Request, res: Response, next: NextFunction) {
+  if (req.session.isDemo) return res.status(403).json({ message: "Demo mode — sign up to use this feature", demoBlocked: true });
+  next();
+}
+
 function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (!req.session.userId || !req.session.accountId) {
     console.log("[requireAuth] 401", req.method, req.path, {
@@ -387,6 +392,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     });
   });
 
+  app.post("/api/demo-login", async (req, res) => {
+    const demoUser = await storage.getUserByEmail("demo@reviewoptic.com");
+    if (!demoUser) return res.status(503).json({ message: "Demo account not available yet — please try again in a moment." });
+    req.session.userId = demoUser.id;
+    req.session.accountId = demoUser.accountId;
+    req.session.userRole = "owner";
+    req.session.isDemo = true;
+    await new Promise<void>((resolve, reject) => req.session.save(err => err ? reject(err) : resolve()));
+    res.json({ success: true });
+  });
+
   app.post("/api/auth/login", async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ message: "Email and password are required" });
@@ -671,6 +687,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       accountId: user.accountId,
       isAdmin: user.isAdmin,
       isImpersonating: !!req.session.originalUserId,
+      isDemo: !!req.session.isDemo,
       planType,
       planPeriod: billing.plan_period || "monthly",
       requiresPayment: !user.isAdmin && planType === "free" && role === "owner" && !req.session.originalUserId,
@@ -780,7 +797,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ success: true });
   });
 
-  app.post("/api/admin/seed-demo", requireAdmin, async (req, res) => {
+  async function seedDemoAccount() {
     const demoEmail = "demo@reviewoptic.com";
     const demoPassword = "Demo1234!";
 
@@ -943,8 +960,36 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       );
     }
 
-    res.json({ success: true, email: demoEmail, password: demoPassword });
+    return { email: demoEmail, password: demoPassword };
+  }
+
+  app.post("/api/admin/seed-demo", requireAdmin, async (req, res) => {
+    const result = await seedDemoAccount();
+    res.json({ success: true, ...result });
   });
+
+  // Auto-reseed demo account if data is more than 7 days stale
+  async function checkAndReseedDemo() {
+    try {
+      const demoUser = await storage.getUserByEmail("demo@reviewoptic.com");
+      if (!demoUser) { await seedDemoAccount(); return; }
+      const { rows } = await pool.query(
+        `SELECT MAX(created_at) as last_seed FROM customers WHERE account_id = $1`,
+        [demoUser.accountId]
+      );
+      const lastSeed = rows[0]?.last_seed;
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      if (!lastSeed || new Date(lastSeed) < sevenDaysAgo) {
+        console.log("[demo] Reseeding demo account...");
+        await seedDemoAccount();
+        console.log("[demo] Reseed complete.");
+      }
+    } catch (e: any) {
+      console.error("[demo] Auto-reseed failed:", e.message);
+    }
+  }
+  checkAndReseedDemo();
+  setInterval(checkAndReseedDemo, 7 * 24 * 60 * 60 * 1000);
 
   app.delete("/api/admin/user/:userId", requireAdmin, async (req, res) => {
     const target = await storage.getUser(String(req.params.userId));
@@ -1775,7 +1820,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!c) return res.status(404).json({ message: "Customer not found" });
     res.json(c);
   });
-  app.post("/api/customers", requireAuth, async (req, res) => {
+  app.post("/api/customers", requireAuth, requireNotDemo, async (req, res) => {
     if (!req.body.name) return res.status(400).json({ message: "Name is required" });
     if (!req.body.email && !req.body.phone) return res.status(400).json({ message: "Email or phone number is required" });
     if (!req.body.forceAdd) {
@@ -1817,7 +1862,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
     res.json(c);
   });
-  app.post("/api/customers/import", requireAuth, async (req, res) => {
+  app.post("/api/customers/import", requireAuth, requireNotDemo, async (req, res) => {
     const customers: any[] = req.body.customers || [];
     let imported = 0;
     const skipped: { row: number; reason: string }[] = [];
@@ -1999,7 +2044,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  app.post("/api/review-requests", requireAuth, async (req, res) => {
+  app.post("/api/review-requests", requireAuth, requireNotDemo, async (req, res) => {
     try {
     // Enforce Lite plan 10-request limit per calendar month (follow-ups don't count)
     const { rows: planRows } = await pool.query(

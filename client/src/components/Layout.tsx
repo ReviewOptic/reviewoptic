@@ -570,6 +570,43 @@ function MobileOverlay({ open, onClose }: { open: boolean; onClose: () => void }
 
 // ─── CLASSIC LAYOUT ──────────────────────────────────────────────────────────
 // Left sidebar 240px, current design
+function DemoBanner() {
+  const { user, logout } = useAuth();
+  const [, navigate] = useLocation();
+  const [showSignUp, setShowSignUp] = useState(false);
+  useEffect(() => {
+    const handler = () => setShowSignUp(true);
+    window.addEventListener("demo-blocked", handler);
+    return () => window.removeEventListener("demo-blocked", handler);
+  }, []);
+  if (!user?.isDemo) return null;
+  return (
+    <>
+      <div className="flex items-center justify-between gap-2 px-4 py-2 text-white text-[13px] font-medium flex-shrink-0" style={{ backgroundColor: "#0E679D" }}>
+        <span className="hidden sm:block">You're exploring a demo — data is read-only</span>
+        <span className="sm:hidden">Demo mode</span>
+        <div className="flex items-center gap-2 shrink-0">
+          <button onClick={() => navigate("/register")} className="bg-white text-[#0E679D] font-semibold px-3 py-1 rounded-md text-[12px] hover:bg-gray-100 transition-colors">Sign Up Free</button>
+          <button onClick={async () => { await logout(); navigate("/"); }} className="text-white/80 hover:text-white text-[12px] underline">Exit Demo</button>
+        </div>
+      </div>
+      {showSignUp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowSignUp(false)}>
+          <div className="bg-background rounded-xl shadow-xl p-6 max-w-sm mx-4 text-center space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="text-3xl">🔒</div>
+            <h2 className="text-lg font-semibold">Sign up to use this feature</h2>
+            <p className="text-sm text-muted-foreground">You're in demo mode. Create a free account to start sending review requests to your own customers.</p>
+            <div className="flex flex-col gap-2">
+              <button onClick={() => navigate("/register")} className="w-full py-2.5 rounded-lg font-semibold text-white text-sm" style={{ backgroundColor: "#0E679D" }}>Create Free Account</button>
+              <button onClick={() => setShowSignUp(false)} className="w-full py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground">Continue exploring demo</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function ClassicLayout({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user } = useAuth();
@@ -583,6 +620,7 @@ function ClassicLayout({ children }: { children: ReactNode }) {
         </aside>
         <MobileOverlay open={mobileOpen} onClose={() => setMobileOpen(false)} />
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <DemoBanner />
           <ImpersonationBanner />
           <PaymentFailedBanner />
           <CancelledBanner />

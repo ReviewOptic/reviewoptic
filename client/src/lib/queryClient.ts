@@ -2,6 +2,14 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
+    if (res.status === 403) {
+      const data = await res.json().catch(() => ({}));
+      if (data.demoBlocked) {
+        window.dispatchEvent(new CustomEvent("demo-blocked"));
+        throw new Error("demo-blocked");
+      }
+      throw new Error(`403: ${data.message || res.statusText}`);
+    }
     const text = (await res.text()) || res.statusText;
     throw new Error(`${res.status}: ${text}`);
   }

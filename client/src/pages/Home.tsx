@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import {
@@ -112,10 +113,22 @@ export default function Home() {
     "/"
   );
 
+  const { refreshUser } = useAuth();
   const [, navigate] = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [scrolled, setScrolled] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
+
+  async function handleDemoLogin() {
+    setDemoLoading(true);
+    try {
+      const res = await fetch("/api/demo-login", { method: "POST", credentials: "include" });
+      if (res.ok) { await refreshUser(); navigate("/"); }
+    } finally {
+      setDemoLoading(false);
+    }
+  }
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
@@ -185,8 +198,8 @@ export default function Home() {
             <button onClick={() => navigate("/register")} className="flex items-center justify-center gap-2 bg-white font-semibold px-7 py-3.5 rounded-xl text-base hover:bg-gray-50 transition-colors" style={{ color: PRIMARY }}>
               Start Your Free Trial <ArrowRight className="w-4 h-4" />
             </button>
-            <button onClick={() => scrollTo("how-it-works")} className="flex items-center justify-center gap-2 border border-white/40 text-white font-medium px-7 py-3.5 rounded-xl text-base hover:bg-white/10 transition-colors">
-              See How It Works
+            <button onClick={handleDemoLogin} disabled={demoLoading} className="flex items-center justify-center gap-2 border border-white/40 text-white font-medium px-7 py-3.5 rounded-xl text-base hover:bg-white/10 transition-colors disabled:opacity-60">
+              {demoLoading ? "Loading..." : "Try Live Demo →"}
             </button>
           </div>
 
