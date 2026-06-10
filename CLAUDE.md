@@ -290,6 +290,24 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Tracking pixel IDs**: Now live — paste into Admin → Tracking once campaigns are set up.
 - **Blog**: Write first post to test the feature end to end.
 
+### Session — 2026-06-10 (eighty-ninth session)
+
+**Tasks completed:**
+- **Back buttons fixed** (`client/src/pages/Pricing.tsx`, `client/src/pages/Blog.tsx`): Pricing page back button was navigating to `/login` instead of the landing page. Replaced the logout-then-redirect logic with a simple `navigate("/")`. Blog.tsx already had a correct back button. Privacy, Terms, FAQ, Features were checked — no issues.
+- **Replit deploy warning permanently fixed** (`shared/schema.ts`, `server/migrate.ts`, `drizzle.config.ts`): After extensive investigation across multiple approaches (tablesFilter, removing from schema.ts, adding to schema.ts), identified the true root cause: `platform_settings.id` had `DEFAULT 'singleton'` in `migrate.ts` but no default in `schema.ts` — a column-level mismatch causing Replit to detect a difference even when the table was present in both. Fix: removed `DEFAULT 'singleton'` from `migrate.ts`, added `ALTER TABLE platform_settings ALTER COLUMN id DROP DEFAULT` to normalise any existing production rows, re-added both tables to `schema.ts`. Also manually created both tables in the live DB with correct schema. Final Replit migration was a single safe `ALTER TABLE` (not a DROP), which the user approved.
+
+**Root cause lesson (deploy warnings):**
+- Replit's migration tool compares `schema.ts` to the live DB column-by-column — not just table presence
+- Any column mismatch (even a DEFAULT value) triggers a migration, which Replit shows as DROP+CREATE for the whole table
+- `tablesFilter` in `drizzle.config.ts` is completely ignored by Replit — it has its own tool
+- Fix: keep all persistent tables in `schema.ts` AND ensure `migrate.ts` SQL definitions match `schema.ts` exactly, column for column
+
+**Pending:**
+- **Facebook App Review**: `instagram_business_basic` resubmitted 2026-06-10 — waiting ~2 weeks.
+- **Landing page videos**: Hero and "How It Works" placeholders ready to swap in.
+- **Tracking pixel IDs**: Paste into Admin → Tracking once campaigns are set up.
+- **Write first blog post** to test the feature end to end.
+
 ### Session — 2026-06-10 (eighty-seventh session)
 
 **Tasks completed:**
