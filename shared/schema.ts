@@ -189,6 +189,68 @@ export const adminImpersonationLog = pgTable("admin_impersonation_log", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const chatMessages = pgTable("chat_messages", {
+  id: varchar("id").primaryKey(),
+  userId: varchar("user_id").notNull(),
+  message: text("message").notNull(),
+  response: text("response").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insightEmailLog = pgTable("insight_email_log", {
+  id: varchar("id").primaryKey(),
+  userId: varchar("user_id").notNull(),
+  accountId: varchar("account_id").notNull(),
+  email: text("email").notNull(),
+  sentAt: timestamp("sent_at").notNull().defaultNow(),
+  openedAt: timestamp("opened_at"),
+});
+
+export const recordings = pgTable("recordings", {
+  id: varchar("id").primaryKey(),
+  accountId: varchar("account_id").notNull(),
+  type: text("type").notNull(),
+  label: text("label").notNull().default(""),
+  url: text("url").notNull(),
+  elevenLabsVoiceId: text("elevenlabs_voice_id").notNull().default(""),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const reviewPlatformClicks = pgTable("review_platform_clicks", {
+  id: varchar("id").primaryKey(),
+  requestId: varchar("request_id").notNull(),
+  accountId: varchar("account_id").notNull(),
+  platform: text("platform").notNull(),
+  clickedAt: timestamp("clicked_at").notNull().defaultNow(),
+});
+
+export const notifications = pgTable("notifications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  accountId: text("account_id").notNull(),
+  type: text("type").notNull(),
+  title: text("title").notNull(),
+  body: text("body").notNull().default(""),
+  link: text("link").notNull().default("/customers"),
+  read: boolean("read").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  accountId: text("account_id").notNull(),
+  endpoint: text("endpoint").notNull().unique(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const systemEmailTemplates = pgTable("system_email_templates", {
+  type: text("type").primaryKey(),
+  subject: text("subject").notNull(),
+  body: text("body").notNull(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const platformSettings = pgTable("platform_settings", {
   id: text("id").primaryKey().default("singleton"),
   metaPixelId: text("meta_pixel_id").notNull().default(""),
