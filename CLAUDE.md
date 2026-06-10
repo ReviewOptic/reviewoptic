@@ -186,6 +186,27 @@ Your job is to be the developer they would hire if they could afford a great one
 
 *(Sessions 18–75 archived to CLAUDE_ARCHIVE.md)*
 
+### Session — 2026-06-10 (eighty-sixth session)
+
+**Tasks completed:**
+- **Facebook App Review resolved**: All permissions approved except `instagram_business_basic` (screencast not aligned with use case). Decided not to remove the feature — instead updated the description box with app credentials (`meta-reviewer@reviewoptic.com / met@rev!ewer`) and clearer instructions pointing to Settings → Social. Resubmitted. Waiting ~2 weeks.
+- **Duplicate customer detection** (`server/storage.ts`, `server/routes.ts`, `client/src/pages/Customers.tsx`): Added `findDuplicateCustomer()` to storage — checks email OR phone against existing (non-deleted) customers. Manual add: returns 409 with existing customer name, frontend shows inline warning with "Add Anyway / Cancel". CSV import: silently skips duplicates, shows reason in post-import summary (e.g. "duplicate — already exists as Sarah Johnson").
+- **Emoji picker added to template editor** (`client/src/pages/Templates.tsx`): Smiley face button above the message body textarea opens a popover with 40 curated emojis. Inserts at cursor position. Works on email, SMS, and WhatsApp templates.
+- **Try Live Demo** (`server/routes.ts`, `client/src/pages/Home.tsx`, `client/src/components/Layout.tsx`): Added `POST /api/demo-login` endpoint. "Try Live Demo →" button on landing page hero logs visitors into the demo account instantly. Blue demo banner appears at top of all pages with "Sign Up Free" and "Exit Demo". Blocked write actions (add customer, send request, CSV import) show a sign-up prompt modal. `requireNotDemo` middleware added to key write routes.
+- **Weekly auto-reseed of demo account** (`server/routes.ts`): Extracted seed logic into `seedDemoAccount()` function. On server startup, checks if demo data is >7 days stale and reseeds automatically. Weekly `setInterval` as ongoing backup.
+- **Mobile optimisation sweep** (all main pages): Bumped all `h-7` (28px) interactive buttons to `h-8` (32px) across Customers, Dashboard, Analytics, Templates. Dashboard quick links: larger icon, bigger text (`text-[11px]`), better padding (`py-3 px-2`, `min-h-[56px]`). Template toolbar wraps on mobile (`flex-wrap`). Confirmed: code splitting (lazy), skeleton loaders, and `loading="lazy"` on images already in place — no changes needed.
+
+**Architecture notes:**
+- `isDemo: boolean` added to `SessionData` (server) and `AuthUser` (client)
+- Demo-blocked 403s dispatch `demo-blocked` custom browser event — Layout listens and shows sign-up modal
+- `findDuplicateCustomer(accountId, email, phone)` in storage.ts uses `or()` from drizzle-orm — checks non-empty email OR phone
+- `forceAdd: true` in POST /api/customers body bypasses duplicate check
+
+**Pending:**
+- **Facebook App Review**: `instagram_business_basic` resubmitted 2026-06-10 — waiting ~2 weeks for response.
+- **Landing page videos**: Hero and "How It Works" video placeholders ready to swap in once recorded.
+- **Demo account**: Will auto-reseed on next deploy. No manual action needed.
+
 ### Session — 2026-06-03 (eighty-fifth session)
 
 **Tasks completed:**
@@ -310,6 +331,8 @@ Meta-approved WhatsApp templates need their Twilio SIDs added as Replit env vars
 - **Insight email period label fixed** (`server/insightEmail.ts`): Weekly shows date range, monthly shows month + year.
 - **Dashboard stale customers fixed** (`client/src/pages/Dashboard.tsx`): Uses `sentAt` from review request, not `createdAt`. Grammar fixed.
 
+*(Sessions 76–79 archived to CLAUDE_ARCHIVE.md)*
+
 ### Session — 2026-05-19 (seventy-ninth session)
 
 **Tasks completed:**
@@ -375,22 +398,4 @@ Meta-approved WhatsApp templates need their Twilio SIDs added as Replit env vars
 - **Revert `auth_type=reauthorize`** once screencast is submitted.
 - **Re-seed demo account**: Hit "Seed Demo Account" in Admin to rebuild with corrected data.
 - **WhatsApp**: Check if `+447863750348` flipped from Pending → Active in Meta WhatsApp Manager, then test sending.
-### Session — 2026-05-17 (seventy-sixth session)
-
-**Tasks completed:**
-- **Facebook App Review — resubmission prepared**: Meta rejected all permissions due to screencast not showing full end-to-end flow. Use case was confirmed as allowed. Worked through each permission's feedback one by one.
-- **`pages_read_engagement` removed then re-added**: Initially removed from OAuth scope as Meta flagged it as unused. Later discovered Meta requires it as a mandatory companion permission to `pages_manage_posts`. Added back to scope in `server/routes.ts`.
-- **Descriptions written for all 6 permissions**: Tailored descriptions written for `instagram_business_basic`, `instagram_basic`, `instagram_content_publish`, `pages_show_list`, `pages_manage_posts`, `pages_read_engagement`. All include "Note for reviewer" explaining Instagram auto-connects through Facebook (no separate Instagram login), plus test account credentials.
-- **`auth_type` tested and reverted**: Briefly changed to `reauthorize` to force fresh login for screencast recording, then reverted to `rerequest` — correct behaviour for real users.
-
-**Architecture notes:**
-- OAuth scope in `server/routes.ts:2955`: `pages_manage_posts, pages_read_engagement, pages_show_list, instagram_basic, instagram_content_publish, business_management`
-- `pages_read_engagement` must stay even though not actively used — Meta policy requires it alongside `pages_manage_posts`
-- `business_management` is in the scope but not in Meta's App Review list — likely auto-approved, leave as is
-
-**Pending:**
-- **Facebook App Review screencast**: Record new screencast using Loom showing: (1) start logged out of Facebook, (2) Settings → Social disconnected, (3) full Meta login + permissions grant, (4) Instagram auto-connects, (5) send review request, (6) customer receives email and leaves 5-star review, (7) review card appears on Facebook Page and Instagram. Upload same video to all 6 permission slots and submit.
-- **Re-seed demo account**: Hit "Seed Demo Account" in Admin to rebuild with corrected data.
-- **WhatsApp**: Check if `+447863750348` flipped from Pending → Active in Meta WhatsApp Manager, then test sending.
-- **Landing page videos**: Hero and How It Works video placeholders ready to swap in when recorded.
 

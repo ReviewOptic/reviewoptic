@@ -1127,3 +1127,32 @@ Older session logs moved here to keep CLAUDE.md under 30k chars.
 - **Insight emails root cause found and fixed**: `getUserStats` was querying `review_platform_clicks` using `created_at` — table only has `clicked_at`. Fixed.
 - **Insight emails greatly enhanced**: Added best day to send, rating distribution bar chart, AI tips section, industry benchmarks section.
 - **Business Type field added**: New dropdown in Settings → Business Details. 23 industry options. Stored as `settings.business_type`. Used for AI tips + benchmark comparisons in insight emails.
+
+### Session — 2026-05-17 (seventy-sixth session)
+
+**Tasks completed:**
+- **Facebook App Review — resubmission prepared**: Meta rejected all permissions due to screencast not showing full end-to-end flow. Use case was confirmed as allowed. Worked through each permission's feedback one by one.
+- **`pages_read_engagement` removed then re-added**: Initially removed from OAuth scope as Meta flagged it as unused. Later discovered Meta requires it as a mandatory companion permission to `pages_manage_posts`. Added back to scope in `server/routes.ts`.
+- **Descriptions written for all 6 permissions**: `instagram_business_basic`, `instagram_basic`, `instagram_content_publish`, `pages_show_list`, `pages_manage_posts`, `pages_read_engagement`. All include "Note for reviewer" explaining Instagram auto-connects through Facebook, plus test account credentials.
+- **`auth_type` tested and reverted**: Briefly changed to `reauthorize` to force fresh login for screencast recording, then reverted to `rerequest`.
+
+### Session — 2026-05-18 (seventy-seventh session)
+
+**Tasks completed:**
+- **Facebook OAuth state bug fixed**: `oauthState` moved from in-memory to Postgres-backed session so server restarts don't break the OAuth flow.
+- **Facebook page name stored and displayed**: Added `facebook_page_name` column to schema + DB migration.
+- **Instagram profile info fetched and displayed**: Added `instagramUsername` and `instagramProfilePicUrl` to schema. Fetched from Graph API at connect time. Settings → Social shows profile picture and `@username`.
+
+### Session — 2026-05-18 (seventy-eighth session)
+
+**Tasks completed:**
+- **`auth_type=reauthorize` reverted** back to `rerequest`.
+- **Instagram auto-post error logging improved**.
+- **Inbound SMS receiver built** (later removed in session 79 — approach didn't work).
+
+### Session — 2026-05-19 (seventy-ninth session)
+
+**Tasks completed:**
+- **Inbound SMS receiver removed**: Meta's OTP SMS filtered by UK carrier networks — not a Twilio issue.
+- **Facebook App Review resubmitted** successfully.
+- **Facebook reconnected** by user.
