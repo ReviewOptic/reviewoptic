@@ -251,25 +251,6 @@ export const systemEmailTemplates = pgTable("system_email_templates", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-export const platformSettings = pgTable("platform_settings", {
-  id: text("id").primaryKey().default("singleton"),
-  metaPixelId: text("meta_pixel_id").notNull().default(""),
-  googleTagId: text("google_tag_id").notNull().default(""),
-  tiktokPixelId: text("tiktok_pixel_id").notNull().default(""),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-export const blogPosts = pgTable("blog_posts", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  title: text("title").notNull(),
-  slug: text("slug").notNull().unique(),
-  excerpt: text("excerpt").notNull().default(""),
-  body: text("body").notNull().default(""),
-  published: boolean("published").notNull().default(false),
-  publishedAt: timestamp("published_at"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
 
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
 export type InsertUser = z.infer<typeof insertUserSchema>;
