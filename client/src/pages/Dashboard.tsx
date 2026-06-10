@@ -423,10 +423,10 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
               <button
                 key={link.path}
                 onClick={() => navigate(link.path)}
-                className="flex flex-col items-center gap-1.5 py-2.5 px-1 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors"
+                className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors min-h-[56px]"
               >
-                <link.icon className="w-4 h-4 text-primary" />
-                <span className="text-[10px] font-medium leading-tight text-center">{link.label}</span>
+                <link.icon className="w-5 h-5 text-primary" />
+                <span className="text-[11px] font-medium leading-tight text-center">{link.label}</span>
               </button>
             ))}
           </div>
@@ -444,7 +444,7 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
                   <span className="font-semibold">{noResponseCustomers.length} customer{noResponseCustomers.length !== 1 ? "s" : ""}</span> got no response — consider sending a new request for a recent job.
                 </p>
               </div>
-              <Button size="sm" variant="outline" className="shrink-0 self-start sm:self-auto text-[12px] h-7 border-amber-300 hover:bg-amber-100" onClick={() => navigate("/customers?status=no_response")}>
+              <Button size="sm" variant="outline" className="shrink-0 self-start sm:self-auto text-[12px] h-8 border-amber-300 hover:bg-amber-100" onClick={() => navigate("/customers?status=no_response")}>
                 View
               </Button>
             </div>
@@ -457,7 +457,7 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
                   <span className="font-semibold">{stalePendingCustomers.length} customer{stalePendingCustomers.length !== 1 ? "s" : ""}</span> {stalePendingCustomers.length === 1 ? "has" : "have"} been waiting over 14 days with no response.
                 </p>
               </div>
-              <Button size="sm" variant="outline" className="shrink-0 self-start sm:self-auto text-[12px] h-7 border-blue-300 hover:bg-blue-100" onClick={() => navigate("/customers")}>
+              <Button size="sm" variant="outline" className="shrink-0 self-start sm:self-auto text-[12px] h-8 border-blue-300 hover:bg-blue-100" onClick={() => navigate("/customers")}>
                 View
               </Button>
             </div>
@@ -588,7 +588,7 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
                           <p className="text-[11px] text-muted-foreground truncate">{c.serviceType || c.email}</p>
                         )}
                       </div>
-                      <Button size="sm" variant="outline" className="h-7 text-[11.5px] ml-2 shrink-0" onClick={() => navigate(`/customers/${c.id}`)}>
+                      <Button size="sm" variant="outline" className="h-8 text-[11.5px] ml-2 shrink-0" onClick={() => navigate(`/customers/${c.id}`)}>
                         Send
                       </Button>
                     </div>

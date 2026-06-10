@@ -1090,7 +1090,7 @@ export default function Customers() {
                     <td className="px-4 py-3">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-7 w-7" data-testid={`menu-${customer.id}`}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`menu-${customer.id}`}>
                             <MoreHorizontal className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -1186,7 +1186,7 @@ export default function Customers() {
             <div className="flex items-center gap-2">
               <span className="text-[12px] text-muted-foreground">Per page:</span>
               <Select value={String(pageSize)} onValueChange={v => { setPageSize(v === "all" ? "all" : Number(v)); setCurrentPage(1); }}>
-                <SelectTrigger className="h-7 w-20 text-[12px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 w-20 text-[12px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {[5, 10, 15, 20, 25].map(n => <SelectItem key={n} value={String(n)} className="text-[12px]">{n}</SelectItem>)}
                   <SelectItem value="all" className="text-[12px]">All</SelectItem>
@@ -1194,11 +1194,11 @@ export default function Customers() {
               </Select>
               {pageSize !== "all" && totalPages > 1 && (
                 <>
-                  <Button variant="outline" size="icon" className="h-7 w-7" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>
+                  <Button variant="outline" size="icon" className="h-8 w-8" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>
                     <ChevronLeft className="w-3.5 h-3.5" />
                   </Button>
                   <span className="text-[12px] text-muted-foreground">{currentPage} / {totalPages}</span>
-                  <Button variant="outline" size="icon" className="h-7 w-7" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)}>
+                  <Button variant="outline" size="icon" className="h-8 w-8" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)}>
                     <ChevronRight className="w-3.5 h-3.5" />
                   </Button>
                 </>

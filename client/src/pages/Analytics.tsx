@@ -403,16 +403,16 @@ export default function Analytics() {
       <div className="space-y-2">
         {/* Row 1: action buttons */}
         <div className="flex items-center gap-1">
-          <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 px-2" onClick={exportCSV} disabled={isLoading || !data}>
+          <Button variant="outline" size="sm" className="h-8 text-[11px] gap-1 px-2" onClick={exportCSV} disabled={isLoading || !data}>
             <Download className="w-3 h-3" />CSV
           </Button>
-          <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 px-2" onClick={exportPDF} disabled={isLoading || !data || isExportingPDF}>
+          <Button variant="outline" size="sm" className="h-8 text-[11px] gap-1 px-2" onClick={exportPDF} disabled={isLoading || !data || isExportingPDF}>
             <FileText className="w-3 h-3" />{isExportingPDF ? "…" : "PDF"}
           </Button>
-          <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 px-2" style={showColorPanel ? activeStyle : {}} onClick={() => setShowColorPanel(v => !v)}>
+          <Button variant="outline" size="sm" className="h-8 text-[11px] gap-1 px-2" style={showColorPanel ? activeStyle : {}} onClick={() => setShowColorPanel(v => !v)}>
             <Palette className="w-3 h-3" />Colours
           </Button>
-          <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 px-2" style={customising ? activeStyle : {}} onClick={() => setCustomising(v => !v)}>
+          <Button variant="outline" size="sm" className="h-8 text-[11px] gap-1 px-2" style={customising ? activeStyle : {}} onClick={() => setCustomising(v => !v)}>
             <LayoutGrid className="w-3 h-3" />Layout
           </Button>
         </div>
@@ -430,7 +430,7 @@ export default function Analytics() {
           ))}
           {isOwner && (
             <Select value={userFilter} onValueChange={setUserFilter}>
-              <SelectTrigger className="h-7 w-28 text-[11px] shrink-0">
+              <SelectTrigger className="h-8 w-28 text-[11px] shrink-0">
                 <SelectValue placeholder="Whole team" />
               </SelectTrigger>
               <SelectContent>
@@ -448,9 +448,9 @@ export default function Analytics() {
         {/* Row 3: custom date inputs */}
         {period === "custom" && (
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-            <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="h-7 text-[11px] w-full sm:w-36" />
+            <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="h-8 text-[11px] w-full sm:w-36" />
             <span className="text-[11px] text-muted-foreground hidden sm:inline">–</span>
-            <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="h-7 text-[11px] w-full sm:w-36" />
+            <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="h-8 text-[11px] w-full sm:w-36" />
           </div>
         )}
       </div>
@@ -510,7 +510,7 @@ export default function Analytics() {
             </div>
             <div className="flex items-center gap-2">
               <button onClick={resetLayout} className="text-[12px] text-muted-foreground hover:text-foreground underline underline-offset-2">Reset</button>
-              <Button size="sm" className="h-7 text-[12px]" onClick={() => setCustomising(false)}>Done</Button>
+              <Button size="sm" className="h-8 text-[12px]" onClick={() => setCustomising(false)}>Done</Button>
             </div>
           </div>
           <Reorder.Group axis="y" values={order} onReorder={updateOrder} className="space-y-1.5">

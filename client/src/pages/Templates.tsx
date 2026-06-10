@@ -127,21 +127,21 @@ function AudioRecorder({ currentUrl, onSaved }: { currentUrl: string; onSaved: (
 
       <div className="flex gap-2 flex-wrap">
         {state === "idle" && (
-          <Button size="sm" variant="outline" className="text-[12px] h-7 gap-1.5" onClick={startRecording}>
+          <Button size="sm" variant="outline" className="text-[12px] h-8 gap-1.5" onClick={startRecording}>
             <Mic className="w-3.5 h-3.5" /> {savedUrl ? "Re-record" : "Start Recording"}
           </Button>
         )}
         {state === "recording" && (
-          <Button size="sm" variant="destructive" className="text-[12px] h-7 gap-1.5" onClick={stopRecording}>
+          <Button size="sm" variant="destructive" className="text-[12px] h-8 gap-1.5" onClick={stopRecording}>
             <StopCircle className="w-3.5 h-3.5" /> Stop
           </Button>
         )}
         {(state === "recorded" || state === "uploading") && (
           <>
-            <Button size="sm" className="text-[12px] h-7 gap-1.5" onClick={upload} disabled={state === "uploading"}>
+            <Button size="sm" className="text-[12px] h-8 gap-1.5" onClick={upload} disabled={state === "uploading"}>
               <Save className="w-3.5 h-3.5" /> {state === "uploading" ? "Uploading..." : "Save Voice Note"}
             </Button>
-            <Button size="sm" variant="outline" className="text-[12px] h-7 gap-1.5" onClick={reset} disabled={state === "uploading"}>
+            <Button size="sm" variant="outline" className="text-[12px] h-8 gap-1.5" onClick={reset} disabled={state === "uploading"}>
               <RotateCcw className="w-3.5 h-3.5" /> Retake
             </Button>
           </>
@@ -349,12 +349,12 @@ function TemplateEditor({ template, onCancel, textOnly = false }: { template: Te
             </>
           )}
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
               <Label className="text-[12.5px]">Message Body</Label>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-foreground" title="Insert emoji">
+                    <Button variant="ghost" size="sm" className="h-8 px-2 text-muted-foreground hover:text-foreground" title="Insert emoji">
                       <Smile className="w-4 h-4" />
                     </Button>
                   </PopoverTrigger>
@@ -585,16 +585,16 @@ function TemplateSlot({ slot, template, channel, isReadOnly }: {
             effectiveTemplate ? (
               <div className="flex items-center gap-1.5 flex-shrink-0">
                 {slot.type !== "response_positive" && slot.type !== "response_negative" && (
-                  <Button variant="ghost" size="sm" className="h-7 text-[12px] gap-1 text-muted-foreground hover:text-foreground" onClick={() => sendTest()} disabled={testSending} title="Send a test to yourself">
+                  <Button variant="ghost" size="sm" className="h-8 text-[12px] gap-1 text-muted-foreground hover:text-foreground" onClick={() => sendTest()} disabled={testSending} title="Send a test to yourself">
                     <Send className="w-3 h-3" />{testSending ? "Sending..." : "Test"}
                   </Button>
                 )}
-                <Button variant="outline" size="sm" className="h-7 text-[12px] gap-1" onClick={() => setEditing(true)}>
+                <Button variant="outline" size="sm" className="h-8 text-[12px] gap-1" onClick={() => setEditing(true)}>
                   <Edit2 className="w-3 h-3" /> Edit
                 </Button>
               </div>
             ) : (
-              <Button variant="outline" size="sm" className="h-7 text-[12px] flex-shrink-0" onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>
+              <Button variant="outline" size="sm" className="h-8 text-[12px] flex-shrink-0" onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>
                 {createMutation.isPending ? "Setting up..." : "Customise"}
               </Button>
             )
@@ -868,17 +868,17 @@ function RecordingsTab() {
                         className="text-[12.5px] h-7 flex-1"
                         onKeyDown={e => { if (e.key === "Enter") handleRename(rec.id); if (e.key === "Escape") setEditingId(null); }}
                         autoFocus />
-                      <Button size="sm" variant="outline" className="text-[11.5px] h-7 px-2" onClick={() => handleRename(rec.id)}>Save</Button>
-                      <Button size="sm" variant="ghost" className="text-[11.5px] h-7 px-2" onClick={() => setEditingId(null)}>Cancel</Button>
+                      <Button size="sm" variant="outline" className="text-[11.5px] h-8 px-2" onClick={() => handleRename(rec.id)}>Save</Button>
+                      <Button size="sm" variant="ghost" className="text-[11.5px] h-8 px-2" onClick={() => setEditingId(null)}>Cancel</Button>
                     </>
                   ) : (
                     <>
                       <span className="text-[12.5px] font-medium flex-1">{rec.label}</span>
-                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0"
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0"
                         onClick={() => { setEditingId(rec.id); setEditLabel(rec.label); }}>
                         <Edit2 className="w-3 h-3" />
                       </Button>
-                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                         onClick={() => handleDelete(rec.id)}>
                         <Trash2 className="w-3 h-3" />
                       </Button>
@@ -1110,10 +1110,10 @@ function CustomTemplatesSection({ templates, channel, isReadOnly }: {
                 className="text-[13px] flex-1"
                 onKeyDown={e => { if (e.key === "Enter") createMutation.mutate(); if (e.key === "Escape") { setShowCreate(false); setCreatingName(""); }}}
               />
-              <Button size="sm" className="h-7 text-[12px]" onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>
+              <Button size="sm" className="h-8 text-[12px]" onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>
                 {createMutation.isPending ? "Creating..." : "Create"}
               </Button>
-              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setShowCreate(false); setCreatingName(""); }}>
+              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setShowCreate(false); setCreatingName(""); }}>
                 <X className="w-3.5 h-3.5" />
               </Button>
             </div>
@@ -1133,7 +1133,7 @@ function CustomTemplatesSection({ templates, channel, isReadOnly }: {
                   </div>
                   {!isReadOnly && (
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      <Button variant="outline" size="sm" className="h-7 text-[12px] gap-1" onClick={() => setEditingId(t.id)}>
+                      <Button variant="outline" size="sm" className="h-8 text-[12px] gap-1" onClick={() => setEditingId(t.id)}>
                         <Edit2 className="w-3 h-3" /> Edit
                       </Button>
                       <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
@@ -1259,7 +1259,7 @@ export default function Templates() {
             <TabsContent key={ch} value={ch} className="space-y-4">
               {!isReadOnly && (
                 <div className="flex justify-end">
-                  <Button variant="ghost" size="sm" className="h-7 text-[12px] gap-1.5 text-muted-foreground hover:text-foreground" onClick={() => resetToDefaults(ch)} disabled={resetting}>
+                  <Button variant="ghost" size="sm" className="h-8 text-[12px] gap-1.5 text-muted-foreground hover:text-foreground" onClick={() => resetToDefaults(ch)} disabled={resetting}>
                     <RotateCcw className="w-3 h-3" /> Reset to defaults
                   </Button>
                 </div>
