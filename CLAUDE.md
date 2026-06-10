@@ -274,3 +274,28 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Re-seed demo account + landing page videos**: Paused by user.
 
 *(Sessions 77–82 archived to CLAUDE_ARCHIVE.md)*
+
+### Session — 2026-06-10 (eighty-seventh session)
+
+**Tasks completed:**
+- **CLAUDE.md trimmed**: Sessions 77–82 moved to CLAUDE_ARCHIVE.md (file was over 30k chars).
+- **Blog feature built** (`server/migrate.ts`, `server/routes.ts`, `client/src/pages/Blog.tsx`, `client/src/pages/BlogPost.tsx`, `client/src/pages/Admin.tsx`, `client/src/App.tsx`, `client/src/pages/Home.tsx`):
+  - `blog_posts` DB table: `id`, `title`, `slug`, `excerpt`, `body`, `published`, `published_at`, `created_at`, `updated_at`
+  - Public endpoints: `GET /api/blog` (published posts list), `GET /api/blog/:slug` (single post)
+  - Admin endpoints: `GET/POST/PUT/DELETE /api/admin/blog`, `PATCH /api/admin/blog/:id/publish` (toggle)
+  - `/blog` — public listing page (card grid: title, date, excerpt, click through to post)
+  - `/blog/:slug` — individual post page with "Start Free Trial" CTA at bottom
+  - Admin → Blog tab: table of all posts with live on/off toggle per post; Edit/Delete/View buttons
+  - Toggle stamps `published_at` on first activation; toggling off/on preserves the original date
+  - "Blog" added to Home.tsx nav and footer; routes wired in App.tsx
+
+**Architecture notes:**
+- Blog is public-facing (no auth required) — optimised for SEO crawlability
+- Body rendering: double newlines = paragraph breaks (`\n\n` split into `<p>` tags)
+- Slug auto-generates from title in the editor; user can override
+- `PATCH /api/admin/blog/:id/publish` toggles published state in one click from the list
+
+**Pending:**
+- **Facebook App Review**: `instagram_business_basic` resubmitted 2026-06-10 — waiting ~2 weeks.
+- **Landing page videos**: Hero and "How It Works" placeholders ready to swap in.
+- **Tracking pixel IDs**: Paste into Admin → Tracking once campaigns are live.
