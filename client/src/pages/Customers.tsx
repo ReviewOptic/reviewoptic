@@ -80,13 +80,25 @@ function AddCustomerDialog({ open, onClose }: { open: boolean; onClose: () => vo
   });
   const [scheduleRequest, setScheduleRequest] = useState(false);
   const [scheduledSendDate, setScheduledSendDate] = useState("");
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+
+  function resetForm() {
+    setForm({ name: "", email: "", phone: "", serviceDate: "", serviceType: "", notes: "", channel: "email" });
+    setScheduleRequest(false);
+    setScheduledSendDate("");
+    setDuplicateWarning(null);
+  }
 
   const mutation = useMutation({
-    mutationFn: async (data: typeof form) => {
+    mutationFn: async (data: typeof form & { forceAdd?: boolean }) => {
       const res = await apiRequest("POST", "/api/customers", {
         ...data,
         ...(scheduleRequest && scheduledSendDate ? { scheduledSendDate } : {}),
       });
+      if (res.status === 409) {
+        const body = await res.json();
+        throw { isDuplicate: true, existingName: body.existingName };
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -95,14 +107,18 @@ function AddCustomerDialog({ open, onClose }: { open: boolean; onClose: () => vo
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       toast({ title: scheduleRequest && scheduledSendDate ? `Review request scheduled for ${new Date(scheduledSendDate).toLocaleDateString("en-GB")}` : "Customer added successfully" });
       onClose();
-      setForm({ name: "", email: "", phone: "", serviceDate: "", serviceType: "", notes: "", channel: "email" });
-      setScheduleRequest(false);
-      setScheduledSendDate("");
+      resetForm();
     },
-    onError: () => toast({ title: "Failed to add customer", variant: "destructive" }),
+    onError: (err: any) => {
+      if (err?.isDuplicate) {
+        setDuplicateWarning(err.existingName);
+      } else {
+        toast({ title: "Failed to add customer", variant: "destructive" });
+      }
+    },
   });
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={() => { resetForm(); onClose(); }}>
       <DialogContent className="sm:max-w-md" data-testid="dialog-add-customer">
         <DialogHeader>
           <DialogTitle>Add Customer</DialogTitle>
@@ -176,16 +192,27 @@ function AddCustomerDialog({ open, onClose }: { open: boolean; onClose: () => vo
             )}
           </div>
         </div>
+        {duplicateWarning && (
+          <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded p-3 text-[13px] text-orange-700 dark:text-orange-300">
+            A customer with this email or phone already exists: <span className="font-medium">{duplicateWarning}</span>. Add anyway?
+          </div>
+        )}
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} size="sm">Cancel</Button>
-          <Button
-            size="sm"
-            onClick={() => mutation.mutate(form)}
-            disabled={!form.name || (!form.email && !form.phone) || (!!form.email && !isValidEmail(form.email)) || (!!form.phone && !isValidPhone(form.phone)) || (scheduleRequest && !scheduledSendDate) || mutation.isPending}
-            data-testid="button-submit-customer"
-          >
-            {mutation.isPending ? "Adding..." : "Add Customer"}
-          </Button>
+          <Button variant="outline" onClick={() => { resetForm(); onClose(); }} size="sm">Cancel</Button>
+          {duplicateWarning ? (
+            <Button size="sm" onClick={() => mutation.mutate({ ...form, forceAdd: true })} disabled={mutation.isPending}>
+              {mutation.isPending ? "Adding..." : "Add Anyway"}
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              onClick={() => mutation.mutate(form)}
+              disabled={!form.name || (!form.email && !form.phone) || (!!form.email && !isValidEmail(form.email)) || (!!form.phone && !isValidPhone(form.phone)) || (scheduleRequest && !scheduledSendDate) || mutation.isPending}
+              data-testid="button-submit-customer"
+            >
+              {mutation.isPending ? "Adding..." : "Add Customer"}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

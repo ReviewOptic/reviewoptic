@@ -1,5 +1,5 @@
 import { drizzle } from "drizzle-orm/node-postgres";
-import { eq, desc, and, sql, inArray } from "drizzle-orm";
+import { eq, desc, and, sql, inArray, or } from "drizzle-orm";
 import pkg from "pg";
 const { Pool } = pkg;
 import { randomUUID } from "crypto";
@@ -33,6 +33,7 @@ export interface IStorage {
   getArchivedCustomers(accountId: string): Promise<Customer[]>;
   getDeletedCustomers(accountId: string): Promise<Customer[]>;
   getCustomer(id: string, accountId: string): Promise<Customer | undefined>;
+  findDuplicateCustomer(accountId: string, email: string, phone: string): Promise<Customer | undefined>;
   createCustomer(data: InsertCustomer): Promise<Customer>;
   updateCustomer(id: string, data: Partial<InsertCustomer>, accountId: string): Promise<Customer | undefined>;
   deleteCustomer(id: string, accountId: string): Promise<void>;
@@ -110,6 +111,16 @@ export class DatabaseStorage implements IStorage {
   }
   async getCustomer(id: string, accountId: string): Promise<Customer | undefined> {
     const [c] = await db.select().from(customers).where(and(eq(customers.id, id), eq(customers.accountId, accountId)));
+    return c;
+  }
+  async findDuplicateCustomer(accountId: string, email: string, phone: string): Promise<Customer | undefined> {
+    if (!email && !phone) return undefined;
+    const conditions = [];
+    if (email) conditions.push(eq(customers.email, email));
+    if (phone) conditions.push(eq(customers.phone, phone));
+    const [c] = await db.select().from(customers).where(
+      and(eq(customers.accountId, accountId), sql`${customers.deletedAt} IS NULL`, or(...conditions))
+    ).limit(1);
     return c;
   }
   async createCustomer(data: InsertCustomer): Promise<Customer> {

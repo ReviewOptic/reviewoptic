@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useState, useRef, useEffect } from "react";
-import { Edit2, Save, X, FileText, Mail, MessageSquare, Video, Mic, StopCircle, RotateCcw, CheckCircle2, Sparkles, Upload, Plus, Trash2, ChevronDown, Send, Star } from "lucide-react";
+import { Edit2, Save, X, FileText, Mail, MessageSquare, Video, Mic, StopCircle, RotateCcw, CheckCircle2, Sparkles, Upload, Plus, Trash2, ChevronDown, Send, Star, Smile } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Template } from "@shared/schema";
@@ -17,6 +18,13 @@ import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/hooks/use-auth";
 
 const MERGE_TAGS = ["{{first_name}}", "{{customer_name}}", "{{business_name}}", "{{owner_name}}", "{{service_type}}"];
+
+const EMOJIS = [
+  "⭐","🌟","✨","🏆","🥇","👍","👌","💯","🎉","🎊",
+  "😊","😃","🙏","❤️","💙","💚","🔥","💪","✅","✔️",
+  "📱","📧","💬","🔔","📢","💼","🏡","🚗","✂️","🌿",
+  "😁","🤩","😍","🥰","😎","🤝","👋","💐","🌸","⚡",
+];
 
 const channelIcons: Record<string, React.ReactNode> = {
   email: <Mail className="w-3.5 h-3.5" />,
@@ -344,6 +352,27 @@ function TemplateEditor({ template, onCancel, textOnly = false }: { template: Te
             <div className="flex items-center justify-between">
               <Label className="text-[12.5px]">Message Body</Label>
               <div className="flex items-center gap-3">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-foreground" title="Insert emoji">
+                      <Smile className="w-4 h-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 p-2" align="end">
+                    <div className="grid grid-cols-8 gap-0.5">
+                      {EMOJIS.map(emoji => (
+                        <button
+                          key={emoji}
+                          className="text-lg p-1 rounded hover:bg-muted transition-colors leading-none"
+                          onClick={() => insertTag(emoji)}
+                          type="button"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
                 <GenerateAIButton channel={template.channel} templateType={template.templateType} onGenerated={(b, s) => { setBody(b); if (s) setSubject(s); }} />
                 {template.channel !== "email" && (
                   <span className={cn("text-[11px] font-mono", isSmsWarning ? "text-destructive font-semibold" : "text-muted-foreground")}>

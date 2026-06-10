@@ -1778,7 +1778,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/customers", requireAuth, async (req, res) => {
     if (!req.body.name) return res.status(400).json({ message: "Name is required" });
     if (!req.body.email && !req.body.phone) return res.status(400).json({ message: "Email or phone number is required" });
-    const { scheduledSendDate, ...customerData } = req.body;
+    if (!req.body.forceAdd) {
+      const dupe = await storage.findDuplicateCustomer(req.session.accountId!, req.body.email || "", req.body.phone || "");
+      if (dupe) return res.status(409).json({ message: "Duplicate customer", existingName: dupe.name });
+    }
+    const { scheduledSendDate, forceAdd, ...customerData } = req.body;
     const scheduledSendAt = scheduledSendDate ? new Date(scheduledSendDate) : null;
     const c = await storage.createCustomer({
       ...customerData,
@@ -1822,6 +1826,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const rowNum = i + 2; // +2 because row 1 is header
       if (!row.name) { skipped.push({ row: rowNum, reason: "name is required" }); continue; }
       if (!row.email && !row.phone) { skipped.push({ row: rowNum, reason: "email or phone required" }); continue; }
+      const dupe = await storage.findDuplicateCustomer(req.session.accountId!, row.email || "", row.phone || "");
+      if (dupe) { skipped.push({ row: rowNum, reason: `duplicate — already exists as ${dupe.name}` }); continue; }
       try {
         await storage.createCustomer({
           id: randomUUID(),
