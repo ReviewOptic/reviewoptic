@@ -4490,6 +4490,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // Admin: toggle published
+  app.patch("/api/admin/blog/:id/publish", requireAdmin, async (req, res) => {
+    const { rows } = await pool.query(`SELECT published FROM blog_posts WHERE id = $1`, [req.params.id]);
+    if (!rows[0]) return res.status(404).json({ message: "Not found" });
+    const nowPublished = !rows[0].published;
+    await pool.query(
+      `UPDATE blog_posts SET published=$1, published_at=$2, updated_at=NOW() WHERE id=$3`,
+      [nowPublished, nowPublished ? new Date() : null, req.params.id]
+    );
+    res.json({ published: nowPublished });
+  });
+
   // Admin: delete post
   app.delete("/api/admin/blog/:id", requireAdmin, async (req, res) => {
     await pool.query(`DELETE FROM blog_posts WHERE id = $1`, [req.params.id]);

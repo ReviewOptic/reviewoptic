@@ -1246,7 +1246,10 @@ export default function Admin() {
           {!blogNew ? (
             <>
               <div className="flex items-center justify-between">
-                <h2 className="text-base font-semibold">Blog Posts</h2>
+                <div>
+                  <h2 className="text-base font-semibold">Blog Posts</h2>
+                  <p className="text-[12px] text-muted-foreground mt-0.5">Toggle the switch to show or hide a post on the site.</p>
+                </div>
                 <Button size="sm" onClick={blogOpenNew}>+ New Post</Button>
               </div>
 
@@ -1264,22 +1267,29 @@ export default function Admin() {
                     <thead className="bg-muted/40">
                       <tr>
                         <th className="text-left px-4 py-3 font-medium text-muted-foreground">Title</th>
-                        <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Status</th>
-                        <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Date</th>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Published</th>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground">Live on site</th>
                         <th className="px-4 py-3" />
                       </tr>
                     </thead>
                     <tbody>
                       {blogPosts.map(post => (
                         <tr key={post.id} className="border-t border-border hover:bg-muted/20">
-                          <td className="px-4 py-3 font-medium max-w-xs truncate">{post.title}</td>
-                          <td className="px-4 py-3 hidden sm:table-cell">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${post.published ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"}`}>
-                              {post.published ? "Published" : "Draft"}
-                            </span>
-                          </td>
+                          <td className="px-4 py-3 font-medium max-w-[200px] sm:max-w-xs truncate">{post.title}</td>
                           <td className="px-4 py-3 text-[12.5px] text-muted-foreground hidden md:table-cell">
-                            {post.published_at ? new Date(post.published_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+                            {post.published_at ? new Date(post.published_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "Never published"}
+                          </td>
+                          <td className="px-4 py-3">
+                            <button
+                              onClick={async () => {
+                                const r = await fetch(`/api/admin/blog/${post.id}/publish`, { method: "PATCH", credentials: "include" });
+                                const d = await r.json();
+                                setBlogPosts(ps => ps.map(p => p.id === post.id ? { ...p, published: d.published, published_at: d.published ? (p.published_at || new Date().toISOString()) : null } : p));
+                              }}
+                              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${post.published ? "bg-green-500" : "bg-gray-300 dark:bg-gray-600"}`}
+                            >
+                              <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${post.published ? "translate-x-4" : "translate-x-0.5"}`} />
+                            </button>
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center justify-end gap-2">
@@ -1339,17 +1349,11 @@ export default function Admin() {
                 />
               </div>
 
-              <div className="flex items-center gap-3">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={blogForm.published} onChange={e => setBlogForm(f => ({ ...f, published: e.target.checked }))} className="w-4 h-4 rounded" />
-                  <span className="text-sm font-medium">Publish now</span>
-                </label>
-                <span className="text-[11.5px] text-muted-foreground">{blogForm.published ? "Will be visible at /blog" : "Saved as draft — not public yet"}</span>
-              </div>
+              <p className="text-[11.5px] text-muted-foreground">Saved posts appear in the list — flip the toggle there to make them live.</p>
 
               <div className="flex gap-2 pt-2">
                 <Button disabled={blogSaving || !blogForm.title || !blogForm.slug} onClick={saveBlog}>
-                  {blogSaving ? "Saving…" : blogEditing ? "Save Changes" : "Create Post"}
+                  {blogSaving ? "Saving…" : blogEditing ? "Save Changes" : "Save Post"}
                 </Button>
                 <Button variant="outline" onClick={() => { setBlogNew(false); setBlogEditing(null); }}>Cancel</Button>
               </div>
