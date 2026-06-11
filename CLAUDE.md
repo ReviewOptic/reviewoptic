@@ -391,3 +391,34 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Facebook Connect button** on Social tab was reported not working — not yet investigated.
 - **Facebook App Review**: `instagram_business_basic` — waiting ~2 weeks.
 - **Landing page videos**, **tracking pixel IDs**, **first blog post** — all pending as before.
+
+### Session — 2026-06-11 (ninety-second session)
+
+**Context:** Continued from session 91 crisis. Dominated by Replit migration cycle for `yell_link` and `social_card_template`, and diagnosing why platform reviews weren't showing on the dashboard.
+
+**Tasks completed:**
+- **Settings permanent fix** (`shared/schema.ts`, `server/storage.ts`, `server/migrate.ts`): Added `CREATE TABLE IF NOT EXISTS settings` with ALL columns to migrate.ts — self-heals if Replit ever drops the table. Added `settingsRowToCamel()` to storage.ts — raw SQL returns snake_case but client expects camelCase; this was the root cause of "Failed to save" errors. Added missing `fontFamily` column to schema.ts.
+- **Yell removed entirely** (`schema.ts`, `migrate.ts`, `Settings.tsx`, `routes.ts`, `externalReviews.ts`, `Dashboard.tsx`): `yell_link` was never owned by Replit's migration history — perpetual DROP cycle. Cleanest fix was full removal.
+- **`social_card_template` cycle fixed** (`migrate.ts`): Removed `ADD COLUMN IF NOT EXISTS social_card_template` from migrate.ts (was re-adding it after every Replit DROP). Two-deploy fix applied — Replit now owns the column. User may need to re-select template in Settings → Social.
+- **Poll crash fixed** (`server/externalReviews.ts`): Poll query was selecting `social_card_template` directly — missing column crashed the entire poll silently, meaning no reviews ever fetched. Fixed with separate try/catch fallback.
+- **Social card template picker** (`client/src/pages/Settings.tsx`): Added checkmark badge on selected card + stronger border/ring.
+- **Dashboard refresh diagnostics** (`client/src/pages/Dashboard.tsx`): Refresh button now shows per-platform alert (e.g. "google: ✓ 5 found" or "google: ❌ error message") so errors are visible without server logs.
+
+**Definitive finding — Replit migration cycle:**
+- Replit tracks its OWN migration history. Columns added via `migrate.ts` are never in its history → perpetual DROP.
+- ONLY permanent fix: two deploys — (1) Replit DROPs the column, (2) Replit ADDs it back. After step 2 it's owned forever.
+- `tablesFilter` in `drizzle.config.ts` is ignored by Replit for columns within managed tables.
+- **Rule going forward**: NEVER add a new settings column via `migrate.ts ADD COLUMN` alone. Always add to `schema.ts` first so Replit generates the ADD COLUMN and owns it.
+
+**Unresolved — platform reviews not showing:**
+- User has `GOOGLE_PLACES_API_KEY` in Replit Secrets ✓ and Google link saved ✓
+- Most likely cause: poll was crashing silently on missing `social_card_template` column — fixed in f1890b3 but needs one more republish to take effect
+- Diagnostic added: Refresh button now shows exact per-platform error in an alert popup
+- **Next session first step**: republish → save Google link → click Refresh → read the alert
+
+**Pending:**
+- **FIRST**: Republish → save Google link → click Refresh on dashboard → read diagnostic alert
+- **Re-connect Facebook** in Settings → Social (disconnected after wipes)
+- **Re-enter all platform links** once Google reviews confirmed working
+- **Facebook App Review**: waiting ~2 weeks
+- **Landing page videos**, **tracking pixel IDs**, **first blog post** — all pending
