@@ -556,7 +556,6 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
                       trustpilot:   { bg: "bg-green-50 dark:bg-green-950/30",text: "text-green-700 dark:text-green-300", label: "Trustpilot" },
                       tripadvisor:  { bg: "bg-emerald-50 dark:bg-emerald-950/30", text: "text-emerald-700 dark:text-emerald-300", label: "TripAdvisor" },
                       mybuilder:    { bg: "bg-orange-50 dark:bg-orange-950/30", text: "text-orange-700 dark:text-orange-300", label: "MyBuilder" },
-                      yell:         { bg: "bg-yellow-50 dark:bg-yellow-950/30", text: "text-yellow-700 dark:text-yellow-700", label: "Yell" },
                     };
                     const p = platformColours[r.platform] || { bg: "bg-muted", text: "text-muted-foreground", label: r.platform };
                     return (

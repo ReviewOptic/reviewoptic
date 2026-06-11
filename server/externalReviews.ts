@@ -290,7 +290,7 @@ async function autoPostReview(accountId: string, review: {author: string; rating
 export async function pollExternalReviewsForAccount(accountId: string): Promise<PlatformResult[]> {
   const { rows } = await pool.query(
     `SELECT google_review_link, checkatrade_link, trustpilot_link, tripadvisor_link,
-            mybuilder_link, yell_link, social_post_enabled, facebook_page_access_token,
+            mybuilder_link, social_post_enabled, facebook_page_access_token,
             facebook_page_id, instagram_business_account_id, business_name,
             social_card_template, social_post_message
      FROM settings WHERE account_id = $1`,
@@ -312,7 +312,6 @@ export async function pollExternalReviewsForAccount(accountId: string): Promise<
     { platform: "trustpilot",  link: s.trustpilot_link,     fetcher: () => fetchTrustpilot(accountId, s.trustpilot_link) },
     { platform: "tripadvisor", link: s.tripadvisor_link,    fetcher: () => fetchTripAdvisor(accountId, s.tripadvisor_link) },
     { platform: "mybuilder",   link: s.mybuilder_link,      fetcher: () => fetchMyBuilder(accountId, s.mybuilder_link) },
-    { platform: "yell",        link: s.yell_link,           fetcher: () => fetchYell(accountId, s.yell_link) },
   ];
 
   const results: PlatformResult[] = [];

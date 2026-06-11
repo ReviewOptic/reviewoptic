@@ -126,7 +126,6 @@ export default function Settings() {
     socialPostEnabled: false,
     socialPostMessage: "⭐ We just received a {stars}★ review! Thank you {customer_name}!",
     socialCardTemplate: "classic",
-    yellLink: "",
     country: "",
   });
   const formRef = useRef(form);
@@ -160,7 +159,6 @@ export default function Settings() {
         socialPostEnabled: settings.socialPostEnabled ?? false,
         socialPostMessage: settings.socialPostMessage || "⭐ We just received a {stars}★ review! Thank you {customer_name}!",
         socialCardTemplate: (settings as any).socialCardTemplate || "classic",
-        yellLink: (settings as any).yellLink || "",
         country: settings.country || "",
       });
     }
@@ -469,7 +467,6 @@ export default function Settings() {
                 { label: "TripAdvisor", key: "tripadvisorLink", placeholder: "https://www.tripadvisor.co.uk/..." },
                 { label: "Checkatrade", key: "checkatradeLink", placeholder: "https://www.checkatrade.com/trades/..." },
                 { label: "MyBuilder", key: "mybuilderLink", placeholder: "https://www.mybuilder.com/..." },
-                { label: "Yell", key: "yellLink", placeholder: "https://www.yell.com/biz/..." },
               ].map(({ label, key, placeholder }) => (
                 <div key={key} className="space-y-1.5">
                   <Label className="text-[12.5px]">{label}</Label>

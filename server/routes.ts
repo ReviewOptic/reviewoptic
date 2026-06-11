@@ -2593,7 +2593,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
       res.json(s);
       // If any review platform links were updated, trigger a background poll immediately
-      const platformKeys = ["googleReviewLink", "checkatradeLink", "trustpilotLink", "tripadvisorLink", "mybuilderLink", "yellLink"];
+      const platformKeys = ["googleReviewLink", "checkatradeLink", "trustpilotLink", "tripadvisorLink", "mybuilderLink"];
       if (platformKeys.some(k => body[k] !== undefined)) {
         import("./externalReviews").then(({ pollExternalReviewsForAccount }) =>
           pollExternalReviewsForAccount(req.session.accountId!).catch(console.error)
