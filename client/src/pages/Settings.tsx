@@ -856,9 +856,14 @@ export default function Settings() {
                               key={t.key}
                               type="button"
                               onClick={() => setForm(f => ({ ...f, socialCardTemplate: t.key }))}
-                              className={`relative rounded-xl overflow-hidden border-2 transition-all ${form.socialCardTemplate === t.key ? "border-primary shadow-md scale-[1.02]" : "border-transparent hover:border-muted-foreground/30"}`}
+                              className={`relative rounded-xl overflow-hidden border-2 transition-all ${form.socialCardTemplate === t.key ? "border-primary shadow-lg ring-2 ring-primary/30" : "border-muted hover:border-muted-foreground/40"}`}
                               style={{ aspectRatio: "1/1" }}
                             >
+                              {form.socialCardTemplate === t.key && (
+                                <div className="absolute top-2 right-2 z-10 w-5 h-5 rounded-full bg-primary flex items-center justify-center shadow">
+                                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                </div>
+                              )}
                               <div className="w-full h-full flex flex-col items-center justify-center gap-1 p-2" style={{ background: t.bg }}>
                                 {(t as any).borderTop && (
                                   <div className="absolute top-0 left-0 right-0 h-1" style={{ background: (t as any).borderTop }} />
