@@ -553,6 +553,12 @@ export async function runMigrations() {
     await pool.query(`ALTER TABLE platform_settings ALTER COLUMN id DROP DEFAULT`);
     await pool.query(`INSERT INTO platform_settings (id) VALUES ('singleton') ON CONFLICT (id) DO NOTHING`);
 
+    // Social card and Yell columns — managed by Replit/Drizzle but restored here as a safety
+    // net in case a migration drop removed them before Drizzle could re-add them
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS social_card_template TEXT NOT NULL DEFAULT 'classic'`);
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS social_card_show_logo BOOLEAN NOT NULL DEFAULT true`);
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS yell_link TEXT NOT NULL DEFAULT ''`);
+
     // Blog posts — admin-authored, public-facing, SEO content
     await pool.query(`
       CREATE TABLE IF NOT EXISTS blog_posts (
