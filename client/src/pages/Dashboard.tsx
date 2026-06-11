@@ -264,7 +264,14 @@ export default function Dashboard() {
   const { data: settings } = useQuery<Settings>({ queryKey: ["/api/settings"] });
   const { data: privateFeedback = [] } = useQuery<any[]>({ queryKey: ["/api/private-feedback"], refetchInterval: 15000 });
   const { data: allRequests = [] } = useQuery<ReviewRequest[]>({ queryKey: ["/api/review-requests"] });
-  const { data: externalReviews = [], refetch: refetchExternal, isFetching: externalFetching } = useQuery<any[]>({ queryKey: ["/api/external-reviews"] });
+  const { data: externalReviews = [], refetch: refetchExternal, isFetching: externalFetching } = useQuery<any[]>({ queryKey: ["/api/external-reviews"], refetchInterval: 10 * 60 * 1000 });
+
+  // Auto-poll external platforms on page load — results appear without any manual action
+  useEffect(() => {
+    fetch("/api/external-reviews/refresh", { method: "POST" })
+      .then(() => refetchExternal())
+      .catch(() => {});
+  }, []);
 
   const pendingFollowUp = customers?.filter(c => c.status === "request_sent" && !c.doNotContact) || [];
 const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
@@ -522,34 +529,17 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
                 <button
                   className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
                   title="Refresh now"
-                  id="refresh-external-btn"
                   onClick={async (e) => {
-                    const btn = e.currentTarget;
-                    btn.setAttribute("disabled", "true");
-                    const icon = btn.querySelector("svg");
-                    if (icon) icon.classList.add("animate-spin");
+                    const btn = e.currentTarget as HTMLButtonElement;
+                    btn.disabled = true;
                     try {
-                      const resp = await fetch("/api/external-reviews/refresh", { method: "POST" });
-                      const data = await resp.json();
-                      if (data.results) {
-                        const active = data.results.filter((r: any) => !r.skipped);
-                        const total = active.reduce((s: number, r: any) => s + r.found, 0);
-                        const errors = active.filter((r: any) => r.error && r.found === 0);
-                        if (total > 0) {
-                          toast({ title: `Found ${total} review${total !== 1 ? "s" : ""}`, description: active.filter((r: any) => r.found > 0).map((r: any) => `${r.platform}: ${r.found}`).join(", ") });
-                        } else if (errors.length > 0) {
-                          toast({ title: "Could not fetch reviews", description: errors.map((r: any) => `${r.platform}: ${r.error}`).join(" · "), variant: "destructive" });
-                        } else {
-                          toast({ title: "No new reviews found", description: "All platform links checked — nothing new since last refresh." });
-                        }
-                      }
+                      await fetch("/api/external-reviews/refresh", { method: "POST" });
+                      await refetchExternal();
                     } catch {}
-                    if (icon) icon.classList.remove("animate-spin");
-                    btn.removeAttribute("disabled");
-                    await refetchExternal();
+                    btn.disabled = false;
                   }}
                 >
-                  <RefreshCw className="w-3.5 h-3.5" />
+                  <RefreshCw className={cn("w-3.5 h-3.5", externalFetching && "animate-spin")} />
                 </button>
               </div>
               <p className="text-[11.5px] text-muted-foreground mt-0.5">Reviews pulled from Google, Checkatrade and other platforms</p>

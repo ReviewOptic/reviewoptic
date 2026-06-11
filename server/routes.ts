@@ -2587,6 +2587,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         );
       }
       res.json(s);
+      // If any review platform links were updated, trigger a background poll immediately
+      const platformKeys = ["googleReviewLink", "checkatradeLink", "trustpilotLink", "tripadvisorLink", "mybuilderLink", "yellLink"];
+      if (platformKeys.some(k => body[k] !== undefined)) {
+        import("./externalReviews").then(({ pollExternalReviewsForAccount }) =>
+          pollExternalReviewsForAccount(req.session.accountId!).catch(console.error)
+        );
+      }
     } catch (err) {
       console.error("Failed to save settings:", err);
       res.status(500).json({ message: "Failed to save settings" });
