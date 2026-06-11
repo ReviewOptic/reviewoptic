@@ -553,6 +553,15 @@ export async function runMigrations() {
     await pool.query(`ALTER TABLE platform_settings ALTER COLUMN id DROP DEFAULT`);
     await pool.query(`INSERT INTO platform_settings (id) VALUES ('singleton') ON CONFLICT (id) DO NOTHING`);
 
+    // Ensure settings columns that Replit migration may have dropped are always present
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS social_card_template TEXT NOT NULL DEFAULT 'classic'`);
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS yell_link TEXT NOT NULL DEFAULT ''`);
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS notify_ratings BOOLEAN NOT NULL DEFAULT true`);
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS business_type TEXT NOT NULL DEFAULT ''`);
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS voice_note_url TEXT NOT NULL DEFAULT ''`);
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS video_message_url TEXT NOT NULL DEFAULT ''`);
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS elevenlabs_voice_id TEXT NOT NULL DEFAULT ''`);
+
     // Blog posts — admin-authored, public-facing, SEO content
     await pool.query(`
       CREATE TABLE IF NOT EXISTS blog_posts (
