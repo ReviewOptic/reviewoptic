@@ -533,7 +533,15 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
                     const btn = e.currentTarget as HTMLButtonElement;
                     btn.disabled = true;
                     try {
-                      await fetch("/api/external-reviews/refresh", { method: "POST" });
+                      const res = await fetch("/api/external-reviews/refresh", { method: "POST" });
+                      const data = await res.json();
+                      if (data.results) {
+                        const summary = data.results
+                          .filter((r: any) => !r.skipped)
+                          .map((r: any) => `${r.platform}: ${r.error ? `❌ ${r.error}` : `✓ ${r.found} found`}`)
+                          .join("\n");
+                        if (summary) alert(summary);
+                      }
                       await refetchExternal();
                     } catch {}
                     btn.disabled = false;
