@@ -2560,7 +2560,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       // SELECT * so the rest of the settings still load rather than blanking the whole page.
       try {
         const { rows } = await pool.query(`SELECT * FROM settings WHERE account_id = $1 LIMIT 1`, [req.session.accountId]);
-        res.json(rows[0] || {});
+        if (rows[0]) {
+          const toCamel = (s: string) => s.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+          res.json(Object.fromEntries(Object.entries(rows[0]).map(([k, v]) => [toCamel(k), v])));
+        } else {
+          res.json({});
+        }
       } catch {
         res.json({});
       }
@@ -3114,9 +3119,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       } catch { /* optional */ }
       await storage.upsertSettings(accountId, { facebookPageAccessToken: page.access_token, facebookPageId: page.id, facebookPageName: page.name || "", instagramBusinessAccountId, instagramUsername, instagramProfilePicUrl });
       res.redirect(`${process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000")}/settings?tab=social&connected=facebook`);
-    } catch (err) {
-      console.error("Facebook OAuth error:", err);
-      res.status(500).send("Facebook OAuth failed. Check server logs.");
+    } catch (err: any) {
+      console.error("Facebook OAuth error:", err?.message || err);
+      res.status(500).send(`Facebook OAuth failed: ${err?.message || String(err)}`);
     }
   });
 

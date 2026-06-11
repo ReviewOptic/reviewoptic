@@ -24,6 +24,59 @@ export async function runMigrations() {
       )
     `);
 
+    // Create settings table (self-healing: if Replit ever drops it, we recreate it here)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS settings (
+        id VARCHAR PRIMARY KEY,
+        account_id VARCHAR NOT NULL DEFAULT '',
+        owner_name TEXT NOT NULL DEFAULT '',
+        business_name TEXT NOT NULL DEFAULT 'My Business',
+        business_email TEXT NOT NULL DEFAULT '',
+        logo_url TEXT NOT NULL DEFAULT '',
+        logo_position TEXT NOT NULL DEFAULT 'left',
+        website_url TEXT NOT NULL DEFAULT '',
+        google_review_link TEXT NOT NULL DEFAULT '',
+        facebook_review_link TEXT NOT NULL DEFAULT '',
+        trustpilot_link TEXT NOT NULL DEFAULT '',
+        tripadvisor_link TEXT NOT NULL DEFAULT '',
+        checkatrade_link TEXT NOT NULL DEFAULT '',
+        mybuilder_link TEXT NOT NULL DEFAULT '',
+        yell_link TEXT NOT NULL DEFAULT '',
+        default_channel TEXT NOT NULL DEFAULT 'email',
+        follow_up_enabled BOOLEAN NOT NULL DEFAULT true,
+        follow_up_1_days INTEGER NOT NULL DEFAULT 3,
+        follow_up_2_days INTEGER NOT NULL DEFAULT 7,
+        follow_up_3_days INTEGER NOT NULL DEFAULT 14,
+        max_follow_ups INTEGER NOT NULL DEFAULT 2,
+        widget_min_stars INTEGER NOT NULL DEFAULT 4,
+        widget_count INTEGER NOT NULL DEFAULT 5,
+        widget_layout TEXT NOT NULL DEFAULT 'grid',
+        facebook_app_id TEXT NOT NULL DEFAULT '',
+        facebook_app_secret TEXT NOT NULL DEFAULT '',
+        linkedin_client_id TEXT NOT NULL DEFAULT '',
+        linkedin_client_secret TEXT NOT NULL DEFAULT '',
+        facebook_page_access_token TEXT NOT NULL DEFAULT '',
+        facebook_page_id TEXT NOT NULL DEFAULT '',
+        facebook_page_name TEXT NOT NULL DEFAULT '',
+        linkedin_access_token TEXT NOT NULL DEFAULT '',
+        linkedin_organization_id TEXT NOT NULL DEFAULT '',
+        instagram_business_account_id TEXT NOT NULL DEFAULT '',
+        instagram_username TEXT NOT NULL DEFAULT '',
+        instagram_profile_pic_url TEXT NOT NULL DEFAULT '',
+        social_post_enabled BOOLEAN NOT NULL DEFAULT false,
+        social_post_message TEXT NOT NULL DEFAULT '',
+        social_card_template TEXT NOT NULL DEFAULT 'classic',
+        country TEXT NOT NULL DEFAULT '',
+        default_send_time TEXT NOT NULL DEFAULT '',
+        voice_note_url TEXT NOT NULL DEFAULT '',
+        video_message_url TEXT NOT NULL DEFAULT '',
+        elevenlabs_voice_id TEXT NOT NULL DEFAULT '',
+        notify_ratings BOOLEAN NOT NULL DEFAULT true,
+        business_type TEXT NOT NULL DEFAULT '',
+        font_family TEXT NOT NULL DEFAULT 'Inter'
+      )
+    `);
+
     // Update users table
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS account_id VARCHAR NOT NULL DEFAULT '${BOOTSTRAP_ACCOUNT_ID}'`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT NOT NULL DEFAULT ''`);
@@ -553,15 +606,17 @@ export async function runMigrations() {
     await pool.query(`ALTER TABLE platform_settings ALTER COLUMN id DROP DEFAULT`);
     await pool.query(`INSERT INTO platform_settings (id) VALUES ('singleton') ON CONFLICT (id) DO NOTHING`);
 
-    // Ensure settings columns that Replit migration may have dropped are always present
-    // NOTE: social_card_template and yell_link are intentionally NOT here — they are managed
-    // by Replit's own migration (from schema.ts). Adding them here caused a cycle where
-    // Replit would keep wanting to drop them. Removing from here lets Replit own them.
+    // Ensure all settings columns exist — migrate.ts and schema.ts must stay in sync
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS yell_link TEXT NOT NULL DEFAULT ''`);
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS social_card_template TEXT NOT NULL DEFAULT 'classic'`);
     await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS notify_ratings BOOLEAN NOT NULL DEFAULT true`);
     await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS business_type TEXT NOT NULL DEFAULT ''`);
     await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS voice_note_url TEXT NOT NULL DEFAULT ''`);
     await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS video_message_url TEXT NOT NULL DEFAULT ''`);
     await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS elevenlabs_voice_id TEXT NOT NULL DEFAULT ''`);
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS instagram_username TEXT NOT NULL DEFAULT ''`);
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS instagram_profile_pic_url TEXT NOT NULL DEFAULT ''`);
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS facebook_page_name TEXT NOT NULL DEFAULT ''`);
 
     // Blog posts — admin-authored, public-facing, SEO content
     await pool.query(`

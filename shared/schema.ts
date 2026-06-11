@@ -90,7 +90,7 @@ export const templates = pgTable("templates", {
 });
 
 export const settings = pgTable("settings", {
-  id: varchar("id").primaryKey().default("default"),
+  id: varchar("id").primaryKey(),
   accountId: varchar("account_id").notNull().default(""),
   ownerName: text("owner_name").notNull().default(""),
   businessName: text("business_name").notNull().default("My Business"),
@@ -136,7 +136,11 @@ export const settings = pgTable("settings", {
   elevenLabsVoiceId: text("elevenlabs_voice_id").notNull().default(""),
   notifyRatings: boolean("notify_ratings").notNull().default(true),
   businessType: text("business_type").notNull().default(""),
+  fontFamily: text("font_family").notNull().default("Inter"),
 });
+
+export type Settings = typeof settings.$inferSelect;
+export type InsertSettings = Partial<Settings>;
 
 export const externalReviews = pgTable("external_reviews", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -161,7 +165,6 @@ export const insertReviewSchema = createInsertSchema(reviews).omit({ createdAt: 
 export const insertPrivateFeedbackSchema = createInsertSchema(privateFeedback).omit({ createdAt: true });
 export const insertActivityLogSchema = createInsertSchema(activityLog).omit({ createdAt: true });
 export const insertTemplateSchema = createInsertSchema(templates).omit({ updatedAt: true });
-export const insertSettingsSchema = createInsertSchema(settings);
 
 export type Customer = typeof customers.$inferSelect;
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
@@ -175,8 +178,6 @@ export type ActivityLog = typeof activityLog.$inferSelect;
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
 export type Template = typeof templates.$inferSelect;
 export type InsertTemplate = z.infer<typeof insertTemplateSchema>;
-export type Settings = typeof settings.$inferSelect;
-export type InsertSettings = z.infer<typeof insertSettingsSchema>;
 export type Account = typeof accounts.$inferSelect;
 
 export const users = pgTable("users", {

@@ -6,7 +6,7 @@ import { randomUUID } from "crypto";
 import { sendFollowUpEmail } from "./email";
 import { sendReviewSMS, sendWhatsAppMessage, sendWhatsAppTemplate } from "./sms";
 import {
-  accounts, customers, reviewRequests, reviews, privateFeedback, activityLog, templates, settings, users, passwordResetTokens, adminImpersonationLog,
+  accounts, customers, reviewRequests, reviews, privateFeedback, activityLog, templates, users, passwordResetTokens, adminImpersonationLog,
   type Account,
   type Customer, type InsertCustomer,
   type ReviewRequest, type InsertReviewRequest,
@@ -17,6 +17,12 @@ import {
   type Settings, type InsertSettings,
   type User, type InsertUser,
 } from "@shared/schema";
+
+// Convert a raw DB row (snake_case) to camelCase for the Settings type
+function settingsRowToCamel(row: Record<string, any>): Settings {
+  const toCamel = (s: string) => s.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+  return Object.fromEntries(Object.entries(row).map(([k, v]) => [toCamel(k), v])) as Settings;
+}
 
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 3 });
 // Prevent stale connections (e.g. Neon serverless suspend) from crashing the server
@@ -212,17 +218,29 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSettings(accountId: string): Promise<Settings | undefined> {
-    const [s] = await db.select().from(settings).where(eq(settings.accountId, accountId));
-    return s;
+    const { rows } = await pool.query(`SELECT * FROM settings WHERE account_id = $1 LIMIT 1`, [accountId]);
+    return rows[0] ? settingsRowToCamel(rows[0]) : undefined;
   }
   async upsertSettings(accountId: string, data: Partial<InsertSettings>): Promise<Settings> {
     const existing = await this.getSettings(accountId);
+    const toSnake = (s: string) => s.replace(/[A-Z]/g, c => `_${c.toLowerCase()}`);
+    const entries = Object.entries(data).filter(([, v]) => v !== undefined);
     if (existing) {
-      const [updated] = await db.update(settings).set(data).where(eq(settings.id, existing.id)).returning();
-      return updated;
+      if (entries.length === 0) return existing;
+      const setClauses = entries.map(([k], i) => `"${toSnake(k)}" = $${i + 2}`).join(", ");
+      const values = entries.map(([, v]) => v);
+      const { rows } = await pool.query(
+        `UPDATE settings SET ${setClauses} WHERE account_id = $1 RETURNING *`,
+        [accountId, ...values]
+      );
+      return settingsRowToCamel(rows[0]);
     }
-    const [inserted] = await db.insert(settings).values({ id: randomUUID(), accountId, ...data }).returning();
-    return inserted;
+    const allEntries: [string, any][] = [["id", randomUUID()], ["account_id", accountId], ...entries.map(([k, v]) => [toSnake(k), v] as [string, any])];
+    const cols = allEntries.map(([k]) => `"${k}"`).join(", ");
+    const placeholders = allEntries.map((_, i) => `$${i + 1}`).join(", ");
+    const vals = allEntries.map(([, v]) => v);
+    const { rows } = await pool.query(`INSERT INTO settings (${cols}) VALUES (${placeholders}) RETURNING *`, vals);
+    return settingsRowToCamel(rows[0]);
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -271,7 +289,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(privateFeedback).where(eq(privateFeedback.accountId, aid));
     await db.delete(customers).where(eq(customers.accountId, aid));
     await db.delete(templates).where(eq(templates.accountId, aid));
-    await db.delete(settings).where(eq(settings.accountId, aid));
+    await pool.query(`DELETE FROM settings WHERE account_id = $1`, [aid]);
     await db.delete(users).where(eq(users.id, userId));
     await db.delete(accounts).where(eq(accounts.id, aid));
   }
