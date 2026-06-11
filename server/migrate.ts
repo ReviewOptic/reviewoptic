@@ -568,6 +568,10 @@ export async function runMigrations() {
       )
     `);
 
+    // Social card customisation — template style + logo toggle
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS social_card_template TEXT NOT NULL DEFAULT 'classic'`);
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS social_card_show_logo BOOLEAN NOT NULL DEFAULT true`);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();

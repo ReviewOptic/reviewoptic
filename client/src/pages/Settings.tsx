@@ -125,6 +125,8 @@ export default function Settings() {
     defaultSendTime: "",
     socialPostEnabled: false,
     socialPostMessage: "⭐ We just received a {stars}★ review! Thank you {customer_name}!",
+    socialCardTemplate: "classic",
+    socialCardShowLogo: true,
     country: "",
   });
   const formRef = useRef(form);
@@ -157,6 +159,8 @@ export default function Settings() {
         defaultSendTime: settings.defaultSendTime || "",
         socialPostEnabled: settings.socialPostEnabled ?? false,
         socialPostMessage: settings.socialPostMessage || "⭐ We just received a {stars}★ review! Thank you {customer_name}!",
+        socialCardTemplate: (settings as any).socialCardTemplate || "classic",
+        socialCardShowLogo: (settings as any).socialCardShowLogo ?? true,
         country: settings.country || "",
       });
     }
@@ -796,6 +800,103 @@ export default function Settings() {
                       Use <code className="bg-muted px-1 rounded text-[11px]">{"{stars}"}</code> and <code className="bg-muted px-1 rounded text-[11px]">{"{customer_name}"}</code> as placeholders. Customer name shows as initials only (e.g. J. S.) to protect privacy.
                     </p>
                   </div>
+                )}
+
+                {/* Card design picker */}
+                {form.socialPostEnabled && (
+                  <>
+                    <div className="border-t border-border" />
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-[13.5px] font-medium">Card Design</p>
+                        <p className="text-[12px] text-muted-foreground">Choose how your review card looks when posted</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                        {([
+                          {
+                            key: "classic",
+                            label: "Classic",
+                            bg: "linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)",
+                            starColor: "#fbbf24",
+                            textColor: "#ffffff",
+                            subColor: "rgba(255,255,255,0.6)",
+                            badgeBg: "rgba(255,255,255,0.15)",
+                          },
+                          {
+                            key: "dark",
+                            label: "Dark",
+                            bg: "linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%)",
+                            starColor: "#f59e0b",
+                            textColor: "#ffffff",
+                            subColor: "rgba(255,255,255,0.5)",
+                            badgeBg: "rgba(245,158,11,0.15)",
+                            borderTop: "#f59e0b",
+                          },
+                          {
+                            key: "warm",
+                            label: "Warm",
+                            bg: "linear-gradient(135deg, #c2410c 0%, #ea580c 50%, #d97706 100%)",
+                            starColor: "#fef3c7",
+                            textColor: "#ffffff",
+                            subColor: "rgba(255,255,255,0.75)",
+                            badgeBg: "rgba(0,0,0,0.2)",
+                          },
+                          {
+                            key: "clean",
+                            label: "Clean",
+                            bg: "#f8fafc",
+                            starColor: "#f59e0b",
+                            textColor: "#0f172a",
+                            subColor: "#64748b",
+                            badgeBg: "#f1f5f9",
+                            borderTop: "#3b82f6",
+                            isLight: true,
+                          },
+                        ] as const).map(t => (
+                          <button
+                            key={t.key}
+                            type="button"
+                            onClick={() => setForm(f => ({ ...f, socialCardTemplate: t.key }))}
+                            className={`relative rounded-xl overflow-hidden border-2 transition-all ${form.socialCardTemplate === t.key ? "border-primary shadow-md scale-[1.02]" : "border-transparent hover:border-muted-foreground/30"}`}
+                            style={{ aspectRatio: "1/1" }}
+                          >
+                            {/* Mini card preview */}
+                            <div className="w-full h-full flex flex-col items-center justify-center gap-1 p-2" style={{ background: t.bg }}>
+                              {(t as any).borderTop && (
+                                <div className="absolute top-0 left-0 right-0 h-1" style={{ background: (t as any).borderTop }} />
+                              )}
+                              <div className="text-[13px] leading-none" style={{ color: t.starColor }}>★★★★★</div>
+                              <div className="text-[8px] font-bold leading-none" style={{ color: t.textColor }}>J. Smith</div>
+                              <div className="text-[6.5px] leading-none mt-0.5" style={{ color: t.subColor }}>Your Business</div>
+                              <div className="mt-1 px-2 py-0.5 rounded-full text-[5.5px] leading-none" style={{ background: t.badgeBg, color: (t as any).isLight ? "#94a3b8" : "rgba(255,255,255,0.7)" }}>
+                                Posted by ReviewOptic
+                              </div>
+                            </div>
+                            <div className={`absolute bottom-0 left-0 right-0 py-1 text-center text-[10px] font-medium ${(t as any).isLight ? "bg-white/80 text-slate-700" : "bg-black/30 text-white"}`}>
+                              {t.label}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Logo toggle */}
+                    {form.logoUrl && (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <img src={form.logoUrl} alt="Logo" className="w-8 h-8 rounded object-contain bg-muted" />
+                          <div>
+                            <p className="text-[13.5px] font-medium">Show your logo on the card</p>
+                            <p className="text-[12px] text-muted-foreground">Your business logo will appear at the top of the post image</p>
+                          </div>
+                        </div>
+                        <Switch
+                          checked={form.socialCardShowLogo}
+                          onCheckedChange={v => setForm(f => ({ ...f, socialCardShowLogo: v }))}
+                        />
+                      </div>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>

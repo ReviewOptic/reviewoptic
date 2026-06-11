@@ -127,6 +127,8 @@ export const settings = pgTable("settings", {
   instagramProfilePicUrl: text("instagram_profile_pic_url").notNull().default(""),
   socialPostEnabled: boolean("social_post_enabled").notNull().default(false),
   socialPostMessage: text("social_post_message").notNull().default("⭐ We just received a {stars}★ review! Thank you {customer_name}!"),
+  socialCardTemplate: text("social_card_template").notNull().default("classic"),
+  socialCardShowLogo: boolean("social_card_show_logo").notNull().default(true),
   country: text("country").notNull().default(""),
   defaultSendTime: text("default_send_time").notNull().default(""),
   voiceNoteUrl: text("voice_note_url").notNull().default(""),

@@ -156,7 +156,14 @@ async function postReviewToSocial(review: Review, customer: Customer, settings: 
   let imageUrl = "";
   if (isCloudinaryConfigured()) {
     try {
-      const cardBuffer = await generateReviewCard(stars, initials, settings.businessName);
+      const cardBuffer = await generateReviewCard(
+        stars,
+        initials,
+        settings.businessName,
+        (settings as any).socialCardTemplate || "classic",
+        settings.logoUrl || "",
+        (settings as any).socialCardShowLogo ?? true
+      );
       imageUrl = await uploadBufferToCloudinary(cardBuffer, "review-cards");
     } catch (err) {
       console.error("Review card generation error:", err);
