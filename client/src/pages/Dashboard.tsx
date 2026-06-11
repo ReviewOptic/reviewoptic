@@ -502,6 +502,68 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
               )}
             </CardContent>
           </Card>
+
+          {/* Platform reviews feed */}
+          <Card className="border-card-border">
+            <CardHeader className="pb-2 pt-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">Platform Reviews</CardTitle>
+                <button
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  title="Refresh now"
+                  onClick={async () => {
+                    await fetch("/api/external-reviews/refresh", { method: "POST" });
+                    setTimeout(() => refetchExternal(), 3000);
+                  }}
+                >
+                  <RefreshCw className={cn("w-3.5 h-3.5", externalFetching && "animate-spin")} />
+                </button>
+              </div>
+              <p className="text-[11.5px] text-muted-foreground mt-0.5">Reviews pulled from Google, Checkatrade and other platforms</p>
+            </CardHeader>
+            <CardContent className="px-4 pb-3">
+              {externalReviews.length === 0 ? (
+                <p className="text-[12px] text-muted-foreground py-2">No reviews fetched yet. Add your platform links in Settings → Review Platforms, then hit refresh.</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+                  {externalReviews.slice(0, 6).map((r: any) => {
+                    const platformColours: Record<string, { bg: string; text: string; label: string }> = {
+                      google:       { bg: "bg-blue-50 dark:bg-blue-950/30",  text: "text-blue-700 dark:text-blue-300",  label: "Google" },
+                      checkatrade:  { bg: "bg-teal-50 dark:bg-teal-950/30",  text: "text-teal-700 dark:text-teal-300",  label: "Checkatrade" },
+                      trustpilot:   { bg: "bg-green-50 dark:bg-green-950/30",text: "text-green-700 dark:text-green-300", label: "Trustpilot" },
+                      tripadvisor:  { bg: "bg-emerald-50 dark:bg-emerald-950/30", text: "text-emerald-700 dark:text-emerald-300", label: "TripAdvisor" },
+                      mybuilder:    { bg: "bg-orange-50 dark:bg-orange-950/30", text: "text-orange-700 dark:text-orange-300", label: "MyBuilder" },
+                      yell:         { bg: "bg-yellow-50 dark:bg-yellow-950/30", text: "text-yellow-700 dark:text-yellow-700", label: "Yell" },
+                    };
+                    const p = platformColours[r.platform] || { bg: "bg-muted", text: "text-muted-foreground", label: r.platform };
+                    return (
+                      <div key={r.id} className="py-2.5 border-b border-border/50 last:border-0 sm:[&:nth-last-child(-n+2)]:border-0">
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0", p.bg, p.text)}>{p.label}</span>
+                            <div className="flex gap-0.5">
+                              {[1,2,3,4,5].map(i => (
+                                <Star key={i} className={cn("w-2.5 h-2.5", i <= r.rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30")} />
+                              ))}
+                            </div>
+                          </div>
+                          {r.posted_to_social && (
+                            <span className="flex items-center gap-1 text-[10px] text-green-600 dark:text-green-400 shrink-0">
+                              <Share2 className="w-2.5 h-2.5" />Posted
+                            </span>
+                          )}
+                        </div>
+                        {r.review_text && (
+                          <p className="text-[12px] text-foreground line-clamp-2 mb-0.5">"{r.review_text}"</p>
+                        )}
+                        <p className="text-[11px] text-muted-foreground">{r.author_name}{r.review_date ? ` · ${formatDistanceToNow(new Date(r.review_date), { addSuffix: true })}` : ""}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Sidebar */}
@@ -631,68 +693,6 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
               </CardContent>
             </Card>
           )}
-
-          {/* Platform reviews feed */}
-          <Card className="border-card-border">
-            <CardHeader className="pb-2 pt-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-[14px] font-semibold">Platform Reviews</CardTitle>
-                <button
-                  className="text-muted-foreground hover:text-foreground transition-colors"
-                  title="Refresh now"
-                  onClick={async () => {
-                    await fetch("/api/external-reviews/refresh", { method: "POST" });
-                    setTimeout(() => refetchExternal(), 3000);
-                  }}
-                >
-                  <RefreshCw className={cn("w-3.5 h-3.5", externalFetching && "animate-spin")} />
-                </button>
-              </div>
-              <p className="text-[11.5px] text-muted-foreground mt-0.5">Reviews pulled from Google, Checkatrade and other platforms</p>
-            </CardHeader>
-            <CardContent className="px-4 pb-3">
-              {externalReviews.length === 0 ? (
-                <p className="text-[12px] text-muted-foreground py-2">No reviews fetched yet. Add your platform links in Settings → Review Platforms, then hit refresh.</p>
-              ) : (
-                <div className="space-y-0">
-                  {externalReviews.slice(0, 6).map((r: any) => {
-                    const platformColours: Record<string, { bg: string; text: string; label: string }> = {
-                      google:       { bg: "bg-blue-50 dark:bg-blue-950/30",  text: "text-blue-700 dark:text-blue-300",  label: "Google" },
-                      checkatrade:  { bg: "bg-teal-50 dark:bg-teal-950/30",  text: "text-teal-700 dark:text-teal-300",  label: "Checkatrade" },
-                      trustpilot:   { bg: "bg-green-50 dark:bg-green-950/30",text: "text-green-700 dark:text-green-300", label: "Trustpilot" },
-                      tripadvisor:  { bg: "bg-emerald-50 dark:bg-emerald-950/30", text: "text-emerald-700 dark:text-emerald-300", label: "TripAdvisor" },
-                      mybuilder:    { bg: "bg-orange-50 dark:bg-orange-950/30", text: "text-orange-700 dark:text-orange-300", label: "MyBuilder" },
-                      yell:         { bg: "bg-yellow-50 dark:bg-yellow-950/30", text: "text-yellow-700 dark:text-yellow-700", label: "Yell" },
-                    };
-                    const p = platformColours[r.platform] || { bg: "bg-muted", text: "text-muted-foreground", label: r.platform };
-                    return (
-                      <div key={r.id} className="py-2.5 border-b border-border/50 last:border-0">
-                        <div className="flex items-start justify-between gap-2 mb-1">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0", p.bg, p.text)}>{p.label}</span>
-                            <div className="flex gap-0.5">
-                              {[1,2,3,4,5].map(i => (
-                                <Star key={i} className={cn("w-2.5 h-2.5", i <= r.rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30")} />
-                              ))}
-                            </div>
-                          </div>
-                          {r.posted_to_social && (
-                            <span className="flex items-center gap-1 text-[10px] text-green-600 dark:text-green-400 shrink-0">
-                              <Share2 className="w-2.5 h-2.5" />Posted
-                            </span>
-                          )}
-                        </div>
-                        {r.review_text && (
-                          <p className="text-[12px] text-foreground line-clamp-2 mb-0.5">"{r.review_text}"</p>
-                        )}
-                        <p className="text-[11px] text-muted-foreground">{r.author_name}{r.review_date ? ` · ${formatDistanceToNow(new Date(r.review_date), { addSuffix: true })}` : ""}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
 
         </div>
       </div>
