@@ -351,7 +351,7 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
       <OnboardingChecklist />
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <button onClick={() => navigate("/customers")} className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4 hover:brightness-110 transition-[filter] text-left w-full">
           {statsLoading ? <Skeleton className="h-12 w-full opacity-30" /> : (
             <>
@@ -405,6 +405,17 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
               </div>
             </>
           )}
+        </button>
+        <button onClick={() => document.getElementById("platform-reviews")?.scrollIntoView({ behavior: "smooth", block: "start" })} className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4 hover:brightness-110 transition-[filter] text-left w-full">
+          <>
+            <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-white/20">
+              <Star className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <div className="text-xl font-bold text-white leading-none">{externalReviews.length}</div>
+              <div className="text-[11.5px] text-white/70 mt-1 leading-tight">Total Reviews</div>
+            </div>
+          </>
         </button>
       </div>
 
@@ -504,7 +515,7 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
           </Card>
 
           {/* Platform reviews feed */}
-          <Card className="border-card-border">
+          <Card id="platform-reviews" className="border-card-border">
             <CardHeader className="pb-2 pt-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">Platform Reviews</CardTitle>
