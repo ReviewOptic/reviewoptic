@@ -535,12 +535,13 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
                     try {
                       const res = await fetch("/api/external-reviews/refresh", { method: "POST" });
                       const data = await res.json();
-                      if (data.results) {
+                      if (data.error) { alert("Error: " + data.error); }
+                      else if (!data.results || data.results.length === 0) { alert("No platforms configured — settings row may be missing. Try saving your Google link in Settings first."); }
+                      else {
                         const summary = data.results
-                          .filter((r: any) => !r.skipped)
-                          .map((r: any) => `${r.platform}: ${r.error ? `❌ ${r.error}` : `✓ ${r.found} found`}`)
+                          .map((r: any) => `${r.platform}: ${r.skipped ? "⏭ skipped (no link)" : r.error ? `❌ ${r.error}` : `✓ ${r.found} found, ${r.saved} new`}`)
                           .join("\n");
-                        if (summary) alert(summary);
+                        alert(summary);
                       }
                       await refetchExternal();
                     } catch {}
