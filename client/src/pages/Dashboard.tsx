@@ -520,15 +520,36 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
               <div className="flex items-center justify-between">
                 <CardTitle className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">Platform Reviews</CardTitle>
                 <button
-                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
                   title="Refresh now"
-                  onClick={async () => {
-                    await fetch("/api/external-reviews/refresh", { method: "POST" });
-                    setTimeout(() => refetchExternal(), 5000);
-                    setTimeout(() => refetchExternal(), 12000);
+                  id="refresh-external-btn"
+                  onClick={async (e) => {
+                    const btn = e.currentTarget;
+                    btn.setAttribute("disabled", "true");
+                    const icon = btn.querySelector("svg");
+                    if (icon) icon.classList.add("animate-spin");
+                    try {
+                      const resp = await fetch("/api/external-reviews/refresh", { method: "POST" });
+                      const data = await resp.json();
+                      if (data.results) {
+                        const active = data.results.filter((r: any) => !r.skipped);
+                        const total = active.reduce((s: number, r: any) => s + r.found, 0);
+                        const errors = active.filter((r: any) => r.error && r.found === 0);
+                        if (total > 0) {
+                          toast({ title: `Found ${total} review${total !== 1 ? "s" : ""}`, description: active.filter((r: any) => r.found > 0).map((r: any) => `${r.platform}: ${r.found}`).join(", ") });
+                        } else if (errors.length > 0) {
+                          toast({ title: "Could not fetch reviews", description: errors.map((r: any) => `${r.platform}: ${r.error}`).join(" · "), variant: "destructive" });
+                        } else {
+                          toast({ title: "No new reviews found", description: "All platform links checked — nothing new since last refresh." });
+                        }
+                      }
+                    } catch {}
+                    if (icon) icon.classList.remove("animate-spin");
+                    btn.removeAttribute("disabled");
+                    await refetchExternal();
                   }}
                 >
-                  <RefreshCw className={cn("w-3.5 h-3.5", externalFetching && "animate-spin")} />
+                  <RefreshCw className="w-3.5 h-3.5" />
                 </button>
               </div>
               <p className="text-[11.5px] text-muted-foreground mt-0.5">Reviews pulled from Google, Checkatrade and other platforms</p>

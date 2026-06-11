@@ -8,6 +8,16 @@ const FETCH_HEADERS = {
   "Accept-Language": "en-GB,en;q=0.9",
 };
 
+// ── Return type for per-platform poll results ────────────────────────────────
+
+export type PlatformResult = {
+  platform: string;
+  found: number;
+  saved: number;
+  skipped: boolean;
+  error?: string;
+};
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function extractJsonLd(html: string): any[] {
@@ -18,6 +28,46 @@ function extractJsonLd(html: string): any[] {
     try { results.push(JSON.parse(match[1])); } catch {}
   }
   return results;
+}
+
+// Extract reviews from Next.js __NEXT_DATA__ embedded JSON — used by Checkatrade and similar sites
+function extractFromNextData(html: string, platform: string): {author: string; rating: number; text: string; date: Date|null; platform: string}[] {
+  const match = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+  if (!match) return [];
+  try {
+    const data = JSON.parse(match[1]);
+    return findReviewsInObject(data, platform, 0);
+  } catch { return []; }
+}
+
+type ReviewItem = {author: string; rating: number; text: string; date: Date|null; platform: string};
+
+function isReviewLike(obj: any): boolean {
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return false;
+  const hasText = !!(obj.text || obj.body || obj.content || obj.reviewText || obj.comment || obj.description || obj.reviewBody);
+  const hasRating = !!(obj.rating !== undefined || obj.score !== undefined || obj.stars !== undefined || obj.reviewRating !== undefined || obj.starRating !== undefined);
+  return hasText && hasRating;
+}
+
+function extractReviewItem(obj: any, platform: string): ReviewItem | null {
+  const text = (obj.text || obj.body || obj.content || obj.reviewText || obj.comment || obj.description || obj.reviewBody || "").toString().trim();
+  const ratingRaw = obj.rating ?? obj.score ?? obj.stars ?? obj.reviewRating?.ratingValue ?? obj.starRating?.ratingValue ?? 0;
+  const rating = Math.round(parseFloat(String(ratingRaw)));
+  const author = (obj.author?.name || obj.authorName || obj.reviewer?.name || obj.reviewerName || (typeof obj.author === "string" ? obj.author : "") || "Anonymous").trim();
+  const dateStr = obj.date || obj.createdAt || obj.created_at || obj.datePublished || obj.reviewDate || "";
+  if (!text || !rating) return null;
+  return { author, rating, text, date: dateStr ? new Date(dateStr) : null, platform };
+}
+
+function findReviewsInObject(obj: any, platform: string, depth: number): ReviewItem[] {
+  if (depth > 12 || obj === null || typeof obj !== "object") return [];
+  if (Array.isArray(obj)) {
+    if (obj.length > 0 && isReviewLike(obj[0])) {
+      return obj.map(r => extractReviewItem(r, platform)).filter(Boolean) as ReviewItem[];
+    }
+    return obj.flatMap(item => findReviewsInObject(item, platform, depth + 1));
+  }
+  return Object.values(obj).flatMap(val => findReviewsInObject(val, platform, depth + 1));
 }
 
 // Stable dedup key — hashes platform + account + first 80 chars of text
@@ -94,77 +144,108 @@ async function resolveGooglePlaceId(link: string, apiKey: string): Promise<strin
 
 // ── Platform fetchers ────────────────────────────────────────────────────────
 
-async function fetchGoogle(accountId: string, link: string): Promise<{author: string; rating: number; text: string; date: Date|null; platform: string}[]> {
+async function fetchGoogle(accountId: string, link: string): Promise<FetchResult> {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
-  if (!apiKey || !link) return [];
+  if (!apiKey) return { reviews: [], error: "GOOGLE_PLACES_API_KEY not set in Secrets" };
+  if (!link) return { reviews: [] };
 
   const placeId = await resolveGooglePlaceId(link, apiKey);
   if (!placeId) {
-    console.warn(`[externalReviews] Could not resolve Place ID for account ${accountId} — link: ${link}`);
-    return [];
+    const msg = `Could not resolve Place ID from link: ${link}`;
+    console.warn(`[externalReviews] ${msg}`);
+    return { reviews: [], error: msg };
   }
 
   try {
     const res = await axios.get("https://maps.googleapis.com/maps/api/place/details/json", {
       params: { place_id: placeId, fields: "reviews", key: apiKey }, timeout: 10000,
     });
-    return (res.data?.result?.reviews || [])
+    if (res.data?.status && res.data.status !== "OK") {
+      return { reviews: [], error: `Google API error: ${res.data.status}` };
+    }
+    const reviews = (res.data?.result?.reviews || [])
       .filter((r: any) => r.text?.trim())
       .map((r: any) => ({ author: r.author_name, rating: r.rating, text: r.text, date: r.time ? new Date(r.time * 1000) : null, platform: "google" }));
+    console.log(`[externalReviews] Google: found ${reviews.length} reviews for Place ID ${placeId}`);
+    return { reviews };
   } catch (err: any) {
     console.error(`[externalReviews] Google details error:`, err.message);
-    return [];
+    return { reviews: [], error: err.message };
   }
 }
 
-async function fetchFromJsonLd(platform: string, url: string): Promise<{author: string; rating: number; text: string; date: Date|null; platform: string}[]> {
-  if (!url) return [];
-  try {
-    const res = await axios.get(url, { headers: FETCH_HEADERS, timeout: 12000 });
-    const jsonLds = extractJsonLd(res.data as string);
-    const found: {author: string; rating: number; text: string; date: Date|null; platform: string}[] = [];
+type FetchResult = {reviews: ReviewItem[]; error?: string};
 
-    for (const ld of jsonLds) {
-      // Flatten @graph if present
-      const nodes: any[] = ld["@graph"] ? ld["@graph"] : [ld];
-      for (const node of nodes) {
-        const reviews: any[] = node.review || (node["@type"] === "Review" ? [node] : []);
-        for (const r of reviews) {
-          const text = (r.reviewBody || r.description || "").trim();
-          const rating = Math.round(parseFloat(r.reviewRating?.ratingValue || r.starRating?.ratingValue || "0"));
-          const author = r.author?.name || (typeof r.author === "string" ? r.author : "");
-          const dateStr = r.datePublished || r.dateCreated || "";
-          if (!text || !rating) continue;
-          found.push({ author, rating, text, date: dateStr ? new Date(dateStr) : null, platform });
-        }
+async function fetchFromPage(platform: string, url: string): Promise<FetchResult> {
+  if (!url) return { reviews: [] };
+  let html = "";
+  try {
+    const res = await axios.get(url, { headers: FETCH_HEADERS, timeout: 14000 });
+    html = res.data as string;
+  } catch (err: any) {
+    console.error(`[externalReviews] ${platform} HTTP error:`, err.message);
+    return { reviews: [], error: `Could not load page: ${err.message}` };
+  }
+
+  const reviews: ReviewItem[] = [];
+
+  // 1. Try JSON-LD structured data
+  const jsonLds = extractJsonLd(html);
+  for (const ld of jsonLds) {
+    const nodes: any[] = ld["@graph"] ? ld["@graph"] : [ld];
+    for (const node of nodes) {
+      const items: any[] = node.review || (node["@type"] === "Review" ? [node] : []);
+      for (const r of items) {
+        const text = (r.reviewBody || r.description || "").trim();
+        const rating = Math.round(parseFloat(r.reviewRating?.ratingValue || r.starRating?.ratingValue || "0"));
+        const author = r.author?.name || (typeof r.author === "string" ? r.author : "");
+        const dateStr = r.datePublished || r.dateCreated || "";
+        if (!text || !rating) continue;
+        reviews.push({ author, rating, text, date: dateStr ? new Date(dateStr) : null, platform });
       }
     }
-    return found;
-  } catch (err: any) {
-    console.error(`[externalReviews] ${platform} fetch error:`, err.message);
-    return [];
   }
+  if (reviews.length > 0) {
+    console.log(`[externalReviews] ${platform}: found ${reviews.length} reviews via JSON-LD`);
+    return { reviews };
+  }
+
+  // 2. Try Next.js __NEXT_DATA__ (used by Checkatrade, some others)
+  const nextDataReviews = extractFromNextData(html, platform);
+  if (nextDataReviews.length > 0) {
+    console.log(`[externalReviews] ${platform}: found ${nextDataReviews.length} reviews via __NEXT_DATA__`);
+    return { reviews: nextDataReviews };
+  }
+
+  console.warn(`[externalReviews] ${platform}: no reviews found in JSON-LD or __NEXT_DATA__ at ${url}`);
+  return { reviews: [], error: "No reviews found — page may use JavaScript rendering or block bots" };
 }
 
-async function fetchCheckatrade(accountId: string, link: string) {
-  const url = link.replace(/\/$/, "") + "/reviews";
-  return fetchFromJsonLd("checkatrade", url);
+async function fetchCheckatrade(accountId: string, link: string): Promise<FetchResult> {
+  // Checkatrade profile URLs end with the trade name; reviews are on the same page
+  const base = link.replace(/\/$/, "").replace(/\/reviews$/, "");
+  const result = await fetchFromPage("checkatrade", base);
+  if (result.reviews.length === 0) {
+    // Also try the /reviews sub-page
+    return fetchFromPage("checkatrade", base + "/reviews");
+  }
+  return result;
 }
 
-async function fetchTrustpilot(accountId: string, link: string) {
-  return fetchFromJsonLd("trustpilot", link);
+async function fetchTrustpilot(accountId: string, link: string): Promise<FetchResult> {
+  return fetchFromPage("trustpilot", link);
 }
 
-async function fetchTripAdvisor(accountId: string, link: string) {
-  return fetchFromJsonLd("tripadvisor", link);
+async function fetchTripAdvisor(accountId: string, link: string): Promise<FetchResult> {
+  return fetchFromPage("tripadvisor", link);
 }
 
-async function fetchMyBuilder(accountId: string, link: string) {
-  return fetchFromJsonLd("mybuilder", link);
+async function fetchMyBuilder(accountId: string, link: string): Promise<FetchResult> {
+  return fetchFromPage("mybuilder", link);
 }
 
-async function fetchYell(accountId: string, link: string) {
-  return fetchFromJsonLd("yell", link);
+async function fetchYell(accountId: string, link: string): Promise<FetchResult> {
+  return fetchFromPage("yell", link);
 }
 
 // ── Auto-post logic ──────────────────────────────────────────────────────────
@@ -206,7 +287,7 @@ async function autoPostReview(accountId: string, review: {author: string; rating
 
 // ── Main polling function ────────────────────────────────────────────────────
 
-export async function pollExternalReviewsForAccount(accountId: string): Promise<void> {
+export async function pollExternalReviewsForAccount(accountId: string): Promise<PlatformResult[]> {
   const { rows } = await pool.query(
     `SELECT google_review_link, checkatrade_link, trustpilot_link, tripadvisor_link,
             mybuilder_link, yell_link, social_post_enabled, facebook_page_access_token,
@@ -215,41 +296,63 @@ export async function pollExternalReviewsForAccount(accountId: string): Promise<
      FROM settings WHERE account_id = $1`,
     [accountId]
   );
-  if (!rows[0]) return;
+  if (!rows[0]) return [];
   const s = rows[0];
 
-  console.log(`[externalReviews] Polling account ${accountId} — google:${!!s.google_review_link} checkatrade:${!!s.checkatrade_link} trustpilot:${!!s.trustpilot_link} tripadvisor:${!!s.tripadvisor_link} mybuilder:${!!s.mybuilder_link} yell:${!!s.yell_link}`);
+  // Check if this account has ever had reviews saved — if not, this is first-time seed.
+  // First-time seed: save reviews but do NOT auto-post (they are not "new" reviews, just historic).
+  const { rows: existing } = await pool.query(
+    `SELECT COUNT(*) as count FROM external_reviews WHERE account_id = $1`, [accountId]
+  );
+  const isFirstPoll = parseInt(existing[0]?.count ?? "0") === 0;
 
-  // Fetch from all configured platforms
-  const allReviews = (await Promise.all([
-    s.google_review_link  ? fetchGoogle(accountId, s.google_review_link) : [],
-    s.checkatrade_link    ? fetchCheckatrade(accountId, s.checkatrade_link) : [],
-    s.trustpilot_link     ? fetchTrustpilot(accountId, s.trustpilot_link) : [],
-    s.tripadvisor_link    ? fetchTripAdvisor(accountId, s.tripadvisor_link) : [],
-    s.mybuilder_link      ? fetchMyBuilder(accountId, s.mybuilder_link) : [],
-    s.yell_link           ? fetchYell(accountId, s.yell_link) : [],
-  ])).flat();
+  const platformConfigs: { platform: string; link: string; fetcher: () => Promise<FetchResult> }[] = [
+    { platform: "google",      link: s.google_review_link,  fetcher: () => fetchGoogle(accountId, s.google_review_link) },
+    { platform: "checkatrade", link: s.checkatrade_link,    fetcher: () => fetchCheckatrade(accountId, s.checkatrade_link) },
+    { platform: "trustpilot",  link: s.trustpilot_link,     fetcher: () => fetchTrustpilot(accountId, s.trustpilot_link) },
+    { platform: "tripadvisor", link: s.tripadvisor_link,    fetcher: () => fetchTripAdvisor(accountId, s.tripadvisor_link) },
+    { platform: "mybuilder",   link: s.mybuilder_link,      fetcher: () => fetchMyBuilder(accountId, s.mybuilder_link) },
+    { platform: "yell",        link: s.yell_link,           fetcher: () => fetchYell(accountId, s.yell_link) },
+  ];
 
-  console.log(`[externalReviews] Fetched ${allReviews.length} reviews for account ${accountId}`);
+  const results: PlatformResult[] = [];
 
-  // Save new reviews and auto-post
-  for (const review of allReviews) {
-    if (!review.text.trim()) continue;
-    const key = reviewKey(review.platform, accountId, review.author, review.text);
-    const isNew = await saveIfNew(accountId, review.platform, key, review.author, review.rating, review.text, review.date);
+  const fetches = await Promise.all(
+    platformConfigs.map(async (pc) => {
+      if (!pc.link) return { platform: pc.platform, result: { reviews: [] as ReviewItem[] }, skipped: true };
+      const result = await pc.fetcher().catch(err => ({ reviews: [] as ReviewItem[], error: String(err.message) }));
+      return { platform: pc.platform, result, skipped: false };
+    })
+  );
 
-    if (isNew) {
-      const posted = await autoPostReview(accountId, review, s);
-      if (posted) {
-        await pool.query(
-          `UPDATE external_reviews SET posted_to_social=true, posted_at=NOW()
-           WHERE account_id=$1 AND platform=$2 AND external_id=$3`,
-          [accountId, review.platform, key]
-        );
-        console.log(`[externalReviews] Auto-posted ${review.platform} review for account ${accountId}`);
-      }
+  for (const { platform, result, skipped } of fetches) {
+    if (skipped) {
+      results.push({ platform, found: 0, saved: 0, skipped: true });
+      continue;
     }
+    let savedCount = 0;
+    for (const review of result.reviews) {
+      if (!review.text.trim()) continue;
+      const key = reviewKey(review.platform, accountId, review.author, review.text);
+      const isNew = await saveIfNew(accountId, review.platform, key, review.author, review.rating, review.text, review.date);
+      if (isNew && !isFirstPoll) {
+        const posted = await autoPostReview(accountId, review, s);
+        if (posted) {
+          await pool.query(
+            `UPDATE external_reviews SET posted_to_social=true, posted_at=NOW()
+             WHERE account_id=$1 AND platform=$2 AND external_id=$3`,
+            [accountId, review.platform, key]
+          );
+          console.log(`[externalReviews] Auto-posted ${review.platform} review for account ${accountId}`);
+        }
+      }
+      if (isNew) savedCount++;
+    }
+    results.push({ platform, found: result.reviews.length, saved: savedCount, skipped: false, error: result.error });
   }
+
+  console.log(`[externalReviews] Poll complete for ${accountId}:`, results.map(r => `${r.platform}:${r.found}`).join(", "));
+  return results;
 }
 
 export async function pollAllAccounts(): Promise<void> {

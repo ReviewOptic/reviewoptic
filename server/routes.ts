@@ -2164,11 +2164,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(rows);
   });
 
-  // Manually trigger a refresh for the current account
+  // Manually trigger a refresh for the current account — waits for poll and returns per-platform results
   app.post("/api/external-reviews/refresh", requireAuth, async (req, res) => {
     const { pollExternalReviewsForAccount } = await import("./externalReviews");
-    pollExternalReviewsForAccount(req.session.accountId!).catch(console.error);
-    res.json({ message: "Refresh started" });
+    try {
+      const results = await pollExternalReviewsForAccount(req.session.accountId!);
+      res.json({ results });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   // Private Feedback (GET/PATCH — protected; POST is public above)
