@@ -292,11 +292,16 @@ export async function pollExternalReviewsForAccount(accountId: string): Promise<
     `SELECT google_review_link, checkatrade_link, trustpilot_link, tripadvisor_link,
             mybuilder_link, social_post_enabled, facebook_page_access_token,
             facebook_page_id, instagram_business_account_id, business_name,
-            social_post_message,
-            COALESCE(social_card_template, 'classic') as social_card_template
+            social_post_message
      FROM settings WHERE account_id = $1`,
     [accountId]
   );
+  // Fetch social_card_template separately so a missing column never crashes the poll
+  let socialCardTemplate = "classic";
+  try {
+    const { rows: tr } = await pool.query(`SELECT social_card_template FROM settings WHERE account_id = $1`, [accountId]);
+    socialCardTemplate = tr[0]?.social_card_template || "classic";
+  } catch { /* column may not exist yet — default to classic */ }
   if (!rows[0]) return [];
   const s = rows[0];
 
@@ -336,7 +341,7 @@ export async function pollExternalReviewsForAccount(accountId: string): Promise<
       const key = reviewKey(review.platform, accountId, review.author, review.text);
       const isNew = await saveIfNew(accountId, review.platform, key, review.author, review.rating, review.text, review.date);
       if (isNew && !isFirstPoll) {
-        const posted = await autoPostReview(accountId, review, s);
+        const posted = await autoPostReview(accountId, review, { ...s, social_card_template: socialCardTemplate });
         if (posted) {
           await pool.query(
             `UPDATE external_reviews SET posted_to_social=true, posted_at=NOW()
