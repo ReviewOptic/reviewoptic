@@ -13,7 +13,6 @@ export default defineConfig({
   },
   tablesFilter: [
     "!schema_migrations",
-    "!settings",
     "!chat_messages",
     "!insight_email_log",
     "!recordings",
