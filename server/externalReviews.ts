@@ -292,7 +292,8 @@ export async function pollExternalReviewsForAccount(accountId: string): Promise<
     `SELECT google_review_link, checkatrade_link, trustpilot_link, tripadvisor_link,
             mybuilder_link, social_post_enabled, facebook_page_access_token,
             facebook_page_id, instagram_business_account_id, business_name,
-            social_card_template, social_post_message
+            social_post_message,
+            COALESCE(social_card_template, 'classic') as social_card_template
      FROM settings WHERE account_id = $1`,
     [accountId]
   );
