@@ -1,4 +1,4 @@
-import { pgTable, text, integer, boolean, timestamp, varchar, real, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, boolean, timestamp, varchar, real, uuid, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -151,7 +151,10 @@ export const externalReviews = pgTable("external_reviews", {
   postedToSocial: boolean("posted_to_social").notNull().default(false),
   postedAt: timestamp("posted_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (table) => [
+  index("external_reviews_account_idx").on(table.accountId),
+  uniqueIndex("external_reviews_dedup_idx").on(table.accountId, table.platform, table.externalId),
+]);
 
 export const insertCustomerSchema = createInsertSchema(customers).omit({ createdAt: true });
 export const insertReviewRequestSchema = createInsertSchema(reviewRequests).omit({ createdAt: true });

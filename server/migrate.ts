@@ -568,24 +568,6 @@ export async function runMigrations() {
       )
     `);
 
-    // External reviews pulled from public platforms
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS external_reviews (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        account_id VARCHAR NOT NULL,
-        platform TEXT NOT NULL,
-        external_id TEXT NOT NULL DEFAULT '',
-        author_name TEXT NOT NULL DEFAULT '',
-        rating INTEGER NOT NULL,
-        review_text TEXT NOT NULL DEFAULT '',
-        review_date TIMESTAMP,
-        posted_to_social BOOLEAN NOT NULL DEFAULT false,
-        posted_at TIMESTAMP,
-        created_at TIMESTAMP NOT NULL DEFAULT NOW()
-      )
-    `);
-    await pool.query(`CREATE INDEX IF NOT EXISTS external_reviews_account_idx ON external_reviews (account_id)`);
-    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS external_reviews_dedup_idx ON external_reviews (account_id, platform, external_id)`);
 
     console.log("[migrate] Migrations complete");
   } finally {
