@@ -72,20 +72,19 @@ async function resolveGooglePlaceId(link: string, apiKey: string): Promise<strin
   const fromUrl = extractPlaceIdFromUrl(link);
   if (fromUrl) return fromUrl;
 
-  // 2. Short links (g.page, goo.gl, maps.app) — follow the redirect to get the real URL
+  // 2. Short links (g.page, goo.gl, maps.app) — follow redirects using native fetch
+  //    which reliably exposes the final URL via response.url
   if (link.includes("g.page") || link.includes("goo.gl") || link.includes("maps.app")) {
     try {
-      const res = await axios.get(link, {
-        maxRedirects: 8, timeout: 8000,
-        headers: { "User-Agent": "Mozilla/5.0" },
-        validateStatus: () => true,
+      const res = await fetch(link, {
+        redirect: "follow",
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; ReviewOptic/1.0)" },
+        signal: AbortSignal.timeout(8000),
       });
-      const finalUrl: string = (res.request as any)?._redirectable?._currentUrl
-        || (res.request as any)?.res?.responseUrl
-        || "";
-      const fromRedirect = extractPlaceIdFromUrl(finalUrl);
+      const fromRedirect = extractPlaceIdFromUrl(res.url);
       if (fromRedirect) return fromRedirect;
-      const htmlMatch = (res.data as string)?.match?.(/["'](ChIJ[A-Za-z0-9_%-]{10,})["']/);
+      const html = await res.text();
+      const htmlMatch = html.match(/["'](ChIJ[A-Za-z0-9_%-]{10,})["']/);
       if (htmlMatch) return decodeURIComponent(htmlMatch[1]);
     } catch {}
   }
@@ -219,6 +218,8 @@ export async function pollExternalReviewsForAccount(accountId: string): Promise<
   if (!rows[0]) return;
   const s = rows[0];
 
+  console.log(`[externalReviews] Polling account ${accountId} — google:${!!s.google_review_link} checkatrade:${!!s.checkatrade_link} trustpilot:${!!s.trustpilot_link} tripadvisor:${!!s.tripadvisor_link} mybuilder:${!!s.mybuilder_link} yell:${!!s.yell_link}`);
+
   // Fetch from all configured platforms
   const allReviews = (await Promise.all([
     s.google_review_link  ? fetchGoogle(accountId, s.google_review_link) : [],
@@ -228,6 +229,8 @@ export async function pollExternalReviewsForAccount(accountId: string): Promise<
     s.mybuilder_link      ? fetchMyBuilder(accountId, s.mybuilder_link) : [],
     s.yell_link           ? fetchYell(accountId, s.yell_link) : [],
   ])).flat();
+
+  console.log(`[externalReviews] Fetched ${allReviews.length} reviews for account ${accountId}`);
 
   // Save new reviews and auto-post
   for (const review of allReviews) {

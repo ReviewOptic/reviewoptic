@@ -524,7 +524,8 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
                   title="Refresh now"
                   onClick={async () => {
                     await fetch("/api/external-reviews/refresh", { method: "POST" });
-                    setTimeout(() => refetchExternal(), 3000);
+                    setTimeout(() => refetchExternal(), 5000);
+                    setTimeout(() => refetchExternal(), 12000);
                   }}
                 >
                   <RefreshCw className={cn("w-3.5 h-3.5", externalFetching && "animate-spin")} />
