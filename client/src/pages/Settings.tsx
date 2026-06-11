@@ -461,13 +461,13 @@ export default function Settings() {
             <CardContent className="space-y-4 pb-5">
               <p className="text-[12px] text-muted-foreground">Add at least one. Happy customers will be directed to whichever platforms you've filled in.</p>
               {[
-                { label: "Google Business", key: "googleReviewLink", placeholder: "https://g.page/r/...", hint: "Any Google Maps or Business Profile link works — g.page, maps.google.com, or maps.app.goo.gl" },
+                { label: "Google Business", key: "googleReviewLink", placeholder: "https://g.page/r/..." },
                 { label: "Facebook Page", key: "facebookReviewLink", placeholder: "https://www.facebook.com/..." },
                 { label: "Trustpilot", key: "trustpilotLink", placeholder: "https://www.trustpilot.com/review/..." },
                 { label: "TripAdvisor", key: "tripadvisorLink", placeholder: "https://www.tripadvisor.co.uk/..." },
                 { label: "Checkatrade", key: "checkatradeLink", placeholder: "https://www.checkatrade.com/trades/..." },
                 { label: "MyBuilder", key: "mybuilderLink", placeholder: "https://www.mybuilder.com/..." },
-              ].map(({ label, key, placeholder, hint }) => (
+              ].map(({ label, key, placeholder }) => (
                 <div key={key} className="space-y-1.5">
                   <Label className="text-[12.5px]">{label}</Label>
                   <div className="flex gap-2">
@@ -486,7 +486,6 @@ export default function Settings() {
                       </Button>
                     )}
                   </div>
-                  {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
                 </div>
               ))}
             </CardContent>
