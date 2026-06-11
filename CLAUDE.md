@@ -366,8 +366,28 @@ Your job is to be the developer they would hire if they could afford a great one
 - If you see a DROP warning for columns you know should exist, cancel the migration and push schema.ts first
 
 **Pending:**
-- **Deploy and test**: User added `GOOGLE_PLACES_API_KEY` secret but has not yet redeployed with the external reviews build. Deploy and verify the full flow end to end.
 - **Facebook App Review**: `instagram_business_basic` resubmitted 2026-06-10 — waiting ~2 weeks.
 - **Landing page videos**: Hero and "How It Works" placeholders ready to swap in.
 - **Tracking pixel IDs**: Paste into Admin → Tracking once campaigns are set up.
 - **Write first blog post** to test the feature end to end.
+
+### Session — 2026-06-11 (ninety-first session)
+
+**Tasks completed:**
+- **Settings table permanently protected from Replit wipes** (`drizzle.config.ts`, `server/migrate.ts`): Replit's migration tool was recreating the entire settings table on every deploy, wiping all row data (review platform links, social settings, etc.). **Permanent fix**: Added `"!settings"` to `tablesFilter` in `drizzle.config.ts` — Replit is completely excluded from managing settings. Added comprehensive `ADD COLUMN IF NOT EXISTS` safety net in `migrate.ts` for all settings columns (`social_card_template`, `yell_link`, `notify_ratings`, `business_type`, `voice_note_url`, `video_message_url`, `elevenlabs_voice_id`). Committed as cdd886e, deployed as 6f32fd9.
+- **Google Place ID — native fetch for short link redirect** (`server/externalReviews.ts`): `g.page/r/XXXXX/review` links were not resolving — axios's redirect tracking was unreliable. Switched to native `fetch()` with `redirect: 'follow'`; `response.url` reliably returns the final URL. Also removed business name fallback — it was picking wrong franchise locations.
+- **Dashboard layout** (`client/src/pages/Dashboard.tsx`): Platform Reviews card moved to below Recent Activity. Total Reviews stat card added as 5th stat at top (scrolls to Platform Reviews on click). Refresh timeouts set to 5s and 12s.
+- **Settings API resilience** (`server/routes.ts`): Raw SQL fallback added to settings GET route — if drizzle ORM throws due to column mismatch, falls back to `SELECT *` directly.
+- **Removed social_card_show_logo** (`shared/schema.ts`): Logo should never appear on social cards — column was unused. Removed.
+
+**Root cause — settings wipes (crisis this session):**
+- Replit's tool performs full DROP TABLE + CREATE TABLE (not just DROP COLUMN) when it detects column mismatches between schema.ts and the live DB
+- This wiped ALL settings data (platform links, social config) 3+ times during the session
+- **Permanent rule**: Any new settings column must be (1) declared in `schema.ts` AND (2) added via `ALTER TABLE settings ADD COLUMN IF NOT EXISTS` in `migrate.ts`. The `tablesFilter` `"!settings"` means Replit never touches this table again.
+
+**Pending:**
+- **Re-enter review platform links**: All platform links were wiped during this session — need to be re-entered in Settings → Review Platforms after deploying.
+- **Verify reviews pulling**: After re-entering links, hit Refresh on Dashboard. Check Google, Checkatrade, Trustpilot etc.
+- **Facebook Connect button** on Social tab was reported not working — not yet investigated.
+- **Facebook App Review**: `instagram_business_basic` — waiting ~2 weeks.
+- **Landing page videos**, **tracking pixel IDs**, **first blog post** — all pending as before.
