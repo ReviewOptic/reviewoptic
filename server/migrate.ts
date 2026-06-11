@@ -554,8 +554,9 @@ export async function runMigrations() {
     await pool.query(`INSERT INTO platform_settings (id) VALUES ('singleton') ON CONFLICT (id) DO NOTHING`);
 
     // Ensure settings columns that Replit migration may have dropped are always present
-    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS social_card_template TEXT NOT NULL DEFAULT 'classic'`);
-    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS yell_link TEXT NOT NULL DEFAULT ''`);
+    // NOTE: social_card_template and yell_link are intentionally NOT here — they are managed
+    // by Replit's own migration (from schema.ts). Adding them here caused a cycle where
+    // Replit would keep wanting to drop them. Removing from here lets Replit own them.
     await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS notify_ratings BOOLEAN NOT NULL DEFAULT true`);
     await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS business_type TEXT NOT NULL DEFAULT ''`);
     await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS voice_note_url TEXT NOT NULL DEFAULT ''`);
