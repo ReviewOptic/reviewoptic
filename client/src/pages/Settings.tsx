@@ -126,7 +126,7 @@ export default function Settings() {
     socialPostEnabled: false,
     socialPostMessage: "⭐ We just received a {stars}★ review! Thank you {customer_name}!",
     socialCardTemplate: "classic",
-    socialCardShowLogo: true,
+    yellLink: "",
     country: "",
   });
   const formRef = useRef(form);
@@ -160,7 +160,7 @@ export default function Settings() {
         socialPostEnabled: settings.socialPostEnabled ?? false,
         socialPostMessage: settings.socialPostMessage || "⭐ We just received a {stars}★ review! Thank you {customer_name}!",
         socialCardTemplate: (settings as any).socialCardTemplate || "classic",
-        socialCardShowLogo: (settings as any).socialCardShowLogo ?? true,
+        yellLink: (settings as any).yellLink || "",
         country: settings.country || "",
       });
     }
@@ -469,6 +469,7 @@ export default function Settings() {
                 { label: "TripAdvisor", key: "tripadvisorLink", placeholder: "https://www.tripadvisor.co.uk/..." },
                 { label: "Checkatrade", key: "checkatradeLink", placeholder: "https://www.checkatrade.com/trades/..." },
                 { label: "MyBuilder", key: "mybuilderLink", placeholder: "https://www.mybuilder.com/..." },
+                { label: "Yell", key: "yellLink", placeholder: "https://www.yell.com/biz/..." },
               ].map(({ label, key, placeholder }) => (
                 <div key={key} className="space-y-1.5">
                   <Label className="text-[12.5px]">{label}</Label>
@@ -852,50 +853,38 @@ export default function Settings() {
                             borderTop: "#3b82f6",
                             isLight: true,
                           },
-                        ] as const).map(t => (
-                          <button
-                            key={t.key}
-                            type="button"
-                            onClick={() => setForm(f => ({ ...f, socialCardTemplate: t.key }))}
-                            className={`relative rounded-xl overflow-hidden border-2 transition-all ${form.socialCardTemplate === t.key ? "border-primary shadow-md scale-[1.02]" : "border-transparent hover:border-muted-foreground/30"}`}
-                            style={{ aspectRatio: "1/1" }}
-                          >
-                            {/* Mini card preview */}
-                            <div className="w-full h-full flex flex-col items-center justify-center gap-1 p-2" style={{ background: t.bg }}>
-                              {(t as any).borderTop && (
-                                <div className="absolute top-0 left-0 right-0 h-1" style={{ background: (t as any).borderTop }} />
-                              )}
-                              <div className="text-[13px] leading-none" style={{ color: t.starColor }}>★★★★★</div>
-                              <div className="text-[8px] font-bold leading-none" style={{ color: t.textColor }}>J. Smith</div>
-                              <div className="text-[6.5px] leading-none mt-0.5" style={{ color: t.subColor }}>Your Business</div>
-                              <div className="mt-1 px-2 py-0.5 rounded-full text-[5.5px] leading-none" style={{ background: t.badgeBg, color: (t as any).isLight ? "#94a3b8" : "rgba(255,255,255,0.7)" }}>
-                                Posted by ReviewOptic
+                        ] as const).map(t => {
+                          return (
+                            <button
+                              key={t.key}
+                              type="button"
+                              onClick={() => setForm(f => ({ ...f, socialCardTemplate: t.key }))}
+                              className={`relative rounded-xl overflow-hidden border-2 transition-all ${form.socialCardTemplate === t.key ? "border-primary shadow-md scale-[1.02]" : "border-transparent hover:border-muted-foreground/30"}`}
+                              style={{ aspectRatio: "1/1" }}
+                            >
+                              <div className="w-full h-full flex flex-col items-center justify-center gap-1 p-2" style={{ background: t.bg }}>
+                                {(t as any).borderTop && (
+                                  <div className="absolute top-0 left-0 right-0 h-1" style={{ background: (t as any).borderTop }} />
+                                )}
+                                <div className="text-[7px] italic leading-tight text-center px-1 mb-0.5" style={{ color: (t as any).isLight ? "#475569" : "rgba(255,255,255,0.85)" }}>"Great service, highly recommend!"</div>
+                                <div className="text-[13px] leading-none" style={{ color: t.starColor }}>★★★★★</div>
+                                <div className="text-[8px] font-bold leading-none" style={{ color: t.textColor }}>J. S.</div>
+                                <div className="text-[6.5px] leading-none mt-0.5" style={{ color: t.subColor }}>Your Business</div>
                               </div>
-                            </div>
-                            <div className={`absolute bottom-0 left-0 right-0 py-1 text-center text-[10px] font-medium ${(t as any).isLight ? "bg-white/80 text-slate-700" : "bg-black/30 text-white"}`}>
-                              {t.label}
-                            </div>
-                          </button>
-                        ))}
+                              {/* ReviewOptic badge pinned to bottom */}
+                              <div className="absolute bottom-7 left-0 right-0 flex justify-center">
+                                <div className="px-2 py-0.5 rounded-full text-[5.5px] leading-none" style={{ background: t.badgeBg, color: (t as any).isLight ? "#94a3b8" : "rgba(255,255,255,0.7)" }}>
+                                  Posted by ReviewOptic
+                                </div>
+                              </div>
+                              <div className={`absolute bottom-0 left-0 right-0 py-1 text-center text-[10px] font-medium ${(t as any).isLight ? "bg-white/80 text-slate-700" : "bg-black/30 text-white"}`}>
+                                {t.label}
+                              </div>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
-
-                    {/* Logo toggle */}
-                    {form.logoUrl && (
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <img src={form.logoUrl} alt="Logo" className="w-8 h-8 rounded object-contain bg-muted" />
-                          <div>
-                            <p className="text-[13.5px] font-medium">Show your logo on the card</p>
-                            <p className="text-[12px] text-muted-foreground">Your business logo will appear at the top of the post image</p>
-                          </div>
-                        </div>
-                        <Switch
-                          checked={form.socialCardShowLogo}
-                          onCheckedChange={v => setForm(f => ({ ...f, socialCardShowLogo: v }))}
-                        />
-                      </div>
-                    )}
                   </>
                 )}
               </CardContent>

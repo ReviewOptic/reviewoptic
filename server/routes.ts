@@ -151,78 +151,18 @@ async function postReviewToSocial(review: Review, customer: Customer, settings: 
   const caption = settings.socialPostMessage
     .replace("{stars}", String(stars))
     .replace("{customer_name}", initials);
-
-  // Generate review card image (for Facebook photo post + Instagram)
-  let imageUrl = "";
-  if (isCloudinaryConfigured()) {
-    try {
-      const cardBuffer = await generateReviewCard(
-        stars,
-        initials,
-        settings.businessName,
-        (settings as any).socialCardTemplate || "classic",
-        settings.logoUrl || "",
-        (settings as any).socialCardShowLogo ?? true
-      );
-      imageUrl = await uploadBufferToCloudinary(cardBuffer, "review-cards");
-    } catch (err) {
-      console.error("Review card generation error:", err);
-    }
-  }
-
-  if (settings.facebookPageAccessToken && settings.facebookPageId) {
-    try {
-      if (imageUrl) {
-        // Post as photo (looks better, also required for Instagram cross-post)
-        await fetch(`https://graph.facebook.com/v18.0/${settings.facebookPageId}/photos`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: imageUrl, caption, access_token: settings.facebookPageAccessToken }),
-        });
-      } else {
-        // Fallback to text post if no image
-        await fetch(`https://graph.facebook.com/v18.0/${settings.facebookPageId}/feed`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: caption, access_token: settings.facebookPageAccessToken }),
-        });
-      }
-    } catch (err) {
-      console.error("Facebook post error:", err);
-    }
-  }
-
-  // Instagram — requires image
-  if (imageUrl && settings.facebookPageAccessToken && settings.instagramBusinessAccountId) {
-    try {
-      // Step 1: create media container
-      const containerRes = await fetch(`https://graph.facebook.com/v18.0/${settings.instagramBusinessAccountId}/media`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          image_url: imageUrl,
-          caption,
-          access_token: settings.facebookPageAccessToken,
-        }),
-      });
-      const container = await containerRes.json() as any;
-      if (container.id) {
-        // Step 2: publish container
-        const publishRes = await fetch(`https://graph.facebook.com/v18.0/${settings.instagramBusinessAccountId}/media_publish`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ creation_id: container.id, access_token: settings.facebookPageAccessToken }),
-        });
-        const publishData = await publishRes.json() as any;
-        if (publishData.error) console.error("Instagram publish error:", JSON.stringify(publishData.error));
-      } else {
-        console.error("Instagram container error:", JSON.stringify(container));
-      }
-    } catch (err) {
-      console.error("Instagram post error:", err);
-    }
-  }
-
+  if (!settings.facebookPageAccessToken || !settings.facebookPageId) return;
+  const { postCardToSocial } = await import("./social");
+  await postCardToSocial({
+    stars,
+    customerInitials: initials,
+    businessName: settings.businessName,
+    cardTemplate: (settings as any).socialCardTemplate || "classic",
+    caption,
+    facebookPageAccessToken: settings.facebookPageAccessToken,
+    facebookPageId: settings.facebookPageId,
+    instagramBusinessAccountId: settings.instagramBusinessAccountId || undefined,
+  });
 }
 
 const logoUpload = multer({
@@ -2215,6 +2155,22 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(await storage.getReviews(req.session.accountId!));
   });
 
+  // External reviews — fetched from public platforms (Google, Checkatrade etc.)
+  app.get("/api/external-reviews", requireAuth, async (req, res) => {
+    const { rows } = await pool.query(
+      `SELECT * FROM external_reviews WHERE account_id = $1 ORDER BY review_date DESC NULLS LAST, created_at DESC LIMIT 50`,
+      [req.session.accountId]
+    );
+    res.json(rows);
+  });
+
+  // Manually trigger a refresh for the current account
+  app.post("/api/external-reviews/refresh", requireAuth, async (req, res) => {
+    const { pollExternalReviewsForAccount } = await import("./externalReviews");
+    pollExternalReviewsForAccount(req.session.accountId!).catch(console.error);
+    res.json({ message: "Refresh started" });
+  });
+
   // Private Feedback (GET/PATCH — protected; POST is public above)
   app.get("/api/private-feedback", requireAuth, async (req, res) => {
     const rows = await pool.query(`
@@ -2989,6 +2945,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       platformClicks = pcRows.map(r => ({ platform: r.platform, count: r.count }));
     } catch { /* ignore */ }
 
+    // Review sources — where external reviews have come from (all time)
+    let reviewSources: { platform: string; count: number }[] = [];
+    try {
+      const { rows: srcRows } = await pool.query(`
+        SELECT platform, COUNT(*)::int as count
+        FROM external_reviews WHERE account_id = $1
+        GROUP BY platform ORDER BY count DESC
+      `, [accountId]);
+      reviewSources = srcRows.map(r => ({ platform: r.platform, count: r.count }));
+    } catch { /* ignore */ }
+
     res.json({
       daily: Object.values(dailyData),
       dailyByChannel: Object.values(channelDailyData),
@@ -3008,6 +2975,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       platformClicks,
       pipelineData,
       contentTypeData,
+      reviewSources,
     });
   });
 

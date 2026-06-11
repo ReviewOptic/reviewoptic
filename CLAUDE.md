@@ -332,3 +332,42 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Facebook App Review**: `instagram_business_basic` resubmitted 2026-06-10 — waiting ~2 weeks.
 - **Landing page videos**: Hero and "How It Works" placeholders ready to swap in.
 - **Tracking pixel IDs**: Paste into Admin → Tracking once campaigns are live.
+
+### Session — 2026-06-11 (ninetieth session)
+
+**Tasks completed:**
+- **Social media review card templates** (`server/reviewCard.ts`, `client/src/pages/Settings.tsx`, `shared/schema.ts`, `server/migrate.ts`): Added 4 visual card templates (Classic, Dark, Warm, Clean) generated server-side as 1080×1080 PNG images using Sharp + SVG. Template picker in Settings → Social tab with mini previews. Cards show review text (italic, quote marks), stars, customer initials (J. S. format for privacy), platform source badge, and "Posted by ReviewOptic" pinned to bottom. Logo option removed — not needed when reviews come from public platforms.
+- **External reviews feature** (`server/externalReviews.ts` NEW, `server/social.ts` NEW, `server/routes.ts`, `server/index.ts`, `client/src/pages/Dashboard.tsx`, `client/src/pages/Analytics.tsx`, `shared/schema.ts`, `server/migrate.ts`):
+  - New `external_reviews` DB table stores reviews pulled from all public platforms
+  - Pulls reviews from: Google (Places API), Checkatrade, Trustpilot, TripAdvisor, MyBuilder, Yell — using each account's own saved platform links from Settings → Review Platforms
+  - Auto-posts to Facebook/Instagram when a new 4★+ review is detected — fully automated
+  - Cross-platform dedup: same review text is only posted to social once (first 100 chars comparison)
+  - 6-hour polling, triggered on server startup via `setInterval` in `server/index.ts`
+  - Dashboard "Platform Reviews" card: platform badge (colour-coded), stars, review text, author, relative date, green "Posted ✓" indicator, manual Refresh button
+  - Analytics "Reviews by Platform" horizontal bar chart showing review counts per source
+  - Yell added as a review platform in Settings → Review Platforms
+- **Google Place ID resolution** (`server/externalReviews.ts`): `resolveGooglePlaceId()` handles all Google URL formats users might paste:
+  1. Direct `ChIJ...` extraction from `?placeid=` param or `/maps/place/...!1s...` data
+  2. Follows redirects on `g.page`, `goo.gl`, `maps.app` short links, scans final URL and page HTML for `ChIJ...`
+  3. Falls back to `findplacefromtext` Places API search using the account's business name
+  - Supports `GOOGLE_PLACES_API_KEY` environment variable
+- **Social posting extracted** (`server/social.ts`): `postCardToSocial()` and `hasBeenPostedAlready()` moved to own file to avoid circular imports between `routes.ts` and `externalReviews.ts`
+
+**Architecture notes:**
+- `external_reviews` uses `UNIQUE INDEX (account_id, platform, external_id)` for dedup — `external_id` is a djb2 hash of platform + account + author + first 80 chars of text
+- `saveIfNew()` uses INSERT ON CONFLICT DO NOTHING then checks created_at < 10 min to confirm newly inserted
+- `hasBeenPostedAlready()` checks first 100 chars of review text across all posted reviews for the account
+- `pollExternalReviewsForAccount()` fetches all platforms in parallel (Promise.all), then saves + auto-posts sequentially
+- Every table added to migrate.ts is also declared in schema.ts to prevent Replit deploy warnings
+
+**IMPORTANT — schema.ts / migrate.ts sync lesson (seen again this session):**
+- After pushing new columns/tables via migrate.ts, Replit will show DROP warnings for those columns if schema.ts hasn't been updated yet
+- Always commit and push schema.ts changes BEFORE running any Replit migration — otherwise Replit drops columns it sees in the DB but not in schema.ts
+- If you see a DROP warning for columns you know should exist, cancel the migration and push schema.ts first
+
+**Pending:**
+- **Deploy and test**: User added `GOOGLE_PLACES_API_KEY` secret but has not yet redeployed with the external reviews build. Deploy and verify the full flow end to end.
+- **Facebook App Review**: `instagram_business_basic` resubmitted 2026-06-10 — waiting ~2 weeks.
+- **Landing page videos**: Hero and "How It Works" placeholders ready to swap in.
+- **Tracking pixel IDs**: Paste into Admin → Tracking once campaigns are set up.
+- **Write first blog post** to test the feature end to end.

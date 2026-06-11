@@ -9,54 +9,69 @@ function escapeXml(str: string): string {
     .replace(/'/g, "&apos;");
 }
 
-function firstNameLastInitial(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return escapeXml(parts[0]);
-  return escapeXml(`${parts[0]} ${parts[parts.length - 1][0]}.`);
+function toInitials(name: string): string {
+  return escapeXml(
+    name.trim().split(/\s+/).map(p => p[0]?.toUpperCase() + ".").join(" ")
+  );
 }
 
-async function fetchLogoBase64(url: string): Promise<string | null> {
-  try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-    if (!res.ok) return null;
-    const buf = Buffer.from(await res.arrayBuffer());
-    const mime = res.headers.get("content-type") || "image/png";
-    return `data:${mime};base64,${buf.toString("base64")}`;
-  } catch {
-    return null;
+// Wrap review text into lines for SVG (no native wrapping in SVG)
+function wrapText(text: string, maxCharsPerLine: number, maxLines: number): string[] {
+  const words = text.split(" ");
+  const lines: string[] = [];
+  let current = "";
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (candidate.length <= maxCharsPerLine) {
+      current = candidate;
+    } else {
+      if (current) lines.push(current);
+      current = word;
+      if (lines.length >= maxLines) break;
+    }
   }
+  if (current && lines.length < maxLines) lines.push(current);
+  // Truncate if text was cut off
+  if (lines.length === maxLines) {
+    const joined = lines.join(" ");
+    if (text.trim().length > joined.length + 1) {
+      const last = lines[maxLines - 1];
+      lines[maxLines - 1] = last.slice(0, maxCharsPerLine - 3).trimEnd() + "...";
+    }
+  }
+  return lines;
 }
 
-function buildLogoSvg(logoDataUri: string | null, showLogo: boolean, yOffset: number): string {
-  if (!showLogo || !logoDataUri) return "";
-  return `
-  <!-- Logo container -->
-  <rect x="465" y="${yOffset}" width="150" height="150" rx="20" fill="rgba(255,255,255,0.15)"/>
-  <image href="${logoDataUri}" x="475" y="${yOffset + 10}" width="130" height="130" preserveAspectRatio="xMidYMid meet" clip-path="inset(0 round 14px)"/>`;
-}
+const PLATFORM_LABELS: Record<string, string> = {
+  google: "Google",
+  checkatrade: "Checkatrade",
+  trustpilot: "Trustpilot",
+  tripadvisor: "TripAdvisor",
+  mybuilder: "MyBuilder",
+  yell: "Yell",
+  reviewoptic: "ReviewOptic",
+};
 
-function buildLogoSvgDark(logoDataUri: string | null, showLogo: boolean, yOffset: number): string {
-  if (!showLogo || !logoDataUri) return "";
-  return `
-  <rect x="465" y="${yOffset}" width="150" height="150" rx="20" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
-  <image href="${logoDataUri}" x="475" y="${yOffset + 10}" width="130" height="130" preserveAspectRatio="xMidYMid meet"/>`;
-}
+// ── Template builders ───────────────────────────────────────────────────────
 
-function buildLogoSvgClean(logoDataUri: string | null, showLogo: boolean, yOffset: number): string {
-  if (!showLogo || !logoDataUri) return "";
-  return `
-  <rect x="465" y="${yOffset}" width="150" height="150" rx="20" fill="#f1f5f9"/>
-  <image href="${logoDataUri}" x="475" y="${yOffset + 10}" width="130" height="130" preserveAspectRatio="xMidYMid meet"/>`;
-}
-
-function classicTemplate(stars: number, displayName: string, biz: string, logoSvg: string, hasLogo: boolean): string {
+function classicTemplate(stars: number, displayName: string, biz: string, lines: string[], platformLabel: string): string {
   const starsStr = "★".repeat(stars) + "☆".repeat(5 - stars);
-  const starsY = hasLogo ? 480 : 380;
-  const ratingY = starsY + 90;
-  const nameY = ratingY + 120;
+  const hasQuote = lines.length > 0;
+
+  const quoteStartY = hasQuote ? 260 : 0;
+  const lineSpacing = 62;
+  const quoteBlockH = hasQuote ? lines.length * lineSpacing + 60 : 0;
+  const starsY = hasQuote ? quoteStartY + quoteBlockH + 60 : 400;
+  const nameY = starsY + 90;
   const dividerY = nameY + 38;
-  const bizY = dividerY + 70;
-  const badgeY = bizY + 100;
+  const bizY = dividerY + 65;
+
+  const quoteLines = hasQuote ? lines.map((l, i) =>
+    `<text x="540" y="${quoteStartY + 40 + i * lineSpacing}" font-size="42" text-anchor="middle" font-family="sans-serif" fill="rgba(255,255,255,0.92)" font-style="italic">${escapeXml(l)}</text>`
+  ).join("\n  ") : "";
+
+  const openQuote = hasQuote ? `<text x="130" y="${quoteStartY + 10}" font-size="120" font-family="Georgia, serif" fill="rgba(255,255,255,0.18)" text-anchor="middle">“</text>` : "";
+  const closeQuote = hasQuote ? `<text x="950" y="${quoteStartY + quoteBlockH}" font-size="120" font-family="Georgia, serif" fill="rgba(255,255,255,0.18)" text-anchor="middle">”</text>` : "";
 
   return `<svg width="1080" height="1080" viewBox="0 0 1080 1080" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -68,26 +83,36 @@ function classicTemplate(stars: number, displayName: string, biz: string, logoSv
   <rect width="1080" height="1080" fill="url(#bg)"/>
   <circle cx="1020" cy="60" r="320" fill="rgba(255,255,255,0.04)"/>
   <circle cx="60" cy="1020" r="240" fill="rgba(255,255,255,0.04)"/>
-  <rect x="80" y="80" width="920" height="920" rx="48" fill="rgba(255,255,255,0.06)"/>
-  ${hasLogo ? buildLogoSvg(logoSvg, true, 200) : ""}
-  <text x="540" y="${starsY}" font-size="110" text-anchor="middle" font-family="sans-serif" fill="#fbbf24" letter-spacing="8">${starsStr}</text>
-  <text x="540" y="${ratingY}" font-size="36" text-anchor="middle" font-family="sans-serif" fill="#93c5fd">${stars}-star rating</text>
-  <text x="540" y="${nameY}" font-size="66" text-anchor="middle" font-family="sans-serif" fill="#ffffff" font-weight="700">${displayName}</text>
-  <rect x="420" y="${dividerY}" width="240" height="3" rx="2" fill="rgba(255,255,255,0.2)"/>
-  <text x="540" y="${bizY}" font-size="42" text-anchor="middle" font-family="sans-serif" fill="#bfdbfe" font-weight="500">${biz}</text>
-  <rect x="350" y="${badgeY}" width="380" height="52" rx="26" fill="rgba(255,255,255,0.12)"/>
-  <text x="540" y="${badgeY + 34}" font-size="24" text-anchor="middle" font-family="sans-serif" fill="rgba(255,255,255,0.7)">Posted by ReviewOptic</text>
+  <rect x="60" y="60" width="960" height="960" rx="48" fill="rgba(255,255,255,0.05)"/>
+  ${openQuote}
+  ${quoteLines}
+  ${closeQuote}
+  <text x="540" y="${starsY}" font-size="100" text-anchor="middle" font-family="sans-serif" fill="#fbbf24" letter-spacing="6">${starsStr}</text>
+  <text x="540" y="${nameY}" font-size="52" text-anchor="middle" font-family="sans-serif" fill="rgba(255,255,255,0.85)">${displayName}</text>
+  <rect x="440" y="${dividerY}" width="200" height="2" rx="1" fill="rgba(255,255,255,0.2)"/>
+  <text x="540" y="${bizY}" font-size="38" text-anchor="middle" font-family="sans-serif" fill="#bfdbfe" font-weight="500">${biz}</text>
+  <rect x="320" y="982" width="440" height="52" rx="26" fill="rgba(255,255,255,0.12)"/>
+  <text x="540" y="1016" font-size="22" text-anchor="middle" font-family="sans-serif" fill="rgba(255,255,255,0.65)">${platformLabel ? `From ${escapeXml(platformLabel)} · ` : ""}Posted by ReviewOptic</text>
 </svg>`;
 }
 
-function darkTemplate(stars: number, displayName: string, biz: string, logoSvg: string, hasLogo: boolean): string {
+function darkTemplate(stars: number, displayName: string, biz: string, lines: string[], platformLabel: string): string {
   const starsStr = "★".repeat(stars) + "☆".repeat(5 - stars);
-  const starsY = hasLogo ? 480 : 380;
-  const ratingY = starsY + 90;
-  const nameY = ratingY + 120;
+  const hasQuote = lines.length > 0;
+  const quoteStartY = hasQuote ? 260 : 0;
+  const lineSpacing = 62;
+  const quoteBlockH = hasQuote ? lines.length * lineSpacing + 60 : 0;
+  const starsY = hasQuote ? quoteStartY + quoteBlockH + 60 : 400;
+  const nameY = starsY + 90;
   const dividerY = nameY + 38;
-  const bizY = dividerY + 70;
-  const badgeY = bizY + 100;
+  const bizY = dividerY + 65;
+
+  const quoteLines = hasQuote ? lines.map((l, i) =>
+    `<text x="540" y="${quoteStartY + 40 + i * lineSpacing}" font-size="42" text-anchor="middle" font-family="sans-serif" fill="rgba(255,255,255,0.9)" font-style="italic">${escapeXml(l)}</text>`
+  ).join("\n  ") : "";
+
+  const openQuote = hasQuote ? `<text x="130" y="${quoteStartY + 10}" font-size="120" font-family="Georgia, serif" fill="rgba(245,158,11,0.25)" text-anchor="middle">“</text>` : "";
+  const closeQuote = hasQuote ? `<text x="950" y="${quoteStartY + quoteBlockH}" font-size="120" font-family="Georgia, serif" fill="rgba(245,158,11,0.25)" text-anchor="middle">”</text>` : "";
 
   return `<svg width="1080" height="1080" viewBox="0 0 1080 1080" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -97,29 +122,38 @@ function darkTemplate(stars: number, displayName: string, biz: string, logoSvg: 
     </linearGradient>
   </defs>
   <rect width="1080" height="1080" fill="url(#bg)"/>
-  <!-- Gold accent lines -->
   <rect x="0" y="0" width="1080" height="6" fill="#f59e0b"/>
   <rect x="0" y="1074" width="1080" height="6" fill="#f59e0b"/>
-  <rect x="80" y="80" width="920" height="920" rx="48" fill="rgba(255,255,255,0.03)" stroke="rgba(245,158,11,0.25)" stroke-width="1"/>
-  ${hasLogo ? buildLogoSvgDark(logoSvg, true, 200) : ""}
-  <text x="540" y="${starsY}" font-size="110" text-anchor="middle" font-family="sans-serif" fill="#f59e0b" letter-spacing="8">${starsStr}</text>
-  <text x="540" y="${ratingY}" font-size="36" text-anchor="middle" font-family="sans-serif" fill="rgba(245,158,11,0.7)">${stars}-star rating</text>
-  <text x="540" y="${nameY}" font-size="66" text-anchor="middle" font-family="sans-serif" fill="#ffffff" font-weight="700">${displayName}</text>
-  <rect x="420" y="${dividerY}" width="240" height="2" rx="1" fill="rgba(245,158,11,0.3)"/>
-  <text x="540" y="${bizY}" font-size="42" text-anchor="middle" font-family="sans-serif" fill="rgba(255,255,255,0.6)" font-weight="400">${biz}</text>
-  <rect x="350" y="${badgeY}" width="380" height="52" rx="26" fill="rgba(245,158,11,0.15)" stroke="rgba(245,158,11,0.3)" stroke-width="1"/>
-  <text x="540" y="${badgeY + 34}" font-size="24" text-anchor="middle" font-family="sans-serif" fill="rgba(245,158,11,0.8)">Posted by ReviewOptic</text>
+  <rect x="60" y="60" width="960" height="960" rx="48" fill="rgba(255,255,255,0.02)" stroke="rgba(245,158,11,0.2)" stroke-width="1"/>
+  ${openQuote}
+  ${quoteLines}
+  ${closeQuote}
+  <text x="540" y="${starsY}" font-size="100" text-anchor="middle" font-family="sans-serif" fill="#f59e0b" letter-spacing="6">${starsStr}</text>
+  <text x="540" y="${nameY}" font-size="52" text-anchor="middle" font-family="sans-serif" fill="rgba(255,255,255,0.8)">${displayName}</text>
+  <rect x="440" y="${dividerY}" width="200" height="2" rx="1" fill="rgba(245,158,11,0.3)"/>
+  <text x="540" y="${bizY}" font-size="38" text-anchor="middle" font-family="sans-serif" fill="rgba(255,255,255,0.5)">${biz}</text>
+  <rect x="320" y="982" width="440" height="52" rx="26" fill="rgba(245,158,11,0.15)" stroke="rgba(245,158,11,0.3)" stroke-width="1"/>
+  <text x="540" y="1016" font-size="22" text-anchor="middle" font-family="sans-serif" fill="rgba(245,158,11,0.75)">${platformLabel ? `From ${escapeXml(platformLabel)} · ` : ""}Posted by ReviewOptic</text>
 </svg>`;
 }
 
-function warmTemplate(stars: number, displayName: string, biz: string, logoSvg: string, hasLogo: boolean): string {
+function warmTemplate(stars: number, displayName: string, biz: string, lines: string[], platformLabel: string): string {
   const starsStr = "★".repeat(stars) + "☆".repeat(5 - stars);
-  const starsY = hasLogo ? 480 : 380;
-  const ratingY = starsY + 90;
-  const nameY = ratingY + 120;
+  const hasQuote = lines.length > 0;
+  const quoteStartY = hasQuote ? 260 : 0;
+  const lineSpacing = 62;
+  const quoteBlockH = hasQuote ? lines.length * lineSpacing + 60 : 0;
+  const starsY = hasQuote ? quoteStartY + quoteBlockH + 60 : 400;
+  const nameY = starsY + 90;
   const dividerY = nameY + 38;
-  const bizY = dividerY + 70;
-  const badgeY = bizY + 100;
+  const bizY = dividerY + 65;
+
+  const quoteLines = hasQuote ? lines.map((l, i) =>
+    `<text x="540" y="${quoteStartY + 40 + i * lineSpacing}" font-size="42" text-anchor="middle" font-family="sans-serif" fill="rgba(255,255,255,0.95)" font-style="italic">${escapeXml(l)}</text>`
+  ).join("\n  ") : "";
+
+  const openQuote = hasQuote ? `<text x="130" y="${quoteStartY + 10}" font-size="120" font-family="Georgia, serif" fill="rgba(255,255,255,0.2)" text-anchor="middle">“</text>` : "";
+  const closeQuote = hasQuote ? `<text x="950" y="${quoteStartY + quoteBlockH}" font-size="120" font-family="Georgia, serif" fill="rgba(255,255,255,0.2)" text-anchor="middle">”</text>` : "";
 
   return `<svg width="1080" height="1080" viewBox="0 0 1080 1080" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -132,42 +166,51 @@ function warmTemplate(stars: number, displayName: string, biz: string, logoSvg: 
   <rect width="1080" height="1080" fill="url(#bg)"/>
   <circle cx="1060" cy="100" r="300" fill="rgba(255,255,255,0.06)"/>
   <circle cx="20" cy="980" r="280" fill="rgba(0,0,0,0.08)"/>
-  <rect x="80" y="80" width="920" height="920" rx="48" fill="rgba(255,255,255,0.08)"/>
-  ${hasLogo ? buildLogoSvg(logoSvg, true, 200) : ""}
-  <text x="540" y="${starsY}" font-size="110" text-anchor="middle" font-family="sans-serif" fill="#fef3c7" letter-spacing="8">${starsStr}</text>
-  <text x="540" y="${ratingY}" font-size="36" text-anchor="middle" font-family="sans-serif" fill="rgba(254,243,199,0.8)">${stars}-star rating</text>
-  <text x="540" y="${nameY}" font-size="66" text-anchor="middle" font-family="sans-serif" fill="#ffffff" font-weight="700">${displayName}</text>
-  <rect x="420" y="${dividerY}" width="240" height="3" rx="2" fill="rgba(255,255,255,0.3)"/>
-  <text x="540" y="${bizY}" font-size="42" text-anchor="middle" font-family="sans-serif" fill="rgba(255,255,255,0.85)" font-weight="500">${biz}</text>
-  <rect x="350" y="${badgeY}" width="380" height="52" rx="26" fill="rgba(0,0,0,0.2)"/>
-  <text x="540" y="${badgeY + 34}" font-size="24" text-anchor="middle" font-family="sans-serif" fill="rgba(255,255,255,0.8)">Posted by ReviewOptic</text>
+  <rect x="60" y="60" width="960" height="960" rx="48" fill="rgba(255,255,255,0.07)"/>
+  ${openQuote}
+  ${quoteLines}
+  ${closeQuote}
+  <text x="540" y="${starsY}" font-size="100" text-anchor="middle" font-family="sans-serif" fill="#fef3c7" letter-spacing="6">${starsStr}</text>
+  <text x="540" y="${nameY}" font-size="52" text-anchor="middle" font-family="sans-serif" fill="rgba(255,255,255,0.9)">${displayName}</text>
+  <rect x="440" y="${dividerY}" width="200" height="2" rx="1" fill="rgba(255,255,255,0.3)"/>
+  <text x="540" y="${bizY}" font-size="38" text-anchor="middle" font-family="sans-serif" fill="rgba(255,255,255,0.8)">${biz}</text>
+  <rect x="320" y="982" width="440" height="52" rx="26" fill="rgba(0,0,0,0.2)"/>
+  <text x="540" y="1016" font-size="22" text-anchor="middle" font-family="sans-serif" fill="rgba(255,255,255,0.75)">${platformLabel ? `From ${escapeXml(platformLabel)} · ` : ""}Posted by ReviewOptic</text>
 </svg>`;
 }
 
-function cleanTemplate(stars: number, displayName: string, biz: string, logoSvg: string, hasLogo: boolean): string {
+function cleanTemplate(stars: number, displayName: string, biz: string, lines: string[], platformLabel: string): string {
   const starsStr = "★".repeat(stars) + "☆".repeat(5 - stars);
-  const starsY = hasLogo ? 480 : 380;
-  const ratingY = starsY + 90;
-  const nameY = ratingY + 120;
+  const hasQuote = lines.length > 0;
+  const quoteStartY = hasQuote ? 260 : 0;
+  const lineSpacing = 62;
+  const quoteBlockH = hasQuote ? lines.length * lineSpacing + 60 : 0;
+  const starsY = hasQuote ? quoteStartY + quoteBlockH + 60 : 400;
+  const nameY = starsY + 90;
   const dividerY = nameY + 38;
-  const bizY = dividerY + 70;
-  const badgeY = bizY + 100;
+  const bizY = dividerY + 65;
+
+  const quoteLines = hasQuote ? lines.map((l, i) =>
+    `<text x="540" y="${quoteStartY + 40 + i * lineSpacing}" font-size="42" text-anchor="middle" font-family="sans-serif" fill="#1e293b" font-style="italic">${escapeXml(l)}</text>`
+  ).join("\n  ") : "";
+
+  const openQuote = hasQuote ? `<text x="130" y="${quoteStartY + 10}" font-size="120" font-family="Georgia, serif" fill="rgba(59,130,246,0.15)" text-anchor="middle">“</text>` : "";
+  const closeQuote = hasQuote ? `<text x="950" y="${quoteStartY + quoteBlockH}" font-size="120" font-family="Georgia, serif" fill="rgba(59,130,246,0.15)" text-anchor="middle">”</text>` : "";
 
   return `<svg width="1080" height="1080" viewBox="0 0 1080 1080" xmlns="http://www.w3.org/2000/svg">
   <rect width="1080" height="1080" fill="#f8fafc"/>
-  <!-- Subtle top bar -->
   <rect x="0" y="0" width="1080" height="8" fill="#3b82f6"/>
-  <!-- Card shadow illusion -->
-  <rect x="100" y="104" width="880" height="880" rx="44" fill="rgba(0,0,0,0.04)"/>
-  <rect x="90" y="90" width="900" height="900" rx="44" fill="#ffffff"/>
-  ${hasLogo ? buildLogoSvgClean(logoSvg, true, 200) : ""}
-  <text x="540" y="${starsY}" font-size="110" text-anchor="middle" font-family="sans-serif" fill="#f59e0b" letter-spacing="8">${starsStr}</text>
-  <text x="540" y="${ratingY}" font-size="36" text-anchor="middle" font-family="sans-serif" fill="#64748b">${stars}-star rating</text>
-  <text x="540" y="${nameY}" font-size="66" text-anchor="middle" font-family="sans-serif" fill="#0f172a" font-weight="700">${displayName}</text>
-  <rect x="420" y="${dividerY}" width="240" height="2" rx="1" fill="#e2e8f0"/>
-  <text x="540" y="${bizY}" font-size="42" text-anchor="middle" font-family="sans-serif" fill="#475569" font-weight="500">${biz}</text>
-  <rect x="350" y="${badgeY}" width="380" height="52" rx="26" fill="#f1f5f9"/>
-  <text x="540" y="${badgeY + 34}" font-size="24" text-anchor="middle" font-family="sans-serif" fill="#94a3b8">Posted by ReviewOptic</text>
+  <rect x="80" y="84" width="920" height="920" rx="44" fill="rgba(0,0,0,0.03)"/>
+  <rect x="70" y="70" width="940" height="940" rx="44" fill="#ffffff"/>
+  ${openQuote}
+  ${quoteLines}
+  ${closeQuote}
+  <text x="540" y="${starsY}" font-size="100" text-anchor="middle" font-family="sans-serif" fill="#f59e0b" letter-spacing="6">${starsStr}</text>
+  <text x="540" y="${nameY}" font-size="52" text-anchor="middle" font-family="sans-serif" fill="#334155">${displayName}</text>
+  <rect x="440" y="${dividerY}" width="200" height="2" rx="1" fill="#e2e8f0"/>
+  <text x="540" y="${bizY}" font-size="38" text-anchor="middle" font-family="sans-serif" fill="#64748b">${biz}</text>
+  <rect x="320" y="982" width="440" height="52" rx="26" fill="#f1f5f9"/>
+  <text x="540" y="1016" font-size="22" text-anchor="middle" font-family="sans-serif" fill="#94a3b8">${platformLabel ? `From ${escapeXml(platformLabel)} · ` : ""}Posted by ReviewOptic</text>
 </svg>`;
 }
 
@@ -176,32 +219,23 @@ export async function generateReviewCard(
   customerName: string,
   businessName: string,
   template: string = "classic",
-  logoUrl: string = "",
-  showLogo: boolean = false
+  reviewText: string = "",
+  platform: string = ""
 ): Promise<Buffer> {
   const starsFilled = Math.min(5, Math.max(1, Math.round(stars)));
-  const displayName = firstNameLastInitial(customerName);
+  const displayName = toInitials(customerName);
   const biz = escapeXml(businessName);
+  const platformLabel = PLATFORM_LABELS[platform.toLowerCase()] || platform;
 
-  let logoDataUri: string | null = null;
-  if (showLogo && logoUrl) {
-    logoDataUri = await fetchLogoBase64(logoUrl);
-  }
-  const hasLogo = !!(showLogo && logoDataUri);
+  // Wrap review text into max 3 lines of ~36 chars each
+  const lines = reviewText.trim() ? wrapText(reviewText.trim(), 36, 3) : [];
 
   let svg: string;
   switch (template) {
-    case "dark":
-      svg = darkTemplate(starsFilled, displayName, biz, logoDataUri ?? "", hasLogo);
-      break;
-    case "warm":
-      svg = warmTemplate(starsFilled, displayName, biz, logoDataUri ?? "", hasLogo);
-      break;
-    case "clean":
-      svg = cleanTemplate(starsFilled, displayName, biz, logoDataUri ?? "", hasLogo);
-      break;
-    default:
-      svg = classicTemplate(starsFilled, displayName, biz, logoDataUri ?? "", hasLogo);
+    case "dark":  svg = darkTemplate(starsFilled, displayName, biz, lines, platformLabel); break;
+    case "warm":  svg = warmTemplate(starsFilled, displayName, biz, lines, platformLabel); break;
+    case "clean": svg = cleanTemplate(starsFilled, displayName, biz, lines, platformLabel); break;
+    default:      svg = classicTemplate(starsFilled, displayName, biz, lines, platformLabel);
   }
 
   return sharp(Buffer.from(svg)).png().toBuffer();

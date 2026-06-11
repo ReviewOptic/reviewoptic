@@ -104,6 +104,7 @@ export const settings = pgTable("settings", {
   tripadvisorLink: text("tripadvisor_link").notNull().default(""),
   checkatradeLink: text("checkatrade_link").notNull().default(""),
   mybuilderLink: text("mybuilder_link").notNull().default(""),
+  yellLink: text("yell_link").notNull().default(""),
   defaultChannel: text("default_channel").notNull().default("email"),
   followUpEnabled: boolean("follow_up_enabled").notNull().default(true),
   followUp1Days: integer("follow_up_1_days").notNull().default(3),
@@ -137,6 +138,21 @@ export const settings = pgTable("settings", {
   notifyRatings: boolean("notify_ratings").notNull().default(true),
   businessType: text("business_type").notNull().default(""),
 });
+
+export const externalReviews = pgTable("external_reviews", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  accountId: varchar("account_id").notNull(),
+  platform: text("platform").notNull(),
+  externalId: text("external_id").notNull().default(""),
+  authorName: text("author_name").notNull().default(""),
+  rating: integer("rating").notNull(),
+  reviewText: text("review_text").notNull().default(""),
+  reviewDate: timestamp("review_date"),
+  postedToSocial: boolean("posted_to_social").notNull().default(false),
+  postedAt: timestamp("posted_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+export type ExternalReview = typeof externalReviews.$inferSelect;
 
 export const insertCustomerSchema = createInsertSchema(customers).omit({ createdAt: true });
 export const insertReviewRequestSchema = createInsertSchema(reviewRequests).omit({ createdAt: true });
