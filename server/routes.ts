@@ -2548,8 +2548,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // Settings
   app.get("/api/settings", requireAuth, async (req, res) => {
-    const s = await storage.getSettings(req.session.accountId!);
-    res.json(s || {});
+    try {
+      const s = await storage.getSettings(req.session.accountId!);
+      res.json(s || {});
+    } catch (err: any) {
+      // If a column is temporarily missing (e.g. during a migration), fall back to a raw
+      // SELECT * so the rest of the settings still load rather than blanking the whole page.
+      try {
+        const { rows } = await pool.query(`SELECT * FROM settings WHERE account_id = $1 LIMIT 1`, [req.session.accountId]);
+        res.json(rows[0] || {});
+      } catch {
+        res.json({});
+      }
+    }
   });
   app.patch("/api/settings", requireAuth, async (req, res) => {
     try {
