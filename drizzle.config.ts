@@ -22,5 +22,6 @@ export default defineConfig({
     "!system_email_templates",
     "!platform_settings",
     "!blog_posts",
+    "!external_reviews",
   ],
 });

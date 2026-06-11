@@ -568,13 +568,6 @@ export async function runMigrations() {
       )
     `);
 
-    // Social card customisation
-    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS social_card_template TEXT NOT NULL DEFAULT 'classic'`);
-    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS social_card_show_logo BOOLEAN NOT NULL DEFAULT true`);
-
-    // Yell review link
-    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS yell_link TEXT NOT NULL DEFAULT ''`);
-
     // External reviews pulled from public platforms
     await pool.query(`
       CREATE TABLE IF NOT EXISTS external_reviews (

@@ -65,14 +65,14 @@ function extractPlaceIdFromUrl(link: string): string | null {
   return null;
 }
 
-// Resolve any Google link to a Place ID — tries URL extraction first,
-// then falls back to Places text search using the business name.
-async function resolveGooglePlaceId(link: string, businessName: string, apiKey: string): Promise<string | null> {
+// Resolve a Google Maps link to a Place ID — extracts from the URL or follows short-link redirects.
+// Never falls back to business name search — that would pull the wrong franchise location.
+async function resolveGooglePlaceId(link: string, apiKey: string): Promise<string | null> {
   // 1. Try to pull ChIJ... directly from the URL
   const fromUrl = extractPlaceIdFromUrl(link);
   if (fromUrl) return fromUrl;
 
-  // 2. g.page and other short links — follow the redirect to get the real URL
+  // 2. Short links (g.page, goo.gl, maps.app) — follow the redirect to get the real URL
   if (link.includes("g.page") || link.includes("goo.gl") || link.includes("maps.app")) {
     try {
       const res = await axios.get(link, {
@@ -80,27 +80,13 @@ async function resolveGooglePlaceId(link: string, businessName: string, apiKey: 
         headers: { "User-Agent": "Mozilla/5.0" },
         validateStatus: () => true,
       });
-      // Try to extract from the redirected URL stored in the request chain
       const finalUrl: string = (res.request as any)?._redirectable?._currentUrl
         || (res.request as any)?.res?.responseUrl
         || "";
       const fromRedirect = extractPlaceIdFromUrl(finalUrl);
       if (fromRedirect) return fromRedirect;
-      // Also scan the page HTML for a Place ID
       const htmlMatch = (res.data as string)?.match?.(/["'](ChIJ[A-Za-z0-9_%-]{10,})["']/);
       if (htmlMatch) return decodeURIComponent(htmlMatch[1]);
-    } catch {}
-  }
-
-  // 3. Last resort — search by business name via Places findplacefromtext
-  if (businessName) {
-    try {
-      const res = await axios.get("https://maps.googleapis.com/maps/api/place/findplacefromtext/json", {
-        params: { input: businessName, inputtype: "textquery", fields: "place_id", key: apiKey },
-        timeout: 8000,
-      });
-      const placeId = res.data?.candidates?.[0]?.place_id;
-      if (placeId) { console.log(`[externalReviews] Resolved Place ID via text search: ${placeId}`); return placeId; }
     } catch {}
   }
 
@@ -109,11 +95,11 @@ async function resolveGooglePlaceId(link: string, businessName: string, apiKey: 
 
 // ── Platform fetchers ────────────────────────────────────────────────────────
 
-async function fetchGoogle(accountId: string, link: string, businessName: string): Promise<{author: string; rating: number; text: string; date: Date|null; platform: string}[]> {
+async function fetchGoogle(accountId: string, link: string): Promise<{author: string; rating: number; text: string; date: Date|null; platform: string}[]> {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
   if (!apiKey || !link) return [];
 
-  const placeId = await resolveGooglePlaceId(link, businessName, apiKey);
+  const placeId = await resolveGooglePlaceId(link, apiKey);
   if (!placeId) {
     console.warn(`[externalReviews] Could not resolve Place ID for account ${accountId} — link: ${link}`);
     return [];
@@ -235,7 +221,7 @@ export async function pollExternalReviewsForAccount(accountId: string): Promise<
 
   // Fetch from all configured platforms
   const allReviews = (await Promise.all([
-    s.google_review_link  ? fetchGoogle(accountId, s.google_review_link, s.business_name || "") : [],
+    s.google_review_link  ? fetchGoogle(accountId, s.google_review_link) : [],
     s.checkatrade_link    ? fetchCheckatrade(accountId, s.checkatrade_link) : [],
     s.trustpilot_link     ? fetchTrustpilot(accountId, s.trustpilot_link) : [],
     s.tripadvisor_link    ? fetchTripAdvisor(accountId, s.tripadvisor_link) : [],
