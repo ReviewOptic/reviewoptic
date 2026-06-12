@@ -110,6 +110,7 @@ export default function Settings() {
     logoUrl: "",
     logoPosition: "left",
     googleReviewLink: "",
+    googleMapsLink: "",
     facebookReviewLink: "",
     trustpilotLink: "",
     tripadvisorLink: "",
@@ -144,6 +145,7 @@ export default function Settings() {
         logoUrl: settings.logoUrl || "",
         logoPosition: settings.logoPosition || "left",
         googleReviewLink: settings.googleReviewLink || "",
+        googleMapsLink: settings.googleMapsLink || "",
         facebookReviewLink: settings.facebookReviewLink || "",
         trustpilotLink: settings.trustpilotLink || "",
         tripadvisorLink: settings.tripadvisorLink || "",
@@ -473,7 +475,8 @@ export default function Settings() {
             <CardContent className="space-y-4 pb-5">
               <p className="text-[12px] text-muted-foreground">Add at least one. Happy customers will be directed to whichever platforms you've filled in.</p>
               {[
-                { label: "Google Business", key: "googleReviewLink", placeholder: "https://g.page/r/...", hint: "Sent to customers to leave a review, and used to import your Google reviews." },
+                { label: "Google Business (review link)", key: "googleReviewLink", placeholder: "https://g.page/r/...", hint: "Sent to customers when requesting a review." },
+                { label: "Google Maps profile URL (for importing reviews)", key: "googleMapsLink", placeholder: "https://www.google.com/maps/place/YourBusiness/...", hint: "Open Google Maps, find your business, copy the URL from your browser. Used to pull your reviews into the dashboard." },
                 { label: "Trustpilot", key: "trustpilotLink", placeholder: "https://www.trustpilot.com/review/..." },
                 { label: "TripAdvisor", key: "tripadvisorLink", placeholder: "https://www.tripadvisor.co.uk/..." },
                 { label: "Checkatrade", key: "checkatradeLink", placeholder: "https://www.checkatrade.com/trades/..." },

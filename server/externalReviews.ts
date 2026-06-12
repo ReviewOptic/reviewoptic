@@ -184,8 +184,8 @@ async function fetchGoogle(accountId: string, link: string): Promise<FetchResult
 
   const placeId = await resolveGooglePlaceId(link, apiKey);
   if (!placeId) {
-    const msg = `Could not resolve Google Place ID. Add your Google Maps Profile URL in Settings → Review Platforms (copy the URL from your browser when viewing your Google listing)`;
-    console.warn(`[externalReviews] ${msg} (tried: ${link})`);
+    const msg = `To import Google reviews, paste your Google Maps profile URL — open maps.google.com, find your business, and copy the URL from your browser address bar`;
+    console.warn(`[externalReviews] Could not resolve Place ID (tried: ${link})`);
     return { reviews: [], error: msg };
   }
 
@@ -365,7 +365,7 @@ async function autoPostReview(accountId: string, review: {author: string; rating
 
 export async function pollExternalReviewsForAccount(accountId: string): Promise<PlatformResult[]> {
   const { rows } = await pool.query(
-    `SELECT google_review_link, checkatrade_link, trustpilot_link, tripadvisor_link,
+    `SELECT google_review_link, google_maps_link, checkatrade_link, trustpilot_link, tripadvisor_link,
             mybuilder_link, social_post_enabled, facebook_page_access_token,
             facebook_page_id, instagram_business_account_id, business_name, social_post_message
      FROM settings WHERE account_id = $1`,
@@ -387,7 +387,7 @@ export async function pollExternalReviewsForAccount(accountId: string): Promise<
   );
   const isFirstPoll = parseInt(existing[0]?.count ?? "0") === 0;
 
-  const gl = (s.google_review_link || "").trim();
+  const gl = (s.google_maps_link || s.google_review_link || "").trim();
   const cl = (s.checkatrade_link || "").trim();
   const tl = (s.trustpilot_link || "").trim();
   const tal = (s.tripadvisor_link || "").trim();

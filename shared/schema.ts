@@ -99,6 +99,7 @@ export const settings = pgTable("settings", {
   logoPosition: text("logo_position").notNull().default("left"),
   websiteUrl: text("website_url").notNull().default(""),
   googleReviewLink: text("google_review_link").notNull().default(""),
+  googleMapsLink: text("google_maps_link").notNull().default(""),
   facebookReviewLink: text("facebook_review_link").notNull().default(""),
   trustpilotLink: text("trustpilot_link").notNull().default(""),
   tripadvisorLink: text("tripadvisor_link").notNull().default(""),
