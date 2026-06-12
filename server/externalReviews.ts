@@ -85,13 +85,13 @@ async function saveIfNew(
 ): Promise<boolean> {
   try {
     await pool.query(
-      `INSERT INTO external_reviews (id, account_id, platform, external_id, author_name, rating, review_text, review_date)
+      `INSERT INTO ext.external_reviews (id, account_id, platform, external_id, author_name, rating, review_text, review_date)
        VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT (account_id, platform, external_id) DO NOTHING`,
       [accountId, platform, externalId, author, rating, text, date]
     );
     const { rows } = await pool.query(
-      `SELECT id FROM external_reviews WHERE account_id=$1 AND platform=$2 AND external_id=$3 AND posted_to_social=false AND created_at > NOW() - INTERVAL '10 minutes'`,
+      `SELECT id FROM ext.external_reviews WHERE account_id=$1 AND platform=$2 AND external_id=$3 AND posted_to_social=false AND created_at > NOW() - INTERVAL '10 minutes'`,
       [accountId, platform, externalId]
     );
     return rows.length > 0;
@@ -383,7 +383,7 @@ export async function pollExternalReviewsForAccount(accountId: string): Promise<
   // Check if this account has ever had reviews saved — if not, this is first-time seed.
   // First-time seed: save reviews but do NOT auto-post (they are not "new" reviews, just historic).
   const { rows: existing } = await pool.query(
-    `SELECT COUNT(*) as count FROM external_reviews WHERE account_id = $1`, [accountId]
+    `SELECT COUNT(*) as count FROM ext.external_reviews WHERE account_id = $1`, [accountId]
   );
   const isFirstPoll = parseInt(existing[0]?.count ?? "0") === 0;
 
@@ -425,7 +425,7 @@ export async function pollExternalReviewsForAccount(accountId: string): Promise<
         const posted = await autoPostReview(accountId, review, { ...s, social_card_template: socialCardTemplate });
         if (posted) {
           await pool.query(
-            `UPDATE external_reviews SET posted_to_social=true, posted_at=NOW()
+            `UPDATE ext.external_reviews SET posted_to_social=true, posted_at=NOW()
              WHERE account_id=$1 AND platform=$2 AND external_id=$3`,
             [accountId, review.platform, key]
           );

@@ -756,7 +756,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       await pool.query(`DELETE FROM reviews WHERE account_id = $1`, [existing.accountId]);
       await pool.query(`DELETE FROM review_requests WHERE account_id = $1`, [existing.accountId]);
       await pool.query(`DELETE FROM customers WHERE account_id = $1`, [existing.accountId]);
-      await pool.query(`DELETE FROM external_reviews WHERE account_id = $1`, [existing.accountId]).catch(() => {});
+      await pool.query(`DELETE FROM ext.external_reviews WHERE account_id = $1`, [existing.accountId]).catch(() => {});
       await pool.query(`DELETE FROM settings WHERE account_id = $1`, [existing.accountId]);
       await pool.query(`DELETE FROM users WHERE id = $1`, [existing.id]);
       await pool.query(`DELETE FROM accounts WHERE id = $1`, [existing.accountId]);
@@ -925,7 +925,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const extId = `demo-${r.platform}-${r.author.replace(/\s/g, "")}`;
       try {
         await pool.query(
-          `INSERT INTO external_reviews (id, account_id, platform, external_id, author_name, rating, review_text, review_date, posted_to_social, created_at)
+          `INSERT INTO ext.external_reviews (id, account_id, platform, external_id, author_name, rating, review_text, review_date, posted_to_social, created_at)
            VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, false, NOW())
            ON CONFLICT (account_id, platform, external_id) DO NOTHING`,
           [aid, r.platform, extId, r.author, r.rating, r.text, daysAgo(r.daysAgo)]
@@ -2185,7 +2185,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/external-reviews", requireAuth, async (req, res) => {
     try {
       const { rows } = await pool.query(
-        `SELECT * FROM external_reviews WHERE account_id = $1 ORDER BY review_date DESC NULLS LAST, created_at DESC LIMIT 200`,
+        `SELECT * FROM ext.external_reviews WHERE account_id = $1 ORDER BY review_date DESC NULLS LAST, created_at DESC LIMIT 200`,
         [req.session.accountId]
       );
       res.json(rows);
@@ -3005,7 +3005,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const { rows: srcRows } = await pool.query(`
         SELECT platform, COUNT(*)::int as count
-        FROM external_reviews WHERE account_id = $1
+        FROM ext.external_reviews WHERE account_id = $1
         GROUP BY platform ORDER BY count DESC
       `, [accountId]);
       reviewSources = srcRows.map(r => ({ platform: r.platform, count: r.count }));

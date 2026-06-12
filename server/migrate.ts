@@ -642,13 +642,13 @@ export async function runMigrations() {
   }
 }
 
-// Runs separately from runMigrations so a failure elsewhere can never prevent this table existing.
-// Replit will show DROP TABLE external_reviews on every deploy — always reject it.
+// Uses the 'ext' schema so Replit's migration tool (which only scans 'public') never sees this table.
 export async function ensureExternalReviewsTable() {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   try {
+    await pool.query(`CREATE SCHEMA IF NOT EXISTS ext`);
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS external_reviews (
+      CREATE TABLE IF NOT EXISTS ext.external_reviews (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         account_id VARCHAR NOT NULL,
         platform TEXT NOT NULL,
@@ -662,7 +662,7 @@ export async function ensureExternalReviewsTable() {
         created_at TIMESTAMP NOT NULL DEFAULT NOW()
       )
     `);
-    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS external_reviews_dedup ON external_reviews (account_id, platform, external_id)`).catch(() => {});
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS external_reviews_dedup ON ext.external_reviews (account_id, platform, external_id)`).catch(() => {});
   } finally {
     await pool.end();
   }
