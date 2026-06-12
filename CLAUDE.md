@@ -388,3 +388,33 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Re-connect Facebook** in Settings → Social
 - **Facebook App Review**: waiting ~2 weeks
 - **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
+
+### Session — 2026-06-12 (ninety-sixth session)
+
+**Context:** Entire session spent trying to connect the user's Google business ("Time for You Domestic Cleaning" — Berkhamsted, Chesham, Amersham) via the Google Place search UI.
+
+**What was built:**
+- **Google Place search overhauled** (`client/src/pages/Settings.tsx`, `server/routes.ts`): Replaced browser-side Google Maps JS widget (unreliable, needs separate public API key) with server-side search using `GOOGLE_PLACES_API_KEY`. Multiple API approaches tried: `autocomplete`, `textsearch` (too broad — returned irrelevant results), back to `autocomplete` with photos fetched in parallel per result.
+- **Photos in dropdown**: `autocomplete` predictions now have photos fetched in parallel (place details call per result) so they appear in the search dropdown, not just on confirmation.
+- **URL paste fallback** (`client/src/pages/Settings.tsx`, `server/routes.ts`): "Can't find your business? Paste your Google Maps link" option below search box. Calls `GET /api/settings/google-resolve-url` which uses `resolveGooglePlaceId` server-side. Fixed hex FID support in details lookup (use `ftid` param when Place ID starts with `0x`).
+- **Connected state improved**: Shows business name + address on load (fetched from Place ID via details API). Separate "Change" and "Disconnect" buttons. Both now delete imported Google reviews (`POST /api/settings/google-disconnect` deletes `ext.external_reviews` where platform='google').
+- **`resolveGooglePlaceId` exported** (`server/externalReviews.ts`): Was not exported — caused "u is not a function" error.
+- **Country restriction removed** from place search (was breaking with "United Kingdom" → "un").
+
+**Unresolved — Google business not found:**
+- Neither search (autocomplete API) nor URL paste (`share.google/hEEzSRdZBfPlRySVj`) is finding/resolving the business.
+- Search: autocomplete returns results but none match "Time for You Domestic Cleaning Berkhamsted".
+- URL paste: `resolveGooglePlaceId` follows the redirect but either can't extract a Place ID from the final page, or the details lookup returns blank.
+- Most likely cause: `share.google` links redirect to a JS-rendered page — Place ID not in raw HTML. OR the Google Places API key doesn't have all required permissions.
+
+**FIRST STEP NEXT SESSION:**
+1. Check Replit server logs after attempting the URL paste — look for `[google] redirect landed on:` line to see what URL it ends up at.
+2. If URL is found but details blank → hex FID fix needs testing on live.
+3. If no URL found → `share.google` redirect is being blocked server-side.
+4. Check API key has "Places API" enabled in Google Cloud Console (not just Maps JS API).
+
+**Pending:**
+- **Connect Google business** (blocker for everything Google-related)
+- **Re-connect Facebook** in Settings → Social
+- **Facebook App Review**: waiting ~2 weeks
+- **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
