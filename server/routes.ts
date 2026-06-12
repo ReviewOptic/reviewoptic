@@ -2607,6 +2607,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.patch("/api/settings", requireAuth, async (req, res) => {
     try {
       const body = { ...req.body };
+      // Save googleMapsLink to ext.settings_extra first — before any validation that might abort early
+      const googleMapsLink = body.googleMapsLink;
+      if (googleMapsLink !== undefined) {
+        await pool.query(
+          `INSERT INTO ext.settings_extra (account_id, google_maps_link) VALUES ($1, $2)
+           ON CONFLICT (account_id) DO UPDATE SET google_maps_link = $2`,
+          [req.session.accountId!, googleMapsLink]
+        ).catch(err => console.error("[settings] google_maps_link save failed:", err.message));
+        delete body.googleMapsLink;
+      }
       if (body.businessEmail !== undefined && !body.businessEmail?.trim()) {
         return res.status(400).json({ message: "Business email is required" });
       }
