@@ -39,6 +39,10 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [pending, setPending] = useState<{ place_id: string; name: string; address: string; photoUrl: string | null } | null>(null);
+  const [showUrlPaste, setShowUrlPaste] = useState(false);
+  const [urlInput, setUrlInput] = useState("");
+  const [urlLoading, setUrlLoading] = useState(false);
+  const [urlError, setUrlError] = useState("");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const search = (q: string) => {
@@ -63,6 +67,24 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
     setQuery("");
     const photoUrl = item.photo_ref ? `/api/settings/google-place-photo?ref=${encodeURIComponent(item.photo_ref)}` : null;
     setPending({ place_id: item.place_id, name: item.name, address: item.formatted_address, photoUrl });
+  };
+
+  const resolveUrl = async () => {
+    if (!urlInput.trim()) return;
+    setUrlLoading(true);
+    setUrlError("");
+    try {
+      const r = await fetch(`/api/settings/google-resolve-url?url=${encodeURIComponent(urlInput.trim())}`, { credentials: "include" });
+      const d = await r.json();
+      if (!r.ok) { setUrlError(d.error || "Could not find your business from that link."); }
+      else {
+        const photoUrl = d.photo_ref ? `/api/settings/google-place-photo?ref=${encodeURIComponent(d.photo_ref)}` : null;
+        setPending({ place_id: d.place_id, name: d.name, address: d.formatted_address, photoUrl });
+        setShowUrlPaste(false);
+        setUrlInput("");
+      }
+    } catch { setUrlError("Something went wrong. Try again."); }
+    finally { setUrlLoading(false); }
   };
 
   if (confirmed && savedPlaceId) {
@@ -137,6 +159,29 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
       {loading && <p className="text-[11px] text-muted-foreground">Searching…</p>}
       {error && <p className="text-[11px] text-red-500">{error}</p>}
       {!loading && !error && <p className="text-[11px] text-muted-foreground">Type your business name and select from the results</p>}
+      {!showUrlPaste && (
+        <button type="button" onClick={() => setShowUrlPaste(true)} className="text-[11px] text-blue-600 dark:text-blue-400 underline mt-1">
+          Can't find your business? Paste your Google Maps link instead
+        </button>
+      )}
+      {showUrlPaste && (
+        <div className="space-y-1.5 pt-1">
+          <Label className="text-[12.5px]">Paste your Google Maps link</Label>
+          <div className="flex gap-2">
+            <input
+              value={urlInput}
+              onChange={e => { setUrlInput(e.target.value); setUrlError(""); }}
+              placeholder="https://maps.google.com/... or share.google/..."
+              autoComplete="off"
+              spellCheck={false}
+              className="flex h-9 flex-1 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            />
+            <Button size="sm" onClick={resolveUrl} disabled={urlLoading}>{urlLoading ? "Looking up…" : "Find"}</Button>
+          </div>
+          {urlError && <p className="text-[11px] text-red-500">{urlError}</p>}
+          <button type="button" onClick={() => setShowUrlPaste(false)} className="text-[11px] text-muted-foreground underline">Back to search</button>
+        </div>
+      )}
     </div>
   );
 }

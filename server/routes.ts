@@ -2621,20 +2621,56 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const axios = (await import("axios")).default;
       const r = await axios.get(
-        "https://maps.googleapis.com/maps/api/place/textsearch/json",
-        { params: { query: q, key: apiKey, language: "en" }, timeout: 8000 }
+        "https://maps.googleapis.com/maps/api/place/autocomplete/json",
+        { params: { input: q, types: "establishment", key: apiKey, language: "en" }, timeout: 8000 }
       );
-      console.log(`[place-search] status=${r.data?.status} results=${r.data?.results?.length ?? 0}`);
+      console.log(`[place-search] status=${r.data?.status} predictions=${r.data?.predictions?.length ?? 0}`);
       if (r.data?.status && r.data.status !== "OK" && r.data.status !== "ZERO_RESULTS") {
         return res.status(500).json({ error: `Google API: ${r.data.status} — ${r.data.error_message || "check API key and billing"}` });
       }
-      const candidates = (r.data?.results || []).slice(0, 8).map((p: any) => ({
-        place_id: p.place_id,
-        name: p.name,
-        formatted_address: p.formatted_address || "",
-        photo_ref: p.photos?.[0]?.photo_reference || null,
+      // Fetch a photo for each prediction in parallel
+      const predictions = (r.data?.predictions || []).slice(0, 6);
+      const candidates = await Promise.all(predictions.map(async (p: any) => {
+        let photo_ref: string | null = null;
+        try {
+          const det = await axios.get("https://maps.googleapis.com/maps/api/place/details/json", {
+            params: { place_id: p.place_id, fields: "photos", key: apiKey }, timeout: 5000
+          });
+          photo_ref = det.data?.result?.photos?.[0]?.photo_reference || null;
+        } catch {}
+        return {
+          place_id: p.place_id,
+          name: p.structured_formatting?.main_text || p.description,
+          formatted_address: p.structured_formatting?.secondary_text || "",
+          photo_ref,
+        };
       }));
       res.json(candidates);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/settings/google-resolve-url", requireAuth, async (req, res) => {
+    const url = (req.query.url as string || "").trim();
+    if (!url) return res.status(400).json({ error: "url required" });
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: "GOOGLE_PLACES_API_KEY not set" });
+    try {
+      const { resolveGooglePlaceId } = await import("./externalReviews");
+      const placeId = await resolveGooglePlaceId(url, apiKey);
+      if (!placeId) return res.status(404).json({ error: "Could not find your business from that link. Try a different link." });
+      const axios = (await import("axios")).default;
+      const details = await axios.get("https://maps.googleapis.com/maps/api/place/details/json", {
+        params: { place_id: placeId, fields: "name,formatted_address,photos", key: apiKey }, timeout: 8000
+      });
+      const result = details.data?.result || {};
+      res.json({
+        place_id: placeId,
+        name: result.name || "",
+        formatted_address: result.formatted_address || "",
+        photo_ref: result.photos?.[0]?.photo_reference || null,
+      });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
