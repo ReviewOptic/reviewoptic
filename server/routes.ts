@@ -2610,24 +2610,41 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const apiKey = process.env.GOOGLE_PLACES_API_KEY;
     if (!apiKey) return res.status(500).json({ error: "GOOGLE_PLACES_API_KEY not set" });
     try {
-      const r = await (await import("axios")).default.get(
-        "https://maps.googleapis.com/maps/api/place/textsearch/json",
-        { params: { query: q, fields: "place_id,name,formatted_address,photos", key: apiKey, language: "en" }, timeout: 8000 }
+      const axios = (await import("axios")).default;
+      const r = await axios.get(
+        "https://maps.googleapis.com/maps/api/place/autocomplete/json",
+        { params: { input: q, types: "establishment", key: apiKey, language: "en" }, timeout: 8000 }
       );
-      console.log(`[place-search] status=${r.data?.status} results=${r.data?.results?.length ?? 0}`);
+      console.log(`[place-search] status=${r.data?.status} predictions=${r.data?.predictions?.length ?? 0}`);
       if (r.data?.status && r.data.status !== "OK" && r.data.status !== "ZERO_RESULTS") {
         return res.status(500).json({ error: `Google API: ${r.data.status} — ${r.data.error_message || "check API key and billing"}` });
       }
-      const candidates = (r.data?.results || []).slice(0, 5).map((c: any) => ({
-        place_id: c.place_id,
-        name: c.name,
-        formatted_address: c.formatted_address || "",
-        photo_ref: c.photos?.[0]?.photo_reference || null,
+      // Return predictions with name + address — photo fetched separately on selection
+      const candidates = (r.data?.predictions || []).slice(0, 8).map((p: any) => ({
+        place_id: p.place_id,
+        name: p.structured_formatting?.main_text || p.description,
+        formatted_address: p.structured_formatting?.secondary_text || "",
+        photo_ref: null as string | null,
       }));
       res.json(candidates);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
+  });
+
+  app.get("/api/settings/google-place-details", requireAuth, async (req, res) => {
+    const placeId = req.query.place_id as string;
+    if (!placeId) return res.status(400).end();
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    if (!apiKey) return res.status(500).end();
+    try {
+      const r = await (await import("axios")).default.get(
+        "https://maps.googleapis.com/maps/api/place/details/json",
+        { params: { place_id: placeId, fields: "photos", key: apiKey }, timeout: 8000 }
+      );
+      const photoRef = r.data?.result?.photos?.[0]?.photo_reference || null;
+      res.json({ photo_ref: photoRef });
+    } catch { res.json({ photo_ref: null }); }
   });
 
   app.get("/api/settings/google-place-photo", requireAuth, async (req, res) => {

@@ -33,20 +33,33 @@ function SettingSection({ title, description, children }: { title: string; descr
 
 function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; onSelect: (placeId: string) => void }) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<{ place_id: string; name: string; formatted_address: string; photo_ref: string | null }[]>([]);
+  const [results, setResults] = useState<{ place_id: string; name: string; formatted_address: string }[]>([]);
+  const [photos, setPhotos] = useState<Record<string, string | null>>({});
   const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
   const [confirmed, setConfirmed] = useState(!!savedPlaceId);
   const [confirmedName, setConfirmedName] = useState("");
   const [pending, setPending] = useState<{ place_id: string; name: string; formatted_address: string; photo_ref: string | null } | null>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const search = async (q: string) => {
-    if (!q.trim() || q.trim().length < 3) { setResults([]); return; }
+    if (!q.trim() || q.trim().length < 3) { setResults([]); setPhotos({}); setSearchError(""); return; }
     setSearching(true);
+    setSearchError("");
     try {
       const res = await fetch(`/api/settings/google-place-search?q=${encodeURIComponent(q)}`, { credentials: "include" });
-      const data = await res.json();
-      setResults(Array.isArray(data) ? data : []);
+      const json = await res.json();
+      if (!res.ok || json.error) { setSearchError(json.error || "Search failed"); setResults([]); return; }
+      const data: { place_id: string; name: string; formatted_address: string }[] = Array.isArray(json) ? json : [];
+      setResults(data);
+      setPhotos({});
+      // Fetch photos for all results in parallel
+      data.forEach(r => {
+        fetch(`/api/settings/google-place-details?place_id=${encodeURIComponent(r.place_id)}`, { credentials: "include" })
+          .then(d => d.json())
+          .then(d => { if (d.photo_ref) setPhotos(p => ({ ...p, [r.place_id]: d.photo_ref })); })
+          .catch(() => {});
+      });
     } finally {
       setSearching(false);
     }
@@ -97,9 +110,8 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
             setConfirmed(true);
             setConfirmedName(pending.name);
             setPending(null);
-            setResults([]);
           }}>Yes, this is my business</Button>
-          <Button variant="outline" size="sm" onClick={() => { setPending(null); }}>No, go back</Button>
+          <Button variant="outline" size="sm" onClick={() => { setPending(null); setQuery(""); }}>No, search again</Button>
         </div>
       </div>
     );
@@ -113,31 +125,23 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
         <Input value={query} onChange={e => handleQueryChange(e.target.value)} placeholder="Start typing your business name…" className="w-full" />
         {searching && <span className="absolute right-3 top-2.5 text-[11px] text-muted-foreground">Searching…</span>}
       </div>
-      {results.length === 0 && !searching && query.length >= 3 && <p className="text-[11px] text-muted-foreground">No results — try adding your town or postcode</p>}
+      {searchError && <p className="text-[11px] text-red-500">{searchError}</p>}
+      {!searchError && results.length === 0 && !searching && query.length >= 3 && <p className="text-[11px] text-muted-foreground">No results — try adding your town or postcode</p>}
       {results.length > 0 && (
         <div className="space-y-1.5">
           <p className="text-[11.5px] text-muted-foreground">Select your business:</p>
           <div className="border rounded-md divide-y">
-            {results.slice(0, 5).map(r => (
+            {results.slice(0, 8).map(r => (
               <button key={r.place_id} className="w-full text-left px-3 py-2.5 hover:bg-muted/60 transition-colors flex items-center gap-3" onClick={() => {
-                if (r.photo_ref) {
-                  // Photo visible — instant confirm
-                  onSelect(r.place_id);
-                  setConfirmed(true);
-                  setConfirmedName(r.name);
-                  setResults([]);
-                } else {
-                  // No photo — show confirm step
-                  setPending(r);
-                  setResults([]);
-                }
+                setPending({ ...r, photo_ref: photos[r.place_id] || null });
+                setResults([]);
               }}>
-                {r.photo_ref && (
-                  <img src={`/api/settings/google-place-photo?ref=${encodeURIComponent(r.photo_ref)}`} alt="" className="w-10 h-10 rounded object-cover flex-shrink-0" />
-                )}
+                <div className="w-10 h-10 rounded bg-muted flex-shrink-0 overflow-hidden">
+                  {photos[r.place_id] && <img src={`/api/settings/google-place-photo?ref=${encodeURIComponent(photos[r.place_id]!)}`} alt="" className="w-full h-full object-cover" />}
+                </div>
                 <div className="min-w-0">
                   <p className="text-[13px] font-medium">{r.name}</p>
-                  {r.formatted_address && <p className="text-[11px] text-muted-foreground">{r.formatted_address}</p>}
+                  {r.formatted_address && <p className="text-[11px] text-muted-foreground truncate">{r.formatted_address}</p>}
                 </div>
               </button>
             ))}
