@@ -70,6 +70,23 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
     setPending({ place_id: item.place_id, name: item.name, address: item.formatted_address, photoUrl });
   };
 
+  useEffect(() => {
+    if (savedPlaceId && confirmed && !confirmedName) {
+      fetch(`/api/settings/google-place-details?place_id=${savedPlaceId}`, { credentials: "include" })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d?.name) setConnectedDetails({ name: d.name, address: d.formatted_address || "" }); })
+        .catch(() => {});
+    }
+  }, [savedPlaceId, confirmed]);
+
+  const disconnect = async () => {
+    await fetch("/api/settings/google-maps-link", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ googleMapsLink: "" }) });
+    await fetch("/api/settings/google-disconnect", { method: "POST", credentials: "include" });
+    setConfirmed(false);
+    setConnectedDetails(null);
+    setConfirmedName("");
+  };
+
   const resolveUrl = async () => {
     if (!urlInput.trim()) return;
     setUrlLoading(true);
@@ -89,18 +106,25 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
   };
 
   if (confirmed && savedPlaceId) {
+    const displayName = confirmedName || connectedDetails?.name;
+    const displayAddress = connectedDetails?.address;
     return (
       <div className="space-y-2">
-        <div className="flex items-center justify-between gap-2 p-3 rounded-md border bg-muted/40">
-          <div>
-            <p className="text-[13px] font-medium text-green-700 dark:text-green-400">✓ Connected{confirmedName ? `: ${confirmedName}` : ""}</p>
-            <p className="text-[11px] text-muted-foreground">Google reviews will import automatically every 6 hours.</p>
+        <div className="p-3 rounded-md border bg-muted/40 space-y-2">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="text-[13px] font-medium text-green-700 dark:text-green-400">✓ Connected</p>
+              {displayName && <p className="text-[13px] font-semibold mt-0.5">{displayName}</p>}
+              {displayAddress && <p className="text-[11px] text-muted-foreground">{displayAddress}</p>}
+              <p className="text-[11px] text-muted-foreground mt-1">Reviews import automatically every 6 hours.</p>
+            </div>
           </div>
-          <Button variant="outline" size="sm" className="text-[12px]" onClick={() => { setConfirmed(false); setPending(null); }}>Change</Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" className="text-[12px]" onClick={() => { setConfirmed(false); setPending(null); }}>Change</Button>
+            <Button variant="outline" size="sm" className="text-[12px] text-red-600 hover:text-red-700 border-red-200" onClick={disconnect}>Disconnect</Button>
+            <a href={`https://www.google.com/maps/place/?q=place_id:${savedPlaceId}`} target="_blank" rel="noreferrer" className="text-[11px] text-blue-600 dark:text-blue-400 underline self-center ml-auto">View on Google Maps →</a>
+          </div>
         </div>
-        <a href={`https://www.google.com/maps/place/?q=place_id:${savedPlaceId}`} target="_blank" rel="noreferrer" className="text-[11px] text-blue-600 dark:text-blue-400 underline">
-          View this business on Google Maps →
-        </a>
       </div>
     );
   }

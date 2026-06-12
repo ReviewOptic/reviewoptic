@@ -2688,11 +2688,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const r = await (await import("axios")).default.get(
         "https://maps.googleapis.com/maps/api/place/details/json",
-        { params: { place_id: placeId, fields: "photos", key: apiKey }, timeout: 8000 }
+        { params: { place_id: placeId, fields: "name,formatted_address,photos", key: apiKey }, timeout: 8000 }
       );
-      const photoRef = r.data?.result?.photos?.[0]?.photo_reference || null;
-      res.json({ photo_ref: photoRef });
-    } catch { res.json({ photo_ref: null }); }
+      const result = r.data?.result || {};
+      res.json({ photo_ref: result.photos?.[0]?.photo_reference || null, name: result.name || "", formatted_address: result.formatted_address || "" });
+    } catch { res.json({ photo_ref: null, name: "", formatted_address: "" }); }
+  });
+
+  app.post("/api/settings/google-disconnect", requireAuth, async (req, res) => {
+    try {
+      await pool.query(`DELETE FROM ext.external_reviews WHERE account_id = $1 AND platform = 'google'`, [req.session.accountId!]);
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
   });
 
   app.get("/api/settings/google-place-photo", requireAuth, async (req, res) => {
