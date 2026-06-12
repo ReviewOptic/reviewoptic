@@ -915,8 +915,12 @@ export default function Settings() {
               </CardHeader>
               <CardContent className="pb-5">
                 <div className="space-y-1.5">
-                  <Label className="text-[12.5px]">Google Maps profile URL</Label>
-                  <p className="text-[11px] text-muted-foreground">Your Google Maps business profile URL, e.g. <code className="bg-muted px-1 rounded">https://www.google.com/maps/place/YourBusiness/...</code></p>
+                  <Label className="text-[12.5px]">Google Place ID</Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    Find your Place ID at{" "}
+                    <a href="https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder" target="_blank" rel="noreferrer" className="underline">this Google tool</a>
+                    {" "}— search for your business and copy the ID (starts with <code className="bg-muted px-1 rounded">ChIJ...</code>)
+                  </p>
                   <div className="flex gap-2">
                     <Input
                       value={form.googleMapsLink}
@@ -926,17 +930,9 @@ export default function Settings() {
                         fetch("/api/settings/google-maps-link", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ googleMapsLink: val }) })
                           .catch(() => {});
                       }}
-                      placeholder="https://www.google.com/maps/place/YourBusiness/..."
+                      placeholder="ChIJ..."
                       className="flex-1"
                     />
-                    {form.googleMapsLink && (
-                      <Button variant="outline" size="icon" className="h-9 w-9 flex-shrink-0" onClick={() => {
-                        const raw = form.googleMapsLink.trim();
-                        window.open(raw.startsWith("http") ? raw : `https://${raw}`, "_blank");
-                      }}>
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </Button>
-                    )}
                   </div>
                 </div>
               </CardContent>

@@ -188,11 +188,13 @@ async function fetchGoogle(accountId: string, link: string): Promise<FetchResult
   if (!apiKey) return { reviews: [], error: "GOOGLE_PLACES_API_KEY not set in Secrets" };
   if (!link) return { reviews: [] };
 
-  const placeId = await resolveGooglePlaceId(link, apiKey);
+  // If the user pasted a Place ID directly (ChIJ...), use it — skip URL resolution
+  const placeId = link.trim().startsWith("ChIJ")
+    ? link.trim()
+    : await resolveGooglePlaceId(link, apiKey);
+
   if (!placeId) {
-    const msg = `To import Google reviews, paste your Google Maps profile URL — open maps.google.com, find your business, and copy the URL from your browser address bar`;
-    console.warn(`[externalReviews] Could not resolve Place ID (tried: ${link})`);
-    return { reviews: [], error: msg };
+    return { reviews: [], error: "Could not find your business — paste your Place ID (ChIJ...) from the Google Place ID Finder tool linked in Settings → Social" };
   }
 
   try {
