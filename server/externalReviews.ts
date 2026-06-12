@@ -122,9 +122,12 @@ function extractPlaceIdFromUrl(link: string): string | null {
 // g.page/r links redirect to search.google.com/local/writereview?placeid=ChIJ...
 // Using fetch() with redirect:follow follows the full chain in one call.
 async function resolveGooglePlaceId(link: string, apiKey: string): Promise<string | null> {
-  // 1. Try extracting ChIJ directly from the URL as-is
+  // 1. Try extracting Place ID directly from the URL as-is
   const direct = extractPlaceIdFromUrl(link);
-  if (direct?.startsWith("ChIJ")) return direct;
+  if (direct) return direct;
+
+  // Normalise — add https:// if missing so fetch doesn't fail
+  const normLink = link.startsWith("http") ? link : `https://${link}`;
 
   const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
@@ -134,7 +137,7 @@ async function resolveGooglePlaceId(link: string, apiKey: string): Promise<strin
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 10000);
-    const resp = await fetch(link, {
+    const resp = await fetch(normLink, {
       redirect: "follow",
       headers: { "User-Agent": BROWSER_UA, "Accept": "text/html,*/*" },
       signal: controller.signal,
@@ -142,22 +145,21 @@ async function resolveGooglePlaceId(link: string, apiKey: string): Promise<strin
     clearTimeout(timer);
     finalUrl = resp.url;
     html = await resp.text().catch(() => "");
-    console.log(`[google] redirect landed on: ${finalUrl.substring(0, 120)}`);
+    console.log(`[google] redirect landed on: ${finalUrl.substring(0, 200)}`);
   } catch (e: any) {
-    console.warn(`[google] fetch failed for ${link}: ${e?.message}`);
+    console.warn(`[google] fetch failed for ${normLink}: ${e?.message}`);
   }
 
-  // 3. Check final URL for ChIJ or hex Place ID
+  // 3. Check final URL for Place ID (ChIJ or hex)
   if (finalUrl) {
     const fromFinal = extractPlaceIdFromUrl(finalUrl);
-    if (fromFinal?.startsWith("ChIJ")) return fromFinal;
+    if (fromFinal) return fromFinal;
   }
 
   // 4. Scan page HTML for ChIJ Place ID
   if (html) {
     const chijMatch = html.match(/["'](ChIJ[A-Za-z0-9_%-]{10,})["']/);
     if (chijMatch) return decodeURIComponent(chijMatch[1]);
-    // Also scan for Place ID in window.APP_INITIALIZATION_STATE or similar
     const chijMatch2 = html.match(/\\x22(ChIJ[A-Za-z0-9_%-]{10,})\\x22/);
     if (chijMatch2) return decodeURIComponent(chijMatch2[1]);
   }
@@ -193,8 +195,13 @@ async function fetchGoogle(accountId: string, link: string): Promise<FetchResult
   }
 
   try {
+    // Hex format (0x...:0x...) needs ftid param; ChIJ uses place_id
+    const isHex = placeId.startsWith("0x");
+    const params = isHex
+      ? { ftid: placeId, fields: "reviews", key: apiKey }
+      : { place_id: placeId, fields: "reviews", key: apiKey };
     const res = await axios.get("https://maps.googleapis.com/maps/api/place/details/json", {
-      params: { place_id: placeId, fields: "reviews", key: apiKey },
+      params,
       timeout: 10000,
     });
     if (res.data?.status && res.data.status !== "OK") {
