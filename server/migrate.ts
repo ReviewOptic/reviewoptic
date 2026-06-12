@@ -617,6 +617,9 @@ export async function runMigrations() {
     await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS instagram_profile_pic_url TEXT NOT NULL DEFAULT ''`);
     await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS facebook_page_name TEXT NOT NULL DEFAULT ''`);
 
+    // Trustist review platform link
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS trustist_link TEXT NOT NULL DEFAULT ''`);
+
     // Blog posts — admin-authored, public-facing, SEO content
     await pool.query(`
       CREATE TABLE IF NOT EXISTS blog_posts (

@@ -335,11 +335,17 @@ async function autoPostReview(accountId: string, review: {author: string; rating
 export async function pollExternalReviewsForAccount(accountId: string): Promise<PlatformResult[]> {
   const { rows } = await pool.query(
     `SELECT google_review_link, checkatrade_link, trustpilot_link, tripadvisor_link,
-            mybuilder_link, trustist_link, social_post_enabled, facebook_page_access_token,
+            mybuilder_link, social_post_enabled, facebook_page_access_token,
             facebook_page_id, instagram_business_account_id, business_name, social_post_message
      FROM settings WHERE account_id = $1`,
     [accountId]
   );
+  // Fetch new columns separately so a missing column never crashes the entire poll
+  let trustistLink = "";
+  try {
+    const { rows: tr } = await pool.query(`SELECT trustist_link FROM settings WHERE account_id = $1`, [accountId]);
+    trustistLink = (tr[0]?.trustist_link || "").trim();
+  } catch { /* column not yet in DB — skip Trustist */ }
   // Fetch social_card_template separately so a missing column never crashes the poll
   let socialCardTemplate = "classic";
   try {
@@ -361,7 +367,7 @@ export async function pollExternalReviewsForAccount(accountId: string): Promise<
   const tl = (s.trustpilot_link || "").trim();
   const tal = (s.tripadvisor_link || "").trim();
   const ml = (s.mybuilder_link || "").trim();
-  const til = (s.trustist_link || "").trim();
+  const til = trustistLink;
 
   const platformConfigs: { platform: string; link: string; fetcher: () => Promise<FetchResult> }[] = [
     { platform: "google",      link: gl,  fetcher: () => fetchGoogle(accountId, gl) },
