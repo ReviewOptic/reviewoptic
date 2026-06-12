@@ -53,13 +53,12 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
     if (confirmed) return;
     fetch("/api/settings/google-places-key", { credentials: "include" })
       .then(r => r.json())
-      .then(({ key, country }: { key: string; country: string }) => {
+      .then(({ key }: { key: string }) => {
         if (!key) return;
         loadGoogleMapsScript(key, () => {
           if (!inputRef.current) return;
           const ac = new (window as any).google.maps.places.Autocomplete(inputRef.current, {
             types: ["establishment"],
-            componentRestrictions: { country },
             fields: ["place_id", "name", "formatted_address", "photos"],
           });
           ac.addListener("place_changed", () => {
