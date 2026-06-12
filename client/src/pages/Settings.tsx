@@ -190,7 +190,10 @@ export default function Settings() {
     if (!form.businessEmail || (!form.ownerName.trim() && !form.businessName.trim())) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
-      apiRequest("PATCH", "/api/settings", form).catch(() => {});
+      setSaveStatus("saving");
+      apiRequest("PATCH", "/api/settings", form)
+        .then(() => { setSaveStatus("saved"); setTimeout(() => setSaveStatus("idle"), 2000); })
+        .catch(() => setSaveStatus("idle"));
     }, 1500);
   }, [form]);
 
@@ -234,11 +237,9 @@ export default function Settings() {
           <h1 className="text-2xl font-bold tracking-tight text-white">Settings</h1>
           <p className="text-[13.5px] text-white/70 mt-0.5">Configure your ReviewOptic account</p>
         </div>
-        <div className="flex items-center gap-2">
-          {saveStatus === "saved" && <span className="text-green-600 flex items-center gap-1 text-[12.5px]"><Check className="w-3.5 h-3.5" /> Saved</span>}
-          <Button size="sm" onClick={handleSave} disabled={saveStatus === "saving"}>
-            {saveStatus === "saving" ? <><Save className="w-3.5 h-3.5 mr-1.5 animate-pulse" /> Saving…</> : <><Save className="w-3.5 h-3.5 mr-1.5" /> Save</>}
-          </Button>
+        <div className="flex items-center gap-2 text-[12.5px]">
+          {saveStatus === "saving" && <span className="text-white/70 flex items-center gap-1"><Save className="w-3.5 h-3.5 animate-pulse" /> Saving…</span>}
+          {saveStatus === "saved" && <span className="text-green-300 flex items-center gap-1"><Check className="w-3.5 h-3.5" /> Saved</span>}
         </div>
       </div>
       <div className="px-6 pt-6 max-w-7xl mx-auto">
