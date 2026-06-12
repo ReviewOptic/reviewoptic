@@ -31,50 +31,48 @@ function SettingSection({ title, description, children }: { title: string; descr
   );
 }
 
+function loadGoogleMapsScript(key: string, callback: () => void) {
+  if ((window as any).google?.maps?.places) { callback(); return; }
+  const existing = document.getElementById("gmap-script");
+  if (existing) { existing.addEventListener("load", callback); return; }
+  const s = document.createElement("script");
+  s.id = "gmap-script";
+  s.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places`;
+  s.async = true;
+  s.onload = callback;
+  document.head.appendChild(s);
+}
+
 function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; onSelect: (placeId: string) => void }) {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<{ place_id: string; name: string; formatted_address: string }[]>([]);
-  const [photos, setPhotos] = useState<Record<string, string | null>>({});
-  const [searching, setSearching] = useState(false);
-  const [searchError, setSearchError] = useState("");
-  const [manualMode, setManualMode] = useState(false);
-  const [manualId, setManualId] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
   const [confirmed, setConfirmed] = useState(!!savedPlaceId);
   const [confirmedName, setConfirmedName] = useState("");
-  const [pending, setPending] = useState<{ place_id: string; name: string; formatted_address: string; photo_ref: string | null } | null>(null);
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [pending, setPending] = useState<{ place_id: string; name: string; address: string; photoUrl: string | null } | null>(null);
 
-  const search = async (q: string) => {
-    if (!q.trim() || q.trim().length < 3) { setResults([]); setPhotos({}); setSearchError(""); return; }
-    setSearching(true);
-    setSearchError("");
-    try {
-      const res = await fetch(`/api/settings/google-place-search?q=${encodeURIComponent(q)}`, { credentials: "include" });
-      const json = await res.json();
-      if (!res.ok || json.error) { setSearchError(json.error || "Search failed"); setResults([]); return; }
-      const data: { place_id: string; name: string; formatted_address: string }[] = Array.isArray(json) ? json : [];
-      setResults(data);
-      setPhotos({});
-      // Fetch photos for all results in parallel
-      data.forEach(r => {
-        fetch(`/api/settings/google-place-details?place_id=${encodeURIComponent(r.place_id)}`, { credentials: "include" })
-          .then(d => d.json())
-          .then(d => { if (d.photo_ref) setPhotos(p => ({ ...p, [r.place_id]: d.photo_ref })); })
-          .catch(() => {});
-      });
-    } finally {
-      setSearching(false);
-    }
-  };
+  useEffect(() => {
+    if (confirmed) return;
+    fetch("/api/settings/google-places-key", { credentials: "include" })
+      .then(r => r.json())
+      .then(({ key, country }: { key: string; country: string }) => {
+        if (!key) return;
+        loadGoogleMapsScript(key, () => {
+          if (!inputRef.current) return;
+          const ac = new (window as any).google.maps.places.Autocomplete(inputRef.current, {
+            types: ["establishment"],
+            componentRestrictions: { country },
+            fields: ["place_id", "name", "formatted_address", "photos"],
+          });
+          ac.addListener("place_changed", () => {
+            const place = ac.getPlace();
+            if (!place.place_id) return;
+            const photoUrl: string | null = place.photos?.[0]?.getUrl({ maxWidth: 80 }) ?? null;
+            setPending({ place_id: place.place_id, name: place.name || "", address: place.formatted_address || "", photoUrl });
+          });
+        });
+      })
+      .catch(() => {});
+  }, [confirmed]);
 
-  const handleQueryChange = (val: string) => {
-    setQuery(val);
-    setPending(null);
-    if (searchTimer.current) clearTimeout(searchTimer.current);
-    searchTimer.current = setTimeout(() => search(val), 400);
-  };
-
-  // Confirmed state — business locked in
   if (confirmed && savedPlaceId) {
     return (
       <div className="space-y-2">
@@ -83,7 +81,7 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
             <p className="text-[13px] font-medium text-green-700 dark:text-green-400">✓ Connected{confirmedName ? `: ${confirmedName}` : ""}</p>
             <p className="text-[11px] text-muted-foreground">Google reviews will import automatically every 6 hours.</p>
           </div>
-          <Button variant="outline" size="sm" className="text-[12px]" onClick={() => { setConfirmed(false); setPending(null); setResults([]); setQuery(""); }}>Change</Button>
+          <Button variant="outline" size="sm" className="text-[12px]" onClick={() => { setConfirmed(false); setPending(null); }}>Change</Button>
         </div>
         <a href={`https://www.google.com/maps/place/?q=place_id:${savedPlaceId}`} target="_blank" rel="noreferrer" className="text-[11px] text-blue-600 dark:text-blue-400 underline">
           View this business on Google Maps →
@@ -92,81 +90,30 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
     );
   }
 
-  // Pending confirmation — user selected a result, must confirm before saving
   if (pending) {
     return (
       <div className="space-y-3">
         <p className="text-[12.5px] font-medium">Is this your business?</p>
         <div className="flex gap-3 p-3 rounded-md border bg-muted/40 items-center">
-          {pending.photo_ref && (
-            <img src={`/api/settings/google-place-photo?ref=${encodeURIComponent(pending.photo_ref)}`} alt="" className="w-14 h-14 rounded object-cover flex-shrink-0" />
-          )}
+          {pending.photoUrl && <img src={pending.photoUrl} alt="" className="w-14 h-14 rounded object-cover flex-shrink-0" />}
           <div className="min-w-0">
             <p className="text-[13px] font-medium">{pending.name}</p>
-            {pending.formatted_address && <p className="text-[11px] text-muted-foreground">{pending.formatted_address}</p>}
+            {pending.address && <p className="text-[11px] text-muted-foreground">{pending.address}</p>}
           </div>
         </div>
         <div className="flex gap-2">
-          <Button size="sm" onClick={() => {
-            onSelect(pending.place_id);
-            setConfirmed(true);
-            setConfirmedName(pending.name);
-            setPending(null);
-          }}>Yes, this is my business</Button>
-          <Button variant="outline" size="sm" onClick={() => { setPending(null); setQuery(""); }}>No, search again</Button>
+          <Button size="sm" onClick={() => { onSelect(pending.place_id); setConfirmed(true); setConfirmedName(pending.name); setPending(null); }}>Yes, this is my business</Button>
+          <Button variant="outline" size="sm" onClick={() => setPending(null)}>No, search again</Button>
         </div>
       </div>
     );
   }
 
-  // Search state
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <Label className="text-[12.5px]">Search for your business on Google</Label>
-      <div className="relative">
-        <Input value={query} onChange={e => handleQueryChange(e.target.value)} placeholder="e.g. Time For You Watford" className="w-full" />
-        {searching && <span className="absolute right-3 top-2.5 text-[11px] text-muted-foreground">Searching…</span>}
-      </div>
-      {searchError && <p className="text-[11px] text-red-500">{searchError}</p>}
-      {!searchError && results.length === 0 && !searching && query.length >= 3 && <p className="text-[11px] text-muted-foreground">No results — try including your town or postcode</p>}
-      {!searchError && results.length > 0 && <p className="text-[11px] text-muted-foreground">Not seeing yours? Type your town or postcode to narrow it down</p>}
-      {!manualMode && <button className="text-[11px] text-blue-600 dark:text-blue-400 underline mt-1" onClick={() => setManualMode(true)}>Can't find your business? Enter Place ID manually</button>}
-      {manualMode && (
-        <div className="space-y-1.5 pt-1 border-t">
-          <p className="text-[11px] text-muted-foreground">Find your Place ID at <a href="https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder" target="_blank" rel="noreferrer" className="underline">this Google tool</a> — search for your business and copy the ID (starts with ChIJ…)</p>
-          <div className="flex gap-2">
-            <Input value={manualId} onChange={e => setManualId(e.target.value)} placeholder="ChIJ…" className="flex-1 font-mono text-[12px]" />
-            <Button size="sm" disabled={!manualId.trim().startsWith("ChIJ")} onClick={() => {
-              onSelect(manualId.trim());
-              setConfirmed(true);
-              setConfirmedName("");
-              setManualMode(false);
-            }}>Save</Button>
-          </div>
-          <button className="text-[11px] text-muted-foreground underline" onClick={() => setManualMode(false)}>Back to search</button>
-        </div>
-      )}
-      {results.length > 0 && (
-        <div className="space-y-1.5">
-          <p className="text-[11.5px] text-muted-foreground">Select your business:</p>
-          <div className="border rounded-md divide-y">
-            {results.slice(0, 8).map(r => (
-              <button key={r.place_id} className="w-full text-left px-3 py-2.5 hover:bg-muted/60 transition-colors flex items-center gap-3" onClick={() => {
-                setPending({ ...r, photo_ref: photos[r.place_id] || null });
-                setResults([]);
-              }}>
-                <div className="w-10 h-10 rounded bg-muted flex-shrink-0 overflow-hidden">
-                  {photos[r.place_id] && <img src={`/api/settings/google-place-photo?ref=${encodeURIComponent(photos[r.place_id]!)}`} alt="" className="w-full h-full object-cover" />}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[13px] font-medium">{r.name}</p>
-                  {r.formatted_address && <p className="text-[11px] text-muted-foreground truncate">{r.formatted_address}</p>}
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      <input ref={inputRef} placeholder="Start typing your business name…" className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" />
+      <p className="text-[11px] text-muted-foreground">Google will suggest matches as you type — select yours from the dropdown</p>
     </div>
   );
 }
