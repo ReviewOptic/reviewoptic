@@ -2620,14 +2620,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!apiKey) return res.status(500).json({ error: "GOOGLE_PLACES_API_KEY not set" });
     try {
       const axios = (await import("axios")).default;
-      // Look up user's country to bias results geographically
-      const { rows: settingsRows } = await pool.query(`SELECT country FROM settings WHERE account_id = $1`, [req.session.accountId]).catch(() => ({ rows: [] as any[] }));
-      const country = (settingsRows[0]?.country || "gb").toLowerCase().slice(0, 2);
       const r = await axios.get(
         "https://maps.googleapis.com/maps/api/place/autocomplete/json",
-        { params: { input: q, types: "establishment", components: `country:${country}`, key: apiKey, language: "en" }, timeout: 8000 }
+        { params: { input: q, types: "establishment", key: apiKey, language: "en" }, timeout: 8000 }
       );
-      console.log(`[place-search] status=${r.data?.status} predictions=${r.data?.predictions?.length ?? 0} country=${country}`);
+      console.log(`[place-search] status=${r.data?.status} predictions=${r.data?.predictions?.length ?? 0}`);
       if (r.data?.status && r.data.status !== "OK" && r.data.status !== "ZERO_RESULTS") {
         return res.status(500).json({ error: `Google API: ${r.data.status} — ${r.data.error_message || "check API key and billing"}` });
       }
