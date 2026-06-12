@@ -349,9 +349,42 @@ Your job is to be the developer they would hire if they could afford a great one
 - All queries use `ext.external_reviews` prefix
 
 **Pending:**
-- **Verify Google reviews pulling**: User has `maps.app.goo.gl/aNrLnCa11CBeBWxS8` as their link. After republishing, paste into Settings → Social → Google Review Importing, wait for "Saved", hit Refresh on dashboard. Should show Google reviews.
-- **Google Place ID resolution**: If `maps.app.goo.gl` still fails, check debug endpoint `/api/debug/google-maps-link` to confirm save worked, then check the alert popup on Refresh for the exact error.
-- **Remove debug endpoint** (`/api/debug/google-maps-link` in `server/routes.ts`) once Google reviews confirmed working.
+- **Re-connect Facebook** in Settings → Social
+- **Facebook App Review**: waiting ~2 weeks
+- **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
+
+### Session — 2026-06-12 (ninety-fifth session)
+
+**Context:** Entire session spent fixing Google review importing and review dates.
+
+**google_maps_link — final architecture (after many failed attempts):**
+- Stored in: `ext.settings_extra(account_id, google_maps_link)` — invisible to Replit forever
+- Saved by: dedicated `POST /api/settings/google-maps-link` endpoint only — completely isolated from general settings PATCH
+- Read by: `storage.getSettings()` merges from ext.settings_extra; `pollExternalReviewsForAccount()` reads directly from ext.settings_extra
+- NOT in schema.ts, NOT in migrate.ts ALTER TABLE — adding to either triggers Replit DROP cycles
+- The `google_maps_link` field stores a **Place ID** (`ChIJ...`) not a URL — URL resolution was unreliable
+
+**Google Place ID search UI (`client/src/pages/Settings.tsx`):**
+- `GooglePlaceSearch` component: user searches by business name → results show photo + address → click to confirm
+- Backend: `GET /api/settings/google-place-search` calls `findplacefromtext` Places API
+- Photo proxy: `GET /api/settings/google-place-photo?ref=...` — keeps API key server-side
+- If business has photo → one click confirms (photo is the verification)
+- If no photo → confirmation step shown with "Yes, this is my business" button
+- Confirmed state shows green ✓ + "View on Google Maps" link
+
+**Review dates fix:**
+- `extractReviewItem` now checks many more date field names (submittedDate, postedDate, timestamp etc.)
+- `saveIfNew` uses `ON CONFLICT DO UPDATE SET review_date = COALESCE(existing, new)` — backfills null dates on re-poll automatically
+
+**CRITICAL RULES reinforced this session:**
+- NEVER add google_maps_link (or any ext field) to schema.ts or migrate.ts ALTER TABLE — instant DROP cycle
+- The dedicated endpoint pattern (POST /api/settings/google-maps-link) is the only reliable way to save ext fields
+- URL resolution for Google Maps is fundamentally unreliable server-side — always use Place ID directly
+
+**Pending:**
+- **Verify Google reviews working**: Deploy → Settings → Social → search for business → confirm → reviews should appear automatically
+- **Remove debug endpoint** (`/api/debug/google-maps-link` in `server/routes.ts`) once confirmed working
+- **Review dates**: will backfill automatically on next poll after deploy
 - **Re-connect Facebook** in Settings → Social
 - **Facebook App Review**: waiting ~2 weeks
 - **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
