@@ -219,9 +219,22 @@ export class DatabaseStorage implements IStorage {
 
   async getSettings(accountId: string): Promise<Settings | undefined> {
     const { rows } = await pool.query(`SELECT * FROM settings WHERE account_id = $1 LIMIT 1`, [accountId]);
-    return rows[0] ? settingsRowToCamel(rows[0]) : undefined;
+    if (!rows[0]) return undefined;
+    const result = settingsRowToCamel(rows[0]);
+    const { rows: extra } = await pool.query(`SELECT google_maps_link FROM ext.settings_extra WHERE account_id = $1`, [accountId]).catch(() => ({ rows: [] as any[] }));
+    if (extra[0]) result.googleMapsLink = extra[0].google_maps_link;
+    return result;
   }
   async upsertSettings(accountId: string, data: Partial<InsertSettings>): Promise<Settings> {
+    // google_maps_link lives in ext.settings_extra (invisible to Replit migrations)
+    if (data.googleMapsLink !== undefined) {
+      await pool.query(
+        `INSERT INTO ext.settings_extra (account_id, google_maps_link) VALUES ($1, $2)
+         ON CONFLICT (account_id) DO UPDATE SET google_maps_link = $2`,
+        [accountId, data.googleMapsLink]
+      ).catch(() => {});
+      delete (data as any).googleMapsLink;
+    }
     const existing = await this.getSettings(accountId);
     const toSnake = (s: string) => s.replace(/[A-Z]/g, c => `_${c.toLowerCase()}`);
     let entries = Object.entries(data).filter(([, v]) => v !== undefined);
