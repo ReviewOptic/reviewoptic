@@ -31,6 +31,66 @@ function SettingSection({ title, description, children }: { title: string; descr
   );
 }
 
+function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; onSelect: (placeId: string) => void }) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<{ place_id: string; name: string; formatted_address: string }[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [confirmed, setConfirmed] = useState(!!savedPlaceId);
+  const [confirmedName, setConfirmedName] = useState("");
+
+  const search = async () => {
+    if (!query.trim()) return;
+    setSearching(true);
+    setResults([]);
+    try {
+      const res = await fetch(`/api/settings/google-place-search?q=${encodeURIComponent(query)}`, { credentials: "include" });
+      const data = await res.json();
+      setResults(data || []);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  if (confirmed && savedPlaceId) {
+    return (
+      <div className="flex items-center justify-between gap-2 p-3 rounded-md border bg-muted/40">
+        <div>
+          <p className="text-[13px] font-medium text-green-700 dark:text-green-400">✓ Connected{confirmedName ? `: ${confirmedName}` : ""}</p>
+          <p className="text-[11px] text-muted-foreground">{savedPlaceId.substring(0, 20)}…</p>
+        </div>
+        <Button variant="outline" size="sm" className="text-[12px]" onClick={() => { setConfirmed(false); setResults([]); setQuery(""); }}>Change</Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <Label className="text-[12.5px]">Search for your business</Label>
+      <div className="flex gap-2">
+        <Input value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === "Enter" && search()} placeholder="e.g. Smith Plumbing London" className="flex-1" />
+        <Button variant="outline" size="sm" onClick={search} disabled={searching}>{searching ? "Searching…" : "Search"}</Button>
+      </div>
+      {results.length === 0 && !searching && query && <p className="text-[11px] text-muted-foreground">No results — try adding your town or postcode</p>}
+      {results.length > 0 && (
+        <div className="border rounded-md divide-y">
+          {results.map(r => (
+            <button key={r.place_id} className="w-full text-left px-3 py-2.5 hover:bg-muted/60 transition-colors" onClick={() => {
+              onSelect(r.place_id);
+              setConfirmed(true);
+              setConfirmedName(r.name);
+              setResults([]);
+            }}>
+              <p className="text-[13px] font-medium">{r.name}</p>
+              {r.formatted_address && <p className="text-[11px] text-muted-foreground">{r.formatted_address}</p>}
+            </button>
+          ))}
+        </div>
+      )}
+      {savedPlaceId && <p className="text-[11px] text-muted-foreground">Currently saved: {savedPlaceId.substring(0, 25)}…</p>}
+    </div>
+  );
+}
+
 export default function Settings() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -910,31 +970,18 @@ export default function Settings() {
               <CardHeader>
                 <CardTitle className="text-[15px]">Google Review Importing</CardTitle>
                 <CardDescription className="text-[12.5px]">
-                  ReviewOptic checks this URL every 6 hours and pulls new Google reviews into your dashboard. New 4★+ reviews are also auto-posted to Facebook and Instagram if connected above.
+                  ReviewOptic checks every 6 hours and pulls new Google reviews into your dashboard. New 4★+ reviews are also auto-posted to Facebook and Instagram if connected above.
                 </CardDescription>
               </CardHeader>
               <CardContent className="pb-5">
-                <div className="space-y-1.5">
-                  <Label className="text-[12.5px]">Google Place ID</Label>
-                  <p className="text-[11px] text-muted-foreground">
-                    Find your Place ID at{" "}
-                    <a href="https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder" target="_blank" rel="noreferrer" className="underline">this Google tool</a>
-                    {" "}— search for your business and copy the ID (starts with <code className="bg-muted px-1 rounded">ChIJ...</code>)
-                  </p>
-                  <div className="flex gap-2">
-                    <Input
-                      value={form.googleMapsLink}
-                      onChange={e => setForm(f => ({ ...f, googleMapsLink: e.target.value }))}
-                      onBlur={e => {
-                        const val = e.target.value.trim();
-                        fetch("/api/settings/google-maps-link", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ googleMapsLink: val }) })
-                          .catch(() => {});
-                      }}
-                      placeholder="ChIJ..."
-                      className="flex-1"
-                    />
-                  </div>
-                </div>
+                <GooglePlaceSearch
+                  savedPlaceId={form.googleMapsLink}
+                  onSelect={placeId => {
+                    setForm(f => ({ ...f, googleMapsLink: placeId }));
+                    fetch("/api/settings/google-maps-link", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ googleMapsLink: placeId }) })
+                      .catch(() => {});
+                  }}
+                />
               </CardContent>
             </Card>
 

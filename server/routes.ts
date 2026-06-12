@@ -2604,6 +2604,22 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
     }
   });
+  app.get("/api/settings/google-place-search", requireAuth, async (req, res) => {
+    const q = (req.query.q as string || "").trim();
+    if (!q) return res.json([]);
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: "GOOGLE_PLACES_API_KEY not set" });
+    try {
+      const r = await (await import("axios")).default.get(
+        "https://maps.googleapis.com/maps/api/place/findplacefromtext/json",
+        { params: { input: q, inputtype: "textquery", fields: "place_id,name,formatted_address", key: apiKey }, timeout: 8000 }
+      );
+      res.json(r.data?.candidates || []);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.post("/api/settings/google-maps-link", requireAuth, async (req, res) => {
     const { googleMapsLink } = req.body;
     if (googleMapsLink === undefined) return res.status(400).json({ message: "googleMapsLink required" });
