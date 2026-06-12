@@ -31,16 +31,18 @@ function SettingSection({ title, description, children }: { title: string; descr
   );
 }
 
-function loadGoogleMapsScript(key: string, callback: () => void) {
-  if ((window as any).google?.maps?.places) { callback(); return; }
-  const existing = document.getElementById("gmap-script");
-  if (existing) { existing.addEventListener("load", callback); return; }
-  const s = document.createElement("script");
-  s.id = "gmap-script";
-  s.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places`;
-  s.async = true;
-  s.onload = callback;
-  document.head.appendChild(s);
+function loadGoogleMapsScript(key: string): Promise<void> {
+  return new Promise((resolve) => {
+    if ((window as any).google?.maps?.importLibrary) { resolve(); return; }
+    const existing = document.getElementById("gmap-script");
+    if (existing) { existing.addEventListener("load", () => resolve()); return; }
+    const s = document.createElement("script");
+    s.id = "gmap-script";
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${key}&loading=async`;
+    s.async = true;
+    s.onload = () => resolve();
+    document.head.appendChild(s);
+  });
 }
 
 function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; onSelect: (placeId: string) => void }) {
@@ -53,21 +55,27 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
     if (confirmed) return;
     fetch("/api/settings/google-places-key", { credentials: "include" })
       .then(r => r.json())
-      .then(({ key }: { key: string }) => {
-        if (!key) return;
-        loadGoogleMapsScript(key, () => {
-          if (!inputRef.current) return;
-          const ac = new (window as any).google.maps.places.Autocomplete(inputRef.current, {
-            types: ["establishment"],
-            fields: ["place_id", "name", "formatted_address", "photos"],
-          });
-          ac.addListener("place_changed", () => {
-            const place = ac.getPlace();
-            if (!place.place_id) return;
-            const photoUrl: string | null = place.photos?.[0]?.getUrl({ maxWidth: 80 }) ?? null;
-            setPending({ place_id: place.place_id, name: place.name || "", address: place.formatted_address || "", photoUrl });
-          });
+      .then(async ({ key }: { key: string }) => {
+        if (!key || !inputRef.current) return;
+        await loadGoogleMapsScript(key);
+        const { Autocomplete } = await (window as any).google.maps.importLibrary("places");
+        if (!inputRef.current) return;
+        const ac = new Autocomplete(inputRef.current, {
+          types: ["establishment"],
+          fields: ["place_id", "name", "formatted_address", "photos"],
         });
+        ac.addListener("place_changed", () => {
+          const place = ac.getPlace();
+          if (!place.place_id) return;
+          const photoUrl: string | null = place.photos?.[0]?.getUrl({ maxWidth: 80 }) ?? null;
+          setPending({ place_id: place.place_id, name: place.name || "", address: place.formatted_address || "", photoUrl });
+        });
+        if (!document.getElementById("pac-style")) {
+          const style = document.createElement("style");
+          style.id = "pac-style";
+          style.textContent = ".pac-container { z-index: 99999 !important; }";
+          document.head.appendChild(style);
+        }
       })
       .catch(() => {});
   }, [confirmed]);
