@@ -35,7 +35,7 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
   const [confirmed, setConfirmed] = useState(!!savedPlaceId);
   const [confirmedName, setConfirmedName] = useState("");
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<{ place_id: string; name: string; formatted_address: string }[]>([]);
+  const [results, setResults] = useState<{ place_id: string; name: string; formatted_address: string; photo_ref: string | null }[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [pending, setPending] = useState<{ place_id: string; name: string; address: string; photoUrl: string | null } | null>(null);
@@ -58,15 +58,10 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
     }, 350);
   };
 
-  const pick = async (item: { place_id: string; name: string; formatted_address: string }) => {
+  const pick = (item: { place_id: string; name: string; formatted_address: string; photo_ref: string | null }) => {
     setResults([]);
     setQuery("");
-    // Try to get a photo via place details
-    let photoUrl: string | null = null;
-    try {
-      const r = await fetch(`/api/settings/google-place-details?place_id=${item.place_id}`, { credentials: "include" });
-      if (r.ok) { const d = await r.json(); if (d.photo_ref) photoUrl = `/api/settings/google-place-photo?ref=${encodeURIComponent(d.photo_ref)}`; }
-    } catch {}
+    const photoUrl = item.photo_ref ? `/api/settings/google-place-photo?ref=${encodeURIComponent(item.photo_ref)}` : null;
     setPending({ place_id: item.place_id, name: item.name, address: item.formatted_address, photoUrl });
   };
 
@@ -125,10 +120,15 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
                 key={r.place_id}
                 type="button"
                 onClick={() => pick(r)}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-muted/60 border-b last:border-b-0"
+                className="w-full text-left px-3 py-2 text-sm hover:bg-muted/60 border-b last:border-b-0 flex items-center gap-2.5"
               >
-                <span className="font-medium">{r.name}</span>
-                {r.formatted_address && <span className="text-muted-foreground ml-2 text-[11px]">{r.formatted_address}</span>}
+                {r.photo_ref
+                  ? <img src={`/api/settings/google-place-photo?ref=${encodeURIComponent(r.photo_ref)}`} alt="" className="w-9 h-9 rounded object-cover flex-shrink-0" />
+                  : <div className="w-9 h-9 rounded bg-muted flex-shrink-0" />}
+                <div className="min-w-0">
+                  <p className="font-medium truncate">{r.name}</p>
+                  {r.formatted_address && <p className="text-muted-foreground text-[11px] truncate">{r.formatted_address}</p>}
+                </div>
               </button>
             ))}
           </div>
