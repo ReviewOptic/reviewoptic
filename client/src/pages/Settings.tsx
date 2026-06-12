@@ -187,7 +187,6 @@ export default function Settings() {
     formRef.current = form;
     isDirtyRef.current = true;
     if (justLoadedRef.current) { justLoadedRef.current = false; return; }
-    if (!form.businessEmail || (!form.ownerName.trim() && !form.businessName.trim())) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       setSaveStatus("saving");
@@ -197,12 +196,11 @@ export default function Settings() {
     }, 1500);
   }, [form]);
 
-  // Auto-save silently when user navigates away (only if form is valid)
+  // Auto-save when user navigates away
   useEffect(() => {
     return () => {
       const f = formRef.current;
       if (!isDirtyRef.current) return;
-      if (!f.businessEmail || (!f.ownerName.trim() && !f.businessName.trim())) return;
       apiRequest("PATCH", "/api/settings", f).catch(() => {});
     };
   }, []);
