@@ -206,7 +206,7 @@ async function fetchGoogle(accountId: string, link: string): Promise<FetchResult
       timeout: 10000,
     });
     if (res.data?.status && res.data.status !== "OK") {
-      return { reviews: [], error: `Google API error: ${res.data.status}` };
+      return { reviews: [], error: `Google API error: ${res.data.status} (Place ID: ${placeId.substring(0, 30)})` };
     }
     const reviews = (res.data?.result?.reviews || [])
       .filter((r: any) => r.text?.trim())
