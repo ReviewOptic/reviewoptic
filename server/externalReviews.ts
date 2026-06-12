@@ -54,7 +54,8 @@ function extractReviewItem(obj: any, platform: string): ReviewItem | null {
   const ratingRaw = obj.rating ?? obj.score ?? obj.stars ?? obj.reviewRating?.ratingValue ?? obj.starRating?.ratingValue ?? 0;
   const rating = Math.round(parseFloat(String(ratingRaw)));
   const author = (obj.author?.name || obj.authorName || obj.reviewer?.name || obj.reviewerName || (typeof obj.author === "string" ? obj.author : "") || "Anonymous").trim();
-  const dateStr = obj.date || obj.createdAt || obj.created_at || obj.datePublished || obj.reviewDate || "";
+  const dateStr = obj.date || obj.createdAt || obj.created_at || obj.datePublished || obj.reviewDate ||
+    obj.submittedDate || obj.postedDate || obj.reviewedDate || obj.timestamp || obj.time || obj.publishedAt || obj.published_at || "";
   if (!text || !rating) return null;
   return { author, rating, text, date: dateStr ? new Date(dateStr) : null, platform };
 }
@@ -87,7 +88,7 @@ async function saveIfNew(
     await pool.query(
       `INSERT INTO ext.external_reviews (id, account_id, platform, external_id, author_name, rating, review_text, review_date)
        VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7)
-       ON CONFLICT (account_id, platform, external_id) DO NOTHING`,
+       ON CONFLICT (account_id, platform, external_id) DO UPDATE SET review_date = COALESCE(ext.external_reviews.review_date, EXCLUDED.review_date)`,
       [accountId, platform, externalId, author, rating, text, date]
     );
     const { rows } = await pool.query(
