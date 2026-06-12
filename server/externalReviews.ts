@@ -128,20 +128,26 @@ async function resolveGooglePlaceId(link: string, apiKey: string): Promise<strin
 
   const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
-  // 2. Follow all redirects in one shot — reliably lands on the final URL
+  // 2. Follow all redirects — handles maps.app.goo.gl, g.page, and other short links
   let finalUrl = "";
   let html = "";
   try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
     const resp = await fetch(link, {
       redirect: "follow",
       headers: { "User-Agent": BROWSER_UA, "Accept": "text/html,*/*" },
-      signal: AbortSignal.timeout(10000),
+      signal: controller.signal,
     });
+    clearTimeout(timer);
     finalUrl = resp.url;
     html = await resp.text().catch(() => "");
-  } catch {}
+    console.log(`[google] redirect landed on: ${finalUrl.substring(0, 120)}`);
+  } catch (e: any) {
+    console.warn(`[google] fetch failed for ${link}: ${e?.message}`);
+  }
 
-  // 3. Check final URL for placeid=ChIJ (writereview page) or ChIJ in data segment
+  // 3. Check final URL for ChIJ or hex Place ID
   if (finalUrl) {
     const fromFinal = extractPlaceIdFromUrl(finalUrl);
     if (fromFinal?.startsWith("ChIJ")) return fromFinal;
@@ -151,27 +157,24 @@ async function resolveGooglePlaceId(link: string, apiKey: string): Promise<strin
   if (html) {
     const chijMatch = html.match(/["'](ChIJ[A-Za-z0-9_%-]{10,})["']/);
     if (chijMatch) return decodeURIComponent(chijMatch[1]);
+    // Also scan for Place ID in window.APP_INITIALIZATION_STATE or similar
+    const chijMatch2 = html.match(/\\x22(ChIJ[A-Za-z0-9_%-]{10,})\\x22/);
+    if (chijMatch2) return decodeURIComponent(chijMatch2[1]);
   }
 
-  // 5. Last resort: coordinates + business name from URL → findplacefromtext (200m radius)
-  const coordMatch = finalUrl.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-  const nameMatch = finalUrl.match(/\/maps\/place\/([^/@?]+)/);
-  if (coordMatch && nameMatch) {
+  // 5. CID format (?cid=NNNN) — convert via Place Details API
+  const cidMatch = finalUrl.match(/[?&]cid=(\d+)/);
+  if (cidMatch) {
     try {
-      const res = await axios.get("https://maps.googleapis.com/maps/api/place/findplacefromtext/json", {
-        params: {
-          input: decodeURIComponent(nameMatch[1].replace(/\+/g, " ")),
-          inputtype: "textquery",
-          locationbias: `circle:200@${coordMatch[1]},${coordMatch[2]}`,
-          fields: "place_id",
-          key: apiKey,
-        },
+      const res = await axios.get("https://maps.googleapis.com/maps/api/place/details/json", {
+        params: { place_id: `cid:${cidMatch[1]}`, fields: "place_id", key: apiKey },
         timeout: 8000,
       });
-      if (res.data?.candidates?.[0]) return res.data.candidates[0].place_id;
+      if (res.data?.result?.place_id) return res.data.result.place_id;
     } catch {}
   }
 
+  console.warn(`[google] could not resolve Place ID from: ${link} → ${finalUrl.substring(0, 80)}`);
   return null;
 }
 
