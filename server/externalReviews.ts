@@ -368,15 +368,12 @@ async function autoPostReview(accountId: string, review: {author: string; rating
 
 export async function pollExternalReviewsForAccount(accountId: string): Promise<PlatformResult[]> {
   const { rows } = await pool.query(
-    `SELECT google_review_link, checkatrade_link, trustpilot_link, tripadvisor_link,
+    `SELECT google_review_link, google_maps_link, checkatrade_link, trustpilot_link, tripadvisor_link,
             mybuilder_link, social_post_enabled, facebook_page_access_token,
             facebook_page_id, instagram_business_account_id, business_name, social_post_message
      FROM settings WHERE account_id = $1`,
     [accountId]
   );
-  const { rows: extraRows } = await pool.query(
-    `SELECT google_maps_link FROM ext.settings_extra WHERE account_id = $1`, [accountId]
-  ).catch(() => ({ rows: [] as any[] }));
   // Fetch social_card_template separately so a missing column never crashes the poll
   let socialCardTemplate = "classic";
   try {
@@ -393,7 +390,7 @@ export async function pollExternalReviewsForAccount(accountId: string): Promise<
   );
   const isFirstPoll = parseInt(existing[0]?.count ?? "0") === 0;
 
-  const gl = (extraRows[0]?.google_maps_link || s.google_review_link || "").trim();
+  const gl = (s.google_maps_link || s.google_review_link || "").trim();
   const cl = (s.checkatrade_link || "").trim();
   const tl = (s.trustpilot_link || "").trim();
   const tal = (s.tripadvisor_link || "").trim();
