@@ -115,26 +115,42 @@ function extractPlaceIdFromUrl(link: string): string | null {
   return null;
 }
 
-// Resolve a Google Maps link to a Place ID — extracts from the URL or follows short-link redirects.
+// Resolve a Google Maps / g.page link to a Place ID.
+// Manually follows each redirect step so we can check intermediate URLs —
+// fetch(redirect:'follow') only exposes the final URL and misses the
+// search.google.com/local/writereview?placeid=ChIJ... intermediate hop.
 async function resolveGooglePlaceId(link: string, apiKey: string): Promise<string | null> {
-  // 1. Try to pull ChIJ... directly from the URL
+  // 1. Extract directly from the URL if it already contains a Place ID
   const fromUrl = extractPlaceIdFromUrl(link);
   if (fromUrl) return fromUrl;
 
-  // 2. Short links (g.page, goo.gl, maps.app) — follow redirects
-  if (link.includes("g.page") || link.includes("goo.gl") || link.includes("maps.app")) {
+  // 2. Manually follow redirects one hop at a time, checking each URL
+  const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+  let currentUrl = link;
+  for (let hop = 0; hop < 8; hop++) {
     try {
-      const res = await fetch(link, {
-        redirect: "follow",
-        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" },
-        signal: AbortSignal.timeout(8000),
+      const resp = await axios.get(currentUrl, {
+        maxRedirects: 0,
+        validateStatus: (s) => s < 500,
+        timeout: 8000,
+        headers: { "User-Agent": BROWSER_UA, "Accept": "text/html,*/*" },
       });
-      const fromRedirect = extractPlaceIdFromUrl(res.url);
-      if (fromRedirect) return fromRedirect;
-      const html = await res.text();
-      const htmlMatch = html.match(/["'](ChIJ[A-Za-z0-9_%-]{10,})["']/);
-      if (htmlMatch) return decodeURIComponent(htmlMatch[1]);
-    } catch {}
+      if (resp.status >= 300 && resp.status < 400 && resp.headers.location) {
+        const loc = resp.headers.location.startsWith("http")
+          ? resp.headers.location
+          : new URL(resp.headers.location, currentUrl).href;
+        const fromLoc = extractPlaceIdFromUrl(loc);
+        if (fromLoc) return fromLoc;
+        currentUrl = loc;
+        continue;
+      }
+      // Final destination — scan HTML for ChIJ pattern
+      if (typeof resp.data === "string") {
+        const htmlMatch = resp.data.match(/["'](ChIJ[A-Za-z0-9_%-]{10,})["']/);
+        if (htmlMatch) return decodeURIComponent(htmlMatch[1]);
+      }
+      break;
+    } catch { break; }
   }
 
   return null;
@@ -306,10 +322,9 @@ async function autoPostReview(accountId: string, review: {author: string; rating
 
 export async function pollExternalReviewsForAccount(accountId: string): Promise<PlatformResult[]> {
   const { rows } = await pool.query(
-    `SELECT google_maps_url, google_review_link, checkatrade_link, trustpilot_link,
-            tripadvisor_link, mybuilder_link, trustist_link, social_post_enabled,
-            facebook_page_access_token, facebook_page_id, instagram_business_account_id,
-            business_name, social_post_message
+    `SELECT google_review_link, checkatrade_link, trustpilot_link, tripadvisor_link,
+            mybuilder_link, trustist_link, social_post_enabled, facebook_page_access_token,
+            facebook_page_id, instagram_business_account_id, business_name, social_post_message
      FROM settings WHERE account_id = $1`,
     [accountId]
   );
@@ -329,8 +344,7 @@ export async function pollExternalReviewsForAccount(accountId: string): Promise<
   );
   const isFirstPoll = parseInt(existing[0]?.count ?? "0") === 0;
 
-  // For Google: prefer the explicit Maps URL (has Place ID); fall back to the review request link
-  const gl = (s.google_maps_url || s.google_review_link || "").trim();
+  const gl = (s.google_review_link || "").trim();
   const cl = (s.checkatrade_link || "").trim();
   const tl = (s.trustpilot_link || "").trim();
   const tal = (s.tripadvisor_link || "").trim();
