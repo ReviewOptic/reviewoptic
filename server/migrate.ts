@@ -634,8 +634,6 @@ export async function runMigrations() {
 
 
 
-    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS google_maps_link TEXT NOT NULL DEFAULT ''`);
-
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();
