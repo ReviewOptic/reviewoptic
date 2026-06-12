@@ -275,3 +275,42 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Re-enter all platform links** once Google reviews confirmed working
 - **Facebook App Review**: waiting ~2 weeks
 - **Landing page videos**, **tracking pixel IDs**, **first blog post** — all pending
+
+### Session — 2026-06-12 (ninety-third session)
+
+**Context:** Entire session dominated by fixing the Replit migration DROP cycle for `external_reviews` and `trustist_link`, plus Google Place ID resolution and settings autosave.
+
+**Root cause of DROP cycle — FINALLY identified:**
+`migrate.ts` was recreating `external_reviews` and `trustist_link` every time the server started. So: Replit drops them → server restarts → migrate.ts recreates them → next deploy: Replit detects them again → drops again → infinite loop.
+
+**Permanent fix applied:**
+- Removed `CREATE TABLE IF NOT EXISTS external_reviews` (+ indexes) from `migrate.ts` — Replit now owns this table via `schema.ts`
+- Removed `ALTER TABLE settings ADD COLUMN IF NOT EXISTS trustist_link` from `migrate.ts` — Replit now owns this column via `schema.ts`
+- All `external_reviews` queries in `routes.ts` wrapped in try/catch — safe during the brief window after DROP before Replit's next CREATE migration
+- `external_reviews` and `trustist_link` both defined in `schema.ts` so Replit generates CREATE (not DROP) after the final accepted DROP
+
+**What the user must do on next session start:**
+1. Republish → Replit will generate DROP TABLE external_reviews + DROP COLUMN trustist_link (the last time!)
+2. Accept those migrations
+3. App restarts (migrate.ts does NOT recreate them this time)
+4. Republish again → Replit generates CREATE TABLE external_reviews + ADD COLUMN trustist_link (because they're in schema.ts but not in DB)
+5. Accept those → Replit now owns both → **no more DROP cycles ever**
+6. After that: re-enter Google review link in Settings → hit Refresh on Dashboard
+
+**Other fixes this session:**
+- **Google Place ID hex format** (`server/externalReviews.ts`): `g.page` redirect lands on Google Maps URL with hex FID format (`0x66f5ae8488448f69:0x2fa9ce0d197e8cfd`), not ChIJ. Updated `extractPlaceIdFromUrl` to extract hex format, and `fetchGoogle` to use `ftid` parameter for the Places API when format is hex.
+- **Settings debounced autosave** (`client/src/pages/Settings.tsx`): Autosave now fires 1.5 seconds after any field change — no need to click Save or navigate away.
+- **Trustist poll crash fix** (`server/externalReviews.ts`): `trustist_link` fetched in separate try/catch query so missing column never kills the entire poll.
+- **schema.ts**: Added `externalReviews` pgTable definition (so Replit doesn't generate DROP). `trustistLink` already present.
+
+**CRITICAL RULE — confirmed this session:**
+- `tablesFilter` in `drizzle.config.ts` is COMPLETELY ignored by Replit's deployment system
+- The ONLY way to prevent DROP: keep the table/column in BOTH schema.ts AND stop migrate.ts from recreating it
+- Never add a table or column to migrate.ts that Replit should own — only add to schema.ts and let Replit generate the CREATE
+
+**Pending:**
+- **Two more migration accepts needed** (see steps 1-5 above) to permanently end DROP cycle
+- **Re-enter Google review link** after migrations stabilise → test Refresh
+- **Re-connect Facebook** in Settings → Social
+- **Facebook App Review**: waiting ~2 weeks
+- **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
