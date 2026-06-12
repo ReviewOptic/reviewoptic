@@ -2661,12 +2661,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const placeId = await resolveGooglePlaceId(url, apiKey);
       if (!placeId) return res.status(404).json({ error: "Could not find your business from that link. Try a different link." });
       const axios = (await import("axios")).default;
+      const isHex = placeId.startsWith("0x");
+      const detailParams: any = { fields: "name,formatted_address,photos,place_id", key: apiKey };
+      if (isHex) detailParams.ftid = placeId; else detailParams.place_id = placeId;
       const details = await axios.get("https://maps.googleapis.com/maps/api/place/details/json", {
-        params: { place_id: placeId, fields: "name,formatted_address,photos", key: apiKey }, timeout: 8000
+        params: detailParams, timeout: 8000
       });
       const result = details.data?.result || {};
+      const resolvedPlaceId = result.place_id || placeId;
       res.json({
-        place_id: placeId,
+        place_id: resolvedPlaceId,
         name: result.name || "",
         formatted_address: result.formatted_address || "",
         photo_ref: result.photos?.[0]?.photo_reference || null,
