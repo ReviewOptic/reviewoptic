@@ -2604,6 +2604,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
     }
   });
+  app.get("/api/settings/google-places-key", requireAuth, async (req, res) => {
+    const key = process.env.GOOGLE_PLACES_API_KEY_PUBLIC || "";
+    const { rows } = await pool.query(`SELECT country FROM settings WHERE account_id = $1`, [req.session.accountId]).catch(() => ({ rows: [] as any[] }));
+    const rawCountry = rows[0]?.country || "";
+    const COUNTRY_CODES: Record<string, string> = { "united kingdom": "gb", "uk": "gb", "united states": "us", "usa": "us", "ireland": "ie", "australia": "au", "canada": "ca", "new zealand": "nz" };
+    const country = rawCountry.length === 2 ? rawCountry.toLowerCase() : (COUNTRY_CODES[rawCountry.toLowerCase()] || "gb");
+    res.json({ key, country });
+  });
+
   app.get("/api/settings/google-place-search", requireAuth, async (req, res) => {
     const q = (req.query.q as string || "").trim();
     if (!q) return res.json([]);
