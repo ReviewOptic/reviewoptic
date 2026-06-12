@@ -540,6 +540,8 @@ export async function runMigrations() {
 
     // Per-account font family selection
     await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS font_family TEXT NOT NULL DEFAULT 'Inter'`);
+    // Trustist review platform link
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS trustist_link TEXT NOT NULL DEFAULT ''`);
 
 
     // In-app notifications

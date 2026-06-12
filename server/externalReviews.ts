@@ -3,9 +3,12 @@ import { pool } from "./storage";
 import { postCardToSocial, hasBeenPostedAlready } from "./social";
 
 const FETCH_HEADERS = {
-  "User-Agent": "Mozilla/5.0 (compatible; ReviewOptic/1.0; +https://reviewoptic.com)",
-  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
   "Accept-Language": "en-GB,en;q=0.9",
+  "Accept-Encoding": "gzip, deflate, br",
+  "Cache-Control": "no-cache",
+  "Pragma": "no-cache",
 };
 
 // ── Return type for per-platform poll results ────────────────────────────────
@@ -118,18 +121,21 @@ function extractPlaceIdFromUrl(link: string): string | null {
   return null;
 }
 
-// Resolve a Google Maps / g.page link to a Place ID.
-// Manually follows each redirect step so we can check intermediate URLs —
-// fetch(redirect:'follow') only exposes the final URL and misses the
-// search.google.com/local/writereview?placeid=ChIJ... intermediate hop.
+// Resolve a Google Maps / g.page link to a ChIJ Place ID.
+// The Places API only accepts ChIJ format — hex FIDs (0x...:0x...) do NOT work.
+// Strategy: follow redirects, extract ChIJ at each hop, fall back to findplacefromtext
+// with tight coordinate bias if we only have a hex FID at the end.
 async function resolveGooglePlaceId(link: string, apiKey: string): Promise<string | null> {
-  // 1. Extract directly from the URL if it already contains a Place ID
+  // 1. Extract ChIJ directly from the URL (ignore hex FIDs — they don't work with the API)
   const fromUrl = extractPlaceIdFromUrl(link);
-  if (fromUrl) return fromUrl;
+  if (fromUrl?.startsWith("ChIJ")) return fromUrl;
 
-  // 2. Manually follow redirects one hop at a time, checking each URL
   const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
   let currentUrl = link;
+  let coordsFromUrl: { lat: string; lng: string } | null = null;
+  let nameFromUrl: string | null = null;
+
+  // 2. Manually follow redirects, checking each hop for ChIJ
   for (let hop = 0; hop < 8; hop++) {
     try {
       const resp = await axios.get(currentUrl, {
@@ -142,30 +148,63 @@ async function resolveGooglePlaceId(link: string, apiKey: string): Promise<strin
         const loc = resp.headers.location.startsWith("http")
           ? resp.headers.location
           : new URL(resp.headers.location, currentUrl).href;
+        // Capture coordinates and business name from any Google Maps URL in the chain
+        const coordMatch = loc.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+        if (coordMatch) coordsFromUrl = { lat: coordMatch[1], lng: coordMatch[2] };
+        const nameMatch = loc.match(/\/maps\/place\/([^/@?]+)/);
+        if (nameMatch) nameFromUrl = decodeURIComponent(nameMatch[1].replace(/\+/g, " "));
+        // Only return ChIJ — never return hex FID (ftid param doesn't work with Places API)
         const fromLoc = extractPlaceIdFromUrl(loc);
-        if (fromLoc) return fromLoc;
+        if (fromLoc?.startsWith("ChIJ")) return fromLoc;
         currentUrl = loc;
         continue;
       }
-      // Final destination — scan HTML for ChIJ or meta-refresh redirect
+      // Final page — scan HTML for ChIJ Place ID
       if (typeof resp.data === "string") {
         const html = resp.data as string;
-        // ChIJ Place ID embedded in the page
         const chijMatch = html.match(/["'](ChIJ[A-Za-z0-9_%-]{10,})["']/);
         if (chijMatch) return decodeURIComponent(chijMatch[1]);
-        // Meta-refresh redirect (Google sometimes uses these)
+        // Capture coords/name from final URL if not already found
+        if (!coordsFromUrl) {
+          const coordMatch = currentUrl.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+          if (coordMatch) coordsFromUrl = { lat: coordMatch[1], lng: coordMatch[2] };
+        }
+        if (!nameFromUrl) {
+          const nameMatch = currentUrl.match(/\/maps\/place\/([^/@?]+)/);
+          if (nameMatch) nameFromUrl = decodeURIComponent(nameMatch[1].replace(/\+/g, " "));
+        }
+        // Meta-refresh redirect
         const metaMatch = html.match(/http-equiv=["']refresh["'][^>]*content=["'][^"']*url=([^"'\s>]+)/i)
           || html.match(/content=["']\d+;\s*url=["']?([^"'\s>]+)/i);
         if (metaMatch) {
           const loc = metaMatch[1].startsWith("http") ? metaMatch[1] : new URL(metaMatch[1], currentUrl).href;
           const fromLoc = extractPlaceIdFromUrl(loc);
-          if (fromLoc) return fromLoc;
+          if (fromLoc?.startsWith("ChIJ")) return fromLoc;
           currentUrl = loc;
           continue;
         }
       }
       break;
     } catch { break; }
+  }
+
+  // 3. Fallback: if we have coordinates + name, use findplacefromtext with tight location bias.
+  //    200m radius keeps this accurate even for franchise chains.
+  if (coordsFromUrl && nameFromUrl) {
+    try {
+      const res = await axios.get("https://maps.googleapis.com/maps/api/place/findplacefromtext/json", {
+        params: {
+          input: nameFromUrl,
+          inputtype: "textquery",
+          locationbias: `circle:200@${coordsFromUrl.lat},${coordsFromUrl.lng}`,
+          fields: "place_id",
+          key: apiKey,
+        },
+        timeout: 8000,
+      });
+      const candidates = res.data?.candidates;
+      if (candidates?.length > 0) return candidates[0].place_id;
+    } catch {}
   }
 
   return null;
@@ -186,13 +225,9 @@ async function fetchGoogle(accountId: string, link: string): Promise<FetchResult
   }
 
   try {
-    // ChIJ format uses place_id param; hex FID format (0x...:0x...) uses ftid param
-    const isHexFid = placeId.startsWith("0x");
-    const params = isHexFid
-      ? { ftid: placeId, fields: "reviews", key: apiKey }
-      : { place_id: placeId, fields: "reviews", key: apiKey };
     const res = await axios.get("https://maps.googleapis.com/maps/api/place/details/json", {
-      params, timeout: 10000,
+      params: { place_id: placeId, fields: "reviews", key: apiKey },
+      timeout: 10000,
     });
     if (res.data?.status && res.data.status !== "OK") {
       return { reviews: [], error: `Google API error: ${res.data.status}` };
