@@ -418,3 +418,44 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Re-connect Facebook** in Settings → Social
 - **Facebook App Review**: waiting ~2 weeks
 - **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
+
+### Session — 2026-06-12 (ninety-seventh session)
+
+**Context:** Evening continuation of session 96. Diagnosed Google business connection using Replit server logs.
+
+**Key finding from logs:**
+- `share.google/hEEzSRdZBfPlRySVj` redirects correctly to: `https://www.google.com/maps/place/Time+For+You+Domestic+Cleaning+-+Berkhamsted,+Chesham+and+Amersham/@51.7358722,-0.81681,11z/data=...`
+- Hex Place ID `0x66f5ae8488448f69:0x2fa9ce0d197e8cfd` IS extracted correctly
+- BUT Places Details API with `ftid` param returns blank name/address — `ftid` not supported for details endpoint
+
+**Fix applied (`server/externalReviews.ts`, `server/routes.ts`):**
+- Added `resolveGooglePlaceWithName()` export — follows redirect, extracts name from URL path (`/maps/place/Business+Name/@...`)
+- Route handler now uses this instead of calling Places Details API
+- Business name comes from URL path directly — no API call needed, always present
+- `share.google` link correctly identifies as "Time For You Domestic Cleaning - Berkhamsted, Chesham and Amersham" with hex Place ID
+
+**Also confirmed this session:**
+- Google reviews DO pull through to dashboard (tested with a different business) ✓
+- Google Places API only returns 5–7 reviews max — hard limit of the Places Details API
+- Google Business Profile API (free, OAuth-based) needed to get ALL reviews — planned for next session
+
+**Connected state UI improvements (`client/src/pages/Settings.tsx`):**
+- Shows business name + address on load (fetched via place details)
+- Separate "Change" and "Disconnect" buttons
+- Both buttons now delete imported Google reviews (`POST /api/settings/google-disconnect`)
+- `resolveGooglePlaceId` exported (was missing — caused "u is not a function")
+- Autocomplete API restored for search (textsearch was too broad)
+- Photos shown in search dropdown (parallel details fetch per result)
+- "Can't find your business? Paste your Google Maps link" fallback added
+
+**NEXT SESSION:**
+1. **Test link paste** — deploy ed219c5 → Settings → Social → paste `https://share.google/hEEzSRdZBfPlRySVj` → should show business name → confirm
+2. **Build Google Business Profile OAuth** — free API, gives ALL reviews (not just 5–7). Similar to Facebook Connect flow already in app.
+3. **Re-connect Facebook** in Settings → Social
+
+**Pending:**
+- **Connect Google business** — likely working now, needs testing
+- **Google Business Profile OAuth** — to get all reviews
+- **Re-connect Facebook** in Settings → Social
+- **Facebook App Review**: waiting ~2 weeks
+- **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
