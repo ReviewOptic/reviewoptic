@@ -292,32 +292,55 @@ async function fetchFromPage(platform: string, url: string): Promise<FetchResult
 
 async function fetchCheckatrade(accountId: string, link: string): Promise<FetchResult> {
   const base = link.replace(/\/$/, "").replace(/\/reviews$/, "");
-  const reviewsBase = base + "/reviews";
-  const allReviews: ReviewItem[] = [];
-  const seenTexts = new Set<string>();
+  const reviewsUrl = base + "/reviews";
 
-  // Fetch paginated review pages until we get no new results (up to 10 pages)
-  for (let page = 1; page <= 10; page++) {
-    const url = page === 1 ? reviewsBase : `${reviewsBase}?page=${page}`;
-    const result = await fetchFromPage("checkatrade", url);
-    if (result.reviews.length === 0) break;
-    let added = 0;
-    for (const r of result.reviews) {
-      const key = r.text.slice(0, 60);
-      if (!seenTexts.has(key)) {
-        seenTexts.add(key);
-        allReviews.push(r);
-        added++;
+  // Extract trade slug for building Next.js data API URLs
+  const slugMatch = base.match(/\/trades\/([^/?#]+)/);
+  const slug = slugMatch?.[1] ?? "";
+
+  // Fetch page 1
+  let html = "";
+  try {
+    const res = await axios.get(reviewsUrl, { headers: FETCH_HEADERS, timeout: 14000 });
+    html = res.data as string;
+  } catch (err: any) {
+    return { reviews: [], error: `Could not load page: ${err.message}` };
+  }
+
+  const nextDataMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+  if (!nextDataMatch) return { reviews: [], error: "No reviews found — Checkatrade page may have changed" };
+
+  let allReviews: ReviewItem[] = [];
+  try {
+    const data = JSON.parse(nextDataMatch[1]);
+    const buildId: string = data.buildId || "";
+    allReviews.push(...findReviewsInObject(data, "checkatrade", 0));
+
+    // If we have a buildId and slug, use the Next.js data endpoint for subsequent pages.
+    // This returns the same JSON as __NEXT_DATA__ without re-rendering the page.
+    if (buildId && slug && allReviews.length > 0) {
+      for (let page = 2; page <= 15; page++) {
+        try {
+          const apiUrl = `https://www.checkatrade.com/_next/data/${buildId}/trades/${slug}/reviews.json?page=${page}`;
+          const res = await axios.get(apiUrl, {
+            headers: { ...FETCH_HEADERS, "Accept": "application/json" },
+            timeout: 10000,
+          });
+          const pageReviews = findReviewsInObject(res.data, "checkatrade", 0);
+          if (pageReviews.length === 0) break;
+          // Stop if we're getting duplicates (same first review as a previous page)
+          const firstKey = pageReviews[0]?.text.slice(0, 60);
+          if (allReviews.some(r => r.text.slice(0, 60) === firstKey)) break;
+          allReviews.push(...pageReviews);
+        } catch { break; }
       }
     }
-    // If no new reviews on this page, stop paginating
-    if (added === 0) break;
+  } catch {
+    return fetchFromPage("checkatrade", reviewsUrl);
   }
 
   if (allReviews.length > 0) return { reviews: allReviews };
-
-  // Fallback: try main profile page
-  return fetchFromPage("checkatrade", base);
+  return { reviews: [], error: "No reviews found on Checkatrade page" };
 }
 
 async function fetchTrustpilot(accountId: string, link: string): Promise<FetchResult> {
