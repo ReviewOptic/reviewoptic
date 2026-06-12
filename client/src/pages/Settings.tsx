@@ -31,46 +31,44 @@ function SettingSection({ title, description, children }: { title: string; descr
   );
 }
 
-function loadGoogleMapsScript(key: string, callback: () => void) {
-  if ((window as any).google?.maps?.places) { callback(); return; }
-  const existing = document.getElementById("gmap-script");
-  if (existing) { existing.addEventListener("load", callback); return; }
-  const s = document.createElement("script");
-  s.id = "gmap-script";
-  s.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places`;
-  s.async = true;
-  s.onload = callback;
-  document.head.appendChild(s);
-}
-
 function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; onSelect: (placeId: string) => void }) {
-  const inputRef = useRef<HTMLInputElement>(null);
   const [confirmed, setConfirmed] = useState(!!savedPlaceId);
   const [confirmedName, setConfirmedName] = useState("");
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<{ place_id: string; name: string; formatted_address: string }[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [pending, setPending] = useState<{ place_id: string; name: string; address: string; photoUrl: string | null } | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    if (confirmed) return;
-    fetch("/api/settings/google-places-key", { credentials: "include" })
-      .then(r => r.json())
-      .then(({ key }: { key: string }) => {
-        if (!key) return;
-        loadGoogleMapsScript(key, () => {
-          if (!inputRef.current) return;
-          const ac = new (window as any).google.maps.places.Autocomplete(inputRef.current, {
-            types: ["establishment"],
-            fields: ["place_id", "name", "formatted_address", "photos"],
-          });
-          ac.addListener("place_changed", () => {
-            const place = ac.getPlace();
-            if (!place.place_id) return;
-            const photoUrl: string | null = place.photos?.[0]?.getUrl({ maxWidth: 80 }) ?? null;
-            setPending({ place_id: place.place_id, name: place.name || "", address: place.formatted_address || "", photoUrl });
-          });
-        });
-      })
-      .catch(() => {});
-  }, [confirmed]);
+  const search = (q: string) => {
+    setQuery(q);
+    setError("");
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (!q.trim()) { setResults([]); return; }
+    timerRef.current = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const r = await fetch(`/api/settings/google-place-search?q=${encodeURIComponent(q)}`, { credentials: "include" });
+        const data = await r.json();
+        if (!r.ok) { setError(data.error || "Search failed"); setResults([]); }
+        else setResults(data);
+      } catch { setError("Search failed"); }
+      finally { setLoading(false); }
+    }, 350);
+  };
+
+  const pick = async (item: { place_id: string; name: string; formatted_address: string }) => {
+    setResults([]);
+    setQuery("");
+    // Try to get a photo via place details
+    let photoUrl: string | null = null;
+    try {
+      const r = await fetch(`/api/settings/google-place-details?place_id=${item.place_id}`, { credentials: "include" });
+      if (r.ok) { const d = await r.json(); if (d.photo_ref) photoUrl = `/api/settings/google-place-photo?ref=${encodeURIComponent(d.photo_ref)}`; }
+    } catch {}
+    setPending({ place_id: item.place_id, name: item.name, address: item.formatted_address, photoUrl });
+  };
 
   if (confirmed && savedPlaceId) {
     return (
@@ -111,8 +109,34 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
   return (
     <div className="space-y-1.5">
       <Label className="text-[12.5px]">Search for your business on Google</Label>
-      <input ref={inputRef} placeholder="Start typing your business name…" autoComplete="off" spellCheck={false} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" />
-      <p className="text-[11px] text-muted-foreground">Google will suggest matches as you type — select yours from the dropdown</p>
+      <div className="relative">
+        <input
+          value={query}
+          onChange={e => search(e.target.value)}
+          placeholder="Start typing your business name…"
+          autoComplete="off"
+          spellCheck={false}
+          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        />
+        {results.length > 0 && (
+          <div className="absolute z-50 w-full mt-1 rounded-md border bg-popover shadow-lg">
+            {results.map(r => (
+              <button
+                key={r.place_id}
+                type="button"
+                onClick={() => pick(r)}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-muted/60 border-b last:border-b-0"
+              >
+                <span className="font-medium">{r.name}</span>
+                {r.formatted_address && <span className="text-muted-foreground ml-2 text-[11px]">{r.formatted_address}</span>}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      {loading && <p className="text-[11px] text-muted-foreground">Searching…</p>}
+      {error && <p className="text-[11px] text-red-500">{error}</p>}
+      {!loading && !error && <p className="text-[11px] text-muted-foreground">Type your business name and select from the results</p>}
     </div>
   );
 }
