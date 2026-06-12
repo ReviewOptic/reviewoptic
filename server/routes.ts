@@ -2193,18 +2193,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // Manually trigger a refresh for the current account — waits for poll and returns per-platform results
-  app.post("/api/external-reviews/reimport/:platform", requireAuth, async (req, res) => {
-    const { pollExternalReviewsForAccount } = await import("./externalReviews");
-    const platform = req.params.platform;
-    try {
-      await pool.query(`DELETE FROM ext.external_reviews WHERE account_id = $1 AND platform = $2`, [req.session.accountId, platform]);
-      const results = await pollExternalReviewsForAccount(req.session.accountId!);
-      res.json({ results });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
   app.post("/api/external-reviews/refresh", requireAuth, async (req, res) => {
     const { pollExternalReviewsForAccount } = await import("./externalReviews");
     try {
