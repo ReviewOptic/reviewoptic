@@ -406,12 +406,6 @@ export async function pollExternalReviewsForAccount(accountId: string): Promise<
      FROM settings WHERE account_id = $1`,
     [accountId]
   );
-  // Fetch new columns separately so a missing column never crashes the entire poll
-  let trustistLink = "";
-  try {
-    const { rows: tr } = await pool.query(`SELECT trustist_link FROM settings WHERE account_id = $1`, [accountId]);
-    trustistLink = (tr[0]?.trustist_link || "").trim();
-  } catch { /* column not yet in DB — skip Trustist */ }
   // Fetch social_card_template separately so a missing column never crashes the poll
   let socialCardTemplate = "classic";
   try {
@@ -433,7 +427,6 @@ export async function pollExternalReviewsForAccount(accountId: string): Promise<
   const tl = (s.trustpilot_link || "").trim();
   const tal = (s.tripadvisor_link || "").trim();
   const ml = (s.mybuilder_link || "").trim();
-  const til = trustistLink;
 
   const platformConfigs: { platform: string; link: string; fetcher: () => Promise<FetchResult> }[] = [
     { platform: "google",      link: gl,  fetcher: () => fetchGoogle(accountId, gl) },
@@ -441,7 +434,6 @@ export async function pollExternalReviewsForAccount(accountId: string): Promise<
     { platform: "trustpilot",  link: tl,  fetcher: () => fetchTrustpilot(accountId, tl) },
     { platform: "tripadvisor", link: tal, fetcher: () => fetchTripAdvisor(accountId, tal) },
     { platform: "mybuilder",   link: ml,  fetcher: () => fetchMyBuilder(accountId, ml) },
-    { platform: "trustist",    link: til, fetcher: () => fetchFromPage("trustist", til) },
   ];
 
   const results: PlatformResult[] = [];

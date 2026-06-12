@@ -111,7 +111,6 @@ export default function Settings() {
     logoPosition: "left",
     googleReviewLink: "",
     facebookReviewLink: "",
-    trustistLink: "",
     trustpilotLink: "",
     tripadvisorLink: "",
     checkatradeLink: "",
@@ -146,7 +145,6 @@ export default function Settings() {
         logoPosition: settings.logoPosition || "left",
         googleReviewLink: settings.googleReviewLink || "",
         facebookReviewLink: settings.facebookReviewLink || "",
-        trustistLink: settings.trustistLink || "",
         trustpilotLink: settings.trustpilotLink || "",
         tripadvisorLink: settings.tripadvisorLink || "",
         checkatradeLink: settings.checkatradeLink || "",
@@ -480,7 +478,6 @@ export default function Settings() {
                 { label: "TripAdvisor", key: "tripadvisorLink", placeholder: "https://www.tripadvisor.co.uk/..." },
                 { label: "Checkatrade", key: "checkatradeLink", placeholder: "https://www.checkatrade.com/trades/..." },
                 { label: "MyBuilder", key: "mybuilderLink", placeholder: "https://www.mybuilder.com/..." },
-                { label: "Trustist", key: "trustistLink", placeholder: "https://www.trustist.com/..." },
               ].map(({ label, key, placeholder, hint }: any) => (
                 <div key={key} className="space-y-1.5">
                   <Label className="text-[12.5px]">{label}</Label>

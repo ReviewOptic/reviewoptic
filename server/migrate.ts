@@ -36,7 +36,6 @@ export async function runMigrations() {
         logo_position TEXT NOT NULL DEFAULT 'left',
         website_url TEXT NOT NULL DEFAULT '',
         google_review_link TEXT NOT NULL DEFAULT '',
-        trustist_link TEXT NOT NULL DEFAULT '',
         facebook_review_link TEXT NOT NULL DEFAULT '',
         trustpilot_link TEXT NOT NULL DEFAULT '',
         tripadvisor_link TEXT NOT NULL DEFAULT '',

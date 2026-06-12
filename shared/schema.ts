@@ -104,7 +104,6 @@ export const settings = pgTable("settings", {
   tripadvisorLink: text("tripadvisor_link").notNull().default(""),
   checkatradeLink: text("checkatrade_link").notNull().default(""),
   mybuilderLink: text("mybuilder_link").notNull().default(""),
-  trustistLink: text("trustist_link").notNull().default(""),
   defaultChannel: text("default_channel").notNull().default("email"),
   followUpEnabled: boolean("follow_up_enabled").notNull().default(true),
   followUp1Days: integer("follow_up_1_days").notNull().default(3),
