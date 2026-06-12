@@ -383,9 +383,9 @@ export async function pollExternalReviewsForAccount(accountId: string): Promise<
   );
   let googleMapsLinkValue = "";
   try {
-    const { rows: gml } = await pool.query(`SELECT google_maps_link FROM settings WHERE account_id = $1`, [accountId]);
+    const { rows: gml } = await pool.query(`SELECT google_maps_link FROM ext.settings_extra WHERE account_id = $1`, [accountId]);
     googleMapsLinkValue = gml[0]?.google_maps_link || "";
-  } catch { /* column may not exist yet */ }
+  } catch { /* table may not exist yet */ }
   // Fetch social_card_template separately so a missing column never crashes the poll
   let socialCardTemplate = "classic";
   try {

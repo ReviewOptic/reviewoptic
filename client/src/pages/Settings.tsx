@@ -921,9 +921,20 @@ export default function Settings() {
                     <Input
                       value={form.googleMapsLink}
                       onChange={e => setForm(f => ({ ...f, googleMapsLink: e.target.value }))}
+                      onBlur={e => {
+                        const val = e.target.value.trim();
+                        fetch("/api/settings/google-maps-link", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ googleMapsLink: val }) })
+                          .catch(() => {});
+                      }}
                       placeholder="https://www.google.com/maps/place/YourBusiness/..."
                       className="flex-1"
                     />
+                    <Button variant="outline" size="sm" className="h-9 flex-shrink-0" onClick={() => {
+                      const val = form.googleMapsLink.trim();
+                      fetch("/api/settings/google-maps-link", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ googleMapsLink: val }) })
+                        .then(() => { toast({ title: "Google Maps link saved" }); })
+                        .catch(() => { toast({ title: "Save failed", variant: "destructive" }); });
+                    }}>Save</Button>
                     {form.googleMapsLink && (
                       <Button variant="outline" size="icon" className="h-9 w-9 flex-shrink-0" onClick={() => {
                         const raw = form.googleMapsLink.trim();

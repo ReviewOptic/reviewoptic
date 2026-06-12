@@ -136,7 +136,6 @@ export const settings = pgTable("settings", {
   notifyRatings: boolean("notify_ratings").notNull().default(true),
   businessType: text("business_type").notNull().default(""),
   fontFamily: text("font_family").notNull().default("Inter"),
-  googleMapsLink: text("google_maps_link").notNull().default(""),
 });
 
 export type Settings = typeof settings.$inferSelect;

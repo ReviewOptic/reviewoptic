@@ -2604,6 +2604,25 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
     }
   });
+  app.post("/api/settings/google-maps-link", requireAuth, async (req, res) => {
+    const { googleMapsLink } = req.body;
+    if (googleMapsLink === undefined) return res.status(400).json({ message: "googleMapsLink required" });
+    try {
+      await pool.query(
+        `INSERT INTO ext.settings_extra (account_id, google_maps_link) VALUES ($1, $2) ON CONFLICT (account_id) DO UPDATE SET google_maps_link = $2`,
+        [req.session.accountId!, googleMapsLink]
+      );
+      res.json({ ok: true });
+      if (googleMapsLink.trim()) {
+        import("./externalReviews").then(({ pollExternalReviewsForAccount }) =>
+          pollExternalReviewsForAccount(req.session.accountId!).catch(console.error)
+        );
+      }
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.patch("/api/settings", requireAuth, async (req, res) => {
     try {
       const body = { ...req.body };

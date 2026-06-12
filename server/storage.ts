@@ -220,7 +220,10 @@ export class DatabaseStorage implements IStorage {
   async getSettings(accountId: string): Promise<Settings | undefined> {
     const { rows } = await pool.query(`SELECT * FROM settings WHERE account_id = $1 LIMIT 1`, [accountId]);
     if (!rows[0]) return undefined;
-    return settingsRowToCamel(rows[0]);
+    const result = settingsRowToCamel(rows[0]);
+    const { rows: extra } = await pool.query(`SELECT google_maps_link FROM ext.settings_extra WHERE account_id = $1`, [accountId]).catch(() => ({ rows: [] as any[] }));
+    if (extra[0]?.google_maps_link) (result as any).googleMapsLink = extra[0].google_maps_link;
+    return result;
   }
   async upsertSettings(accountId: string, data: Partial<InsertSettings>): Promise<Settings> {
     const existing = await this.getSettings(accountId);

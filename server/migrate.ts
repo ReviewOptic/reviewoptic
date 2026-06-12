@@ -646,6 +646,12 @@ export async function ensureExternalReviewsTable() {
   try {
     await pool.query(`CREATE SCHEMA IF NOT EXISTS ext`);
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS ext.settings_extra (
+        account_id TEXT PRIMARY KEY,
+        google_maps_link TEXT NOT NULL DEFAULT ''
+      )
+    `);
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS ext.external_reviews (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         account_id VARCHAR NOT NULL,
