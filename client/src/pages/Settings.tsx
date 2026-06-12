@@ -476,7 +476,6 @@ export default function Settings() {
               <p className="text-[12px] text-muted-foreground">Add at least one. Happy customers will be directed to whichever platforms you've filled in.</p>
               {[
                 { label: "Google Business (review link)", key: "googleReviewLink", placeholder: "https://g.page/r/...", hint: "Sent to customers when requesting a review." },
-                { label: "Google Maps profile URL (for importing reviews)", key: "googleMapsLink", placeholder: "https://www.google.com/maps/place/YourBusiness/...", hint: "Open Google Maps, find your business, copy the URL from your browser. Used to pull your reviews into the dashboard." },
                 { label: "Trustpilot", key: "trustpilotLink", placeholder: "https://www.trustpilot.com/review/..." },
                 { label: "TripAdvisor", key: "tripadvisorLink", placeholder: "https://www.tripadvisor.co.uk/..." },
                 { label: "Checkatrade", key: "checkatradeLink", placeholder: "https://www.checkatrade.com/trades/..." },
@@ -906,6 +905,39 @@ export default function Settings() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Google review importing */}
+            <Card className="border-card-border">
+              <CardHeader>
+                <CardTitle className="text-[15px]">Google Review Importing</CardTitle>
+                <CardDescription className="text-[12.5px]">
+                  ReviewOptic checks this URL every 6 hours and pulls new Google reviews into your dashboard. New 4★+ reviews are also auto-posted to Facebook and Instagram if connected above.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pb-5">
+                <div className="space-y-1.5">
+                  <Label className="text-[12.5px]">Google Maps profile URL</Label>
+                  <p className="text-[11px] text-muted-foreground">Open Google Maps, search your business, copy the URL from your browser address bar (e.g. <code className="bg-muted px-1 rounded">https://www.google.com/maps/place/YourBusiness/...</code>)</p>
+                  <div className="flex gap-2">
+                    <Input
+                      value={form.googleMapsLink}
+                      onChange={e => setForm(f => ({ ...f, googleMapsLink: e.target.value }))}
+                      placeholder="https://www.google.com/maps/place/YourBusiness/..."
+                      className="flex-1"
+                    />
+                    {form.googleMapsLink && (
+                      <Button variant="outline" size="icon" className="h-9 w-9 flex-shrink-0" onClick={() => {
+                        const raw = form.googleMapsLink.trim();
+                        window.open(raw.startsWith("http") ? raw : `https://${raw}`, "_blank");
+                      }}>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
           </div>
         </TabsContent>
 
