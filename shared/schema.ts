@@ -264,6 +264,20 @@ export const platformSettings = pgTable("platform_settings", {
 });
 
 
+export const externalReviews = pgTable("external_reviews", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  accountId: varchar("account_id").notNull(),
+  platform: text("platform").notNull(),
+  externalId: text("external_id").notNull().default(""),
+  authorName: text("author_name").notNull().default(""),
+  rating: integer("rating").notNull(),
+  reviewText: text("review_text").notNull().default(""),
+  reviewDate: timestamp("review_date"),
+  postedToSocial: boolean("posted_to_social").notNull().default(false),
+  postedAt: timestamp("posted_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const blogPosts = pgTable("blog_posts", {
   id: uuid("id").primaryKey().defaultRandom(),
   title: text("title").notNull(),
