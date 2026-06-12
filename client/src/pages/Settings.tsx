@@ -53,12 +53,21 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
 
   if (confirmed && savedPlaceId) {
     return (
-      <div className="flex items-center justify-between gap-2 p-3 rounded-md border bg-muted/40">
-        <div>
-          <p className="text-[13px] font-medium text-green-700 dark:text-green-400">✓ Connected{confirmedName ? `: ${confirmedName}` : ""}</p>
-          <p className="text-[11px] text-muted-foreground">{savedPlaceId.substring(0, 20)}…</p>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-2 p-3 rounded-md border bg-muted/40">
+          <div>
+            <p className="text-[13px] font-medium text-green-700 dark:text-green-400">✓ Connected{confirmedName ? `: ${confirmedName}` : ""}</p>
+            <p className="text-[11px] text-muted-foreground">Google reviews will import automatically every 6 hours.</p>
+          </div>
+          <Button variant="outline" size="sm" className="text-[12px]" onClick={() => { setConfirmed(false); setResults([]); setQuery(""); }}>Change</Button>
         </div>
-        <Button variant="outline" size="sm" className="text-[12px]" onClick={() => { setConfirmed(false); setResults([]); setQuery(""); }}>Change</Button>
+        <a
+          href={`https://www.google.com/maps/place/?q=place_id:${savedPlaceId}`}
+          target="_blank" rel="noreferrer"
+          className="text-[11px] text-blue-600 dark:text-blue-400 underline"
+        >
+          Verify this is the right business on Google Maps →
+        </a>
       </div>
     );
   }
@@ -72,8 +81,10 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
       </div>
       {results.length === 0 && !searching && query && <p className="text-[11px] text-muted-foreground">No results — try adding your town or postcode</p>}
       {results.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-[11.5px] text-muted-foreground font-medium">Is this your business? Click to confirm:</p>
         <div className="border rounded-md divide-y">
-          {results.map(r => (
+          {results.slice(0, 5).map(r => (
             <button key={r.place_id} className="w-full text-left px-3 py-2.5 hover:bg-muted/60 transition-colors" onClick={() => {
               onSelect(r.place_id);
               setConfirmed(true);
@@ -84,6 +95,7 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
               {r.formatted_address && <p className="text-[11px] text-muted-foreground">{r.formatted_address}</p>}
             </button>
           ))}
+        </div>
         </div>
       )}
       {savedPlaceId && <p className="text-[11px] text-muted-foreground">Currently saved: {savedPlaceId.substring(0, 25)}…</p>}

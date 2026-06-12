@@ -2612,7 +2612,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const r = await (await import("axios")).default.get(
         "https://maps.googleapis.com/maps/api/place/findplacefromtext/json",
-        { params: { input: q, inputtype: "textquery", fields: "place_id,name,formatted_address", key: apiKey }, timeout: 8000 }
+        { params: { input: q, inputtype: "textquery", fields: "place_id,name,formatted_address", key: apiKey, language: "en" }, timeout: 8000 }
       );
       res.json(r.data?.candidates || []);
     } catch (err: any) {
