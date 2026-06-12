@@ -420,7 +420,7 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
             </div>
             <div>
               <div className="text-xl font-bold text-white leading-none">{externalReviews.length}</div>
-              <div className="text-[11.5px] text-white/70 mt-1 leading-tight">Reviews Synced</div>
+              <div className="text-[11.5px] text-white/70 mt-1 leading-tight">Total Reviews</div>
             </div>
           </>
         </button>
