@@ -633,8 +633,18 @@ export async function runMigrations() {
 
 
 
-    // external_reviews is managed here, NOT via schema.ts/Replit migrations.
-    // Replit will show a DROP warning for this table on every deploy — always REJECT it.
+
+    console.log("[migrate] Migrations complete");
+  } finally {
+    await pool.end();
+  }
+}
+
+// Runs separately from runMigrations so a failure elsewhere can never prevent this table existing.
+// Replit will show DROP TABLE external_reviews on every deploy — always reject it.
+export async function ensureExternalReviewsTable() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS external_reviews (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -650,9 +660,7 @@ export async function runMigrations() {
         created_at TIMESTAMP NOT NULL DEFAULT NOW()
       )
     `);
-    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS external_reviews_dedup ON external_reviews (account_id, platform, external_id)`);
-
-    console.log("[migrate] Migrations complete");
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS external_reviews_dedup ON external_reviews (account_id, platform, external_id)`).catch(() => {});
   } finally {
     await pool.end();
   }
