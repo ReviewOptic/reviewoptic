@@ -271,7 +271,6 @@ Your job is to be the developer they would hire if they could afford a great one
 
 **Pending:**
 - **FIRST**: Republish → save Google link → click Refresh on dashboard → read diagnostic alert
-- **Re-connect Facebook** in Settings → Social (disconnected after wipes)
 - **Re-enter all platform links** once Google reviews confirmed working
 - **Facebook App Review**: waiting ~2 weeks
 - **Landing page videos**, **tracking pixel IDs**, **first blog post** — all pending
@@ -311,7 +310,6 @@ Your job is to be the developer they would hire if they could afford a great one
 **Pending:**
 - **Two more migration accepts needed** (see steps 1-5 above) to permanently end DROP cycle
 - **Re-enter Google review link** after migrations stabilise → test Refresh
-- **Re-connect Facebook** in Settings → Social
 - **Facebook App Review**: waiting ~2 weeks
 - **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
 
@@ -349,7 +347,6 @@ Your job is to be the developer they would hire if they could afford a great one
 - All queries use `ext.external_reviews` prefix
 
 **Pending:**
-- **Re-connect Facebook** in Settings → Social
 - **Facebook App Review**: waiting ~2 weeks
 - **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
 
@@ -385,7 +382,6 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Verify Google reviews working**: Deploy → Settings → Social → search for business → confirm → reviews should appear automatically
 - **Remove debug endpoint** (`/api/debug/google-maps-link` in `server/routes.ts`) once confirmed working
 - **Review dates**: will backfill automatically on next poll after deploy
-- **Re-connect Facebook** in Settings → Social
 - **Facebook App Review**: waiting ~2 weeks
 - **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
 
@@ -415,7 +411,6 @@ Your job is to be the developer they would hire if they could afford a great one
 
 **Pending:**
 - **Connect Google business** (blocker for everything Google-related)
-- **Re-connect Facebook** in Settings → Social
 - **Facebook App Review**: waiting ~2 weeks
 - **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
 
@@ -451,11 +446,9 @@ Your job is to be the developer they would hire if they could afford a great one
 **NEXT SESSION:**
 1. **Test link paste** — deploy ed219c5 → Settings → Social → paste `https://share.google/hEEzSRdZBfPlRySVj` → should show business name → confirm
 2. **Build Google Business Profile OAuth** — free API, gives ALL reviews (not just 5–7). Similar to Facebook Connect flow already in app.
-3. **Re-connect Facebook** in Settings → Social
 
 **Pending:**
 - **Connect Google business** — likely working now, needs testing
 - **Google Business Profile OAuth** — to get all reviews
-- **Re-connect Facebook** in Settings → Social
 - **Facebook App Review**: waiting ~2 weeks
 - **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
