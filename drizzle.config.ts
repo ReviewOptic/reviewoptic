@@ -13,6 +13,8 @@ export default defineConfig({
   },
   tablesFilter: [
     "!schema_migrations",
+    "!settings",
+    "!external_reviews",
     "!chat_messages",
     "!insight_email_log",
     "!recordings",
@@ -22,5 +24,6 @@ export default defineConfig({
     "!system_email_templates",
     "!platform_settings",
     "!blog_posts",
+    "!server_state",
   ],
 });
