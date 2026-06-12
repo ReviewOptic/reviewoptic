@@ -33,11 +33,11 @@ function SettingSection({ title, description, children }: { title: string; descr
 
 function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; onSelect: (placeId: string) => void }) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<{ place_id: string; name: string; formatted_address: string }[]>([]);
+  const [results, setResults] = useState<{ place_id: string; name: string; formatted_address: string; photo_ref: string | null }[]>([]);
   const [searching, setSearching] = useState(false);
   const [confirmed, setConfirmed] = useState(!!savedPlaceId);
   const [confirmedName, setConfirmedName] = useState("");
-  const [pending, setPending] = useState<{ place_id: string; name: string; formatted_address: string } | null>(null);
+  const [pending, setPending] = useState<{ place_id: string; name: string; formatted_address: string; photo_ref: string | null } | null>(null);
 
   const search = async () => {
     if (!query.trim()) return;
@@ -71,18 +71,20 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
     );
   }
 
-  // Pending confirmation — user selected a result, must verify before saving
+  // Pending confirmation — user selected a result, must confirm before saving
   if (pending) {
     return (
       <div className="space-y-3">
-        <div className="p-3 rounded-md border bg-muted/40 space-y-1">
-          <p className="text-[13px] font-medium">{pending.name}</p>
-          {pending.formatted_address && <p className="text-[11px] text-muted-foreground">{pending.formatted_address}</p>}
-          <a href={`https://www.google.com/maps/place/?q=place_id:${pending.place_id}`} target="_blank" rel="noreferrer" className="text-[11px] text-blue-600 dark:text-blue-400 underline">
-            Open on Google Maps to verify →
-          </a>
-        </div>
         <p className="text-[12.5px] font-medium">Is this your business?</p>
+        <div className="flex gap-3 p-3 rounded-md border bg-muted/40 items-center">
+          {pending.photo_ref && (
+            <img src={`/api/settings/google-place-photo?ref=${encodeURIComponent(pending.photo_ref)}`} alt="" className="w-14 h-14 rounded object-cover flex-shrink-0" />
+          )}
+          <div className="min-w-0">
+            <p className="text-[13px] font-medium">{pending.name}</p>
+            {pending.formatted_address && <p className="text-[11px] text-muted-foreground">{pending.formatted_address}</p>}
+          </div>
+        </div>
         <div className="flex gap-2">
           <Button size="sm" onClick={() => {
             onSelect(pending.place_id);
@@ -111,9 +113,26 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
           <p className="text-[11.5px] text-muted-foreground">Select your business:</p>
           <div className="border rounded-md divide-y">
             {results.slice(0, 5).map(r => (
-              <button key={r.place_id} className="w-full text-left px-3 py-2.5 hover:bg-muted/60 transition-colors" onClick={() => { setPending(r); setResults([]); }}>
-                <p className="text-[13px] font-medium">{r.name}</p>
-                {r.formatted_address && <p className="text-[11px] text-muted-foreground">{r.formatted_address}</p>}
+              <button key={r.place_id} className="w-full text-left px-3 py-2.5 hover:bg-muted/60 transition-colors flex items-center gap-3" onClick={() => {
+                if (r.photo_ref) {
+                  // Photo visible — instant confirm
+                  onSelect(r.place_id);
+                  setConfirmed(true);
+                  setConfirmedName(r.name);
+                  setResults([]);
+                } else {
+                  // No photo — show confirm step
+                  setPending(r);
+                  setResults([]);
+                }
+              }}>
+                {r.photo_ref && (
+                  <img src={`/api/settings/google-place-photo?ref=${encodeURIComponent(r.photo_ref)}`} alt="" className="w-10 h-10 rounded object-cover flex-shrink-0" />
+                )}
+                <div className="min-w-0">
+                  <p className="text-[13px] font-medium">{r.name}</p>
+                  {r.formatted_address && <p className="text-[11px] text-muted-foreground">{r.formatted_address}</p>}
+                </div>
               </button>
             ))}
           </div>

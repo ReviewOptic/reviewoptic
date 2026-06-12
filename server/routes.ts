@@ -2612,12 +2612,34 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const r = await (await import("axios")).default.get(
         "https://maps.googleapis.com/maps/api/place/findplacefromtext/json",
-        { params: { input: q, inputtype: "textquery", fields: "place_id,name,formatted_address", key: apiKey, language: "en" }, timeout: 8000 }
+        { params: { input: q, inputtype: "textquery", fields: "place_id,name,formatted_address,photos", key: apiKey, language: "en" }, timeout: 8000 }
       );
-      res.json(r.data?.candidates || []);
+      const candidates = (r.data?.candidates || []).map((c: any) => ({
+        place_id: c.place_id,
+        name: c.name,
+        formatted_address: c.formatted_address || "",
+        photo_ref: c.photos?.[0]?.photo_reference || null,
+      }));
+      res.json(candidates);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
+  });
+
+  app.get("/api/settings/google-place-photo", requireAuth, async (req, res) => {
+    const ref = req.query.ref as string;
+    if (!ref) return res.status(400).end();
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    if (!apiKey) return res.status(500).end();
+    try {
+      const r = await (await import("axios")).default.get(
+        "https://maps.googleapis.com/maps/api/place/photo",
+        { params: { maxwidth: 80, photo_reference: ref, key: apiKey }, responseType: "stream", timeout: 8000 }
+      );
+      res.setHeader("Content-Type", r.headers["content-type"] || "image/jpeg");
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      r.data.pipe(res);
+    } catch { res.status(404).end(); }
   });
 
   app.post("/api/settings/google-maps-link", requireAuth, async (req, res) => {
