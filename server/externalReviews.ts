@@ -144,10 +144,22 @@ async function resolveGooglePlaceId(link: string, apiKey: string): Promise<strin
         currentUrl = loc;
         continue;
       }
-      // Final destination — scan HTML for ChIJ pattern
+      // Final destination — scan HTML for ChIJ or meta-refresh redirect
       if (typeof resp.data === "string") {
-        const htmlMatch = resp.data.match(/["'](ChIJ[A-Za-z0-9_%-]{10,})["']/);
-        if (htmlMatch) return decodeURIComponent(htmlMatch[1]);
+        const html = resp.data as string;
+        // ChIJ Place ID embedded in the page
+        const chijMatch = html.match(/["'](ChIJ[A-Za-z0-9_%-]{10,})["']/);
+        if (chijMatch) return decodeURIComponent(chijMatch[1]);
+        // Meta-refresh redirect (Google sometimes uses these)
+        const metaMatch = html.match(/http-equiv=["']refresh["'][^>]*content=["'][^"']*url=([^"'\s>]+)/i)
+          || html.match(/content=["']\d+;\s*url=["']?([^"'\s>]+)/i);
+        if (metaMatch) {
+          const loc = metaMatch[1].startsWith("http") ? metaMatch[1] : new URL(metaMatch[1], currentUrl).href;
+          const fromLoc = extractPlaceIdFromUrl(loc);
+          if (fromLoc) return fromLoc;
+          currentUrl = loc;
+          continue;
+        }
       }
       break;
     } catch { break; }

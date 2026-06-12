@@ -224,16 +224,30 @@ export class DatabaseStorage implements IStorage {
   async upsertSettings(accountId: string, data: Partial<InsertSettings>): Promise<Settings> {
     const existing = await this.getSettings(accountId);
     const toSnake = (s: string) => s.replace(/[A-Z]/g, c => `_${c.toLowerCase()}`);
-    const entries = Object.entries(data).filter(([, v]) => v !== undefined);
+    let entries = Object.entries(data).filter(([, v]) => v !== undefined);
+
     if (existing) {
       if (entries.length === 0) return existing;
-      const setClauses = entries.map(([k], i) => `"${toSnake(k)}" = $${i + 2}`).join(", ");
-      const values = entries.map(([, v]) => v);
-      const { rows } = await pool.query(
-        `UPDATE settings SET ${setClauses} WHERE account_id = $1 RETURNING *`,
-        [accountId, ...values]
-      );
-      return settingsRowToCamel(rows[0]);
+      // Retry loop: if a column doesn't exist in the DB yet, drop it and retry
+      for (let attempt = 0; attempt < 5; attempt++) {
+        try {
+          const setClauses = entries.map(([k], i) => `"${toSnake(k)}" = $${i + 2}`).join(", ");
+          const values = entries.map(([, v]) => v);
+          const { rows } = await pool.query(
+            `UPDATE settings SET ${setClauses} WHERE account_id = $1 RETURNING *`,
+            [accountId, ...values]
+          );
+          return settingsRowToCamel(rows[0]);
+        } catch (err: any) {
+          const missing = err.message?.match(/column "([^"]+)" of relation/)?.[1];
+          if (missing) {
+            entries = entries.filter(([k]) => toSnake(k) !== missing);
+            if (entries.length === 0) return existing;
+            continue;
+          }
+          throw err;
+        }
+      }
     }
     const allEntries: [string, any][] = [["id", randomUUID()], ["account_id", accountId], ...entries.map(([k, v]) => [toSnake(k), v] as [string, any])];
     const cols = allEntries.map(([k]) => `"${k}"`).join(", ");

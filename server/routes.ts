@@ -950,7 +950,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       );
       const lastSeed = rows[0]?.last_seed;
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-      if (!lastSeed || new Date(lastSeed) < sevenDaysAgo) {
+      // Also reseed if external_reviews are missing (e.g. table was dropped and recreated)
+      const { rows: extRows } = await pool.query(
+        `SELECT COUNT(*) as count FROM external_reviews WHERE account_id = $1`,
+        [demoUser.accountId]
+      );
+      const hasExternalReviews = parseInt(extRows[0]?.count ?? "0") > 0;
+      if (!lastSeed || new Date(lastSeed) < sevenDaysAgo || !hasExternalReviews) {
         console.log("[demo] Reseeding demo account...");
         await seedDemoAccount();
         console.log("[demo] Reseed complete.");
