@@ -122,7 +122,7 @@ function extractPlaceIdFromUrl(link: string): string | null {
 // Resolve a Google g.page/r/.../review (or any Google Maps) link to a ChIJ Place ID.
 // g.page/r links redirect to search.google.com/local/writereview?placeid=ChIJ...
 // Using fetch() with redirect:follow follows the full chain in one call.
-async function resolveGooglePlaceId(link: string, apiKey: string): Promise<string | null> {
+export async function resolveGooglePlaceId(link: string, apiKey: string): Promise<string | null> {
   // 1. Try extracting Place ID directly from the URL as-is
   const direct = extractPlaceIdFromUrl(link);
   if (direct) return direct;
