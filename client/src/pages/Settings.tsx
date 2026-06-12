@@ -37,6 +37,8 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
   const [photos, setPhotos] = useState<Record<string, string | null>>({});
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState("");
+  const [manualMode, setManualMode] = useState(false);
+  const [manualId, setManualId] = useState("");
   const [confirmed, setConfirmed] = useState(!!savedPlaceId);
   const [confirmedName, setConfirmedName] = useState("");
   const [pending, setPending] = useState<{ place_id: string; name: string; formatted_address: string; photo_ref: string | null } | null>(null);
@@ -122,11 +124,28 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
     <div className="space-y-2">
       <Label className="text-[12.5px]">Search for your business on Google</Label>
       <div className="relative">
-        <Input value={query} onChange={e => handleQueryChange(e.target.value)} placeholder="Start typing your business name…" className="w-full" />
+        <Input value={query} onChange={e => handleQueryChange(e.target.value)} placeholder="e.g. Time For You Watford" className="w-full" />
         {searching && <span className="absolute right-3 top-2.5 text-[11px] text-muted-foreground">Searching…</span>}
       </div>
       {searchError && <p className="text-[11px] text-red-500">{searchError}</p>}
-      {!searchError && results.length === 0 && !searching && query.length >= 3 && <p className="text-[11px] text-muted-foreground">No results — try adding your town or postcode</p>}
+      {!searchError && results.length === 0 && !searching && query.length >= 3 && <p className="text-[11px] text-muted-foreground">No results — try including your town or postcode</p>}
+      {!searchError && results.length > 0 && <p className="text-[11px] text-muted-foreground">Not seeing yours? Type your town or postcode to narrow it down</p>}
+      {!manualMode && <button className="text-[11px] text-blue-600 dark:text-blue-400 underline mt-1" onClick={() => setManualMode(true)}>Can't find your business? Enter Place ID manually</button>}
+      {manualMode && (
+        <div className="space-y-1.5 pt-1 border-t">
+          <p className="text-[11px] text-muted-foreground">Find your Place ID at <a href="https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder" target="_blank" rel="noreferrer" className="underline">this Google tool</a> — search for your business and copy the ID (starts with ChIJ…)</p>
+          <div className="flex gap-2">
+            <Input value={manualId} onChange={e => setManualId(e.target.value)} placeholder="ChIJ…" className="flex-1 font-mono text-[12px]" />
+            <Button size="sm" disabled={!manualId.trim().startsWith("ChIJ")} onClick={() => {
+              onSelect(manualId.trim());
+              setConfirmed(true);
+              setConfirmedName("");
+              setManualMode(false);
+            }}>Save</Button>
+          </div>
+          <button className="text-[11px] text-muted-foreground underline" onClick={() => setManualMode(false)}>Back to search</button>
+        </div>
+      )}
       {results.length > 0 && (
         <div className="space-y-1.5">
           <p className="text-[11.5px] text-muted-foreground">Select your business:</p>
