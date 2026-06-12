@@ -13,7 +13,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seedDatabase } from "./seed";
 import { storage } from "./storage";
-import { runMigrations, ensureExternalReviewsTable } from "./migrate";
+import { runMigrations } from "./migrate";
 import { runMonthlyInsightEmails } from "./insightEmail";
 import { sendPlatformReviewRequest, sendPreScreenEmail } from "./email";
 import { sendReviewSMS, sendWhatsAppMessage, sendWhatsAppTemplate } from "./sms";
@@ -170,7 +170,6 @@ app.use((req, res, next) => {
 
 (async () => {
   await runMigrations().catch(console.error);
-  await ensureExternalReviewsTable().catch(console.error);
   await seedDatabase().catch(console.error);
   await registerRoutes(httpServer, app);
 
