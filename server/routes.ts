@@ -2657,23 +2657,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const apiKey = process.env.GOOGLE_PLACES_API_KEY;
     if (!apiKey) return res.status(500).json({ error: "GOOGLE_PLACES_API_KEY not set" });
     try {
-      const { resolveGooglePlaceId } = await import("./externalReviews");
-      const placeId = await resolveGooglePlaceId(url, apiKey);
-      if (!placeId) return res.status(404).json({ error: "Could not find your business from that link. Try a different link." });
-      const axios = (await import("axios")).default;
-      const isHex = placeId.startsWith("0x");
-      const detailParams: any = { fields: "name,formatted_address,photos,place_id", key: apiKey };
-      if (isHex) detailParams.ftid = placeId; else detailParams.place_id = placeId;
-      const details = await axios.get("https://maps.googleapis.com/maps/api/place/details/json", {
-        params: detailParams, timeout: 8000
-      });
-      const result = details.data?.result || {};
-      const resolvedPlaceId = result.place_id || placeId;
+      const { resolveGooglePlaceWithName } = await import("./externalReviews");
+      const resolved = await resolveGooglePlaceWithName(url, apiKey);
+      if (!resolved) return res.status(404).json({ error: "Could not find your business from that link. Try a different link." });
       res.json({
-        place_id: resolvedPlaceId,
-        name: result.name || "",
-        formatted_address: result.formatted_address || "",
-        photo_ref: result.photos?.[0]?.photo_reference || null,
+        place_id: resolved.placeId,
+        name: resolved.name,
+        formatted_address: "",
+        photo_ref: null,
       });
     } catch (err: any) {
       res.status(500).json({ error: err.message });

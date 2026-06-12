@@ -181,6 +181,30 @@ export async function resolveGooglePlaceId(link: string, apiKey: string): Promis
   return null;
 }
 
+export async function resolveGooglePlaceWithName(link: string, apiKey: string): Promise<{ placeId: string; name: string } | null> {
+  const placeId = await resolveGooglePlaceId(link, apiKey);
+  if (!placeId) return null;
+  // Extract business name from the final URL path (e.g. /maps/place/Business+Name/@...)
+  const normLink = link.startsWith("http") ? link : `https://${link}`;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    const resp = await fetch(normLink, {
+      redirect: "follow",
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", "Accept": "text/html,*/*" },
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    const finalUrl = resp.url;
+    const nameMatch = finalUrl.match(/\/maps\/place\/([^/@]+)/);
+    if (nameMatch) {
+      const name = decodeURIComponent(nameMatch[1].replace(/\+/g, " ")).replace(/\s*-\s*$/, "").trim();
+      return { placeId, name };
+    }
+  } catch {}
+  return { placeId, name: "" };
+}
+
 // ── Platform fetchers ────────────────────────────────────────────────────────
 
 async function fetchGoogle(accountId: string, link: string): Promise<FetchResult> {
