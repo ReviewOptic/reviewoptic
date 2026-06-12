@@ -120,7 +120,7 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="text-[12px]" onClick={() => { setConfirmed(false); setPending(null); }}>Change</Button>
+            <Button variant="outline" size="sm" className="text-[12px]" onClick={async () => { await fetch("/api/settings/google-disconnect", { method: "POST", credentials: "include" }); setConfirmed(false); setPending(null); setConnectedDetails(null); setConfirmedName(""); }}>Change</Button>
             <Button variant="outline" size="sm" className="text-[12px] text-red-600 hover:text-red-700 border-red-200" onClick={disconnect}>Disconnect</Button>
             <a href={`https://www.google.com/maps/place/?q=place_id:${savedPlaceId}`} target="_blank" rel="noreferrer" className="text-[11px] text-blue-600 dark:text-blue-400 underline self-center ml-auto">View on Google Maps →</a>
           </div>
