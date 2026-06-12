@@ -2627,9 +2627,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           pollExternalReviewsForAccount(req.session.accountId!).catch(console.error)
         );
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to save settings:", err);
-      res.status(500).json({ message: "Failed to save settings" });
+      res.status(500).json({ message: "Failed to save settings", detail: err?.message });
     }
   });
 
