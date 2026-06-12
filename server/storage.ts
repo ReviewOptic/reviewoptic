@@ -227,12 +227,18 @@ export class DatabaseStorage implements IStorage {
   }
   async upsertSettings(accountId: string, data: Partial<InsertSettings>): Promise<Settings> {
     // google_maps_link lives in ext.settings_extra (invisible to Replit migrations)
-    if (data.googleMapsLink !== undefined) {
-      await pool.query(
-        `INSERT INTO ext.settings_extra (account_id, google_maps_link) VALUES ($1, $2)
-         ON CONFLICT (account_id) DO UPDATE SET google_maps_link = $2`,
-        [accountId, data.googleMapsLink]
-      ).catch(() => {});
+    const googleMapsLink = (data as any).googleMapsLink;
+    if (googleMapsLink !== undefined) {
+      try {
+        await pool.query(
+          `INSERT INTO ext.settings_extra (account_id, google_maps_link) VALUES ($1, $2)
+           ON CONFLICT (account_id) DO UPDATE SET google_maps_link = $2`,
+          [accountId, googleMapsLink]
+        );
+        console.log(`[settings] saved google_maps_link for ${accountId}: ${googleMapsLink}`);
+      } catch (err: any) {
+        console.error(`[settings] failed to save google_maps_link:`, err.message);
+      }
       delete (data as any).googleMapsLink;
     }
     const existing = await this.getSettings(accountId);
