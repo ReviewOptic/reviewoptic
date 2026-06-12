@@ -756,6 +756,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       await pool.query(`DELETE FROM reviews WHERE account_id = $1`, [existing.accountId]);
       await pool.query(`DELETE FROM review_requests WHERE account_id = $1`, [existing.accountId]);
       await pool.query(`DELETE FROM customers WHERE account_id = $1`, [existing.accountId]);
+      await pool.query(`DELETE FROM external_reviews WHERE account_id = $1`, [existing.accountId]);
       await pool.query(`DELETE FROM settings WHERE account_id = $1`, [existing.accountId]);
       await pool.query(`DELETE FROM users WHERE id = $1`, [existing.id]);
       await pool.query(`DELETE FROM accounts WHERE id = $1`, [existing.accountId]);
@@ -904,6 +905,29 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         `INSERT INTO activity_log (id, account_id, type, customer_name, message, created_at)
          VALUES ($1,$2,$3,$4,$5,$6)`,
         [logId, aid, type, c.name, message, daysAgo(c.daysAgo)]
+      );
+    }
+
+    // Seed external reviews so the Platform Reviews card looks realistic
+    const EXTERNAL_REVIEWS = [
+      { platform: "google", author: "J. Mitchell", rating: 5, text: "Absolutely fantastic service. James came out the same day and sorted our boiler in under an hour. Couldn't ask for more.", daysAgo: 3 },
+      { platform: "google", author: "C. Brown", rating: 5, text: "Brilliant from start to finish. Very professional, tidy and reasonably priced. Would 100% recommend to anyone.", daysAgo: 7 },
+      { platform: "google", author: "R. Patel", rating: 4, text: "Really happy with the work. Arrived on time and kept us informed throughout. Will definitely use again.", daysAgo: 12 },
+      { platform: "google", author: "S. Thompson", rating: 5, text: "Had an emergency leak late on a Friday — James was there within the hour. Absolute lifesaver. Top quality work.", daysAgo: 18 },
+      { platform: "trustpilot", author: "L. Davies", rating: 5, text: "Professional, friendly and great value. The bathroom installation was completed ahead of schedule and looks amazing.", daysAgo: 5 },
+      { platform: "trustpilot", author: "M. Wilson", rating: 5, text: "Used Hartley Plumbing twice now and both times they've been excellent. Highly recommended local tradesman.", daysAgo: 22 },
+      { platform: "trustpilot", author: "A. Evans", rating: 4, text: "Solid work on our central heating installation. Honest pricing and no hidden extras. Would use again.", daysAgo: 35 },
+      { platform: "checkatrade", author: "P. Clarke", rating: 5, text: "5 stars all round. Turned up when they said, did the job properly and cleaned up after themselves. Rare these days!", daysAgo: 9 },
+      { platform: "checkatrade", author: "D. Harris", rating: 5, text: "Replaced our old boiler quickly and efficiently. The price matched the quote exactly. Very impressed.", daysAgo: 28 },
+      { platform: "checkatrade", author: "F. Martin", rating: 4, text: "Good reliable service. Came out for an annual boiler service — quick, thorough and reasonably priced.", daysAgo: 45 },
+    ];
+    for (const r of EXTERNAL_REVIEWS) {
+      const extId = `demo-${r.platform}-${r.author.replace(/\s/g, "")}`;
+      await pool.query(
+        `INSERT INTO external_reviews (id, account_id, platform, external_id, author_name, rating, review_text, review_date, posted_to_social, created_at)
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, false, NOW())
+         ON CONFLICT (account_id, platform, external_id) DO NOTHING`,
+        [aid, r.platform, extId, r.author, r.rating, r.text, daysAgo(r.daysAgo)]
       );
     }
 

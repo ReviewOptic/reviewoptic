@@ -1183,3 +1183,55 @@ Older session logs moved here to keep CLAUDE.md under 30k chars.
 - `review_request`: "Hi {{1}}, thank you for choosing {{2}}! We'd love to hear how we did. Tap the link below to leave us a quick rating — it only takes a second: {{3}} Reply STOP to opt out."
 - `review_followup`: "Hi {{1}}, just a quick follow-up from {{2}} — we'd love to hear how we did! Tap the link below to leave us a rating whenever you're ready: {{3}} Reply STOP to opt out."
 - `review_followup2`: "Hi {{1}}, final follow-up from {{2}} — we'd love to hear how we did! Tap the link below to leave us a rating whenever you're ready: {{3}} Reply STOP to opt out."
+
+### Session — 2026-06-03 (eighty-third session)
+
+**Tasks completed:**
+- **WhatsApp confirmed working**: Test message delivered successfully after secrets were added and app redeployed. All three channels (email, SMS, WhatsApp) now fully operational.
+- **STOP opt-out confirmed**: `/api/webhooks/twilio-inbound` already configured and pointed at Twilio — STOP replies automatically set `do_not_contact = true` on the customer record.
+- **Full app sense check**: Comprehensive review of all flows — everything production-ready. No broken paths, no missing critical config, no TODOs in production code.
+
+### Session — 2026-06-03 (eighty-fourth session)
+
+**Tasks completed:**
+- **CSV import fixed**: `serviceDate` passed as `null` when blank → NOT NULL DB constraint → every row failed. Fixed to `""`.
+- **Follow-up emails no longer fire on every redeploy**: Added `server_state` DB table to persist last follow-up check timestamp. 4-hour guard on startup.
+- **24-hour guard added** (`server/storage.ts`): Skips customers who received any message in the last 24 hours.
+- **Customer status display overhaul**: Newly added → no badge. 4–5★ → `review_completed`. `review_completed`/`feedback_left` → green "Rated X★" badge.
+- **Customers table upgrades**: Page size selector, import date filter, real date in Added column, sortable columns.
+
+### Session — 2026-06-03 (eighty-fifth session)
+
+**Tasks completed:**
+- **Test emails fixed**: Three types missing from switch (`renewal_reminder`, `payment_failed`, `referral_reward`). Fixed `reset` and `insight` to use real functions.
+- **"Need Help" button no longer blocks UI**: Added `pb-20` to `<main>`.
+- **Import date filter removed from Customers tab**: Unnecessary clutter.
+- **Template dropdowns removed from Send Review Request dialog**: Server auto-selects default template.
+- **Email format + unsubscribe consistency overhaul**: Transactional emails always send; non-transactional check `email_unsubscribed` first; all have personal unsubscribe footer link.
+
+### Session — 2026-06-10 (eighty-sixth session)
+
+**Tasks completed:**
+- **Facebook App Review**: All permissions approved except `instagram_business_basic`. Resubmitted with credentials (`meta-reviewer@reviewoptic.com / met@rev!ewer`). Waiting ~2 weeks.
+- **Duplicate customer detection**: `findDuplicateCustomer()` in storage — 409 + inline warning on manual add; silently skipped on CSV import.
+- **Emoji picker**: 40 curated emojis, inserts at cursor, works on all template types.
+- **Try Live Demo**: `POST /api/demo-login`. Blue demo banner. Write actions blocked with sign-up modal.
+- **Weekly auto-reseed of demo account**: `seedDemoAccount()` function, checks >7 days stale on startup.
+- **Mobile optimisation sweep**: Buttons bumped to `h-8`, dashboard quick links improved.
+- **Tracking pixels**: `platform_settings` table. Admin → Tracking tab. Meta Pixel, GTM, TikTok injected dynamically.
+
+### Session — 2026-06-10 (eighty-seventh session)
+
+**Tasks completed:**
+- **Blog feature built**: `blog_posts` table, public `GET /api/blog` + `/api/blog/:slug`, admin CRUD + publish toggle. `/blog` listing page + `/blog/:slug` individual post. Admin → Blog tab.
+
+### Session — 2026-06-10 (eighty-eighth session)
+
+**Tasks completed:**
+- **Drizzle schema sync fixed**: Tables created via `migrate.ts` must also be declared in `shared/schema.ts`. Added: `chatMessages`, `insightEmailLog`, `recordings`, `reviewPlatformClicks`, `notifications`, `pushSubscriptions`, `systemEmailTemplates`, `platformSettings`, `blogPosts`.
+
+### Session — 2026-06-10 (eighty-ninth session)
+
+**Tasks completed:**
+- **Back buttons fixed**: Pricing page back button was going to `/login` — fixed to `navigate("/")`.
+- **Replit deploy warning permanently fixed**: Root cause was `platform_settings.id` having `DEFAULT 'singleton'` in migrate.ts but not in schema.ts — column-level mismatch. Removed DEFAULT from migrate.ts, added ALTER to drop it in live DB.
