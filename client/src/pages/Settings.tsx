@@ -917,16 +917,7 @@ export default function Settings() {
               <CardContent className="pb-5">
                 <div className="space-y-1.5">
                   <Label className="text-[12.5px]">Google Maps profile URL</Label>
-                  <div className="text-[11.5px] text-muted-foreground space-y-1 bg-muted/50 rounded-lg p-3">
-                    <p className="font-medium text-foreground">How to find your URL:</p>
-                    <ol className="list-decimal list-inside space-y-0.5">
-                      <li>Go to <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer" className="underline">maps.google.com</a></li>
-                      <li>Search for your business by name</li>
-                      <li>Click on your business listing</li>
-                      <li>Copy the full URL from your browser address bar</li>
-                    </ol>
-                    <p className="text-[11px] mt-1">It will look like: <code className="bg-muted px-1 rounded">https://www.google.com/maps/place/Your+Business/@51.5,-0.1,17z/...</code></p>
-                  </div>
+                  <p className="text-[11px] text-muted-foreground">Your Google Maps business profile URL, e.g. <code className="bg-muted px-1 rounded">https://www.google.com/maps/place/YourBusiness/...</code></p>
                   <div className="flex gap-2">
                     <Input
                       value={form.googleMapsLink}
