@@ -314,3 +314,44 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Re-connect Facebook** in Settings → Social
 - **Facebook App Review**: waiting ~2 weeks
 - **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
+
+### Session — 2026-06-12 (ninety-fourth session)
+
+**Context:** Almost entire session consumed by `external_reviews` DROP cycle and `google_maps_link` column DROP cycle. Extremely frustrating session for the user.
+
+**What actually got fixed:**
+- **external_reviews moved to `ext` schema** (`server/migrate.ts`, `server/externalReviews.ts`, `server/routes.ts`): Replit only scans the `public` schema. Moving `external_reviews` to `ext.external_reviews` makes it completely invisible to Replit — no more DROP warnings for that table. This is the permanent fix.
+- **google_maps_link moved to `ext.settings_extra`** (`server/migrate.ts`, `server/storage.ts`, `server/routes.ts`, `server/externalReviews.ts`, `shared/schema.ts`): Same approach. Column is stored in `ext.settings_extra(account_id, google_maps_link)`. Replit never sees it. `getSettings` merges it in on read. Save intercepted in PATCH route before businessEmail validation.
+- **Google Maps link UI** (`client/src/pages/Settings.tsx`): New "Google Review Importing" card in Social tab. User pastes their Google Maps profile URL here (e.g. `maps.app.goo.gl/...`). Autosave fires.
+- **Save button removed** — autosave only, fires 1.5s after any change, shows "Saving…" / "Saved" in header.
+- **Autosave guard removed** — previous guard blocked saves if `businessEmail` was empty; this was silently preventing the Google Maps link from ever saving.
+- **googleMapsLink saved before validation in PATCH route** — the final root cause: businessEmail check was returning 400 before upsertSettings ran. Fixed by saving googleMapsLink directly in the route handler before any validation.
+- **Google Place ID resolution improved** (`server/externalReviews.ts`): AbortSignal.timeout replaced with AbortController (compatible with all Node versions). Added CID format detection. Added logging for redirect final URL.
+- **Checkatrade reviews** — working, shows 6 most recent.
+
+**CRITICAL RULES — learned this session:**
+- **NEVER add a column to both schema.ts AND migrate.ts ALTER TABLE** — this creates an infinite DROP cycle. Pick one owner: either Replit (schema.ts only) or server code (migrate.ts ALTER TABLE only, remove from schema.ts).
+- **The ext schema trick**: for any column/table Replit refuses to own, put it in `ext` schema. Replit only scans `public`. Tables/columns in `ext` are permanently invisible to Replit migrations.
+- **Save logic that must survive validation failures**: put it in the route handler BEFORE any validation checks that might return early (like businessEmail check).
+- **Autosave guards that check required fields will silently block unrelated field saves** — remove guards or handle critical fields before the guard.
+
+**Architecture — google_maps_link:**
+- Stored in: `ext.settings_extra(account_id TEXT PRIMARY KEY, google_maps_link TEXT NOT NULL DEFAULT '')`
+- Created by: `ensureExternalReviewsTable()` in `server/migrate.ts`
+- Saved by: PATCH `/api/settings` route handler (before businessEmail check), then `delete body.googleMapsLink` before passing to `upsertSettings`
+- Read by: `storage.getSettings()` merges `googleMapsLink` from `ext.settings_extra` into result
+- Used by: `pollExternalReviewsForAccount()` reads from `ext.settings_extra` separately
+- NOT in: `shared/schema.ts`, `server/migrate.ts` ALTER TABLE, settings table
+
+**Architecture — external_reviews:**
+- Table: `ext.external_reviews` (in ext schema, invisible to Replit)
+- Created by: `ensureExternalReviewsTable()` in `server/migrate.ts`
+- All queries use `ext.external_reviews` prefix
+
+**Pending:**
+- **Verify Google reviews pulling**: User has `maps.app.goo.gl/aNrLnCa11CBeBWxS8` as their link. After republishing, paste into Settings → Social → Google Review Importing, wait for "Saved", hit Refresh on dashboard. Should show Google reviews.
+- **Google Place ID resolution**: If `maps.app.goo.gl` still fails, check debug endpoint `/api/debug/google-maps-link` to confirm save worked, then check the alert popup on Refresh for the exact error.
+- **Remove debug endpoint** (`/api/debug/google-maps-link` in `server/routes.ts`) once Google reviews confirmed working.
+- **Re-connect Facebook** in Settings → Social
+- **Facebook App Review**: waiting ~2 weeks
+- **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
