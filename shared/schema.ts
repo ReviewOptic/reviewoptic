@@ -276,7 +276,9 @@ export const externalReviews = pgTable("external_reviews", {
   postedToSocial: boolean("posted_to_social").notNull().default(false),
   postedAt: timestamp("posted_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (t) => ({
+  dedup: uniqueIndex("external_reviews_dedup").on(t.accountId, t.platform, t.externalId),
+}));
 
 export const blogPosts = pgTable("blog_posts", {
   id: uuid("id").primaryKey().defaultRandom(),
