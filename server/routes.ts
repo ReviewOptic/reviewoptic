@@ -756,7 +756,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       await pool.query(`DELETE FROM reviews WHERE account_id = $1`, [existing.accountId]);
       await pool.query(`DELETE FROM review_requests WHERE account_id = $1`, [existing.accountId]);
       await pool.query(`DELETE FROM customers WHERE account_id = $1`, [existing.accountId]);
-      await pool.query(`DELETE FROM external_reviews WHERE account_id = $1`, [existing.accountId]);
+      await pool.query(`DELETE FROM external_reviews WHERE account_id = $1`, [existing.accountId]).catch(() => {});
       await pool.query(`DELETE FROM settings WHERE account_id = $1`, [existing.accountId]);
       await pool.query(`DELETE FROM users WHERE id = $1`, [existing.id]);
       await pool.query(`DELETE FROM accounts WHERE id = $1`, [existing.accountId]);
@@ -923,12 +923,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     ];
     for (const r of EXTERNAL_REVIEWS) {
       const extId = `demo-${r.platform}-${r.author.replace(/\s/g, "")}`;
-      await pool.query(
-        `INSERT INTO external_reviews (id, account_id, platform, external_id, author_name, rating, review_text, review_date, posted_to_social, created_at)
-         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, false, NOW())
-         ON CONFLICT (account_id, platform, external_id) DO NOTHING`,
-        [aid, r.platform, extId, r.author, r.rating, r.text, daysAgo(r.daysAgo)]
-      );
+      try {
+        await pool.query(
+          `INSERT INTO external_reviews (id, account_id, platform, external_id, author_name, rating, review_text, review_date, posted_to_social, created_at)
+           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, false, NOW())
+           ON CONFLICT (account_id, platform, external_id) DO NOTHING`,
+          [aid, r.platform, extId, r.author, r.rating, r.text, daysAgo(r.daysAgo)]
+        );
+      } catch { /* table may not exist yet — will seed on next restart once Replit creates it */ }
     }
 
     return { email: demoEmail, password: demoPassword };
@@ -950,13 +952,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       );
       const lastSeed = rows[0]?.last_seed;
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-      // Also reseed if external_reviews are missing (e.g. table was dropped and recreated)
-      const { rows: extRows } = await pool.query(
-        `SELECT COUNT(*) as count FROM external_reviews WHERE account_id = $1`,
-        [demoUser.accountId]
-      );
-      const hasExternalReviews = parseInt(extRows[0]?.count ?? "0") > 0;
-      if (!lastSeed || new Date(lastSeed) < sevenDaysAgo || !hasExternalReviews) {
+      if (!lastSeed || new Date(lastSeed) < sevenDaysAgo) {
         console.log("[demo] Reseeding demo account...");
         await seedDemoAccount();
         console.log("[demo] Reseed complete.");
@@ -2187,11 +2183,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // External reviews — fetched from public platforms (Google, Checkatrade etc.)
   app.get("/api/external-reviews", requireAuth, async (req, res) => {
-    const { rows } = await pool.query(
-      `SELECT * FROM external_reviews WHERE account_id = $1 ORDER BY review_date DESC NULLS LAST, created_at DESC LIMIT 200`,
-      [req.session.accountId]
-    );
-    res.json(rows);
+    try {
+      const { rows } = await pool.query(
+        `SELECT * FROM external_reviews WHERE account_id = $1 ORDER BY review_date DESC NULLS LAST, created_at DESC LIMIT 200`,
+        [req.session.accountId]
+      );
+      res.json(rows);
+    } catch { res.json([]); }
   });
 
   // Manually trigger a refresh for the current account — waits for poll and returns per-platform results
