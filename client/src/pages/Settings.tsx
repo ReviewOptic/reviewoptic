@@ -37,11 +37,13 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
   const [searching, setSearching] = useState(false);
   const [confirmed, setConfirmed] = useState(!!savedPlaceId);
   const [confirmedName, setConfirmedName] = useState("");
+  const [pending, setPending] = useState<{ place_id: string; name: string; formatted_address: string } | null>(null);
 
   const search = async () => {
     if (!query.trim()) return;
     setSearching(true);
     setResults([]);
+    setPending(null);
     try {
       const res = await fetch(`/api/settings/google-place-search?q=${encodeURIComponent(query)}`, { credentials: "include" });
       const data = await res.json();
@@ -51,6 +53,7 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
     }
   };
 
+  // Confirmed state — business locked in
   if (confirmed && savedPlaceId) {
     return (
       <div className="space-y-2">
@@ -59,22 +62,45 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
             <p className="text-[13px] font-medium text-green-700 dark:text-green-400">✓ Connected{confirmedName ? `: ${confirmedName}` : ""}</p>
             <p className="text-[11px] text-muted-foreground">Google reviews will import automatically every 6 hours.</p>
           </div>
-          <Button variant="outline" size="sm" className="text-[12px]" onClick={() => { setConfirmed(false); setResults([]); setQuery(""); }}>Change</Button>
+          <Button variant="outline" size="sm" className="text-[12px]" onClick={() => { setConfirmed(false); setPending(null); setResults([]); setQuery(""); }}>Change</Button>
         </div>
-        <a
-          href={`https://www.google.com/maps/place/?q=place_id:${savedPlaceId}`}
-          target="_blank" rel="noreferrer"
-          className="text-[11px] text-blue-600 dark:text-blue-400 underline"
-        >
-          Verify this is the right business on Google Maps →
+        <a href={`https://www.google.com/maps/place/?q=place_id:${savedPlaceId}`} target="_blank" rel="noreferrer" className="text-[11px] text-blue-600 dark:text-blue-400 underline">
+          View this business on Google Maps →
         </a>
       </div>
     );
   }
 
+  // Pending confirmation — user selected a result, must verify before saving
+  if (pending) {
+    return (
+      <div className="space-y-3">
+        <div className="p-3 rounded-md border bg-muted/40 space-y-1">
+          <p className="text-[13px] font-medium">{pending.name}</p>
+          {pending.formatted_address && <p className="text-[11px] text-muted-foreground">{pending.formatted_address}</p>}
+          <a href={`https://www.google.com/maps/place/?q=place_id:${pending.place_id}`} target="_blank" rel="noreferrer" className="text-[11px] text-blue-600 dark:text-blue-400 underline">
+            Open on Google Maps to verify →
+          </a>
+        </div>
+        <p className="text-[12.5px] font-medium">Is this your business?</p>
+        <div className="flex gap-2">
+          <Button size="sm" onClick={() => {
+            onSelect(pending.place_id);
+            setConfirmed(true);
+            setConfirmedName(pending.name);
+            setPending(null);
+            setResults([]);
+          }}>Yes, this is my business</Button>
+          <Button variant="outline" size="sm" onClick={() => { setPending(null); }}>No, go back</Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Search state
   return (
     <div className="space-y-2">
-      <Label className="text-[12.5px]">Search for your business</Label>
+      <Label className="text-[12.5px]">Search for your business on Google</Label>
       <div className="flex gap-2">
         <Input value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === "Enter" && search()} placeholder="e.g. Smith Plumbing London" className="flex-1" />
         <Button variant="outline" size="sm" onClick={search} disabled={searching}>{searching ? "Searching…" : "Search"}</Button>
@@ -82,23 +108,17 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
       {results.length === 0 && !searching && query && <p className="text-[11px] text-muted-foreground">No results — try adding your town or postcode</p>}
       {results.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-[11.5px] text-muted-foreground font-medium">Is this your business? Click to confirm:</p>
-        <div className="border rounded-md divide-y">
-          {results.slice(0, 5).map(r => (
-            <button key={r.place_id} className="w-full text-left px-3 py-2.5 hover:bg-muted/60 transition-colors" onClick={() => {
-              onSelect(r.place_id);
-              setConfirmed(true);
-              setConfirmedName(r.name);
-              setResults([]);
-            }}>
-              <p className="text-[13px] font-medium">{r.name}</p>
-              {r.formatted_address && <p className="text-[11px] text-muted-foreground">{r.formatted_address}</p>}
-            </button>
-          ))}
-        </div>
+          <p className="text-[11.5px] text-muted-foreground">Select your business:</p>
+          <div className="border rounded-md divide-y">
+            {results.slice(0, 5).map(r => (
+              <button key={r.place_id} className="w-full text-left px-3 py-2.5 hover:bg-muted/60 transition-colors" onClick={() => { setPending(r); setResults([]); }}>
+                <p className="text-[13px] font-medium">{r.name}</p>
+                {r.formatted_address && <p className="text-[11px] text-muted-foreground">{r.formatted_address}</p>}
+              </button>
+            ))}
+          </div>
         </div>
       )}
-      {savedPlaceId && <p className="text-[11px] text-muted-foreground">Currently saved: {savedPlaceId.substring(0, 25)}…</p>}
     </div>
   );
 }
