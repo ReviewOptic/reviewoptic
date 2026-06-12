@@ -42,6 +42,8 @@ export default function Settings() {
   const [copied, setCopied] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const isDirtyRef = useRef(false);
+  const justLoadedRef = useRef(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -133,6 +135,7 @@ export default function Settings() {
 
   useEffect(() => {
     if (settings) {
+      justLoadedRef.current = true;
       setForm({
         ownerName: settings.ownerName || [user?.firstName, user?.lastName].filter(Boolean).join(" "),
         businessName: settings.businessName || user?.companyName || "",
@@ -179,8 +182,17 @@ export default function Settings() {
     },
   });
 
-  // Track form changes so we can auto-save on exit
-  useEffect(() => { formRef.current = form; isDirtyRef.current = true; }, [form]);
+  // Track form changes and debounce autosave 1.5s after any field edit
+  useEffect(() => {
+    formRef.current = form;
+    isDirtyRef.current = true;
+    if (justLoadedRef.current) { justLoadedRef.current = false; return; }
+    if (!form.businessEmail || (!form.ownerName.trim() && !form.businessName.trim())) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      apiRequest("PATCH", "/api/settings", form).catch(() => {});
+    }, 1500);
+  }, [form]);
 
   // Auto-save silently when user navigates away (only if form is valid)
   useEffect(() => {

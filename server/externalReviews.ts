@@ -109,8 +109,11 @@ function extractPlaceIdFromUrl(link: string): string | null {
       if (val?.startsWith("ChIJ")) return val;
     }
     // Format: /maps/place/.../data=...!1sChIJ...
-    const dataMatch = link.match(/!1s(ChIJ[A-Za-z0-9_%-]+)/);
-    if (dataMatch) return decodeURIComponent(dataMatch[1]);
+    const chijMatch = link.match(/!1s(ChIJ[A-Za-z0-9_%-]+)/);
+    if (chijMatch) return decodeURIComponent(chijMatch[1]);
+    // Format: /maps/place/.../data=...!1s0x[hex]:0x[hex] — Google Maps hex Feature ID
+    const hexMatch = link.match(/!1s(0x[0-9a-f]+(?:%3A|:)0x[0-9a-f]+)/i);
+    if (hexMatch) return decodeURIComponent(hexMatch[1]);
   } catch {}
   return null;
 }
@@ -183,8 +186,13 @@ async function fetchGoogle(accountId: string, link: string): Promise<FetchResult
   }
 
   try {
+    // ChIJ format uses place_id param; hex FID format (0x...:0x...) uses ftid param
+    const isHexFid = placeId.startsWith("0x");
+    const params = isHexFid
+      ? { ftid: placeId, fields: "reviews", key: apiKey }
+      : { place_id: placeId, fields: "reviews", key: apiKey };
     const res = await axios.get("https://maps.googleapis.com/maps/api/place/details/json", {
-      params: { place_id: placeId, fields: "reviews", key: apiKey }, timeout: 10000,
+      params, timeout: 10000,
     });
     if (res.data?.status && res.data.status !== "OK") {
       return { reviews: [], error: `Google API error: ${res.data.status}` };
