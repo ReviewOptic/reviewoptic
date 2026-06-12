@@ -272,9 +272,10 @@ async function fetchCheckatrade(accountId: string, link: string): Promise<FetchR
   const base = link.replace(/\/$/, "").replace(/\/reviews$/, "");
   const reviewsUrl = base + "/reviews";
 
-  // Extract trade slug for building Next.js data API URLs
-  const slugMatch = base.match(/\/trades\/([^/?#]+)/);
+  // Extract trade slug — handles /trades/slug and /trades/slug/reviews formats
+  const slugMatch = base.match(/\/trades\/([^/?#]+?)(?:\/|$)/);
   const slug = slugMatch?.[1] ?? "";
+  console.log(`[checkatrade] base=${base} slug=${slug}`);
 
   // Fetch page 1
   let html = "";

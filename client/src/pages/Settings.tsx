@@ -38,19 +38,25 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
   const [confirmed, setConfirmed] = useState(!!savedPlaceId);
   const [confirmedName, setConfirmedName] = useState("");
   const [pending, setPending] = useState<{ place_id: string; name: string; formatted_address: string; photo_ref: string | null } | null>(null);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const search = async () => {
-    if (!query.trim()) return;
+  const search = async (q: string) => {
+    if (!q.trim() || q.trim().length < 3) { setResults([]); return; }
     setSearching(true);
-    setResults([]);
-    setPending(null);
     try {
-      const res = await fetch(`/api/settings/google-place-search?q=${encodeURIComponent(query)}`, { credentials: "include" });
+      const res = await fetch(`/api/settings/google-place-search?q=${encodeURIComponent(q)}`, { credentials: "include" });
       const data = await res.json();
-      setResults(data || []);
+      setResults(Array.isArray(data) ? data : []);
     } finally {
       setSearching(false);
     }
+  };
+
+  const handleQueryChange = (val: string) => {
+    setQuery(val);
+    setPending(null);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => search(val), 400);
   };
 
   // Confirmed state — business locked in
@@ -103,11 +109,11 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
   return (
     <div className="space-y-2">
       <Label className="text-[12.5px]">Search for your business on Google</Label>
-      <div className="flex gap-2">
-        <Input value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === "Enter" && search()} placeholder="e.g. Smith Plumbing London" className="flex-1" />
-        <Button variant="outline" size="sm" onClick={search} disabled={searching}>{searching ? "Searching…" : "Search"}</Button>
+      <div className="relative">
+        <Input value={query} onChange={e => handleQueryChange(e.target.value)} placeholder="Start typing your business name…" className="w-full" />
+        {searching && <span className="absolute right-3 top-2.5 text-[11px] text-muted-foreground">Searching…</span>}
       </div>
-      {results.length === 0 && !searching && query && <p className="text-[11px] text-muted-foreground">No results — try adding your town or postcode</p>}
+      {results.length === 0 && !searching && query.length >= 3 && <p className="text-[11px] text-muted-foreground">No results — try adding your town or postcode</p>}
       {results.length > 0 && (
         <div className="space-y-1.5">
           <p className="text-[11.5px] text-muted-foreground">Select your business:</p>

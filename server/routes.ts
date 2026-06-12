@@ -2611,10 +2611,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!apiKey) return res.status(500).json({ error: "GOOGLE_PLACES_API_KEY not set" });
     try {
       const r = await (await import("axios")).default.get(
-        "https://maps.googleapis.com/maps/api/place/findplacefromtext/json",
-        { params: { input: q, inputtype: "textquery", fields: "place_id,name,formatted_address,photos", key: apiKey, language: "en" }, timeout: 8000 }
+        "https://maps.googleapis.com/maps/api/place/textsearch/json",
+        { params: { query: q, fields: "place_id,name,formatted_address,photos", key: apiKey, language: "en" }, timeout: 8000 }
       );
-      const candidates = (r.data?.candidates || []).map((c: any) => ({
+      console.log(`[place-search] status=${r.data?.status} results=${r.data?.results?.length ?? 0}`);
+      if (r.data?.status && r.data.status !== "OK" && r.data.status !== "ZERO_RESULTS") {
+        return res.status(500).json({ error: `Google API: ${r.data.status} — ${r.data.error_message || "check API key and billing"}` });
+      }
+      const candidates = (r.data?.results || []).slice(0, 5).map((c: any) => ({
         place_id: c.place_id,
         name: c.name,
         formatted_address: c.formatted_address || "",
