@@ -149,8 +149,8 @@ async function fetchGoogle(accountId: string, link: string): Promise<FetchResult
 
   const placeId = await resolveGooglePlaceId(link, apiKey);
   if (!placeId) {
-    const msg = `Could not resolve Place ID — please paste your Google Maps profile URL directly from your browser address bar (not a short review link)`;
-    console.warn(`[externalReviews] ${msg} (link: ${link})`);
+    const msg = `Could not resolve Google Place ID. Add your Google Maps Profile URL in Settings → Review Platforms (copy the URL from your browser when viewing your Google listing)`;
+    console.warn(`[externalReviews] ${msg} (tried: ${link})`);
     return { reviews: [], error: msg };
   }
 
@@ -220,14 +220,33 @@ async function fetchFromPage(platform: string, url: string): Promise<FetchResult
 }
 
 async function fetchCheckatrade(accountId: string, link: string): Promise<FetchResult> {
-  // Checkatrade profile URLs end with the trade name; reviews are on the same page
   const base = link.replace(/\/$/, "").replace(/\/reviews$/, "");
-  const result = await fetchFromPage("checkatrade", base);
-  if (result.reviews.length === 0) {
-    // Also try the /reviews sub-page
-    return fetchFromPage("checkatrade", base + "/reviews");
+  const reviewsBase = base + "/reviews";
+  const allReviews: ReviewItem[] = [];
+  const seenTexts = new Set<string>();
+
+  // Fetch paginated review pages until we get no new results (up to 10 pages)
+  for (let page = 1; page <= 10; page++) {
+    const url = page === 1 ? reviewsBase : `${reviewsBase}?page=${page}`;
+    const result = await fetchFromPage("checkatrade", url);
+    if (result.reviews.length === 0) break;
+    let added = 0;
+    for (const r of result.reviews) {
+      const key = r.text.slice(0, 60);
+      if (!seenTexts.has(key)) {
+        seenTexts.add(key);
+        allReviews.push(r);
+        added++;
+      }
+    }
+    // If no new reviews on this page, stop paginating
+    if (added === 0) break;
   }
-  return result;
+
+  if (allReviews.length > 0) return { reviews: allReviews };
+
+  // Fallback: try main profile page
+  return fetchFromPage("checkatrade", base);
 }
 
 async function fetchTrustpilot(accountId: string, link: string): Promise<FetchResult> {
@@ -287,10 +306,10 @@ async function autoPostReview(accountId: string, review: {author: string; rating
 
 export async function pollExternalReviewsForAccount(accountId: string): Promise<PlatformResult[]> {
   const { rows } = await pool.query(
-    `SELECT google_review_link, checkatrade_link, trustpilot_link, tripadvisor_link,
-            mybuilder_link, social_post_enabled, facebook_page_access_token,
-            facebook_page_id, instagram_business_account_id, business_name,
-            social_post_message
+    `SELECT google_maps_url, google_review_link, checkatrade_link, trustpilot_link,
+            tripadvisor_link, mybuilder_link, trustist_link, social_post_enabled,
+            facebook_page_access_token, facebook_page_id, instagram_business_account_id,
+            business_name, social_post_message
      FROM settings WHERE account_id = $1`,
     [accountId]
   );
@@ -310,11 +329,13 @@ export async function pollExternalReviewsForAccount(accountId: string): Promise<
   );
   const isFirstPoll = parseInt(existing[0]?.count ?? "0") === 0;
 
-  const gl = (s.google_review_link || "").trim();
+  // For Google: prefer the explicit Maps URL (has Place ID); fall back to the review request link
+  const gl = (s.google_maps_url || s.google_review_link || "").trim();
   const cl = (s.checkatrade_link || "").trim();
   const tl = (s.trustpilot_link || "").trim();
   const tal = (s.tripadvisor_link || "").trim();
   const ml = (s.mybuilder_link || "").trim();
+  const til = (s.trustist_link || "").trim();
 
   const platformConfigs: { platform: string; link: string; fetcher: () => Promise<FetchResult> }[] = [
     { platform: "google",      link: gl,  fetcher: () => fetchGoogle(accountId, gl) },
@@ -322,6 +343,7 @@ export async function pollExternalReviewsForAccount(accountId: string): Promise<
     { platform: "trustpilot",  link: tl,  fetcher: () => fetchTrustpilot(accountId, tl) },
     { platform: "tripadvisor", link: tal, fetcher: () => fetchTripAdvisor(accountId, tal) },
     { platform: "mybuilder",   link: ml,  fetcher: () => fetchMyBuilder(accountId, ml) },
+    { platform: "trustist",    link: til, fetcher: () => fetchFromPage("trustist", til) },
   ];
 
   const results: PlatformResult[] = [];

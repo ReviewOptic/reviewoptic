@@ -36,6 +36,8 @@ export async function runMigrations() {
         logo_position TEXT NOT NULL DEFAULT 'left',
         website_url TEXT NOT NULL DEFAULT '',
         google_review_link TEXT NOT NULL DEFAULT '',
+        google_maps_url TEXT NOT NULL DEFAULT '',
+        trustist_link TEXT NOT NULL DEFAULT '',
         facebook_review_link TEXT NOT NULL DEFAULT '',
         trustpilot_link TEXT NOT NULL DEFAULT '',
         tripadvisor_link TEXT NOT NULL DEFAULT '',
@@ -539,6 +541,12 @@ export async function runMigrations() {
 
     // Per-account font family selection
     await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS font_family TEXT NOT NULL DEFAULT 'Inter'`);
+
+    // Google Maps profile URL — separate from the review request link, used to import reviews via Places API
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS google_maps_url TEXT NOT NULL DEFAULT ''`);
+
+    // Trustist review platform
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS trustist_link TEXT NOT NULL DEFAULT ''`);
 
     // In-app notifications
     await pool.query(`CREATE TABLE IF NOT EXISTS notifications (

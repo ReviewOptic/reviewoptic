@@ -553,7 +553,7 @@ export default function Analytics() {
       {(() => {
         const PLATFORM_COLORS: Record<string, string> = {
           google: "#4285F4", facebook: "#1877F2", trustpilot: "#00B67A",
-          tripadvisor: "#34E0A1", checkatrade: "#1B5EA6", mybuilder: "#F26522",
+          tripadvisor: "#34E0A1", checkatrade: "#1B5EA6", mybuilder: "#F26522", trustist: "#7C3AED",
         };
 
         function renderChart(id: ChartId) {

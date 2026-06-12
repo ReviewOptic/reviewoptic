@@ -108,7 +108,9 @@ export default function Settings() {
     logoUrl: "",
     logoPosition: "left",
     googleReviewLink: "",
+    googleMapsUrl: "",
     facebookReviewLink: "",
+    trustistLink: "",
     trustpilotLink: "",
     tripadvisorLink: "",
     checkatradeLink: "",
@@ -141,7 +143,9 @@ export default function Settings() {
         logoUrl: settings.logoUrl || "",
         logoPosition: settings.logoPosition || "left",
         googleReviewLink: settings.googleReviewLink || "",
+        googleMapsUrl: settings.googleMapsUrl || "",
         facebookReviewLink: settings.facebookReviewLink || "",
+        trustistLink: settings.trustistLink || "",
         trustpilotLink: settings.trustpilotLink || "",
         tripadvisorLink: settings.tripadvisorLink || "",
         checkatradeLink: settings.checkatradeLink || "",
@@ -461,15 +465,16 @@ export default function Settings() {
             <CardContent className="space-y-4 pb-5">
               <p className="text-[12px] text-muted-foreground">Add at least one. Happy customers will be directed to whichever platforms you've filled in.</p>
               {[
-                { label: "Google Business", key: "googleReviewLink", placeholder: "https://g.page/r/..." },
-                { label: "Facebook Page", key: "facebookReviewLink", placeholder: "https://www.facebook.com/..." },
+                { label: "Google Business (review request link)", key: "googleReviewLink", placeholder: "https://g.page/r/...", hint: "Sent to customers so they can leave a review." },
                 { label: "Trustpilot", key: "trustpilotLink", placeholder: "https://www.trustpilot.com/review/..." },
                 { label: "TripAdvisor", key: "tripadvisorLink", placeholder: "https://www.tripadvisor.co.uk/..." },
                 { label: "Checkatrade", key: "checkatradeLink", placeholder: "https://www.checkatrade.com/trades/..." },
                 { label: "MyBuilder", key: "mybuilderLink", placeholder: "https://www.mybuilder.com/..." },
-              ].map(({ label, key, placeholder }) => (
+                { label: "Trustist", key: "trustistLink", placeholder: "https://www.trustist.com/..." },
+              ].map(({ label, key, placeholder, hint }: any) => (
                 <div key={key} className="space-y-1.5">
                   <Label className="text-[12.5px]">{label}</Label>
+                  {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
                   <div className="flex gap-2">
                     <Input
                       value={(form as any)[key]}
@@ -488,6 +493,26 @@ export default function Settings() {
                   </div>
                 </div>
               ))}
+              {/* Google Maps profile URL — separate field for importing reviews */}
+              <div className="space-y-1.5 pt-2 border-t border-border">
+                <Label className="text-[12.5px]">Google Maps Profile URL (for importing reviews)</Label>
+                <p className="text-[11px] text-muted-foreground">To pull your Google reviews into ReviewOptic, go to Google Maps, search for your business, click your listing, then copy the URL from your browser's address bar. Paste it here.</p>
+                <div className="flex gap-2">
+                  <Input
+                    value={form.googleMapsUrl}
+                    onChange={e => setForm(f => ({ ...f, googleMapsUrl: e.target.value }))}
+                    placeholder="https://www.google.com/maps/place/Your+Business+Name/..."
+                    className="flex-1"
+                  />
+                  {form.googleMapsUrl && (
+                    <Button variant="outline" size="icon" className="h-9 w-9 flex-shrink-0" onClick={() => {
+                      window.open(form.googleMapsUrl.trim(), "_blank");
+                    }}>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
