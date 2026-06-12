@@ -589,7 +589,7 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
                         {r.review_text && (
                           <p className="text-[12px] text-foreground line-clamp-2 mb-0.5">"{r.review_text}"</p>
                         )}
-                        <p className="text-[11px] text-muted-foreground">{r.author_name}{r.review_date ? ` · ${formatDistanceToNow(new Date(r.review_date), { addSuffix: true })}` : ""}</p>
+                        <p className="text-[11px] text-muted-foreground">{r.author_name}{(r.review_date || r.created_at) ? ` · ${formatDistanceToNow(new Date(r.review_date || r.created_at), { addSuffix: true })}` : ""}</p>
                       </div>
                     );
                   })}
