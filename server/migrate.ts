@@ -647,6 +647,8 @@ export async function ensureExternalReviewsTable() {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   try {
     await pool.query(`CREATE SCHEMA IF NOT EXISTS ext`);
+    // Ensure settings columns that runMigrations may not have reached
+    await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS google_maps_link TEXT NOT NULL DEFAULT ''`).catch(() => {});
     await pool.query(`
       CREATE TABLE IF NOT EXISTS ext.external_reviews (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
