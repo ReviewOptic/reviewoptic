@@ -555,7 +555,7 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
             </CardHeader>
             <CardContent className="px-4 pb-3">
               {externalReviews.length === 0 ? (
-                <p className="text-[12px] text-muted-foreground py-2">No reviews fetched yet. Add your platform links in Settings → Review Platforms, then hit refresh.</p>
+                <p className="text-[12px] text-muted-foreground py-2">No reviews fetched yet. Add your platform links in Settings → Review Platforms (and your Google Maps profile URL under Settings → Social), then hit refresh.</p>
               ) : (
                 <>
                 <p className="text-[11px] text-muted-foreground mb-2">Showing {externalReviews.length} most recent reviews pulled from your platforms</p>
