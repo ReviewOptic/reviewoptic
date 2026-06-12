@@ -34,6 +34,7 @@ function SettingSection({ title, description, children }: { title: string; descr
 function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; onSelect: (placeId: string) => void }) {
   const [confirmed, setConfirmed] = useState(!!savedPlaceId);
   const [confirmedName, setConfirmedName] = useState("");
+  const [connectedDetails, setConnectedDetails] = useState<{ name: string; address: string } | null>(null);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<{ place_id: string; name: string; formatted_address: string; photo_ref: string | null }[]>([]);
   const [loading, setLoading] = useState(false);
