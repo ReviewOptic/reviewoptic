@@ -557,8 +557,10 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
               {externalReviews.length === 0 ? (
                 <p className="text-[12px] text-muted-foreground py-2">No reviews fetched yet. Add your platform links in Settings → Review Platforms, then hit refresh.</p>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
-                  {externalReviews.slice(0, 6).map((r: any) => {
+                <>
+                <p className="text-[11px] text-muted-foreground mb-2">Showing {externalReviews.length} most recent reviews pulled from your platforms</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 max-h-[480px] overflow-y-auto pr-1">
+                  {externalReviews.map((r: any) => {
                     const platformColours: Record<string, { bg: string; text: string; label: string }> = {
                       google:       { bg: "bg-blue-50 dark:bg-blue-950/30",  text: "text-blue-700 dark:text-blue-300",  label: "Google" },
                       checkatrade:  { bg: "bg-teal-50 dark:bg-teal-950/30",  text: "text-teal-700 dark:text-teal-300",  label: "Checkatrade" },
@@ -592,6 +594,7 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
                     );
                   })}
                 </div>
+                </>
               )}
             </CardContent>
           </Card>

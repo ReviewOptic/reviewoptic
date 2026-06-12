@@ -2182,7 +2182,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // External reviews — fetched from public platforms (Google, Checkatrade etc.)
   app.get("/api/external-reviews", requireAuth, async (req, res) => {
     const { rows } = await pool.query(
-      `SELECT * FROM external_reviews WHERE account_id = $1 ORDER BY review_date DESC NULLS LAST, created_at DESC LIMIT 50`,
+      `SELECT * FROM external_reviews WHERE account_id = $1 ORDER BY review_date DESC NULLS LAST, created_at DESC LIMIT 200`,
       [req.session.accountId]
     );
     res.json(rows);

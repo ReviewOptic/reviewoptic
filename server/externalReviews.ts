@@ -116,19 +116,17 @@ function extractPlaceIdFromUrl(link: string): string | null {
 }
 
 // Resolve a Google Maps link to a Place ID — extracts from the URL or follows short-link redirects.
-// Never falls back to business name search — that would pull the wrong franchise location.
 async function resolveGooglePlaceId(link: string, apiKey: string): Promise<string | null> {
   // 1. Try to pull ChIJ... directly from the URL
   const fromUrl = extractPlaceIdFromUrl(link);
   if (fromUrl) return fromUrl;
 
-  // 2. Short links (g.page, goo.gl, maps.app) — follow redirects using native fetch
-  //    which reliably exposes the final URL via response.url
+  // 2. Short links (g.page, goo.gl, maps.app) — follow redirects
   if (link.includes("g.page") || link.includes("goo.gl") || link.includes("maps.app")) {
     try {
       const res = await fetch(link, {
         redirect: "follow",
-        headers: { "User-Agent": "Mozilla/5.0 (compatible; ReviewOptic/1.0)" },
+        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" },
         signal: AbortSignal.timeout(8000),
       });
       const fromRedirect = extractPlaceIdFromUrl(res.url);
@@ -151,8 +149,8 @@ async function fetchGoogle(accountId: string, link: string): Promise<FetchResult
 
   const placeId = await resolveGooglePlaceId(link, apiKey);
   if (!placeId) {
-    const msg = `Could not resolve Place ID from link: ${link}`;
-    console.warn(`[externalReviews] ${msg}`);
+    const msg = `Could not resolve Place ID — please paste your Google Maps profile URL directly from your browser address bar (not a short review link)`;
+    console.warn(`[externalReviews] ${msg} (link: ${link})`);
     return { reviews: [], error: msg };
   }
 
@@ -312,12 +310,18 @@ export async function pollExternalReviewsForAccount(accountId: string): Promise<
   );
   const isFirstPoll = parseInt(existing[0]?.count ?? "0") === 0;
 
+  const gl = (s.google_review_link || "").trim();
+  const cl = (s.checkatrade_link || "").trim();
+  const tl = (s.trustpilot_link || "").trim();
+  const tal = (s.tripadvisor_link || "").trim();
+  const ml = (s.mybuilder_link || "").trim();
+
   const platformConfigs: { platform: string; link: string; fetcher: () => Promise<FetchResult> }[] = [
-    { platform: "google",      link: s.google_review_link,  fetcher: () => fetchGoogle(accountId, s.google_review_link) },
-    { platform: "checkatrade", link: s.checkatrade_link,    fetcher: () => fetchCheckatrade(accountId, s.checkatrade_link) },
-    { platform: "trustpilot",  link: s.trustpilot_link,     fetcher: () => fetchTrustpilot(accountId, s.trustpilot_link) },
-    { platform: "tripadvisor", link: s.tripadvisor_link,    fetcher: () => fetchTripAdvisor(accountId, s.tripadvisor_link) },
-    { platform: "mybuilder",   link: s.mybuilder_link,      fetcher: () => fetchMyBuilder(accountId, s.mybuilder_link) },
+    { platform: "google",      link: gl,  fetcher: () => fetchGoogle(accountId, gl) },
+    { platform: "checkatrade", link: cl,  fetcher: () => fetchCheckatrade(accountId, cl) },
+    { platform: "trustpilot",  link: tl,  fetcher: () => fetchTrustpilot(accountId, tl) },
+    { platform: "tripadvisor", link: tal, fetcher: () => fetchTripAdvisor(accountId, tal) },
+    { platform: "mybuilder",   link: ml,  fetcher: () => fetchMyBuilder(accountId, ml) },
   ];
 
   const results: PlatformResult[] = [];
