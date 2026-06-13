@@ -1235,3 +1235,49 @@ Older session logs moved here to keep CLAUDE.md under 30k chars.
 **Tasks completed:**
 - **Back buttons fixed**: Pricing page back button was going to `/login` — fixed to `navigate("/")`.
 - **Replit deploy warning permanently fixed**: Root cause was `platform_settings.id` having `DEFAULT 'singleton'` in migrate.ts but not in schema.ts — column-level mismatch. Removed DEFAULT from migrate.ts, added ALTER to drop it in live DB.
+
+### Session — 2026-06-11 (ninetieth session)
+
+**Tasks completed:**
+- **Social media review card templates**: Added 4 visual card templates (Classic, Dark, Warm, Clean) generated server-side as 1080×1080 PNG images using Sharp + SVG. Template picker in Settings → Social tab with mini previews.
+- **External reviews feature**: New `ext.external_reviews` DB table. Pulls from Google, Checkatrade, Trustpilot, TripAdvisor, MyBuilder. Auto-posts to Facebook/Instagram on 4★+. 6-hour polling. Dashboard "Platform Reviews" card.
+- **Social posting extracted** to `server/social.ts` to avoid circular imports.
+
+### Session — 2026-06-11 (ninety-first session)
+
+**Tasks completed:**
+- **Settings table protected** via `"!settings"` in `drizzle.config.ts` tablesFilter.
+- **Google Place ID native fetch** — switched to `fetch()` with `redirect: 'follow'` for reliability.
+- **Dashboard layout**: Platform Reviews card moved below Recent Activity. Total Reviews stat added.
+
+**Root cause lesson:** Replit performs full DROP TABLE + CREATE TABLE on column mismatch — wipes all data. Fix: declare every column in schema.ts AND add to migrate.ts ALTER TABLE.
+
+### Session — 2026-06-11 (ninety-second session)
+
+**Key lesson — Replit migration cycle (definitive):**
+- Replit tracks its OWN migration history. Columns added via migrate.ts ADD COLUMN are never in its history → perpetual DROP.
+- ONLY permanent fix: add to schema.ts so Replit generates the ADD COLUMN and owns it.
+- `tablesFilter` in `drizzle.config.ts` is ignored by Replit for columns within managed tables.
+
+**Fixes:** Settings CREATE TABLE IF NOT EXISTS self-heal in migrate.ts. `settingsRowToCamel()` for snake_case→camelCase. Yell removed (perpetual DROP cycle). Dashboard refresh diagnostics alert.
+
+### Session — 2026-06-12 (ninety-third session)
+
+**Root cause of DROP cycle finally identified:**
+migrate.ts was recreating `external_reviews` each server restart → Replit detects → drops → infinite loop.
+
+**Fix:** Removed CREATE TABLE from migrate.ts for external_reviews and trustist_link. Let Replit own them via schema.ts only.
+
+**Other:** Google Place ID hex format support. Settings debounced autosave. Trustist poll crash fix.
+
+### Session — 2026-06-12 (ninety-fourth session)
+
+**The ext schema trick (permanent solution to DROP cycles):**
+- Replit only scans the `public` schema. Moving tables/columns to `ext` schema makes them permanently invisible to Replit.
+- `ext.external_reviews` — created by `ensureExternalReviewsTable()` in migrate.ts, all queries use `ext.external_reviews` prefix.
+- `ext.settings_extra(account_id, google_maps_link)` — same approach for google_maps_link.
+
+**CRITICAL RULES:**
+- NEVER add a column to both schema.ts AND migrate.ts ALTER TABLE — infinite DROP cycle. Pick one owner.
+- Save logic that must survive validation failures: put it BEFORE any validation checks in the route handler.
+- Autosave guards that check required fields silently block unrelated field saves.
