@@ -966,16 +966,42 @@ export default function Settings() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-3">
                     <img src="https://www.google.com/favicon.ico" alt="Google" className="w-8 h-8 flex-shrink-0" />
-                    <p className="text-[13.5px] font-medium">Google Reviews</p>
+                    <div>
+                      <p className="text-[13.5px] font-medium">Google Reviews</p>
+                      {(settings as any)?.gbpConnected && (
+                        <p className="text-[12px] text-green-600 font-medium">Connected · {(settings as any)?.gbpBusinessName || "Google Business Profile"}</p>
+                      )}
+                    </div>
                   </div>
-                  <GooglePlaceSearch
-                    savedPlaceId={form.googleMapsLink}
-                    onSelect={placeId => {
-                      setForm(f => ({ ...f, googleMapsLink: placeId }));
-                      fetch("/api/settings/google-maps-link", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ googleMapsLink: placeId }) })
-                        .catch(() => {});
-                    }}
-                  />
+
+                  {/* GBP OAuth — primary connection method */}
+                  {(settings as any)?.gbpConnected ? (
+                    <Button
+                      variant="outline" size="sm" className="text-[12px] text-red-600 hover:text-red-700 border-red-200"
+                      onClick={async () => {
+                        await fetch("/api/social/google-business", { method: "DELETE", credentials: "include" });
+                        window.location.reload();
+                      }}
+                    >
+                      Disconnect Google Business Profile
+                    </Button>
+                  ) : (
+                    <div className="space-y-3">
+                      <Button variant="outline" size="sm" className="text-[12px] gap-2" onClick={() => window.location.href = "/auth/google-business"}>
+                        <img src="https://www.google.com/favicon.ico" alt="" className="w-4 h-4" />
+                        Connect Google Business Profile
+                      </Button>
+                      <p className="text-[11px] text-muted-foreground">Sign in with Google to import all your reviews automatically. Or find your business manually:</p>
+                      <GooglePlaceSearch
+                        savedPlaceId={form.googleMapsLink}
+                        onSelect={placeId => {
+                          setForm(f => ({ ...f, googleMapsLink: placeId }));
+                          fetch("/api/settings/google-maps-link", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ googleMapsLink: placeId }) })
+                            .catch(() => {});
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div className="border-t border-border" />
