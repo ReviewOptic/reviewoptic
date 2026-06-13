@@ -163,44 +163,50 @@ export async function resolveGooglePlaceId(link: string, apiKey: string): Promis
       if (qChij?.startsWith("ChIJ")) return qChij;
     } catch {}
 
-    // Hex FID — convert to ChIJ via CID decimal lookup (most reliable method)
+    // Hex FID — use exact business name from URL + pin coordinates to find correct franchise
     const hexMatch = finalUrl.match(/!1s(0x[0-9a-f]+(?:%3A|:)0x[0-9a-f]+)/i);
     if (hexMatch) {
       const fullHex = decodeURIComponent(hexMatch[1]);
-      // Extract second part of hex FID (e.g. 0x66f5...:0x2fa9...) → CID decimal
-      const cidHexMatch = fullHex.match(/0x[0-9a-f]+:0x([0-9a-f]+)/i);
-      if (cidHexMatch && apiKey) {
+      // Extract the FULL business name from URL path (includes franchise qualifier e.g. "- Berkhamsted, Chesham and Amersham")
+      const nameMatch = finalUrl.match(/\/maps\/place\/([^/@]+)/);
+      const pinMatch = finalUrl.match(/!3d(-?\d+\.?\d+)!4d(-?\d+\.?\d+)/);
+      if (nameMatch && apiKey) {
+        const businessName = decodeURIComponent(nameMatch[1].replace(/\+/g, " "));
+        const params: Record<string, string> = {
+          input: businessName,
+          inputtype: "textquery",
+          fields: "place_id,name",
+          key: apiKey,
+        };
+        // Tight location bias around exact business pin (5km circle)
+        if (pinMatch) {
+          params.locationbias = `circle:5000@${pinMatch[1]},${pinMatch[2]}`;
+        }
         try {
-          const cid = BigInt("0x" + cidHexMatch[1]).toString();
-          console.log(`[google] hex FID → CID ${cid}, looking up via Places API`);
-          const res = await axios.get("https://maps.googleapis.com/maps/api/place/details/json", {
-            params: { place_id: `cid:${cid}`, fields: "place_id,name", key: apiKey },
+          const res = await axios.get("https://maps.googleapis.com/maps/api/place/findplacefromtext/json", {
+            params,
             timeout: 8000,
           });
-          if (res.data?.result?.place_id) {
-            console.log(`[google] hex → ChIJ via CID: ${res.data.result.place_id} (${res.data.result.name})`);
-            return res.data.result.place_id;
+          const candidate = res.data?.candidates?.[0];
+          console.log(`[google] findplacefromtext for "${businessName}": status=${res.data?.status} place=${candidate?.place_id} name=${candidate?.name}`);
+          if (candidate?.place_id) {
+            return candidate.place_id;
           }
-          console.warn(`[google] CID lookup status: ${res.data?.status}`);
         } catch (e: any) {
-          console.warn(`[google] CID lookup error: ${e?.message}`);
+          console.warn(`[google] findplacefromtext error: ${e?.message}`);
         }
       }
-      // Fallback: nearbysearch at exact pin coordinates
-      const pinMatch = finalUrl.match(/!3d(-?\d+\.?\d+)!4d(-?\d+\.?\d+)/);
+      // Last resort: nearbysearch at exact pin with full name keyword
       if (pinMatch && apiKey) {
-        const nameMatch = finalUrl.match(/\/maps\/place\/([^/@]+)/);
-        const keyword = nameMatch ? decodeURIComponent(nameMatch[1].replace(/\+/g, " ")).split(" - ")[0].trim() : "";
+        const keyword = nameMatch ? decodeURIComponent(nameMatch[1].replace(/\+/g, " ")) : "";
         try {
           const res = await axios.get("https://maps.googleapis.com/maps/api/place/nearbysearch/json", {
-            params: { location: `${pinMatch[1]},${pinMatch[2]}`, radius: 200, keyword, key: apiKey },
+            params: { location: `${pinMatch[1]},${pinMatch[2]}`, radius: 100, keyword, key: apiKey },
             timeout: 8000,
           });
           const placeId = res.data?.results?.[0]?.place_id;
-          if (placeId) {
-            console.log(`[google] hex → ChIJ via nearbysearch: ${placeId}`);
-            return placeId;
-          }
+          console.log(`[google] nearbysearch at pin: status=${res.data?.status} place=${placeId}`);
+          if (placeId) return placeId;
         } catch (e: any) {
           console.warn(`[google] nearbysearch error: ${e?.message}`);
         }
