@@ -516,7 +516,13 @@ export async function pollExternalReviewsForAccount(accountId: string): Promise<
   let googleMapsLinkValue = "";
   try {
     const { rows: gml } = await pool.query(`SELECT google_maps_link FROM ext.settings_extra WHERE account_id = $1`, [accountId]);
-    googleMapsLinkValue = gml[0]?.google_maps_link || "";
+    const raw = gml[0]?.google_maps_link || "";
+    // Only use stored value if it's a valid ChIJ Place ID — hex FIDs cause INVALID_REQUEST errors
+    googleMapsLinkValue = raw.startsWith("ChIJ") ? raw : "";
+    if (raw && !raw.startsWith("ChIJ")) {
+      // Clear the bad value so it stops causing errors
+      pool.query(`UPDATE ext.settings_extra SET google_maps_link = '' WHERE account_id = $1`, [accountId]).catch(() => {});
+    }
   } catch { /* table may not exist yet */ }
   // Fetch social_card_template separately so a missing column never crashes the poll
   let socialCardTemplate = "classic";
@@ -546,7 +552,10 @@ export async function pollExternalReviewsForAccount(accountId: string): Promise<
     gbpLocationResource = gbpRows[0]?.gbp_location_resource || "";
   } catch { /* columns may not exist yet */ }
 
-  const gl = (googleMapsLinkValue || s.google_review_link || "").trim();
+  // Prefer a clean ChIJ Place ID; if stored value is a hex FID fall back to the
+  // google_review_link (g.page/r/... redirects to a URL containing the real ChIJ)
+  const storedIsChij = googleMapsLinkValue.startsWith("ChIJ");
+  const gl = (storedIsChij ? googleMapsLinkValue : (s.google_review_link || googleMapsLinkValue || "")).trim();
   const cl = (s.checkatrade_link || "").trim();
   const tl = (s.trustpilot_link || "").trim();
   const tal = (s.tripadvisor_link || "").trim();
