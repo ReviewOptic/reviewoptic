@@ -171,37 +171,32 @@ export async function resolveGooglePlaceId(link: string, apiKey: string): Promis
       const nameMatch = finalUrl.match(/\/maps\/place\/([^/@]+)/);
       const pinMatch = finalUrl.match(/!3d(-?\d+\.?\d+)!4d(-?\d+\.?\d+)/);
       if (nameMatch && apiKey) {
-        const businessName = decodeURIComponent(nameMatch[1].replace(/\+/g, " "));
-        const params: Record<string, string> = {
-          input: businessName,
-          inputtype: "textquery",
-          fields: "place_id,name",
-          key: apiKey,
-        };
-        // Tight location bias around exact business pin (5km circle)
-        if (pinMatch) {
-          params.locationbias = `circle:5000@${pinMatch[1]},${pinMatch[2]}`;
-        }
-        try {
-          const res = await axios.get("https://maps.googleapis.com/maps/api/place/findplacefromtext/json", {
-            params,
-            timeout: 8000,
-          });
-          const candidate = res.data?.candidates?.[0];
-          console.log(`[google] findplacefromtext for "${businessName}": status=${res.data?.status} place=${candidate?.place_id} name=${candidate?.name}`);
-          if (candidate?.place_id) {
-            return candidate.place_id;
+        const fullName = decodeURIComponent(nameMatch[1].replace(/\+/g, " "));
+        // Base name = part before any " - " qualifier (e.g. "Time For You Domestic Cleaning")
+        const baseName = fullName.split(" - ")[0].trim();
+        const pinBias = pinMatch ? `circle:2000@${pinMatch[1]},${pinMatch[2]}` : undefined;
+
+        // Try 1: full name + tight pin circle
+        // Try 2: base name only + tight pin circle (in case qualifier doesn't match stored name)
+        for (const input of [fullName, baseName]) {
+          const params: Record<string, string> = { input, inputtype: "textquery", fields: "place_id,name", key: apiKey };
+          if (pinBias) params.locationbias = pinBias;
+          try {
+            const res = await axios.get("https://maps.googleapis.com/maps/api/place/findplacefromtext/json", { params, timeout: 8000 });
+            const candidate = res.data?.candidates?.[0];
+            console.log(`[google] findplacefromtext "${input}": status=${res.data?.status} place=${candidate?.place_id} name=${candidate?.name}`);
+            if (candidate?.place_id) return candidate.place_id;
+          } catch (e: any) {
+            console.warn(`[google] findplacefromtext error: ${e?.message}`);
           }
-        } catch (e: any) {
-          console.warn(`[google] findplacefromtext error: ${e?.message}`);
         }
       }
-      // Last resort: nearbysearch at exact pin with full name keyword
+      // Last resort: nearbysearch at exact pin with base name keyword
       if (pinMatch && apiKey) {
-        const keyword = nameMatch ? decodeURIComponent(nameMatch[1].replace(/\+/g, " ")) : "";
+        const baseName = nameMatch ? decodeURIComponent(nameMatch[1].replace(/\+/g, " ")).split(" - ")[0].trim() : "";
         try {
           const res = await axios.get("https://maps.googleapis.com/maps/api/place/nearbysearch/json", {
-            params: { location: `${pinMatch[1]},${pinMatch[2]}`, radius: 100, keyword, key: apiKey },
+            params: { location: `${pinMatch[1]},${pinMatch[2]}`, radius: 500, keyword: baseName, key: apiKey },
             timeout: 8000,
           });
           const placeId = res.data?.results?.[0]?.place_id;

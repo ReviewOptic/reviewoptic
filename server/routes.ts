@@ -2621,12 +2621,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const axios = (await import("axios")).default;
       // Fire findplacefromtext (text-match, not popularity-ranked) and autocomplete in parallel
+      // Bias toward UK — Replit server is US-hosted so without this the API defaults to US results
+      const UK_BIAS = "circle:800000@54.0,-2.0";
       const [findRes, acRes] = await Promise.allSettled([
         axios.get("https://maps.googleapis.com/maps/api/place/findplacefromtext/json", {
-          params: { input: q, inputtype: "textquery", fields: "place_id,name,formatted_address,photos", key: apiKey }, timeout: 8000
+          params: { input: q, inputtype: "textquery", fields: "place_id,name,formatted_address,photos", locationbias: UK_BIAS, key: apiKey }, timeout: 8000
         }),
         axios.get("https://maps.googleapis.com/maps/api/place/autocomplete/json", {
-          params: { input: q, key: apiKey, language: "en" }, timeout: 8000
+          params: { input: q, key: apiKey, language: "en", location: "54.0,-2.0", radius: 800000 }, timeout: 8000
         }),
       ]);
 
