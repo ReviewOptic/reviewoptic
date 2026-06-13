@@ -2579,11 +2579,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // Settings
-  app.get("/api/debug/google-maps-link", requireAuth, async (req, res) => {
-    const { rows } = await pool.query(`SELECT google_maps_link FROM ext.settings_extra WHERE account_id = $1`, [req.session.accountId!]).catch(() => ({ rows: [] as any[] }));
-    res.json({ stored: rows[0]?.google_maps_link || null, tableExists: rows !== null });
-  });
-
   app.get("/api/settings", requireAuth, async (req, res) => {
     try {
       const s = await storage.getSettings(req.session.accountId!);
