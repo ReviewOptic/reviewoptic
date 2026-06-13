@@ -163,18 +163,37 @@ export async function resolveGooglePlaceId(link: string, apiKey: string): Promis
       if (qChij?.startsWith("ChIJ")) return qChij;
     } catch {}
 
-    // Hex FID — convert to ChIJ using exact business pin coordinates from the URL
-    // !3d=exact lat, !4d=exact lng (NOT @lat,lng which is the map view centre)
+    // Hex FID — convert to ChIJ via CID decimal lookup (most reliable method)
     const hexMatch = finalUrl.match(/!1s(0x[0-9a-f]+(?:%3A|:)0x[0-9a-f]+)/i);
     if (hexMatch) {
+      const fullHex = decodeURIComponent(hexMatch[1]);
+      // Extract second part of hex FID (e.g. 0x66f5...:0x2fa9...) → CID decimal
+      const cidHexMatch = fullHex.match(/0x[0-9a-f]+:0x([0-9a-f]+)/i);
+      if (cidHexMatch && apiKey) {
+        try {
+          const cid = BigInt("0x" + cidHexMatch[1]).toString();
+          console.log(`[google] hex FID → CID ${cid}, looking up via Places API`);
+          const res = await axios.get("https://maps.googleapis.com/maps/api/place/details/json", {
+            params: { place_id: `cid:${cid}`, fields: "place_id,name", key: apiKey },
+            timeout: 8000,
+          });
+          if (res.data?.result?.place_id) {
+            console.log(`[google] hex → ChIJ via CID: ${res.data.result.place_id} (${res.data.result.name})`);
+            return res.data.result.place_id;
+          }
+          console.warn(`[google] CID lookup status: ${res.data?.status}`);
+        } catch (e: any) {
+          console.warn(`[google] CID lookup error: ${e?.message}`);
+        }
+      }
+      // Fallback: nearbysearch at exact pin coordinates
       const pinMatch = finalUrl.match(/!3d(-?\d+\.?\d+)!4d(-?\d+\.?\d+)/);
       if (pinMatch && apiKey) {
-        const lat = pinMatch[1];
-        const lng = pinMatch[2];
-        console.log(`[google] hex FID, nearbysearch at exact pin ${lat},${lng}`);
+        const nameMatch = finalUrl.match(/\/maps\/place\/([^/@]+)/);
+        const keyword = nameMatch ? decodeURIComponent(nameMatch[1].replace(/\+/g, " ")).split(" - ")[0].trim() : "";
         try {
           const res = await axios.get("https://maps.googleapis.com/maps/api/place/nearbysearch/json", {
-            params: { location: `${lat},${lng}`, radius: 100, key: apiKey },
+            params: { location: `${pinMatch[1]},${pinMatch[2]}`, radius: 200, keyword, key: apiKey },
             timeout: 8000,
           });
           const placeId = res.data?.results?.[0]?.place_id;
@@ -182,12 +201,11 @@ export async function resolveGooglePlaceId(link: string, apiKey: string): Promis
             console.log(`[google] hex → ChIJ via nearbysearch: ${placeId}`);
             return placeId;
           }
-          console.warn(`[google] nearbysearch no results: ${res.data?.status}`);
         } catch (e: any) {
           console.warn(`[google] nearbysearch error: ${e?.message}`);
         }
       }
-      return decodeURIComponent(hexMatch[1]);
+      return fullHex;
     }
   }
 
