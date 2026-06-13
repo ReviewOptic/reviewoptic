@@ -966,6 +966,22 @@ export default function Settings() {
 
                 <div className="border-t border-border" />
 
+                {/* Google Review Importing */}
+                <div className="space-y-2">
+                  <p className="text-[13.5px] font-medium">Google Review Importing</p>
+                  <p className="text-[12px] text-muted-foreground">ReviewOptic checks every 6 hours and pulls new Google reviews into your dashboard. New 4★+ reviews are also auto-posted to Facebook and Instagram if connected above.</p>
+                  <GooglePlaceSearch
+                    savedPlaceId={form.googleMapsLink}
+                    onSelect={placeId => {
+                      setForm(f => ({ ...f, googleMapsLink: placeId }));
+                      fetch("/api/settings/google-maps-link", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ googleMapsLink: placeId }) })
+                        .catch(() => {});
+                    }}
+                  />
+                </div>
+
+                <div className="border-t border-border" />
+
                 {/* Auto-post toggle */}
                 <div className="flex items-center justify-between">
                   <div>
@@ -1082,26 +1098,6 @@ export default function Settings() {
                     </div>
                   </>
                 )}
-              </CardContent>
-            </Card>
-
-            {/* Google review importing */}
-            <Card className="border-card-border">
-              <CardHeader>
-                <CardTitle className="text-[15px]">Google Review Importing</CardTitle>
-                <CardDescription className="text-[12.5px]">
-                  ReviewOptic checks every 6 hours and pulls new Google reviews into your dashboard. New 4★+ reviews are also auto-posted to Facebook and Instagram if connected above.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pb-5">
-                <GooglePlaceSearch
-                  savedPlaceId={form.googleMapsLink}
-                  onSelect={placeId => {
-                    setForm(f => ({ ...f, googleMapsLink: placeId }));
-                    fetch("/api/settings/google-maps-link", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ googleMapsLink: placeId }) })
-                      .catch(() => {});
-                  }}
-                />
               </CardContent>
             </Card>
 

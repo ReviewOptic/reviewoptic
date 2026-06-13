@@ -151,10 +151,46 @@ export async function resolveGooglePlaceId(link: string, apiKey: string): Promis
     console.warn(`[google] fetch failed for ${normLink}: ${e?.message}`);
   }
 
-  // 3. Check final URL for Place ID (ChIJ or hex)
+  // 3. Check final URL for Place ID — prefer ChIJ, convert hex FID if needed
   if (finalUrl) {
-    const fromFinal = extractPlaceIdFromUrl(finalUrl);
-    if (fromFinal) return fromFinal;
+    // ChIJ in URL data string — best case
+    const chijData = finalUrl.match(/!1s(ChIJ[A-Za-z0-9_%-]+)/);
+    if (chijData) return decodeURIComponent(chijData[1]);
+    // ChIJ in query params (e.g. writereview?placeid=ChIJ...)
+    try {
+      const u = new URL(finalUrl);
+      const qChij = u.searchParams.get("placeid") || u.searchParams.get("place_id");
+      if (qChij?.startsWith("ChIJ")) return qChij;
+    } catch {}
+
+    // Hex FID detected — convert to ChIJ using findplacefromtext with location bias
+    const hexMatch = finalUrl.match(/!1s(0x[0-9a-f]+(?:%3A|:)0x[0-9a-f]+)/i);
+    if (hexMatch) {
+      const nameMatch = finalUrl.match(/\/maps\/place\/([^/@]+)/);
+      const coordMatch = finalUrl.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+      if (nameMatch && coordMatch) {
+        const name = decodeURIComponent(nameMatch[1].replace(/\+/g, " ")).split(" - ")[0].trim();
+        const lat = coordMatch[1];
+        const lng = coordMatch[2];
+        console.log(`[google] hex FID detected, findplacefromtext: "${name}" at ${lat},${lng}`);
+        try {
+          const res = await axios.get("https://maps.googleapis.com/maps/api/place/findplacefromtext/json", {
+            params: { input: name, inputtype: "textquery", fields: "place_id", locationbias: `point:${lat},${lng}`, key: apiKey },
+            timeout: 8000,
+          });
+          const placeId = res.data?.candidates?.[0]?.place_id;
+          if (placeId) {
+            console.log(`[google] hex → ChIJ: ${placeId}`);
+            return placeId;
+          }
+          console.warn(`[google] findplacefromtext returned no candidates: ${JSON.stringify(res.data?.status)}`);
+        } catch (e: any) {
+          console.warn(`[google] findplacefromtext error: ${e?.message}`);
+        }
+      }
+      // Fall back to raw hex FID if conversion fails
+      return decodeURIComponent(hexMatch[1]);
+    }
   }
 
   // 4. Scan page HTML for ChIJ Place ID
@@ -222,11 +258,7 @@ async function fetchGoogle(accountId: string, link: string): Promise<FetchResult
   }
 
   try {
-    // Hex format (0x...:0x...) needs ftid param; ChIJ uses place_id
-    const isHex = placeId.startsWith("0x");
-    const params = isHex
-      ? { ftid: placeId, fields: "reviews", key: apiKey }
-      : { place_id: placeId, fields: "reviews", key: apiKey };
+    const params = { place_id: placeId, fields: "reviews", key: apiKey };
     const res = await axios.get("https://maps.googleapis.com/maps/api/place/details/json", {
       params,
       timeout: 10000,
