@@ -354,3 +354,34 @@ Your job is to be the developer they would hire if they could afford a great one
   - Ensure Google Business Profile listing name is "ReviewOptic" (one word)
   - Backlinks with exact name "ReviewOptic" help over time — mention in blog posts, directories etc.
 - **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
+
+### Session — 2026-06-13 (ninety-ninth session)
+
+**Context:** Short end-of-session wrap-up. Two changes made.
+
+**1. Dashboard "Platform Reviews" subtitle now dynamic (`client/src/pages/Dashboard.tsx`):**
+- Was hardcoded: "Reviews pulled from Google, Checkatrade and other platforms"
+- Now reads `settings` and lists only platforms the user has actually configured
+- Checks: `googleReviewLink`, `facebookReviewLink`, `trustpilotLink`, `tripadvisorLink`, `checkatradeLink`, `mybuilderLink`
+- If none configured: shows "Add platform links in Settings to import reviews"
+- If one: "Reviews pulled from Google"
+- If multiple: "Reviews pulled from Google, Checkatrade and Trustpilot" (proper join)
+
+**2. Google API error still occurring (INVALID_REQUEST):**
+- Fix in 3288c16 was meant to clear bad hex FID values and fall back to `google_review_link`
+- User reports error persists — likely the bad value is still in the database OR the poll errors before clearing
+- **Root cause**: Service area businesses use hex FIDs; Places API rejects anything that isn't ChIJ format
+- **Real fix**: GBP OAuth (case 6-8166000040742) — waiting on Google API allowlist approval (~7-10 days from 2026-06-13)
+- **Quick fix next session**: Manually clear the bad `google_maps_link` value from `ext.settings_extra` table if the poll still errors
+
+**NEXT SESSION — FIRST STEPS:**
+1. Check Replit logs — is it still INVALID_REQUEST or a different error now?
+2. If still erroring: add a one-shot endpoint or SQL command to force-clear `google_maps_link` in `ext.settings_extra`
+3. Once GBP API approved (case 6-8166000040742): test OAuth → reviews should import → real problem solved
+
+**Pending (updated):**
+- **Google API error** — poll still erroring; GBP OAuth (case 6-8166000040742, ~7-10 days from 2026-06-13) is the real fix
+- **Google OAuth scope verification** — submit via Google Cloud Console once OAuth confirmed working
+- **Facebook App Review** — waiting (~2 weeks from June 10)
+- **SEO — "ReviewOptic" vs "review optic"**: consistent branding in meta tags, GBP listing name, backlinks
+- **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending

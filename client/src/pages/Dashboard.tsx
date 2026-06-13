@@ -551,7 +551,21 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
                   <RefreshCw className={cn("w-3.5 h-3.5", externalFetching && "animate-spin")} />
                 </button>
               </div>
-              <p className="text-[11.5px] text-muted-foreground mt-0.5">Reviews pulled from Google, Checkatrade and other platforms</p>
+              <p className="text-[11.5px] text-muted-foreground mt-0.5">
+                {(() => {
+                  const platforms = [
+                    settings?.googleReviewLink && "Google",
+                    settings?.facebookReviewLink && "Facebook",
+                    settings?.trustpilotLink && "Trustpilot",
+                    settings?.tripadvisorLink && "TripAdvisor",
+                    settings?.checkatradeLink && "Checkatrade",
+                    settings?.mybuilderLink && "MyBuilder",
+                  ].filter(Boolean) as string[];
+                  if (platforms.length === 0) return "Add platform links in Settings to import reviews";
+                  if (platforms.length === 1) return `Reviews pulled from ${platforms[0]}`;
+                  return `Reviews pulled from ${platforms.slice(0, -1).join(", ")} and ${platforms[platforms.length - 1]}`;
+                })()}
+              </p>
             </CardHeader>
             <CardContent className="px-4 pb-3">
               {externalReviews.length === 0 ? (
