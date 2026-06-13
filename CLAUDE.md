@@ -346,4 +346,9 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Google Business Profile OAuth** — built, needs testing (BLOCKER)
 - **Google OAuth scope verification** — submit via Google Cloud Console once OAuth is confirmed working; removes "unverified app" warning for all users
 - **Facebook App Review**: waiting (~2 weeks from June 10)
+- **SEO — fix "review optic" vs "ReviewOptic" in Google search results:**
+  - Audit meta title/description tags across all pages — must say "ReviewOptic" (one word) consistently
+  - Check landing page HTML title tags
+  - Ensure Google Business Profile listing name is "ReviewOptic" (one word)
+  - Backlinks with exact name "ReviewOptic" help over time — mention in blog posts, directories etc.
 - **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
