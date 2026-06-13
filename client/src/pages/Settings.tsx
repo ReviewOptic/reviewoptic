@@ -142,7 +142,7 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
         </div>
         <div className="flex gap-2">
           <Button size="sm" onClick={() => { onSelect(pending.place_id); setConfirmed(true); setConfirmedName(pending.name); setPending(null); }}>Yes, this is my business</Button>
-          <Button variant="outline" size="sm" onClick={() => setPending(null)}>No, search again</Button>
+          <Button variant="outline" size="sm" onClick={() => setPending(null)}>No, try a different link</Button>
         </div>
       </div>
     );
