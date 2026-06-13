@@ -651,6 +651,11 @@ export async function ensureExternalReviewsTable() {
         google_maps_link TEXT NOT NULL DEFAULT ''
       )
     `);
+    // GBP OAuth columns — added via ALTER so existing rows are preserved
+    await pool.query(`ALTER TABLE ext.settings_extra ADD COLUMN IF NOT EXISTS gbp_access_token TEXT NOT NULL DEFAULT ''`).catch(() => {});
+    await pool.query(`ALTER TABLE ext.settings_extra ADD COLUMN IF NOT EXISTS gbp_refresh_token TEXT NOT NULL DEFAULT ''`).catch(() => {});
+    await pool.query(`ALTER TABLE ext.settings_extra ADD COLUMN IF NOT EXISTS gbp_location_resource TEXT NOT NULL DEFAULT ''`).catch(() => {});
+    await pool.query(`ALTER TABLE ext.settings_extra ADD COLUMN IF NOT EXISTS gbp_business_name TEXT NOT NULL DEFAULT ''`).catch(() => {});
     await pool.query(`
       CREATE TABLE IF NOT EXISTS ext.external_reviews (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

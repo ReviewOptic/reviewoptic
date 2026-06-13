@@ -2687,10 +2687,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const resolved = await resolveGooglePlaceWithName(url, apiKey);
       if (!resolved) return res.status(404).json({ error: "Could not find your business from that link. Try a different link." });
 
-      // Fetch photo + address using the resolved Place ID
+      // Only fetch photo/address for ChIJ Place IDs — hex FIDs return wrong business data
       let photo_ref: string | null = null;
       let formatted_address = "";
-      if (resolved.placeId && !resolved.placeId.startsWith("0x")) {
+      if (resolved.placeId && resolved.placeId.startsWith("ChIJ")) {
         try {
           const axiosLib = (await import("axios")).default;
           const det = await axiosLib.get("https://maps.googleapis.com/maps/api/place/details/json", {
