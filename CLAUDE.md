@@ -343,7 +343,9 @@ Your job is to be the developer they would hire if they could afford a great one
 5. **Check debug endpoint**: Remove `/api/debug/google-maps-link` from `server/routes.ts` once Google connection confirmed working
 
 **Pending:**
-- **Google Business Profile OAuth** — built, needs testing (BLOCKER)
+- **Google Business Profile OAuth** — built and ready; BLOCKED waiting for Google API access approval
+  - Applied for Basic API Access 2026-06-13, case ID: 6-8166000040742, estimated 7-10 working days
+  - Once approved: test OAuth → confirm reviews appear → remove search/URL paste complexity if OAuth works reliably
 - **Google OAuth scope verification** — submit via Google Cloud Console once OAuth is confirmed working; removes "unverified app" warning for all users
 - **Facebook App Review**: waiting (~2 weeks from June 10)
 - **SEO — fix "review optic" vs "ReviewOptic" in Google search results:**
