@@ -288,3 +288,61 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Google Business Profile OAuth** — to get all reviews
 - **Facebook App Review**: waiting ~2 weeks
 - **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
+
+### Session — 2026-06-13 (ninety-eighth session)
+
+**Context:** Entire session spent trying to fix Google business connection. Significant frustration from user due to repeated failed fixes.
+
+**Root cause identified (but NOT fully resolved):**
+- The user's business ("Time For You Domestic Cleaning — Berkhamsted, Chesham, Amersham") is a **service area business** — no physical storefront
+- Google Maps uses a **hex FID** (`0x66f5ae8488448f69:0x2fa9ce0d197e8cfd`) for service area businesses, NOT a ChIJ Place ID
+- The Google Places API **does not accept hex FIDs** — requires ChIJ
+- All conversion attempts (CID decimal lookup, findplacefromtext, nearbysearch, textsearch) were finding the wrong business or returning no results
+- The Places API search without geographic bias defaults to the Replit server IP (US), returning wrong businesses — but adding a UK-only bias was wrong since the platform is worldwide
+
+**What was built this session:**
+
+1. **Multiple hex FID conversion attempts** (all ultimately unreliable for service area businesses):
+   - CID decimal lookup (`place_id=cid:{BigInt second part}`)
+   - `findplacefromtext` with full name from URL + exact pin coordinates (2km circle)
+   - `findplacefromtext` with base name (before " - ") + exact pin coordinates
+   - `nearbysearch` 500m radius at exact pin with base name keyword
+
+2. **Static map fallback** (`server/routes.ts`, `server/externalReviews.ts`, `client/src/pages/Settings.tsx`):
+   - `resolveGooglePlaceWithName()` now returns pin lat/lng from URL (`!3d`/`!4d` coordinates)
+   - `GET /api/settings/google-static-map?lat=...&lng=...` proxy endpoint added
+   - Confirmation step shows static map (zoomed street view) when no business photo available
+   - This ensures users always see SOMETHING to confirm location, even for service area businesses
+
+3. **GBP OAuth button re-added** (`client/src/pages/Settings.tsx`):
+   - "Connect Google Business Profile" button is now the PRIMARY option in Google Reviews section
+   - Below it: search box + URL paste as secondary/fallback
+   - Disconnects via `DELETE /api/social/google-business`
+   - Shows connected state with business name when GBP is connected
+   - All server-side OAuth code was already in place from session 97
+
+**Key insight from session:**
+- The GBP OAuth (Google Business Profile API) is the CORRECT long-term solution
+- It gives ALL reviews (not just 5–7), works for any business type including service area businesses
+- User confirmed "my branding has been verified" on Google Cloud Console
+- With branding verified + app in production mode, ALL users can connect via OAuth
+- Users may see "unverified app" warning — they click "Advanced" → "Go to ReviewOptic" to proceed
+- Once Google completes full scope verification, the warning goes away
+
+**CRITICAL RULES learned:**
+- Service area businesses in Google Maps use hex FIDs — they do NOT appear reliably in `nearbysearch` or `findplacefromtext` because they have no physical premises
+- Do NOT add geographic bias to the search (platform is worldwide, not UK-only)
+- The GBP OAuth (`/auth/google-business`) gives all reviews + correct business — prioritise this over Places API workarounds
+- `!3d{lat}!4d{lng}` in a Google Maps URL = exact business pin (use this for coordinates), `@lat,lng` = map view centre (do NOT use this for business location)
+
+**NEXT SESSION — FIRST STEPS:**
+1. **Test GBP OAuth**: Deploy → Settings → Social → click "Connect Google Business Profile" → sign in with Google account linked to the business → should connect and import all reviews
+2. **If OAuth still shows 403**: Go to Google Cloud Console → OAuth Consent Screen → check if app is "In production" (not Testing). If in Testing, click "Publish App".
+3. **If OAuth works**: Verify reviews appear in dashboard, total count is correct
+4. **If OAuth works**: Remove the URL paste / search fallback complexity and simplify the Google section
+5. **Check debug endpoint**: Remove `/api/debug/google-maps-link` from `server/routes.ts` once Google connection confirmed working
+
+**Pending:**
+- **Google Business Profile OAuth** — built, needs testing (BLOCKER)
+- **Facebook App Review**: waiting (~2 weeks from June 10)
+- **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
