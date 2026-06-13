@@ -3425,7 +3425,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         body: new URLSearchParams({ code, client_id: clientId, client_secret: clientSecret, redirect_uri: `${APP_URL}/auth/google-business/callback`, grant_type: "authorization_code" }),
       });
       const tokenData = await tokenRes.json() as any;
-      if (!tokenData.access_token) return res.redirect(`${APP_URL}/settings?tab=social&gbp_error=token_failed`);
+      console.log("[gbp] token exchange:", tokenData.access_token ? "OK" : `FAILED: ${JSON.stringify(tokenData)}`);
+      if (!tokenData.access_token) return res.redirect(`${APP_URL}/settings?tab=social&gbp_error=${encodeURIComponent("Token exchange failed: " + (tokenData.error_description || tokenData.error || "unknown"))}`);
       const accessToken = tokenData.access_token as string;
       const refreshToken = (tokenData.refresh_token || "") as string;
 
@@ -3434,14 +3435,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         headers: { "Authorization": `Bearer ${accessToken}` },
       });
       const accountsData = await accountsRes.json() as any;
+      console.log("[gbp] accounts:", JSON.stringify(accountsData).substring(0, 300));
       const gbpAccount = accountsData.accounts?.[0];
-      if (!gbpAccount) return res.redirect(`${APP_URL}/settings?tab=social&gbp_error=no_account`);
+      if (!gbpAccount) return res.redirect(`${APP_URL}/settings?tab=social&gbp_error=${encodeURIComponent("No Google Business Profile account found for this Google account")}`);
 
       // Get locations for this account
-      const locRes = await fetch(`https://mybusiness.googleapis.com/v4/${gbpAccount.name}/locations?readMask=name,title,storefrontAddress`, {
+      const locRes = await fetch(`https://mybusinessaccountmanagement.googleapis.com/v1/${gbpAccount.name}/locations`, {
         headers: { "Authorization": `Bearer ${accessToken}` },
       });
       const locData = await locRes.json() as any;
+      console.log("[gbp] locations:", JSON.stringify(locData).substring(0, 300));
       const location = locData.locations?.[0];
       const locationResource = location?.name || gbpAccount.name;
       const businessName = location?.title || location?.locationName || gbpAccount.accountName || "";

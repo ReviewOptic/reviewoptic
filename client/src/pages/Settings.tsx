@@ -229,6 +229,7 @@ export default function Settings() {
   const [fbManual, setFbManual] = useState(() => new URLSearchParams(window.location.search).get("fbmanual") === "1");
   const [fbPageUrl, setFbPageUrl] = useState("");
   const [fbPageLoading, setFbPageLoading] = useState(false);
+  const [gbpError] = useState(() => new URLSearchParams(window.location.search).get("gbp_error") || "");
 
   const connectFbPage = async () => {
     if (!fbPageUrl.trim()) return;
@@ -973,6 +974,10 @@ export default function Settings() {
                       )}
                     </div>
                   </div>
+
+                  {gbpError && (
+                    <p className="text-[12px] text-red-600 bg-red-50 border border-red-200 rounded p-2">{gbpError}</p>
+                  )}
 
                   {/* GBP OAuth — primary connection method */}
                   {(settings as any)?.gbpConnected ? (
