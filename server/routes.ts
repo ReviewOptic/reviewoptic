@@ -2620,23 +2620,58 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!apiKey) return res.status(500).json({ error: "GOOGLE_PLACES_API_KEY not set" });
     try {
       const axios = (await import("axios")).default;
-      // textsearch handles full business name + location queries much better than autocomplete
-      const r = await axios.get(
-        "https://maps.googleapis.com/maps/api/place/textsearch/json",
-        { params: { query: q, type: "establishment", key: apiKey, language: "en" }, timeout: 8000 }
-      );
-      console.log(`[place-search] textsearch status=${r.data?.status} results=${r.data?.results?.length ?? 0}`);
-      if (r.data?.status && r.data.status !== "OK" && r.data.status !== "ZERO_RESULTS") {
-        return res.status(500).json({ error: `Google API: ${r.data.status} — ${r.data.error_message || "check API key and billing"}` });
+      // Fire findplacefromtext (text-match, not popularity-ranked) and autocomplete in parallel
+      const [findRes, acRes] = await Promise.allSettled([
+        axios.get("https://maps.googleapis.com/maps/api/place/findplacefromtext/json", {
+          params: { input: q, inputtype: "textquery", fields: "place_id,name,formatted_address,photos", key: apiKey }, timeout: 8000
+        }),
+        axios.get("https://maps.googleapis.com/maps/api/place/autocomplete/json", {
+          params: { input: q, key: apiKey, language: "en" }, timeout: 8000
+        }),
+      ]);
+
+      const seen = new Set<string>();
+      const merged: any[] = [];
+
+      // findplacefromtext results first — text-match beats popularity ranking
+      if (findRes.status === "fulfilled") {
+        console.log(`[place-search] findplacefromtext status=${findRes.value.data?.status} candidates=${findRes.value.data?.candidates?.length ?? 0}`);
+        for (const p of (findRes.value.data?.candidates || []).slice(0, 4)) {
+          if (!seen.has(p.place_id)) {
+            seen.add(p.place_id);
+            merged.push({ place_id: p.place_id, name: p.name, formatted_address: p.formatted_address || "", photo_ref: p.photos?.[0]?.photo_reference || null });
+          }
+        }
       }
-      // textsearch includes photos directly — no parallel detail calls needed
-      const results = (r.data?.results || []).slice(0, 6).map((p: any) => ({
-        place_id: p.place_id,
-        name: p.name,
-        formatted_address: p.formatted_address || p.vicinity || "",
-        photo_ref: p.photos?.[0]?.photo_reference || null,
+
+      // Autocomplete fills remaining slots
+      if (acRes.status === "fulfilled") {
+        console.log(`[place-search] autocomplete status=${acRes.value.data?.status} predictions=${acRes.value.data?.predictions?.length ?? 0}`);
+        for (const p of (acRes.value.data?.predictions || []).slice(0, 6)) {
+          if (!seen.has(p.place_id)) {
+            seen.add(p.place_id);
+            merged.push({ place_id: p.place_id, name: p.structured_formatting?.main_text || p.description, formatted_address: p.structured_formatting?.secondary_text || "", photo_ref: null });
+          }
+        }
+      }
+
+      if (merged.length === 0) {
+        const err = (acRes.status === "fulfilled" && acRes.value.data?.status !== "OK" && acRes.value.data?.status !== "ZERO_RESULTS") ? acRes.value.data?.status : null;
+        if (err) return res.status(500).json({ error: `Google API: ${err} — check API key and billing` });
+        return res.json([]);
+      }
+
+      // Fetch photos for autocomplete-only entries (findplacefromtext already has them)
+      const withPhotos = await Promise.all(merged.slice(0, 6).map(async (c) => {
+        if (c.photo_ref) return c;
+        try {
+          const det = await axios.get("https://maps.googleapis.com/maps/api/place/details/json", {
+            params: { place_id: c.place_id, fields: "photos", key: apiKey }, timeout: 5000
+          });
+          return { ...c, photo_ref: det.data?.result?.photos?.[0]?.photo_reference || null };
+        } catch { return c; }
       }));
-      res.json(results);
+      res.json(withPhotos);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
