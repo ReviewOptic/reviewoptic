@@ -924,35 +924,19 @@ export default function Settings() {
                 <div className="border-t border-border" />
 
                 {/* Google Review Importing */}
-                <div className="flex items-center justify-between gap-4">
+                <div className="space-y-2">
                   <div className="flex items-center gap-3">
                     <img src="https://www.google.com/favicon.ico" alt="Google" className="w-8 h-8 flex-shrink-0" />
-                    <div>
-                      <p className="text-[13.5px] font-medium">Google Reviews</p>
-                      {(settings as any)?.gbpConnected ? (
-                        <p className="text-[12px] text-green-600 font-medium">Connected{(settings as any)?.gbpBusinessName ? ` · ${(settings as any).gbpBusinessName}` : ""}</p>
-                      ) : (
-                        <p className="text-[12px] text-muted-foreground">Connect to import all your Google reviews automatically</p>
-                      )}
-                    </div>
+                    <p className="text-[13.5px] font-medium">Google Reviews</p>
                   </div>
-                  {(settings as any)?.gbpConnected ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-[12px] text-destructive border-destructive/30 hover:bg-destructive/5"
-                      onClick={async () => {
-                        await fetch("/api/social/google-business", { method: "DELETE", credentials: "include" });
-                        queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
-                      }}
-                    >
-                      Disconnect
-                    </Button>
-                  ) : (
-                    <Button variant="outline" size="sm" className="text-[12px]" onClick={() => window.location.href = "/auth/google-business"}>
-                      Connect Google
-                    </Button>
-                  )}
+                  <GooglePlaceSearch
+                    savedPlaceId={form.googleMapsLink}
+                    onSelect={placeId => {
+                      setForm(f => ({ ...f, googleMapsLink: placeId }));
+                      fetch("/api/settings/google-maps-link", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ googleMapsLink: placeId }) })
+                        .catch(() => {});
+                    }}
+                  />
                 </div>
 
                 <div className="border-t border-border" />
