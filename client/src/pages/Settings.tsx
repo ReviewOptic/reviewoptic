@@ -150,20 +150,55 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
 
   return (
     <div className="space-y-1.5">
-      <Label className="text-[12.5px]">Paste your Google Maps business link</Label>
-      <p className="text-[11px] text-muted-foreground">Open Google Maps, find your business, copy the link from the address bar and paste it below.</p>
-      <div className="flex gap-2">
+      <Label className="text-[12.5px]">Search for your business</Label>
+      <div className="relative">
         <input
-          value={urlInput}
-          onChange={e => { setUrlInput(e.target.value); setUrlError(""); }}
-          placeholder="https://maps.app.goo.gl/... or maps.google.com/..."
+          value={query}
+          onChange={e => search(e.target.value)}
+          placeholder="Start typing your business name…"
           autoComplete="off"
           spellCheck={false}
-          className="flex h-9 flex-1 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         />
-        <Button size="sm" onClick={resolveUrl} disabled={urlLoading}>{urlLoading ? "Looking up…" : "Connect"}</Button>
+        {results.length > 0 && (
+          <div className="absolute z-50 w-full mt-1 rounded-md border bg-popover shadow-lg">
+            {results.map(r => (
+              <button
+                key={r.place_id}
+                type="button"
+                onClick={() => pick(r)}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-muted/60 border-b last:border-b-0 flex items-center gap-2.5"
+              >
+                {r.photo_ref
+                  ? <img src={`/api/settings/google-place-photo?ref=${encodeURIComponent(r.photo_ref)}`} alt="" className="w-9 h-9 rounded object-cover flex-shrink-0" />
+                  : <div className="w-9 h-9 rounded bg-muted flex-shrink-0" />}
+                <div className="min-w-0">
+                  <p className="font-medium truncate">{r.name}</p>
+                  {r.formatted_address && <p className="text-muted-foreground text-[11px] truncate">{r.formatted_address}</p>}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
-      {urlError && <p className="text-[11px] text-red-500">{urlError}</p>}
+      {loading && <p className="text-[11px] text-muted-foreground">Searching…</p>}
+      {error && <p className="text-[11px] text-red-500">{error}</p>}
+
+      <div className="pt-1 space-y-1.5">
+        <p className="text-[11px] text-muted-foreground">Can't find your business? Paste your Google Maps link instead:</p>
+        <div className="flex gap-2">
+          <input
+            value={urlInput}
+            onChange={e => { setUrlInput(e.target.value); setUrlError(""); }}
+            placeholder="https://maps.app.goo.gl/..."
+            autoComplete="off"
+            spellCheck={false}
+            className="flex h-9 flex-1 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          />
+          <Button size="sm" onClick={resolveUrl} disabled={urlLoading}>{urlLoading ? "Looking up…" : "Connect"}</Button>
+        </div>
+        {urlError && <p className="text-[11px] text-red-500">{urlError}</p>}
+      </div>
     </div>
   );
 }
