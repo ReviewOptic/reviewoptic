@@ -39,7 +39,7 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
   const [results, setResults] = useState<{ place_id: string; name: string; formatted_address: string; photo_ref: string | null }[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [pending, setPending] = useState<{ place_id: string; name: string; address: string; photoUrl: string | null } | null>(null);
+  const [pending, setPending] = useState<{ place_id: string; name: string; address: string; photoUrl: string | null; staticMapUrl?: string | null } | null>(null);
   const [showUrlPaste, setShowUrlPaste] = useState(false);
   const [urlInput, setUrlInput] = useState("");
   const [urlLoading, setUrlLoading] = useState(false);
@@ -97,7 +97,8 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
       if (!r.ok) { setUrlError(d.error || "Could not find your business from that link."); }
       else {
         const photoUrl = d.photo_ref ? `/api/settings/google-place-photo?ref=${encodeURIComponent(d.photo_ref)}` : null;
-        setPending({ place_id: d.place_id, name: d.name, address: d.formatted_address, photoUrl });
+        const staticMapUrl = (!photoUrl && d.lat && d.lng) ? `/api/settings/google-static-map?lat=${d.lat}&lng=${d.lng}` : null;
+        setPending({ place_id: d.place_id, name: d.name, address: d.formatted_address, photoUrl, staticMapUrl });
         setShowUrlPaste(false);
         setUrlInput("");
       }
@@ -134,10 +135,13 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
       <div className="space-y-3">
         <p className="text-[12.5px] font-medium">Is this your business?</p>
         <div className="flex gap-3 p-3 rounded-md border bg-muted/40 items-center">
-          {pending.photoUrl && <img src={pending.photoUrl} alt="" className="w-14 h-14 rounded object-cover flex-shrink-0" />}
+          {(pending.photoUrl || pending.staticMapUrl) && (
+            <img src={pending.photoUrl || pending.staticMapUrl!} alt="" className="w-14 h-14 rounded object-cover flex-shrink-0" />
+          )}
           <div className="min-w-0">
             <p className="text-[13px] font-medium">{pending.name}</p>
             {pending.address && <p className="text-[11px] text-muted-foreground">{pending.address}</p>}
+            {!pending.photoUrl && pending.staticMapUrl && <p className="text-[10px] text-muted-foreground">Map location shown — no business photo available</p>}
           </div>
         </div>
         <div className="flex gap-2">

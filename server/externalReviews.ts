@@ -234,10 +234,10 @@ export async function resolveGooglePlaceId(link: string, apiKey: string): Promis
   return null;
 }
 
-export async function resolveGooglePlaceWithName(link: string, apiKey: string): Promise<{ placeId: string; name: string } | null> {
+export async function resolveGooglePlaceWithName(link: string, apiKey: string): Promise<{ placeId: string; name: string; lat?: string; lng?: string } | null> {
   const placeId = await resolveGooglePlaceId(link, apiKey);
   if (!placeId) return null;
-  // Extract business name from the final URL path (e.g. /maps/place/Business+Name/@...)
+  // Extract business name and pin coordinates from the final URL
   const normLink = link.startsWith("http") ? link : `https://${link}`;
   try {
     const controller = new AbortController();
@@ -250,9 +250,10 @@ export async function resolveGooglePlaceWithName(link: string, apiKey: string): 
     clearTimeout(timer);
     const finalUrl = resp.url;
     const nameMatch = finalUrl.match(/\/maps\/place\/([^/@]+)/);
+    const pinMatch = finalUrl.match(/!3d(-?\d+\.?\d+)!4d(-?\d+\.?\d+)/);
     if (nameMatch) {
       const name = decodeURIComponent(nameMatch[1].replace(/\+/g, " ")).replace(/\s*-\s*$/, "").trim();
-      return { placeId, name };
+      return { placeId, name, lat: pinMatch?.[1], lng: pinMatch?.[2] };
     }
   } catch {}
   return { placeId, name: "" };

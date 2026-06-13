@@ -2621,14 +2621,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const axios = (await import("axios")).default;
       // Fire findplacefromtext (text-match, not popularity-ranked) and autocomplete in parallel
-      // Bias toward UK — Replit server is US-hosted so without this the API defaults to US results
-      const UK_BIAS = "circle:800000@54.0,-2.0";
       const [findRes, acRes] = await Promise.allSettled([
         axios.get("https://maps.googleapis.com/maps/api/place/findplacefromtext/json", {
-          params: { input: q, inputtype: "textquery", fields: "place_id,name,formatted_address,photos", locationbias: UK_BIAS, key: apiKey }, timeout: 8000
+          params: { input: q, inputtype: "textquery", fields: "place_id,name,formatted_address,photos", key: apiKey }, timeout: 8000
         }),
         axios.get("https://maps.googleapis.com/maps/api/place/autocomplete/json", {
-          params: { input: q, key: apiKey, language: "en", location: "54.0,-2.0", radius: 800000 }, timeout: 8000
+          params: { input: q, key: apiKey, language: "en" }, timeout: 8000
         }),
       ]);
 
@@ -2708,6 +2706,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         name: resolved.name,
         formatted_address,
         photo_ref,
+        // Pin coordinates returned so UI can show static map when no photo available
+        lat: resolved.lat,
+        lng: resolved.lng,
       });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -2736,6 +2737,22 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
+  });
+
+  app.get("/api/settings/google-static-map", requireAuth, async (req, res) => {
+    const { lat, lng } = req.query as { lat: string; lng: string };
+    if (!lat || !lng) return res.status(400).end();
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    if (!apiKey) return res.status(500).end();
+    try {
+      const r = await (await import("axios")).default.get(
+        "https://maps.googleapis.com/maps/api/staticmap",
+        { params: { center: `${lat},${lng}`, zoom: 16, size: "200x200", markers: `color:red|${lat},${lng}`, key: apiKey }, responseType: "stream", timeout: 8000 }
+      );
+      res.setHeader("Content-Type", "image/png");
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      r.data.pipe(res);
+    } catch { res.status(404).end(); }
   });
 
   app.get("/api/settings/google-place-photo", requireAuth, async (req, res) => {
