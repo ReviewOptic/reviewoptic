@@ -344,5 +344,6 @@ Your job is to be the developer they would hire if they could afford a great one
 
 **Pending:**
 - **Google Business Profile OAuth** — built, needs testing (BLOCKER)
+- **Google OAuth scope verification** — submit via Google Cloud Console once OAuth is confirmed working; removes "unverified app" warning for all users
 - **Facebook App Review**: waiting (~2 weeks from June 10)
 - **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
