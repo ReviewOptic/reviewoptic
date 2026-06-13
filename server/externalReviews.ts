@@ -217,6 +217,60 @@ export async function resolveGooglePlaceWithName(link: string, apiKey: string): 
   return { placeId, name: "" };
 }
 
+// ── Google Business Profile OAuth fetcher ────────────────────────────────────
+
+async function refreshGbpToken(refreshToken: string): Promise<string | null> {
+  try {
+    const r = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: refreshToken, client_id: process.env.GOOGLE_CLIENT_ID!, client_secret: process.env.GOOGLE_CLIENT_SECRET! }),
+    });
+    const d = await r.json() as any;
+    return d.access_token || null;
+  } catch { return null; }
+}
+
+async function fetchGBP(accountId: string, locationResource: string, accessToken: string, refreshToken: string): Promise<FetchResult> {
+  if (!locationResource || !accessToken) return { reviews: [] };
+
+  const doFetch = (token: string) =>
+    fetch(`https://mybusiness.googleapis.com/v4/${locationResource}/reviews?pageSize=50`, {
+      headers: { "Authorization": `Bearer ${token}` },
+    });
+
+  let resp = await doFetch(accessToken).catch(() => null);
+
+  // Refresh token on 401 and retry
+  if (resp?.status === 401 && refreshToken) {
+    const newToken = await refreshGbpToken(refreshToken);
+    if (newToken) {
+      await pool.query(`UPDATE ext.settings_extra SET gbp_access_token = $1 WHERE account_id = $2`, [newToken, accountId]).catch(() => {});
+      resp = await doFetch(newToken).catch(() => null);
+    }
+  }
+
+  if (!resp || !resp.ok) {
+    const errText = resp ? await resp.text().catch(() => "") : "fetch failed";
+    console.error(`[externalReviews] GBP error ${resp?.status}: ${errText.substring(0, 100)}`);
+    return { reviews: [], error: `Google Business Profile error ${resp?.status}` };
+  }
+
+  const data = await resp.json() as any;
+  const starMap: Record<string, number> = { ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5 };
+  const reviews = (data.reviews || [])
+    .filter((r: any) => r.comment?.trim())
+    .map((r: any) => ({
+      author: r.reviewer?.displayName || "Anonymous",
+      rating: starMap[r.starRating] || 0,
+      text: r.comment || "",
+      date: r.createTime ? new Date(r.createTime) : null,
+      platform: "google",
+    }));
+  console.log(`[externalReviews] GBP: ${reviews.length} reviews from ${locationResource}`);
+  return { reviews };
+}
+
 // ── Platform fetchers ────────────────────────────────────────────────────────
 
 async function fetchGoogle(accountId: string, link: string): Promise<FetchResult> {
@@ -438,14 +492,32 @@ export async function pollExternalReviewsForAccount(accountId: string): Promise<
   );
   const isFirstPoll = parseInt(existing[0]?.count ?? "0") === 0;
 
+  // Read GBP credentials — prefer GBP over Places API (gives all reviews, not just 5-7)
+  let gbpAccessToken = "", gbpRefreshToken = "", gbpLocationResource = "";
+  try {
+    const { rows: gbpRows } = await pool.query(
+      `SELECT gbp_access_token, gbp_refresh_token, gbp_location_resource FROM ext.settings_extra WHERE account_id = $1`,
+      [accountId]
+    );
+    gbpAccessToken = gbpRows[0]?.gbp_access_token || "";
+    gbpRefreshToken = gbpRows[0]?.gbp_refresh_token || "";
+    gbpLocationResource = gbpRows[0]?.gbp_location_resource || "";
+  } catch { /* columns may not exist yet */ }
+
   const gl = (googleMapsLinkValue || s.google_review_link || "").trim();
   const cl = (s.checkatrade_link || "").trim();
   const tl = (s.trustpilot_link || "").trim();
   const tal = (s.tripadvisor_link || "").trim();
   const ml = (s.mybuilder_link || "").trim();
 
+  // Google: use GBP OAuth if connected (all reviews), otherwise Places API (5-7 reviews)
+  const googleFetcher = gbpLocationResource && gbpAccessToken
+    ? () => fetchGBP(accountId, gbpLocationResource, gbpAccessToken, gbpRefreshToken)
+    : () => fetchGoogle(accountId, gl);
+  const googleLink = gbpLocationResource || gl;
+
   const platformConfigs: { platform: string; link: string; fetcher: () => Promise<FetchResult> }[] = [
-    { platform: "google",      link: gl,  fetcher: () => fetchGoogle(accountId, gl) },
+    { platform: "google",      link: googleLink, fetcher: googleFetcher },
     { platform: "checkatrade", link: cl,  fetcher: () => fetchCheckatrade(accountId, cl) },
     { platform: "trustpilot",  link: tl,  fetcher: () => fetchTrustpilot(accountId, tl) },
     { platform: "tripadvisor", link: tal, fetcher: () => fetchTripAdvisor(accountId, tal) },

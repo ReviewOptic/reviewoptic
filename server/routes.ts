@@ -3367,6 +3367,93 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ success: true });
   });
 
+  // ── Google Business Profile OAuth ─────────────────────────────────────────
+
+  app.get("/auth/google-business", requireAuth, async (req, res) => {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    if (!clientId) return res.status(400).send("GOOGLE_CLIENT_ID not set in Replit Secrets.");
+    const state = randomUUID();
+    req.session.gbpOauthState = state;
+    await new Promise<void>((resolve, reject) => req.session.save(err => err ? reject(err) : resolve()));
+    const APP_URL = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000");
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: `${APP_URL}/auth/google-business/callback`,
+      response_type: "code",
+      scope: "https://www.googleapis.com/auth/business.manage",
+      access_type: "offline",
+      prompt: "consent",
+      state,
+    });
+    res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+  });
+
+  app.get("/auth/google-business/callback", async (req, res) => {
+    const { code, state, error } = req.query as any;
+    const APP_URL = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000");
+    if (error) return res.redirect(`${APP_URL}/settings?tab=social&gbp_error=${encodeURIComponent(String(error))}`);
+    if (!state || state !== req.session.gbpOauthState) return res.status(400).send("Invalid OAuth state — please try connecting again.");
+    const accountId = req.session.accountId;
+    if (!accountId) return res.status(401).send("Not authenticated.");
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    if (!clientId || !clientSecret) return res.status(500).send("GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET not set in Replit Secrets.");
+    try {
+      // Exchange code for tokens
+      const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ code, client_id: clientId, client_secret: clientSecret, redirect_uri: `${APP_URL}/auth/google-business/callback`, grant_type: "authorization_code" }),
+      });
+      const tokenData = await tokenRes.json() as any;
+      if (!tokenData.access_token) return res.redirect(`${APP_URL}/settings?tab=social&gbp_error=token_failed`);
+      const accessToken = tokenData.access_token as string;
+      const refreshToken = (tokenData.refresh_token || "") as string;
+
+      // Get the user's Business Profile account
+      const accountsRes = await fetch("https://mybusinessaccountmanagement.googleapis.com/v1/accounts", {
+        headers: { "Authorization": `Bearer ${accessToken}` },
+      });
+      const accountsData = await accountsRes.json() as any;
+      const gbpAccount = accountsData.accounts?.[0];
+      if (!gbpAccount) return res.redirect(`${APP_URL}/settings?tab=social&gbp_error=no_account`);
+
+      // Get locations for this account
+      const locRes = await fetch(`https://mybusiness.googleapis.com/v4/${gbpAccount.name}/locations?readMask=name,title,storefrontAddress`, {
+        headers: { "Authorization": `Bearer ${accessToken}` },
+      });
+      const locData = await locRes.json() as any;
+      const location = locData.locations?.[0];
+      const locationResource = location?.name || gbpAccount.name;
+      const businessName = location?.title || location?.locationName || gbpAccount.accountName || "";
+
+      // Store in ext.settings_extra (invisible to Replit migrations)
+      await pool.query(`
+        INSERT INTO ext.settings_extra (account_id, google_maps_link, gbp_access_token, gbp_refresh_token, gbp_location_resource, gbp_business_name)
+        VALUES ($1, '', $2, $3, $4, $5)
+        ON CONFLICT (account_id) DO UPDATE SET
+          gbp_access_token     = EXCLUDED.gbp_access_token,
+          gbp_refresh_token    = EXCLUDED.gbp_refresh_token,
+          gbp_location_resource = EXCLUDED.gbp_location_resource,
+          gbp_business_name    = EXCLUDED.gbp_business_name
+      `, [accountId, accessToken, refreshToken, locationResource, businessName]);
+
+      res.redirect(`${APP_URL}/settings?tab=social&gbp=connected`);
+    } catch (err: any) {
+      console.error("[gbp oauth callback]", err.message);
+      res.redirect(`${APP_URL}/settings?tab=social&gbp_error=unexpected`);
+    }
+  });
+
+  app.delete("/api/social/google-business", requireAuth, async (req, res) => {
+    await pool.query(`
+      UPDATE ext.settings_extra
+      SET gbp_access_token = '', gbp_refresh_token = '', gbp_location_resource = '', gbp_business_name = ''
+      WHERE account_id = $1
+    `, [req.session.accountId!]).catch(() => {});
+    res.json({ ok: true });
+  });
+
   // ── Billing / Stripe ──────────────────────────────────────────────────────
 
   const PRICES: Record<string, { unit_amount: number; interval: "month" | "year"; name: string }> = {

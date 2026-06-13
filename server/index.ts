@@ -56,6 +56,7 @@ declare module "express-session" {
     originalAccountId: string;
     fbOauthState: string;
     fbUserToken: string;
+    gbpOauthState: string;
     isDemo: boolean;
   }
 }

@@ -221,8 +221,13 @@ export class DatabaseStorage implements IStorage {
     const { rows } = await pool.query(`SELECT * FROM settings WHERE account_id = $1 LIMIT 1`, [accountId]);
     if (!rows[0]) return undefined;
     const result = settingsRowToCamel(rows[0]);
-    const { rows: extra } = await pool.query(`SELECT google_maps_link FROM ext.settings_extra WHERE account_id = $1`, [accountId]).catch(() => ({ rows: [] as any[] }));
+    const { rows: extra } = await pool.query(
+      `SELECT google_maps_link, gbp_access_token, gbp_business_name FROM ext.settings_extra WHERE account_id = $1`,
+      [accountId]
+    ).catch(() => ({ rows: [] as any[] }));
     if (extra[0]?.google_maps_link) (result as any).googleMapsLink = extra[0].google_maps_link;
+    (result as any).gbpConnected = !!(extra[0]?.gbp_access_token);
+    (result as any).gbpBusinessName = extra[0]?.gbp_business_name || "";
     return result;
   }
   async upsertSettings(accountId: string, data: Partial<InsertSettings>): Promise<Settings> {
