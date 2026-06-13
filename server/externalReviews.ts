@@ -163,10 +163,32 @@ export async function resolveGooglePlaceId(link: string, apiKey: string): Promis
       if (qChij?.startsWith("ChIJ")) return qChij;
     } catch {}
 
-    // Hex FID — store as-is. findplacefromtext can return wrong franchise locations.
-    // GBP OAuth (not Places API) is the correct way to fetch reviews for hex FID businesses.
+    // Hex FID — convert to ChIJ using exact business pin coordinates from the URL
+    // !3d=exact lat, !4d=exact lng (NOT @lat,lng which is the map view centre)
     const hexMatch = finalUrl.match(/!1s(0x[0-9a-f]+(?:%3A|:)0x[0-9a-f]+)/i);
-    if (hexMatch) return decodeURIComponent(hexMatch[1]);
+    if (hexMatch) {
+      const pinMatch = finalUrl.match(/!3d(-?\d+\.?\d+)!4d(-?\d+\.?\d+)/);
+      if (pinMatch && apiKey) {
+        const lat = pinMatch[1];
+        const lng = pinMatch[2];
+        console.log(`[google] hex FID, nearbysearch at exact pin ${lat},${lng}`);
+        try {
+          const res = await axios.get("https://maps.googleapis.com/maps/api/place/nearbysearch/json", {
+            params: { location: `${lat},${lng}`, radius: 100, key: apiKey },
+            timeout: 8000,
+          });
+          const placeId = res.data?.results?.[0]?.place_id;
+          if (placeId) {
+            console.log(`[google] hex → ChIJ via nearbysearch: ${placeId}`);
+            return placeId;
+          }
+          console.warn(`[google] nearbysearch no results: ${res.data?.status}`);
+        } catch (e: any) {
+          console.warn(`[google] nearbysearch error: ${e?.message}`);
+        }
+      }
+      return decodeURIComponent(hexMatch[1]);
+    }
   }
 
   // 4. Scan page HTML for ChIJ Place ID
