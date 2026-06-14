@@ -24,6 +24,38 @@
   <meta name="twitter:image" content="https://www.reviewoptic.com/logo.png" />
 
   <link rel="icon" type="image/png" href="/favicon.png" />
+
+  <!-- Structured data — tells Google the brand name is one word: ReviewOptic -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://www.reviewoptic.com/#organization",
+        "name": "ReviewOptic",
+        "url": "https://www.reviewoptic.com/",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://www.reviewoptic.com/logo.png"
+        },
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "email": "hello@reviewoptic.com",
+          "contactType": "customer support"
+        }
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://www.reviewoptic.com/#website",
+        "url": "https://www.reviewoptic.com/",
+        "name": "ReviewOptic",
+        "publisher": { "@id": "https://www.reviewoptic.com/#organization" }
+      }
+    ]
+  }
+  </script>
+
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 

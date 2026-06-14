@@ -4,4 +4,4 @@ Allow: /
 Disallow: /api/
 Disallow: /uploads/
 
-Sitemap: https://reviewoptic.com/sitemap.xml
+Sitemap: https://www.reviewoptic.com/sitemap.xml
