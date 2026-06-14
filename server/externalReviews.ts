@@ -351,7 +351,8 @@ async function fetchGoogle(accountId: string, link: string): Promise<FetchResult
   }
 
   try {
-    const params = { place_id: placeId, fields: "reviews,user_ratings_total", key: apiKey };
+    // Fetch reviews first; user_ratings_total in a separate call to avoid field errors on CID-format IDs
+    const params = { place_id: placeId, fields: "reviews", key: apiKey };
     const res = await axios.get("https://maps.googleapis.com/maps/api/place/details/json", {
       params,
       timeout: 10000,
@@ -362,7 +363,15 @@ async function fetchGoogle(accountId: string, link: string): Promise<FetchResult
     const reviews = (res.data?.result?.reviews || [])
       .filter((r: any) => r.text?.trim())
       .map((r: any) => ({ author: r.author_name, rating: r.rating, text: r.text, date: r.time ? new Date(r.time * 1000) : null, platform: "google" }));
-    const platformTotal: number | undefined = res.data?.result?.user_ratings_total || undefined;
+    // Try fetching total separately so a field error doesn't block reviews
+    let platformTotal: number | undefined;
+    try {
+      const tot = await axios.get("https://maps.googleapis.com/maps/api/place/details/json", {
+        params: { place_id: placeId, fields: "user_ratings_total", key: apiKey },
+        timeout: 6000,
+      });
+      platformTotal = tot.data?.result?.user_ratings_total || undefined;
+    } catch { /* non-critical — total will fall back to imported count */ }
     console.log(`[externalReviews] Google: found ${reviews.length} reviews, total on platform: ${platformTotal ?? "unknown"}`);
     return { reviews, platformTotal };
   } catch (err: any) {

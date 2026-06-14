@@ -375,9 +375,8 @@ export default function Settings() {
       saveTimerRef.current = null;
       setSaveStatus("saving");
       apiRequest("PATCH", "/api/settings", form)
-        .then(async (res) => {
-          const updated = await res.json();
-          queryClient.setQueryData(["/api/settings"], updated);
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
           setSaveStatus("saved");
           setTimeout(() => setSaveStatus("idle"), 2000);
         })

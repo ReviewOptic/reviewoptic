@@ -2819,6 +2819,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.patch("/api/settings", requireAuth, async (req, res) => {
     try {
       const body = { ...req.body };
+      console.log(`[settings PATCH] trustpilotLink="${body.trustpilotLink}" checkatradeLink="${body.checkatradeLink}" tripadvisorLink="${body.tripadvisorLink}"`);
       if (body.businessEmail !== undefined && !body.businessEmail?.trim()) {
         return res.status(400).json({ message: "Business email is required" });
       }
