@@ -138,6 +138,8 @@ export default function TermsAndConditions() {
             </p>
             <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
               <li>Send unsolicited bulk messages (spam) to any person</li>
+              <li>Offer incentives (such as discounts, vouchers, or gifts) in exchange for positive reviews — this is prohibited by Google, Trustpilot, and other platforms, and may breach UK CMA guidelines</li>
+              <li>Use the voice cloning feature to clone any voice other than your own, or a voice for which you have explicit permission from the owner</li>
               <li>Use the star rating pre-screen to suppress or discourage negative public reviews — the feature is intended solely for service recovery, and customers are informed on the feedback form that this does not affect their right to leave a public review</li>
               <li>Contact individuals without a lawful basis to do so under applicable marketing laws (including UK PECR and GDPR)</li>
               <li>Operate or promote an illegal business or activity</li>

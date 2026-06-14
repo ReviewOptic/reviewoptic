@@ -14,6 +14,7 @@ export default function PrivacyPolicy() {
             <h2 className="text-lg font-semibold mb-2">1. Who we are</h2>
             <p className="text-muted-foreground leading-relaxed">
               ReviewOptic is operated by ReviewOptic Limited (company number 17134444), registered in England and Wales.
+              We are registered with the Information Commissioner's Office (ICO) as a data controller.
               If you have any questions about this policy, contact us at hello@reviewoptic.com.
             </p>
           </section>
@@ -116,6 +117,9 @@ export default function PrivacyPolicy() {
               we will delete your personal data within 30 days, except where we are required to retain it
               by law — for example, billing and financial records are retained for 7 years as required under
               UK law. You can cancel your subscription or delete your account at any time through your Billing settings.
+              Customer data you have uploaded (names, email addresses, phone numbers) is retained for the same period
+              and deleted alongside your account data upon account deletion. Imported external reviews are also deleted
+              when your account is deleted or when you disconnect a platform.
             </p>
           </section>
 
