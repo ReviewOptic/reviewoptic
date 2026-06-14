@@ -163,7 +163,7 @@ export async function resolveGooglePlaceId(link: string, apiKey: string): Promis
       if (qChij?.startsWith("ChIJ")) return qChij;
     } catch {}
 
-    // Hex FID — convert to cid:DECIMAL and use directly (no searching, avoids finding wrong franchise)
+    // Hex FID — convert to CID, then try Places API to get a proper ChIJ
     const hexMatch = finalUrl.match(/!1s(0x[0-9a-f]+(?:%3A|:)0x[0-9a-f]+)/i);
     if (hexMatch) {
       const fullHex = decodeURIComponent(hexMatch[1]);
@@ -172,6 +172,18 @@ export async function resolveGooglePlaceId(link: string, apiKey: string): Promis
         try {
           const cid = BigInt(parts[1]).toString();
           console.log(`[google] hex FID → cid:${cid}`);
+          // Try to resolve CID to ChIJ via Places Details API
+          if (apiKey) {
+            try {
+              const r = await axios.get("https://maps.googleapis.com/maps/api/place/details/json", {
+                params: { place_id: `cid:${cid}`, fields: "place_id", key: apiKey }, timeout: 8000,
+              });
+              if (r.data?.result?.place_id) {
+                console.log(`[google] cid:${cid} → ${r.data.result.place_id}`);
+                return r.data.result.place_id;
+              }
+            } catch {}
+          }
           return `cid:${cid}`;
         } catch {}
       }
@@ -220,9 +232,12 @@ export async function resolveGooglePlaceWithName(link: string, apiKey: string): 
     const finalUrl = resp.url;
     const nameMatch = finalUrl.match(/\/maps\/place\/([^/@]+)/);
     const pinMatch = finalUrl.match(/!3d(-?\d+\.?\d+)!4d(-?\d+\.?\d+)/);
+    const centerMatch = finalUrl.match(/@(-?\d+\.?\d+),(-?\d+\.?\d+)/);
     if (nameMatch) {
       const name = decodeURIComponent(nameMatch[1].replace(/\+/g, " ")).replace(/\s*-\s*$/, "").trim();
-      return { placeId, name, lat: pinMatch?.[1], lng: pinMatch?.[2] };
+      const lat = pinMatch?.[1] || centerMatch?.[1];
+      const lng = pinMatch?.[2] || centerMatch?.[2];
+      return { placeId, name, lat, lng };
     }
   } catch {}
   return { placeId, name: "" };

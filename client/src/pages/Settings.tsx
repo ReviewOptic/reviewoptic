@@ -123,7 +123,7 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
           <div className="flex gap-2">
             <Button variant="outline" size="sm" className="text-[12px]" onClick={async () => { await fetch("/api/settings/google-disconnect", { method: "POST", credentials: "include" }); setConfirmed(false); setPending(null); setConnectedDetails(null); setConfirmedName(""); }}>Change</Button>
             <Button variant="outline" size="sm" className="text-[12px] text-red-600 hover:text-red-700 border-red-200" onClick={disconnect}>Disconnect</Button>
-            <a href={`https://www.google.com/maps/place/?q=place_id:${savedPlaceId}`} target="_blank" rel="noreferrer" className="text-[11px] text-blue-600 dark:text-blue-400 underline self-center ml-auto">View on Google Maps →</a>
+            <a href={savedPlaceId.startsWith("cid:") ? `https://www.google.com/maps?cid=${savedPlaceId.slice(4)}` : `https://www.google.com/maps/place/?q=place_id:${savedPlaceId}`} target="_blank" rel="noreferrer" className="text-[11px] text-blue-600 dark:text-blue-400 underline self-center ml-auto">View on Google Maps →</a>
           </div>
         </div>
       </div>
@@ -131,18 +131,15 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
   }
 
   if (pending) {
+    const mapsUrl = pending.place_id.startsWith("cid:")
+      ? `https://www.google.com/maps?cid=${pending.place_id.slice(4)}`
+      : `https://www.google.com/maps/place/?q=place_id:${pending.place_id}`;
     return (
       <div className="space-y-3">
         <p className="text-[12.5px] font-medium">Is this your business?</p>
-        <div className="flex gap-3 p-3 rounded-md border bg-muted/40 items-center">
-          {(pending.photoUrl || pending.staticMapUrl) && (
-            <img src={pending.photoUrl || pending.staticMapUrl!} alt="" className="w-14 h-14 rounded object-cover flex-shrink-0" />
-          )}
-          <div className="min-w-0">
-            <p className="text-[13px] font-medium">{pending.name}</p>
-            {pending.address && <p className="text-[11px] text-muted-foreground">{pending.address}</p>}
-            {!pending.photoUrl && pending.staticMapUrl && <p className="text-[10px] text-muted-foreground">Map location shown — no business photo available</p>}
-          </div>
+        <div className="p-3 rounded-md border bg-muted/40">
+          <p className="text-[13px] font-medium">{pending.name}</p>
+          <a href={mapsUrl} target="_blank" rel="noreferrer" className="text-[11px] text-blue-600 dark:text-blue-400 underline">View on Google Maps →</a>
         </div>
         <div className="flex gap-2">
           <Button size="sm" onClick={() => { onSelect(pending.place_id); setConfirmed(true); setConfirmedName(pending.name); setPending(null); }}>Yes, this is my business</Button>
