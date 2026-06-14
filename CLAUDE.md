@@ -385,3 +385,16 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Facebook App Review** — waiting (~2 weeks from June 10)
 - **SEO — "ReviewOptic" vs "review optic"**: consistent branding in meta tags, GBP listing name, backlinks
 - **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
+
+### Session — 2026-06-14 (one-hundredth session)
+
+**LESSON LEARNED (logged after user frustration):**
+- **"Use the link" means USE THE LINK.** When the user says "just use the link", extract the unique ID directly from the URL. Do NOT build search logic that hunts by name/coordinates — searches find approximate matches (wrong franchise, wrong location). The URL itself contains the exact business identifier.
+- Applied fix: hex FID in Google Maps URL contains the CID in the second hex part. Convert `0x2fa9ce0d197e8cfd` → `BigInt("0x2fa9ce0d197e8cfd").toString()` → `cid:DECIMAL`. Pass directly to Places Details API. 5 lines. Should have been the first attempt.
+- This mistake cost 3+ sessions. Do not repeat it.
+
+**Pending:**
+- **Google reviews** — deploy aa6829d → test that correct business profile now loads
+- **Google Business Profile OAuth** (case 6-8166000040742, ~7-10 days from 2026-06-13) — gives ALL reviews, not just 5-7
+- **Facebook App Review** — waiting (~2 weeks from June 10)
+- **SEO — "ReviewOptic" branding**, **landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
