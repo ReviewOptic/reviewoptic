@@ -656,6 +656,7 @@ export async function ensureExternalReviewsTable() {
     await pool.query(`ALTER TABLE ext.settings_extra ADD COLUMN IF NOT EXISTS gbp_refresh_token TEXT NOT NULL DEFAULT ''`).catch(() => {});
     await pool.query(`ALTER TABLE ext.settings_extra ADD COLUMN IF NOT EXISTS gbp_location_resource TEXT NOT NULL DEFAULT ''`).catch(() => {});
     await pool.query(`ALTER TABLE ext.settings_extra ADD COLUMN IF NOT EXISTS gbp_business_name TEXT NOT NULL DEFAULT ''`).catch(() => {});
+    await pool.query(`ALTER TABLE ext.settings_extra ADD COLUMN IF NOT EXISTS platform_review_totals TEXT NOT NULL DEFAULT ''`).catch(() => {});
     await pool.query(`
       CREATE TABLE IF NOT EXISTS ext.external_reviews (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

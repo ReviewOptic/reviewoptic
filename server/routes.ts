@@ -801,7 +801,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const CUSTOMERS = [
       { name: "Sarah Mitchell", email: "sarah.m@example.com", service: "Boiler service", status: "review_received", daysAgo: 2, rating: 5, channel: "email" },
       { name: "Tom Archer", email: "tom.a@example.com", service: "Emergency leak repair", status: "review_received", daysAgo: 4, rating: 5, channel: "email" },
-      { name: "Claire Hughes", email: "claire.h@example.com", service: "Bathroom installation", status: "review_received", daysAgo: 6, rating: 5, channel: "sms" },
+      { name: "Claire Hughes", email: "claire.h@example.com", service: "Bathroom installation", status: "review_received", daysAgo: 6, rating: 5, channel: "whatsapp" },
       { name: "David Okafor", email: "david.o@example.com", service: "Radiator replacement", status: "review_received", daysAgo: 8, rating: 4, channel: "email" },
       { name: "Emma Patel", email: "emma.p@example.com", service: "Annual boiler service", status: "review_received", daysAgo: 10, rating: 5, channel: "email" },
       { name: "Mark Stevens", email: "mark.s@example.com", service: "Central heating install", status: "review_received", daysAgo: 13, rating: 5, channel: "email" },
@@ -809,15 +809,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       { name: "Ryan Clarke", email: "ryan.c@example.com", service: "Boiler repair", status: "review_received", daysAgo: 18, rating: 4, channel: "email" },
       { name: "Sophie Ward", email: "sophie.w@example.com", service: "Leak detection", status: "review_received", daysAgo: 20, rating: 5, channel: "email" },
       { name: "James Thornton", email: "james.t@example.com", service: "Boiler service", status: "review_received", daysAgo: 23, rating: 5, channel: "email" },
-      { name: "Natalie Fox", email: "natalie.f@example.com", service: "Radiator fitting", status: "review_received", daysAgo: 26, rating: 5, channel: "sms" },
+      { name: "Natalie Fox", email: "natalie.f@example.com", service: "Radiator fitting", status: "review_received", daysAgo: 26, rating: 5, channel: "whatsapp" },
       { name: "Ben Morrison", email: "ben.m@example.com", service: "Power flush", status: "review_received", daysAgo: 30, rating: 3, channel: "email", privateFeedback: true },
       { name: "Hannah Brooks", email: "hannah.b@example.com", service: "Bathroom installation", status: "review_received", daysAgo: 33, rating: 5, channel: "email" },
       { name: "Oliver Grant", email: "oliver.g@example.com", service: "Boiler replacement", status: "review_received", daysAgo: 37, rating: 5, channel: "email" },
       { name: "Zoe Campbell", email: "zoe.c@example.com", service: "Emergency callout", status: "review_received", daysAgo: 40, rating: 4, channel: "sms" },
       { name: "Chris Walton", email: "chris.w@example.com", service: "Boiler service", status: "sent", daysAgo: 1, channel: "email" },
-      { name: "Amy Dixon", email: "amy.d@example.com", service: "Leak repair", status: "sent", daysAgo: 2, channel: "email" },
+      { name: "Amy Dixon", email: "amy.d@example.com", service: "Leak repair", status: "sent", daysAgo: 2, channel: "whatsapp" },
       { name: "Paul Nwosu", email: "paul.n@example.com", service: "Radiator installation", status: "sent", daysAgo: 3, channel: "sms" },
-      { name: "Lucy Hamilton", email: "lucy.h@example.com", service: "Annual service", status: "pending_request", daysAgo: 0, channel: "email" },
+      { name: "Lucy Hamilton", email: "lucy.h@example.com", service: "Annual service", status: "pending_request", daysAgo: 0, channel: "whatsapp" },
       { name: "Steve Carr", email: "steve.c@example.com", service: "Bathroom refit", status: "pending_request", daysAgo: 0, channel: "email" },
       { name: "Fiona Blake", email: "fiona.b@example.com", service: "Boiler repair", status: "review_received", daysAgo: 50, rating: 5, channel: "email" },
       { name: "Dan Marsh", email: "dan.m@example.com", service: "Central heating", status: "review_received", daysAgo: 55, rating: 5, channel: "email" },
@@ -865,10 +865,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const sentAt = daysAgo(c.daysAgo);
         const reqStatus = c.status === "sent" ? "sent" : "clicked";
         const clickedAt = c.rating ? sentAt : null;
+        // Some customers needed a follow-up before they responded — realistic data
+        const followUpCount = c.status === "review_received" && c.daysAgo > 10 ? (c.daysAgo > 30 ? 2 : 1) : 0;
         await pool.query(
           `INSERT INTO review_requests (id, account_id, customer_id, status, channel, sent_at, created_at, follow_up_count, rating, clicked_at)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-          [reqId, aid, custId, reqStatus, c.channel, sentAt, sentAt, 0, c.rating || null, clickedAt]
+          [reqId, aid, custId, reqStatus, c.channel, sentAt, sentAt, followUpCount, c.rating || null, clickedAt]
         );
 
         if (c.status === "review_received" && c.rating) {
@@ -910,25 +912,29 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     // Seed external reviews so the Platform Reviews card looks realistic
     const EXTERNAL_REVIEWS = [
-      { platform: "google", author: "J. Mitchell", rating: 5, text: "Absolutely fantastic service. James came out the same day and sorted our boiler in under an hour. Couldn't ask for more.", daysAgo: 3 },
-      { platform: "google", author: "C. Brown", rating: 5, text: "Brilliant from start to finish. Very professional, tidy and reasonably priced. Would 100% recommend to anyone.", daysAgo: 7 },
-      { platform: "google", author: "R. Patel", rating: 4, text: "Really happy with the work. Arrived on time and kept us informed throughout. Will definitely use again.", daysAgo: 12 },
-      { platform: "google", author: "S. Thompson", rating: 5, text: "Had an emergency leak late on a Friday — James was there within the hour. Absolute lifesaver. Top quality work.", daysAgo: 18 },
-      { platform: "trustpilot", author: "L. Davies", rating: 5, text: "Professional, friendly and great value. The bathroom installation was completed ahead of schedule and looks amazing.", daysAgo: 5 },
-      { platform: "trustpilot", author: "M. Wilson", rating: 5, text: "Used Hartley Plumbing twice now and both times they've been excellent. Highly recommended local tradesman.", daysAgo: 22 },
-      { platform: "trustpilot", author: "A. Evans", rating: 4, text: "Solid work on our central heating installation. Honest pricing and no hidden extras. Would use again.", daysAgo: 35 },
-      { platform: "checkatrade", author: "P. Clarke", rating: 5, text: "5 stars all round. Turned up when they said, did the job properly and cleaned up after themselves. Rare these days!", daysAgo: 9 },
-      { platform: "checkatrade", author: "D. Harris", rating: 5, text: "Replaced our old boiler quickly and efficiently. The price matched the quote exactly. Very impressed.", daysAgo: 28 },
-      { platform: "checkatrade", author: "F. Martin", rating: 4, text: "Good reliable service. Came out for an annual boiler service — quick, thorough and reasonably priced.", daysAgo: 45 },
+      { platform: "google", author: "J. Mitchell", rating: 5, text: "Absolutely fantastic service. James came out the same day and sorted our boiler in under an hour. Couldn't ask for more.", daysAgo: 3, social: true },
+      { platform: "google", author: "C. Brown", rating: 5, text: "Brilliant from start to finish. Very professional, tidy and reasonably priced. Would 100% recommend to anyone.", daysAgo: 7, social: false },
+      { platform: "google", author: "R. Patel", rating: 4, text: "Really happy with the work. Arrived on time and kept us informed throughout. Will definitely use again.", daysAgo: 12, social: false },
+      { platform: "google", author: "S. Thompson", rating: 5, text: "Had an emergency leak late on a Friday — James was there within the hour. Absolute lifesaver. Top quality work.", daysAgo: 18, social: true },
+      { platform: "trustpilot", author: "L. Davies", rating: 5, text: "Professional, friendly and great value. The bathroom installation was completed ahead of schedule and looks amazing.", daysAgo: 5, social: true },
+      { platform: "trustpilot", author: "M. Wilson", rating: 5, text: "Used Hartley Plumbing twice now and both times they've been excellent. Highly recommended local tradesman.", daysAgo: 22, social: false },
+      { platform: "trustpilot", author: "A. Evans", rating: 4, text: "Solid work on our central heating installation. Honest pricing and no hidden extras. Would use again.", daysAgo: 35, social: false },
+      { platform: "checkatrade", author: "P. Clarke", rating: 5, text: "5 stars all round. Turned up when they said, did the job properly and cleaned up after themselves. Rare these days!", daysAgo: 9, social: true },
+      { platform: "checkatrade", author: "D. Harris", rating: 5, text: "Replaced our old boiler quickly and efficiently. The price matched the quote exactly. Very impressed.", daysAgo: 28, social: false },
+      { platform: "checkatrade", author: "F. Martin", rating: 4, text: "Good reliable service. Came out for an annual boiler service — quick, thorough and reasonably priced.", daysAgo: 45, social: false },
+      { platform: "tripadvisor", author: "B. Anderson", rating: 5, text: "Fantastic job on our new bathroom. Clean, professional and finished on time. Highly recommend to anyone looking for a reliable tradesperson.", daysAgo: 14, social: false },
+      { platform: "tripadvisor", author: "K. Roberts", rating: 5, text: "Excellent service from start to finish. Quoted a fair price, stuck to it, and the quality of work is outstanding.", daysAgo: 31, social: false },
+      { platform: "mybuilder", author: "T. Hughes", rating: 5, text: "James was brilliant — turned up on time, knew exactly what the problem was and fixed it quickly. Great price too.", daysAgo: 20, social: true },
+      { platform: "mybuilder", author: "N. Foster", rating: 5, text: "Hired for a full heating system replacement. Completed in two days, everything works perfectly. Would recommend without hesitation.", daysAgo: 40, social: false },
     ];
     for (const r of EXTERNAL_REVIEWS) {
       const extId = `demo-${r.platform}-${r.author.replace(/\s/g, "")}`;
       try {
         await pool.query(
           `INSERT INTO ext.external_reviews (id, account_id, platform, external_id, author_name, rating, review_text, review_date, posted_to_social, created_at)
-           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, false, NOW())
+           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, NOW())
            ON CONFLICT (account_id, platform, external_id) DO NOTHING`,
-          [aid, r.platform, extId, r.author, r.rating, r.text, daysAgo(r.daysAgo)]
+          [aid, r.platform, extId, r.author, r.rating, r.text, daysAgo(r.daysAgo), r.social]
         );
       } catch { /* table may not exist yet — will seed on next restart once Replit creates it */ }
     }
@@ -941,7 +947,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ success: true, ...result });
   });
 
-  // Auto-reseed demo account if data is more than 7 days stale
+  // Auto-reseed demo account if data is more than 3 days stale
   async function checkAndReseedDemo() {
     try {
       const demoUser = await storage.getUserByEmail("demo@reviewoptic.com");
@@ -951,8 +957,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         [demoUser.accountId]
       );
       const lastSeed = rows[0]?.last_seed;
-      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-      if (!lastSeed || new Date(lastSeed) < sevenDaysAgo) {
+      const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+      if (!lastSeed || new Date(lastSeed) < threeDaysAgo) {
         console.log("[demo] Reseeding demo account...");
         await seedDemoAccount();
         console.log("[demo] Reseed complete.");
@@ -962,7 +968,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   }
   checkAndReseedDemo();
-  setInterval(checkAndReseedDemo, 7 * 24 * 60 * 60 * 1000);
+  setInterval(checkAndReseedDemo, 3 * 24 * 60 * 60 * 1000);
 
   app.delete("/api/admin/user/:userId", requireAdmin, async (req, res) => {
     const target = await storage.getUser(String(req.params.userId));
@@ -1482,8 +1488,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  // Public Trustpilot reviews for login page ticker
-  // Returns real reviews when TRUSTPILOT_API_KEY + TRUSTPILOT_BUSINESS_UNIT_ID are set, else placeholders
+  // ReviewOptic's own Google reviews — shown on login page and landing page ticker
+  // Add real reviews here once they come in from Google
+  app.get("/api/public/reviewoptic-reviews", async (_req, res) => {
+    // ReviewOptic Google Maps: https://maps.app.goo.gl/zQkhp61uKm6ED8jW6
+    // Once GBP OAuth is approved (case 6-8166000040742), pull real reviews from that profile
+    // and add them here. Format: { id, stars, text, author }
+    const REAL_REVIEWS: { id: string; stars: number; text: string; author: string }[] = [
+      // e.g. { id: "1", stars: 5, text: "...", author: "Jane S." }
+    ];
+    if (REAL_REVIEWS.length === 0) return res.json({ reviews: [], source: "none" });
+    res.json({ reviews: REAL_REVIEWS, source: "google" });
+  });
+
+  // Public Trustpilot reviews for login page ticker (legacy — kept for backwards compat)
   app.get("/api/public/trustpilot-reviews", async (_req, res) => {
     const PLACEHOLDER_REVIEWS = [
       { id: "1", stars: 5, text: "ReviewOptic has completely transformed how we collect Google reviews. Went from 12 reviews to over 80 in just two months!", author: "Sarah Mitchell" },
@@ -2184,12 +2202,26 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // External reviews — fetched from public platforms (Google, Checkatrade etc.)
   app.get("/api/external-reviews", requireAuth, async (req, res) => {
     try {
-      const { rows } = await pool.query(
-        `SELECT * FROM ext.external_reviews WHERE account_id = $1 ORDER BY review_date DESC NULLS LAST, created_at DESC LIMIT 200`,
+      const reviewRows = await pool.query(
+        `SELECT * FROM ext.external_reviews WHERE account_id = $1 ORDER BY review_date DESC NULLS LAST, created_at DESC`,
         [req.session.accountId]
       );
-      res.json(rows);
-    } catch { res.json([]); }
+      // Use real platform totals (scraped from platform pages) if available — shows true count, not just imported
+      let total = reviewRows.rows.length;
+      try {
+        const extRow = await pool.query(
+          `SELECT platform_review_totals FROM ext.settings_extra WHERE account_id = $1`,
+          [req.session.accountId]
+        );
+        const stored = extRow.rows[0]?.platform_review_totals;
+        if (stored) {
+          const map = JSON.parse(stored) as Record<string, number>;
+          const sum = Object.values(map).reduce((a, b) => a + b, 0);
+          if (sum > 0) total = sum;
+        }
+      } catch { /* no stored totals yet — fall back to imported count */ }
+      res.json({ reviews: reviewRows.rows, total });
+    } catch { res.json({ reviews: [], total: 0 }); }
   });
 
   // Manually trigger a refresh for the current account — waits for poll and returns per-platform results

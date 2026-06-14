@@ -469,6 +469,57 @@
     </div>
   </div>
 
+  <!-- REVIEWS TICKER — hidden until real reviews exist -->
+  <div id="reviews-ticker-section" style="display:none; overflow:hidden; padding: 48px 0; background: var(--bg); border-top: 1px solid var(--border, #e5e7eb);">
+    <div style="text-align:center; margin-bottom: 24px;">
+      <span style="color: #f59e0b; font-size: 18px;">★★★★★</span>
+      <p style="font-size: 13px; color: var(--muted, #6b7280); margin-top: 4px;">What ReviewOptic customers say on Google</p>
+    </div>
+    <div style="position:relative; overflow:hidden;">
+      <div id="ticker-track" style="display:flex; gap:16px; width:max-content; animation: ticker-scroll 40s linear infinite;">
+      </div>
+    </div>
+  </div>
+  <style>
+    @keyframes ticker-scroll {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+    #ticker-track:hover { animation-play-state: paused; }
+    .ticker-card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 20px 24px;
+      min-width: 280px;
+      max-width: 320px;
+      flex-shrink: 0;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .ticker-card p { font-size: 13px; color: #374151; line-height: 1.6; margin: 8px 0 6px; }
+    .ticker-card span.author { font-size: 12px; color: #9ca3af; font-weight: 500; }
+  </style>
+  <script>
+    (async function() {
+      try {
+        const res = await fetch('/api/public/reviewoptic-reviews');
+        const data = await res.json();
+        if (!data.reviews || data.reviews.length === 0 || data.source === 'none') return;
+        const track = document.getElementById('ticker-track');
+        const section = document.getElementById('reviews-ticker-section');
+        // Double the reviews so the scroll loops seamlessly
+        const all = [...data.reviews, ...data.reviews];
+        all.forEach(r => {
+          const card = document.createElement('div');
+          card.className = 'ticker-card';
+          card.innerHTML = `<span style="color:#f59e0b">${'★'.repeat(r.stars)}</span><p>"${r.text}"</p><span class="author">— ${r.author}</span>`;
+          track.appendChild(card);
+        });
+        section.style.display = 'block';
+      } catch(e) {}
+    })();
+  </script>
+
   <!-- CTA BOTTOM -->
   <div class="cta-bottom">
     <h2>Start collecting reviews today</h2>

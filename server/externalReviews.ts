@@ -30,6 +30,35 @@ function extractJsonLd(html: string): any[] {
   return results;
 }
 
+// Extract total review count from JSON-LD aggregateRating (Trustpilot, TripAdvisor, MyBuilder etc.)
+function extractAggregateRatingCount(jsonLds: any[]): number | undefined {
+  for (const ld of jsonLds) {
+    const nodes: any[] = ld["@graph"] ? ld["@graph"] : [ld];
+    for (const node of nodes) {
+      const agg = node.aggregateRating;
+      if (!agg) continue;
+      const count = parseInt(String(agg.reviewCount || agg.ratingCount || ""), 10);
+      if (count > 0) return count;
+    }
+  }
+  return undefined;
+}
+
+// Find a total review count field in a nested object (used for Checkatrade __NEXT_DATA__)
+function findCountFieldInObject(obj: any, depth: number = 0): number | undefined {
+  if (depth > 8 || !obj || typeof obj !== "object" || Array.isArray(obj)) return undefined;
+  for (const field of ["totalReviewCount", "totalReviews", "reviewsCount", "reviewCount"]) {
+    const v = obj[field];
+    if (typeof v === "number" && v > 0 && v < 500000) return v;
+    if (typeof v === "string" && parseInt(v, 10) > 0) return parseInt(v, 10);
+  }
+  for (const val of Object.values(obj)) {
+    const found = findCountFieldInObject(val as any, depth + 1);
+    if (found !== undefined) return found;
+  }
+  return undefined;
+}
+
 // Extract reviews from Next.js __NEXT_DATA__ embedded JSON — used by Checkatrade and similar sites
 function extractFromNextData(html: string, platform: string): {author: string; rating: number; text: string; date: Date|null; platform: string}[] {
   const match = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
@@ -315,7 +344,7 @@ async function fetchGoogle(accountId: string, link: string): Promise<FetchResult
   }
 
   try {
-    const params = { place_id: placeId, fields: "reviews", key: apiKey };
+    const params = { place_id: placeId, fields: "reviews,user_ratings_total", key: apiKey };
     const res = await axios.get("https://maps.googleapis.com/maps/api/place/details/json", {
       params,
       timeout: 10000,
@@ -326,15 +355,16 @@ async function fetchGoogle(accountId: string, link: string): Promise<FetchResult
     const reviews = (res.data?.result?.reviews || [])
       .filter((r: any) => r.text?.trim())
       .map((r: any) => ({ author: r.author_name, rating: r.rating, text: r.text, date: r.time ? new Date(r.time * 1000) : null, platform: "google" }));
-    console.log(`[externalReviews] Google: found ${reviews.length} reviews for Place ID ${placeId}`);
-    return { reviews };
+    const platformTotal: number | undefined = res.data?.result?.user_ratings_total || undefined;
+    console.log(`[externalReviews] Google: found ${reviews.length} reviews, total on platform: ${platformTotal ?? "unknown"}`);
+    return { reviews, platformTotal };
   } catch (err: any) {
     console.error(`[externalReviews] Google details error:`, err.message);
     return { reviews: [], error: err.message };
   }
 }
 
-type FetchResult = {reviews: ReviewItem[]; error?: string};
+type FetchResult = {reviews: ReviewItem[]; error?: string; platformTotal?: number};
 
 async function fetchFromPage(platform: string, url: string): Promise<FetchResult> {
   if (!url) return { reviews: [] };
@@ -351,6 +381,7 @@ async function fetchFromPage(platform: string, url: string): Promise<FetchResult
 
   // 1. Try JSON-LD structured data
   const jsonLds = extractJsonLd(html);
+  const platformTotal = extractAggregateRatingCount(jsonLds);
   for (const ld of jsonLds) {
     const nodes: any[] = ld["@graph"] ? ld["@graph"] : [ld];
     for (const node of nodes) {
@@ -366,15 +397,15 @@ async function fetchFromPage(platform: string, url: string): Promise<FetchResult
     }
   }
   if (reviews.length > 0) {
-    console.log(`[externalReviews] ${platform}: found ${reviews.length} reviews via JSON-LD`);
-    return { reviews };
+    console.log(`[externalReviews] ${platform}: found ${reviews.length} reviews via JSON-LD, total on platform: ${platformTotal ?? "unknown"}`);
+    return { reviews, platformTotal };
   }
 
   // 2. Try Next.js __NEXT_DATA__ (used by Checkatrade, some others)
   const nextDataReviews = extractFromNextData(html, platform);
   if (nextDataReviews.length > 0) {
     console.log(`[externalReviews] ${platform}: found ${nextDataReviews.length} reviews via __NEXT_DATA__`);
-    return { reviews: nextDataReviews };
+    return { reviews: nextDataReviews, platformTotal };
   }
 
   console.warn(`[externalReviews] ${platform}: no reviews found in JSON-LD or __NEXT_DATA__ at ${url}`);
@@ -403,15 +434,20 @@ async function fetchCheckatrade(accountId: string, link: string): Promise<FetchR
   if (!nextDataMatch) return { reviews: [], error: "No reviews found — Checkatrade page may have changed" };
 
   let allReviews: ReviewItem[] = [];
+  let platformTotal: number | undefined;
   try {
     const data = JSON.parse(nextDataMatch[1]);
     const buildId: string = data.buildId || "";
     allReviews.push(...findReviewsInObject(data, "checkatrade", 0));
+    platformTotal = findCountFieldInObject(data);
 
     // If we have a buildId and slug, use the Next.js data endpoint for subsequent pages.
     // This returns the same JSON as __NEXT_DATA__ without re-rendering the page.
     if (buildId && slug && allReviews.length > 0) {
-      for (let page = 2; page <= 15; page++) {
+      // Use platform total to know max pages needed; default to 50 pages
+      const reviewsPerPage = allReviews.length || 10;
+      const maxPages = platformTotal ? Math.ceil(platformTotal / reviewsPerPage) + 1 : 50;
+      for (let page = 2; page <= Math.min(maxPages, 50); page++) {
         try {
           const apiUrl = `https://www.checkatrade.com/_next/data/${buildId}/trades/${slug}/reviews.json?page=${page}`;
           const res = await axios.get(apiUrl, {
@@ -431,7 +467,7 @@ async function fetchCheckatrade(accountId: string, link: string): Promise<FetchR
     return fetchFromPage("checkatrade", reviewsUrl);
   }
 
-  if (allReviews.length > 0) return { reviews: allReviews };
+  if (allReviews.length > 0) return { reviews: allReviews, platformTotal: platformTotal ?? allReviews.length };
   return { reviews: [], error: "No reviews found on Checkatrade page" };
 }
 
@@ -594,6 +630,24 @@ export async function pollExternalReviewsForAccount(accountId: string): Promise<
       if (isNew) savedCount++;
     }
     results.push({ platform, found: result.reviews.length, saved: savedCount, skipped: false, error: result.error });
+  }
+
+  // Store real platform totals so the dashboard can show the true count per platform
+  const platformTotals: Record<string, number> = {};
+  for (const { platform, result, skipped } of fetches) {
+    if (!skipped && result.platformTotal && result.platformTotal > 0) {
+      platformTotals[platform] = result.platformTotal;
+    }
+  }
+  if (Object.keys(platformTotals).length > 0) {
+    try {
+      await pool.query(
+        `INSERT INTO ext.settings_extra (account_id, platform_review_totals)
+         VALUES ($1, $2)
+         ON CONFLICT (account_id) DO UPDATE SET platform_review_totals = EXCLUDED.platform_review_totals`,
+        [accountId, JSON.stringify(platformTotals)]
+      );
+    } catch { /* column may not exist yet — added via ALTER on next startup */ }
   }
 
   console.log(`[externalReviews] Poll complete for ${accountId}:`, results.map(r => `${r.platform}:${r.found}`).join(", "));

@@ -7,32 +7,24 @@ import { Input } from "@/components/ui/input";
 import { ArrowLeft, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { useFeatures } from "@/hooks/useFeatures";
 
-interface TrustpilotReview {
+interface ReviewOpticReview {
   id: string;
   stars: number;
   text: string;
   author: string;
 }
 
-function StarRating({ stars }: { stars: number }) {
-  return (
-    <span className="text-[#00b67a] text-sm leading-none" aria-label={`${stars} stars`}>
-      {"★".repeat(stars)}{"☆".repeat(5 - stars)}
-    </span>
-  );
-}
-
-function ReviewCards({ reviews }: { reviews: TrustpilotReview[] }) {
+function ReviewCards({ reviews }: { reviews: ReviewOpticReview[] }) {
   const [index, setIndex] = useState(0);
   const review = reviews[index];
   return (
     <div className="mt-10 pt-8 border-t border-border">
       <div className="flex items-center gap-1.5 mb-4">
-        <span className="text-[#00b67a] font-semibold text-xs">★</span>
-        <span className="text-xs text-muted-foreground font-medium">Trusted by businesses across the UK</span>
+        <span className="text-amber-400 font-semibold text-xs">★</span>
+        <span className="text-xs text-muted-foreground font-medium">What our customers say on Google</span>
       </div>
       <div className="bg-muted/40 rounded-xl p-5 min-h-[110px]">
-        <StarRating stars={review.stars} />
+        <span className="text-amber-400 text-sm leading-none">{"★".repeat(review.stars)}</span>
         <p className="text-sm text-foreground leading-relaxed mt-2">{review.text}</p>
         <p className="text-xs text-muted-foreground font-medium mt-2">— {review.author}</p>
       </div>
@@ -59,7 +51,7 @@ const FEATURES = [
 export default function Login() {
   const { login, register, user } = useAuth();
   const [, navigate] = useLocation();
-  const { data: reviewsData } = useQuery<{ reviews: TrustpilotReview[]; source: string }>({ queryKey: ["/api/public/trustpilot-reviews"] });
+  const { data: reviewsData } = useQuery<{ reviews: ReviewOpticReview[]; source: string }>({ queryKey: ["/api/public/reviewoptic-reviews"] });
   const { smsEnabled, whatsappEnabled, socialEnabled } = useFeatures();
 
   useEffect(() => {
@@ -253,7 +245,7 @@ export default function Login() {
           </div>
           {formCard}
           {footerLinks}
-          {reviews?.length ? <ReviewCards reviews={reviews} /> : null}
+          {reviews?.length && reviewsData?.source !== "none" ? <ReviewCards reviews={reviews} /> : null}
         </div>
       </div>
       {/* Features panel — shown below form on mobile, left side on desktop */}

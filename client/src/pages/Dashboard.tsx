@@ -264,7 +264,9 @@ export default function Dashboard() {
   const { data: settings } = useQuery<Settings>({ queryKey: ["/api/settings"] });
   const { data: privateFeedback = [] } = useQuery<any[]>({ queryKey: ["/api/private-feedback"], refetchInterval: 15000 });
   const { data: allRequests = [] } = useQuery<ReviewRequest[]>({ queryKey: ["/api/review-requests"] });
-  const { data: externalReviews = [], refetch: refetchExternal, isFetching: externalFetching } = useQuery<any[]>({ queryKey: ["/api/external-reviews"], refetchInterval: 10 * 60 * 1000 });
+  const { data: externalData, refetch: refetchExternal, isFetching: externalFetching } = useQuery<{ reviews: any[]; total: number }>({ queryKey: ["/api/external-reviews"], refetchInterval: 10 * 60 * 1000 });
+  const externalReviews = externalData?.reviews ?? [];
+  const externalTotal = externalData?.total ?? externalReviews.length;
 
   // Auto-poll external platforms on page load — results appear without any manual action
   useEffect(() => {
@@ -419,7 +421,7 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
               <Star className="w-5 h-5 text-white" />
             </div>
             <div>
-              <div className="text-xl font-bold text-white leading-none">{externalReviews.length}</div>
+              <div className="text-xl font-bold text-white leading-none">{externalTotal}</div>
               <div className="text-[11.5px] text-white/70 mt-1 leading-tight">Total Reviews</div>
             </div>
           </>
@@ -572,7 +574,7 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
                 <p className="text-[12px] text-muted-foreground py-2">No reviews fetched yet. Add your platform links in Settings → Review Platforms (and your Google Maps profile URL under Settings → Social), then hit refresh.</p>
               ) : (
                 <>
-                <p className="text-[11px] text-muted-foreground mb-2">{externalReviews.length} review{externalReviews.length !== 1 ? "s" : ""} imported from your platforms</p>
+                <p className="text-[11px] text-muted-foreground mb-2">{externalTotal} review{externalTotal !== 1 ? "s" : ""} imported from your platforms</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 max-h-[480px] overflow-y-auto pr-1">
                   {externalReviews.map((r: any) => {
                     const platformColours: Record<string, { bg: string; text: string; label: string }> = {

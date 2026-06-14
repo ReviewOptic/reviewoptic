@@ -455,10 +455,10 @@ app.use((req, res, next) => {
   await runAccountDeletions().catch(console.error);
   setInterval(() => runAccountDeletions().catch(console.error), 24 * 60 * 60 * 1000);
 
-  // External review polling — fetch from Google, Checkatrade, Trustpilot etc. every 6 hours
+  // External review polling — fetch from Google, Checkatrade, Trustpilot etc. every hour
   const { pollAllAccounts } = await import("./externalReviews");
   await pollAllAccounts().catch(console.error);
-  setInterval(() => pollAllAccounts().catch(console.error), 6 * 60 * 60 * 1000);
+  setInterval(() => pollAllAccounts().catch(console.error), 60 * 60 * 1000);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
