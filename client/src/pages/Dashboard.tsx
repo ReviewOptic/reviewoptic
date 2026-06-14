@@ -571,7 +571,12 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
             </CardHeader>
             <CardContent className="px-4 pb-3">
               {externalReviews.length === 0 ? (
-                <p className="text-[12px] text-muted-foreground py-2">No reviews fetched yet. Add your platform links in Settings → Review Platforms (and your Google Maps profile URL under Settings → Social), then hit refresh.</p>
+                (() => {
+                  const hasLinks = !!(settings?.googleReviewLink || settings?.facebookReviewLink || settings?.trustpilotLink || settings?.tripadvisorLink || settings?.checkatradeLink || settings?.mybuilderLink);
+                  return hasLinks
+                    ? <p className="text-[12px] text-muted-foreground py-2">Links added — checking your platforms for reviews. This can take a minute. Hit the refresh button above if nothing appears.</p>
+                    : <p className="text-[12px] text-muted-foreground py-2">Add your platform links in Settings → Review Platforms, then come back here to see your reviews pulled in automatically.</p>;
+                })()
               ) : (
                 <>
                 <p className="text-[11px] text-muted-foreground mb-2">{externalTotal} review{externalTotal !== 1 ? "s" : ""} imported from your platforms</p>

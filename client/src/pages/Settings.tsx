@@ -219,6 +219,7 @@ export default function Settings() {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const isDirtyRef = useRef(false);
   const justLoadedRef = useRef(false);
+  const hasInitializedRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
@@ -312,8 +313,9 @@ export default function Settings() {
 
   useEffect(() => {
     if (settings) {
-      // Don't overwrite the form if a save is already pending (user is mid-edit)
-      if (saveTimerRef.current) return;
+      // After first load: don't reset the form mid-edit (pending timer = user is typing)
+      if (hasInitializedRef.current && saveTimerRef.current) return;
+      hasInitializedRef.current = true;
       justLoadedRef.current = true;
       setForm({
         ownerName: settings.ownerName || [user?.firstName, user?.lastName].filter(Boolean).join(" "),
@@ -364,13 +366,21 @@ export default function Settings() {
   // Track form changes and debounce autosave 1.5s after any field edit
   useEffect(() => {
     formRef.current = form;
+    // Don't autosave before settings have been loaded into the form at least once
+    if (!hasInitializedRef.current) return;
     isDirtyRef.current = true;
     if (justLoadedRef.current) { justLoadedRef.current = false; return; }
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
+      saveTimerRef.current = null;
       setSaveStatus("saving");
       apiRequest("PATCH", "/api/settings", form)
-        .then(() => { setSaveStatus("saved"); setTimeout(() => setSaveStatus("idle"), 2000); })
+        .then(async (res) => {
+          const updated = await res.json();
+          queryClient.setQueryData(["/api/settings"], updated);
+          setSaveStatus("saved");
+          setTimeout(() => setSaveStatus("idle"), 2000);
+        })
         .catch(() => { setSaveStatus("idle"); toast({ title: "Settings failed to save — please try again", variant: "destructive" }); });
     }, 1500);
   }, [form]);

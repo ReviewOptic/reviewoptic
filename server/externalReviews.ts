@@ -3,9 +3,16 @@ import { pool } from "./storage";
 import { postCardToSocial, hasBeenPostedAlready } from "./social";
 
 const FETCH_HEADERS = {
-  "User-Agent": "Mozilla/5.0 (compatible; ReviewOptic/1.0; +https://reviewoptic.com)",
-  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
   "Accept-Language": "en-GB,en;q=0.9",
+  "Accept-Encoding": "gzip, deflate, br",
+  "Cache-Control": "no-cache",
+  "Pragma": "no-cache",
+  "Sec-Fetch-Dest": "document",
+  "Sec-Fetch-Mode": "navigate",
+  "Sec-Fetch-Site": "none",
+  "Upgrade-Insecure-Requests": "1",
 };
 
 // ── Return type for per-platform poll results ────────────────────────────────
