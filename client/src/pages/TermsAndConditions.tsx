@@ -28,9 +28,22 @@ export default function TermsAndConditions() {
 
           <section>
             <h2 className="text-lg font-semibold mb-2">2. The service</h2>
-            <p className="text-muted-foreground leading-relaxed">
+            <p className="text-muted-foreground leading-relaxed mb-3">
               ReviewOptic provides tools that allow businesses ("you", "the user") to send review requests
               and follow-up messages to their customers, collect feedback, and manage their online reputation.
+              The service includes:
+            </p>
+            <ul className="list-disc pl-5 space-y-1 text-muted-foreground mb-3">
+              <li>Sending review request emails, SMS, and WhatsApp messages to your customers, with automated follow-ups</li>
+              <li>Importing and displaying reviews from third-party platforms you connect (such as Google, Checkatrade, Trustpilot, TripAdvisor, and MyBuilder)</li>
+              <li>Generating shareable review card images from your imported reviews</li>
+              <li>Automatically posting review cards to your connected social media accounts (Facebook Page, Instagram)</li>
+              <li>Analytics and reporting on your review performance</li>
+            </ul>
+            <p className="text-muted-foreground leading-relaxed">
+              When you connect a third-party platform (such as Google Business Profile or Facebook), you authorise
+              ReviewOptic to access that account solely to provide the features described above. You remain responsible
+              for ensuring your use of those platforms complies with their own terms of service.
               We reserve the right to modify, suspend, or discontinue any part of the service at any time
               with reasonable notice.
             </p>

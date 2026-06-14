@@ -220,6 +220,28 @@ export const HOWTOS: HowTo[] = [
     ],
   },
   {
+    title: "How to import reviews from Google and other platforms",
+    steps: [
+      { text: "Go to Settings and open the Social tab.", link: "/settings?tab=social", linkText: "Settings → Social" },
+      { text: "Under 'Google Reviews', paste the link to your Google Maps business page (e.g. a share.google/... or maps.google.com link) into the link box and click Resolve." },
+      { text: "ReviewOptic will show your business name and a 'Check this is correct on Google Maps' link. Click that link to verify it opens your correct Google business page, then click 'Yes, this is my business'." },
+      { text: "For Checkatrade, Trustpilot, TripAdvisor, or MyBuilder, paste the link to your profile page on that platform into the relevant field and save." },
+      { text: "Once connected, ReviewOptic polls each platform every 6 hours and imports any new reviews automatically. Your imported reviews appear on the Dashboard alongside reviews collected through the app." },
+      { text: "If you disconnect a platform, any previously imported reviews are removed from your dashboard." },
+    ],
+  },
+  {
+    title: "How to set up automatic social posting",
+    steps: [
+      { text: "Go to Settings and open the Social tab.", link: "/settings?tab=social", linkText: "Settings → Social" },
+      { text: "Under 'Auto-post to Social Media', click 'Connect Facebook Page' and log in to Facebook. Choose the Page you want to post to." },
+      { text: "Once connected, enable the 'Auto-post reviews' toggle. Every 4 or 5-star review — whether collected via ReviewOptic or imported from an external platform — will automatically generate a review card image and post it to your Facebook Page." },
+      { text: "You can customise the caption that appears with each post in the 'Post caption' field. Use {{reviewer_name}}, {{rating}}, and {{platform}} to personalise it automatically." },
+      { text: "To also post to Instagram, link your Instagram Business account to your Facebook Page in Meta Business Suite (business.facebook.com) and enable 'Share to Instagram'. Posts will then appear on both automatically." },
+      { text: "You can disconnect at any time from the Social tab. This stops future auto-posts but does not delete posts already made." },
+    ],
+  },
+  {
     title: "How to use your QR code",
     steps: [
       { text: "Go to Settings → Integrations tab.", link: "/settings?tab=integrations", linkText: "Settings → Integrations" },
