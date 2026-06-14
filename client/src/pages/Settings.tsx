@@ -214,7 +214,7 @@ export default function Settings() {
   const [activeTab, setActiveTab] = useState(
     new URLSearchParams(window.location.search).get("tab") || "business"
   );
-  const { data: settings, isLoading } = useQuery<SettingsType>({ queryKey: ["/api/settings"] });
+  const { data: settings, isLoading } = useQuery<SettingsType>({ queryKey: ["/api/settings"], refetchOnWindowFocus: false });
   const [copied, setCopied] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const isDirtyRef = useRef(false);
@@ -312,6 +312,8 @@ export default function Settings() {
 
   useEffect(() => {
     if (settings) {
+      // Don't overwrite the form if a save is already pending (user is mid-edit)
+      if (saveTimerRef.current) return;
       justLoadedRef.current = true;
       setForm({
         ownerName: settings.ownerName || [user?.firstName, user?.lastName].filter(Boolean).join(" "),
@@ -369,7 +371,7 @@ export default function Settings() {
       setSaveStatus("saving");
       apiRequest("PATCH", "/api/settings", form)
         .then(() => { setSaveStatus("saved"); setTimeout(() => setSaveStatus("idle"), 2000); })
-        .catch(() => setSaveStatus("idle"));
+        .catch(() => { setSaveStatus("idle"); toast({ title: "Settings failed to save — please try again", variant: "destructive" }); });
     }, 1500);
   }, [form]);
 
