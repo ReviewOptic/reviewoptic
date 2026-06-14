@@ -153,7 +153,36 @@ export default function TermsAndConditions() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">10. Your content and your customers</h2>
+            <h2 className="text-lg font-semibold mb-2">10. Review collection practice</h2>
+            <p className="text-muted-foreground leading-relaxed mb-3">
+              ReviewOptic's review request flow works as follows: a customer receives a review request, is
+              asked to rate their experience with a star rating, and is then either invited to share that
+              experience publicly (4–5 stars) or offered a private feedback form (1–3 stars). The purpose
+              of this flow is <strong className="text-foreground">customer satisfaction measurement and service recovery</strong> — not
+              the suppression of negative reviews.
+            </p>
+            <p className="text-muted-foreground leading-relaxed mb-3">
+              All customers are explicitly informed, on the private feedback form itself, that submitting
+              feedback does not affect their right to leave a public review on any platform. Platform links
+              are also offered to low-rating customers after they submit feedback, so they can easily share
+              their experience publicly if they choose to.
+            </p>
+            <p className="text-muted-foreground leading-relaxed mb-3">
+              You must not use ReviewOptic in a way that violates the review policies of third-party
+              platforms (including Google, Trustpilot, Checkatrade, and others). In particular, you must
+              not selectively invite only certain customers to leave reviews based on their expected rating,
+              offer incentives in exchange for positive reviews, or take any action to suppress, hide, or
+              discourage the publication of negative reviews.
+            </p>
+            <p className="text-muted-foreground leading-relaxed">
+              ReviewOptic operates as a technology platform only. We are not responsible for how users
+              choose to operate their review collection practices, and any breach of a third-party
+              platform's review policies is solely the responsibility of the account holder.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold mb-2">11. Your content and your customers</h2>
             <p className="text-muted-foreground leading-relaxed">
               You are solely responsible for all messages, content, and communications sent through
               ReviewOptic to your customers. We act as a technology platform only and do not review,
@@ -165,7 +194,7 @@ export default function TermsAndConditions() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">11. Data and privacy</h2>
+            <h2 className="text-lg font-semibold mb-2">12. Data and privacy</h2>
             <p className="text-muted-foreground leading-relaxed">
               Our collection and use of personal data is described in our{" "}
               <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">

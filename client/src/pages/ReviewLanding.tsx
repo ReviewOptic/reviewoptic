@@ -411,8 +411,8 @@ export default function ReviewLanding() {
                   : "Send Feedback"}
               </Button>
 
-              <p className="text-center text-[11px] text-muted-foreground/60">
-                This doesn't affect your right to leave a public review.
+              <p className="text-center text-[12px] text-muted-foreground border-t pt-3">
+                Your feedback is private and shared only with {info?.businessName || "the business"}. This does not affect your right to leave a public review on Google or any other platform.
               </p>
             </div>
           )}
