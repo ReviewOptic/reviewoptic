@@ -44,6 +44,7 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
   const [urlInput, setUrlInput] = useState("");
   const [urlLoading, setUrlLoading] = useState(false);
   const [urlError, setUrlError] = useState("");
+  const [checkedLink, setCheckedLink] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const search = (q: string) => {
@@ -66,6 +67,7 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
   const pick = (item: { place_id: string; name: string; formatted_address: string; photo_ref: string | null }) => {
     setResults([]);
     setQuery("");
+    setCheckedLink(false);
     const photoUrl = item.photo_ref ? `/api/settings/google-place-photo?ref=${encodeURIComponent(item.photo_ref)}` : null;
     setPending({ place_id: item.place_id, name: item.name, address: item.formatted_address, photoUrl });
   };
@@ -98,6 +100,7 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
       else {
         const photoUrl = d.photo_ref ? `/api/settings/google-place-photo?ref=${encodeURIComponent(d.photo_ref)}` : null;
         const staticMapUrl = (!photoUrl && d.lat && d.lng) ? `/api/settings/google-static-map?lat=${d.lat}&lng=${d.lng}` : null;
+        setCheckedLink(false);
         setPending({ place_id: d.place_id, name: d.name, address: d.formatted_address, photoUrl, staticMapUrl });
         setShowUrlPaste(false);
         setUrlInput("");
@@ -136,14 +139,14 @@ function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; o
       : `https://www.google.com/maps/place/?q=place_id:${pending.place_id}`;
     return (
       <div className="space-y-3">
-        <p className="text-[12.5px] font-medium">Is this your business?</p>
         <div className="p-3 rounded-md border bg-muted/40">
           <p className="text-[13px] font-medium">{pending.name}</p>
-          <a href={mapsUrl} target="_blank" rel="noreferrer" className="text-[11px] text-blue-600 dark:text-blue-400 underline">View on Google Maps →</a>
+          <a href={mapsUrl} target="_blank" rel="noreferrer" onClick={() => setCheckedLink(true)} className="text-[11px] text-blue-600 dark:text-blue-400 underline">Check this is correct on Google Maps →</a>
         </div>
+        {!checkedLink && <p className="text-[11px] text-muted-foreground">Please open the link above to confirm this is your business.</p>}
         <div className="flex gap-2">
-          <Button size="sm" onClick={() => { onSelect(pending.place_id); setConfirmed(true); setConfirmedName(pending.name); setPending(null); }}>Yes, this is my business</Button>
-          <Button variant="outline" size="sm" onClick={() => setPending(null)}>No, try a different link</Button>
+          <Button size="sm" disabled={!checkedLink} onClick={() => { onSelect(pending.place_id); setConfirmed(true); setConfirmedName(pending.name); setPending(null); }}>Yes, this is my business</Button>
+          <Button variant="outline" size="sm" onClick={() => { setPending(null); setCheckedLink(false); }}>No, try a different link</Button>
         </div>
       </div>
     );
