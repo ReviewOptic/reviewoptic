@@ -163,48 +163,17 @@ export async function resolveGooglePlaceId(link: string, apiKey: string): Promis
       if (qChij?.startsWith("ChIJ")) return qChij;
     } catch {}
 
-    // Hex FID — use exact business name from URL + pin coordinates to find correct franchise
+    // Hex FID — convert to cid:DECIMAL and use directly (no searching, avoids finding wrong franchise)
     const hexMatch = finalUrl.match(/!1s(0x[0-9a-f]+(?:%3A|:)0x[0-9a-f]+)/i);
     if (hexMatch) {
       const fullHex = decodeURIComponent(hexMatch[1]);
-      // Extract the FULL business name from URL path (includes franchise qualifier e.g. "- Berkhamsted, Chesham and Amersham")
-      const nameMatch = finalUrl.match(/\/maps\/place\/([^/@]+)/);
-      const pinMatch = finalUrl.match(/!3d(-?\d+\.?\d+)!4d(-?\d+\.?\d+)/);
-      if (nameMatch && apiKey) {
-        const fullName = decodeURIComponent(nameMatch[1].replace(/\+/g, " "));
-        // Base name = part before any " - " qualifier (e.g. "Time For You Domestic Cleaning")
-        const baseName = fullName.split(" - ")[0].trim();
-        const pinBias = pinMatch ? `circle:2000@${pinMatch[1]},${pinMatch[2]}` : undefined;
-
-        // Try 1: full name + tight pin circle
-        // Try 2: base name only + tight pin circle (in case qualifier doesn't match stored name)
-        for (const input of [fullName, baseName]) {
-          const params: Record<string, string> = { input, inputtype: "textquery", fields: "place_id,name", key: apiKey };
-          if (pinBias) params.locationbias = pinBias;
-          try {
-            const res = await axios.get("https://maps.googleapis.com/maps/api/place/findplacefromtext/json", { params, timeout: 8000 });
-            const candidate = res.data?.candidates?.[0];
-            console.log(`[google] findplacefromtext "${input}": status=${res.data?.status} place=${candidate?.place_id} name=${candidate?.name}`);
-            if (candidate?.place_id) return candidate.place_id;
-          } catch (e: any) {
-            console.warn(`[google] findplacefromtext error: ${e?.message}`);
-          }
-        }
-      }
-      // Last resort: nearbysearch at exact pin with base name keyword
-      if (pinMatch && apiKey) {
-        const baseName = nameMatch ? decodeURIComponent(nameMatch[1].replace(/\+/g, " ")).split(" - ")[0].trim() : "";
+      const parts = fullHex.split(":");
+      if (parts.length === 2) {
         try {
-          const res = await axios.get("https://maps.googleapis.com/maps/api/place/nearbysearch/json", {
-            params: { location: `${pinMatch[1]},${pinMatch[2]}`, radius: 500, keyword: baseName, key: apiKey },
-            timeout: 8000,
-          });
-          const placeId = res.data?.results?.[0]?.place_id;
-          console.log(`[google] nearbysearch at pin: status=${res.data?.status} place=${placeId}`);
-          if (placeId) return placeId;
-        } catch (e: any) {
-          console.warn(`[google] nearbysearch error: ${e?.message}`);
-        }
+          const cid = BigInt(parts[1]).toString();
+          console.log(`[google] hex FID → cid:${cid}`);
+          return `cid:${cid}`;
+        } catch {}
       }
       return fullHex;
     }
@@ -320,9 +289,10 @@ async function fetchGoogle(accountId: string, link: string): Promise<FetchResult
   if (!apiKey) return { reviews: [], error: "GOOGLE_PLACES_API_KEY not set in Secrets" };
   if (!link) return { reviews: [] };
 
-  // If the user pasted a Place ID directly (ChIJ...), use it — skip URL resolution
-  const placeId = link.trim().startsWith("ChIJ")
-    ? link.trim()
+  // If already a resolved ID (ChIJ or cid:DECIMAL), use it directly — skip URL resolution
+  const trimmed = link.trim();
+  const placeId = (trimmed.startsWith("ChIJ") || trimmed.startsWith("cid:"))
+    ? trimmed
     : await resolveGooglePlaceId(link, apiKey);
 
   if (!placeId) {
@@ -517,9 +487,10 @@ export async function pollExternalReviewsForAccount(accountId: string): Promise<
   try {
     const { rows: gml } = await pool.query(`SELECT google_maps_link FROM ext.settings_extra WHERE account_id = $1`, [accountId]);
     const raw = gml[0]?.google_maps_link || "";
-    // Only use stored value if it's a valid ChIJ Place ID — hex FIDs cause INVALID_REQUEST errors
-    googleMapsLinkValue = raw.startsWith("ChIJ") ? raw : "";
-    if (raw && !raw.startsWith("ChIJ")) {
+    // Accept ChIJ Place IDs and cid:DECIMAL format — reject bare hex FIDs (cause INVALID_REQUEST)
+    const validStored = raw.startsWith("ChIJ") || raw.startsWith("cid:");
+    googleMapsLinkValue = validStored ? raw : "";
+    if (raw && !validStored) {
       // Clear the bad value so it stops causing errors
       pool.query(`UPDATE ext.settings_extra SET google_maps_link = '' WHERE account_id = $1`, [accountId]).catch(() => {});
     }
@@ -552,10 +523,9 @@ export async function pollExternalReviewsForAccount(accountId: string): Promise<
     gbpLocationResource = gbpRows[0]?.gbp_location_resource || "";
   } catch { /* columns may not exist yet */ }
 
-  // Prefer a clean ChIJ Place ID; if stored value is a hex FID fall back to the
-  // google_review_link (g.page/r/... redirects to a URL containing the real ChIJ)
-  const storedIsChij = googleMapsLinkValue.startsWith("ChIJ");
-  const gl = (storedIsChij ? googleMapsLinkValue : (s.google_review_link || googleMapsLinkValue || "")).trim();
+  // Use stored Place ID (ChIJ or cid:DECIMAL) if available; else fall back to google_review_link
+  const storedIsValid = googleMapsLinkValue.startsWith("ChIJ") || googleMapsLinkValue.startsWith("cid:");
+  const gl = (storedIsValid ? googleMapsLinkValue : (s.google_review_link || googleMapsLinkValue || "")).trim();
   const cl = (s.checkatrade_link || "").trim();
   const tl = (s.trustpilot_link || "").trim();
   const tal = (s.tripadvisor_link || "").trim();
