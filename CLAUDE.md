@@ -398,3 +398,55 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Google Business Profile OAuth** (case 6-8166000040742, ~7-10 days from 2026-06-13) — gives ALL reviews, not just 5-7
 - **Facebook App Review** — waiting (~2 weeks from June 10)
 - **SEO — "ReviewOptic" branding**, **landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
+
+### Session — 2026-06-14 (one-hundred-and-first session)
+
+**Context:** Session carried over from session 100. Large portion of work done in context that was compacted. Fixed multiple bugs from session 100 scope.
+
+**What was built this session:**
+
+1. **Demo account improvements (`server/routes.ts`):**
+   - Reseed interval changed from 7 days → 3 days (automatic, no manual button)
+   - Added `follow_up_count` logic to demo customers (1 follow-up if >10 days, 2 if >30 days)
+   - Added `social: true/false` flag to demo EXTERNAL_REVIEWS
+   - Added TripAdvisor and MyBuilder entries to demo reviews
+
+2. **Total Reviews stat — real platform totals (`server/externalReviews.ts`, `server/routes.ts`, `server/migrate.ts`):**
+   - Each platform fetcher now returns `platformTotal?: number`
+   - Google: separate API call for `user_ratings_total` (isolated so field errors don't block reviews)
+   - Trustpilot/TripAdvisor/MyBuilder: JSON-LD `aggregateRating.reviewCount` extraction
+   - Checkatrade: deep object scan via `findCountFieldInObject()`, 50-page limit
+   - Totals stored as JSON in `ext.settings_extra.platform_review_totals` after each poll
+   - `GET /api/external-reviews` returns `{ reviews: [...], total: N }` where N = sum of stored platform totals
+   - Dashboard stat card and subtitle now use this real total
+
+3. **Dashboard empty state fix (`client/src/pages/Dashboard.tsx`):**
+   - Distinguishes "no links configured" vs "links added but no reviews yet"
+   - "Links added — checking your platforms for reviews. This can take a minute." shown when links exist but reviews haven't imported yet
+
+4. **Poll frequency increased (`server/index.ts`):** 6 hours → 1 hour
+
+5. **Trustpilot scraper unblocked (`server/externalReviews.ts`):**
+   - Old UA string `"Mozilla/5.0 (compatible; ReviewOptic/1.0; +https://reviewoptic.com)"` was identified by Cloudflare as a bot
+   - Changed to full real Chrome 125 UA with browser headers (Accept, Accept-Language, Sec-Fetch-*, etc.)
+
+6. **Settings autosave — multiple bug fixes (`client/src/pages/Settings.tsx`):**
+   - Added `hasInitializedRef` to block autosave before first settings load
+   - Added `refetchOnWindowFocus: false` to prevent mid-edit refetch wiping form changes
+   - **Root fix (this session):** autosave was using `setQueryData` with the raw PATCH response — this response does NOT include `googleMapsLink` (stored in `ext.settings_extra`, not main settings table). This caused form to reset without `googleMapsLink`, making Google look disconnected after autosave. Fixed: replaced `setQueryData` with `invalidateQueries` so the GET is called fresh and `getSettings()` merges ext fields back correctly.
+   - Removed diagnostic `[settings PATCH]` console.log (served its purpose)
+
+**CRITICAL RULE added:**
+- After autosave, NEVER use `setQueryData` with the PATCH response — it doesn't include ext-stored fields. Always use `invalidateQueries` to trigger a fresh GET that goes through `getSettings()` which merges `ext.settings_extra`.
+
+**NEXT SESSION — FIRST STEPS:**
+1. **Deploy and test:** Settings → Social → paste Google Maps link or search → confirm → "Connected" view should persist after 1.5s autosave
+2. **Check Google poll:** Replit logs — should no longer see INVALID_REQUEST errors (the `user_ratings_total` separate-call fix prevents field errors from blocking reviews)
+3. **Verify total reviews stat** — add a review platform link, wait for poll → stat card should show platform's real total, not just imported count
+
+**Pending:**
+- **Google Business Profile OAuth** (case 6-8166000040742, ~7-10 days from 2026-06-13) — gives ALL reviews for service area businesses; once approved, test OAuth flow
+- **Google OAuth scope verification** — submit via Google Cloud Console once OAuth confirmed working for all users
+- **Facebook App Review** — waiting (~2 weeks from June 10)
+- **SEO — "ReviewOptic" branding** consistency (meta tags, GBP listing, backlinks)
+- **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
