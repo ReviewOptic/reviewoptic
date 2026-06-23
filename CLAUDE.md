@@ -450,3 +450,30 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Facebook App Review** — waiting (~2 weeks from June 10)
 - **SEO — "ReviewOptic" branding** consistency (meta tags, GBP listing, backlinks)
 - **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
+
+### Session — 2026-06-23 (one-hundred-and-second session)
+
+**Context:** Diagnostic session — no code changes. Investigated Google Business Profile OAuth connection failure.
+
+**What was diagnosed:**
+- All GBP-related APIs are enabled and approved (confirmed via Google Cloud Console → Support → Cases — all have ticks)
+- OAuth flow works correctly up to the accounts API call
+- `mybusinessaccountmanagement.googleapis.com/v1/accounts` returns **429 RESOURCE_EXHAUSTED** — default quota is **0 requests**
+- This is a separate issue from API enablement — quota must be explicitly increased
+- Submitted quota increase request: **case 1-7070000041921** (submitted 2026-06-23)
+
+**SEO audit:**
+- All meta tags already use "ReviewOptic" (one word) consistently — no code fixes needed
+- "review optic" in Google search results is a Google algorithm issue, not a code issue — improves over time with consistent branding in backlinks and GBP listing
+
+**NEXT SESSION — FIRST STEPS:**
+1. **Check Google quota case** — go to console.cloud.google.com → Support → Cases → find case **1-7070000041921**
+2. **If approved** — go to APIs & Services → My Business Account Management API → Quotas & System Limits → edit "Requests per minute" → set to 600
+3. **Then test** — Settings → Social → "Connect Google Business Profile" → should work in one click
+4. **Facebook App Review** — check if approved (submitted ~June 10)
+
+**Pending:**
+- **Google GBP quota increase** — case 1-7070000041921, submitted 2026-06-23
+- **Google OAuth scope verification** — submit once OAuth confirmed working for all users
+- **Facebook App Review** — waiting (submitted ~June 10)
+- **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
