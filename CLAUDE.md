@@ -184,220 +184,7 @@ Your job is to be the developer they would hire if they could afford a great one
 
 ## SESSION LOGS
 
-*(Sessions 18–94 archived to CLAUDE_ARCHIVE.md)*
-
-### Session — 2026-06-12 (ninety-fifth session)
-
-**Context:** Entire session spent fixing Google review importing and review dates.
-
-**google_maps_link — final architecture (after many failed attempts):**
-- Stored in: `ext.settings_extra(account_id, google_maps_link)` — invisible to Replit forever
-- Saved by: dedicated `POST /api/settings/google-maps-link` endpoint only — completely isolated from general settings PATCH
-- Read by: `storage.getSettings()` merges from ext.settings_extra; `pollExternalReviewsForAccount()` reads directly from ext.settings_extra
-- NOT in schema.ts, NOT in migrate.ts ALTER TABLE — adding to either triggers Replit DROP cycles
-- The `google_maps_link` field stores a **Place ID** (`ChIJ...`) not a URL — URL resolution was unreliable
-
-**Google Place ID search UI (`client/src/pages/Settings.tsx`):**
-- `GooglePlaceSearch` component: user searches by business name → results show photo + address → click to confirm
-- Backend: `GET /api/settings/google-place-search` calls `findplacefromtext` Places API
-- Photo proxy: `GET /api/settings/google-place-photo?ref=...` — keeps API key server-side
-- If business has photo → one click confirms (photo is the verification)
-- If no photo → confirmation step shown with "Yes, this is my business" button
-- Confirmed state shows green ✓ + "View on Google Maps" link
-
-**Review dates fix:**
-- `extractReviewItem` now checks many more date field names (submittedDate, postedDate, timestamp etc.)
-- `saveIfNew` uses `ON CONFLICT DO UPDATE SET review_date = COALESCE(existing, new)` — backfills null dates on re-poll automatically
-
-**CRITICAL RULES reinforced this session:**
-- NEVER add google_maps_link (or any ext field) to schema.ts or migrate.ts ALTER TABLE — instant DROP cycle
-- The dedicated endpoint pattern (POST /api/settings/google-maps-link) is the only reliable way to save ext fields
-- URL resolution for Google Maps is fundamentally unreliable server-side — always use Place ID directly
-
-**Pending:**
-- **Verify Google reviews working**: Deploy → Settings → Social → search for business → confirm → reviews should appear automatically
-- **Remove debug endpoint** (`/api/debug/google-maps-link` in `server/routes.ts`) once confirmed working
-- **Review dates**: will backfill automatically on next poll after deploy
-- **Facebook App Review**: waiting ~2 weeks
-- **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
-
-### Session — 2026-06-12 (ninety-sixth session)
-
-**Context:** Entire session spent trying to connect the user's Google business ("Time for You Domestic Cleaning" — Berkhamsted, Chesham, Amersham) via the Google Place search UI.
-
-**What was built:**
-- **Google Place search overhauled** (`client/src/pages/Settings.tsx`, `server/routes.ts`): Replaced browser-side Google Maps JS widget (unreliable, needs separate public API key) with server-side search using `GOOGLE_PLACES_API_KEY`. Multiple API approaches tried: `autocomplete`, `textsearch` (too broad — returned irrelevant results), back to `autocomplete` with photos fetched in parallel per result.
-- **Photos in dropdown**: `autocomplete` predictions now have photos fetched in parallel (place details call per result) so they appear in the search dropdown, not just on confirmation.
-- **URL paste fallback** (`client/src/pages/Settings.tsx`, `server/routes.ts`): "Can't find your business? Paste your Google Maps link" option below search box. Calls `GET /api/settings/google-resolve-url` which uses `resolveGooglePlaceId` server-side. Fixed hex FID support in details lookup (use `ftid` param when Place ID starts with `0x`).
-- **Connected state improved**: Shows business name + address on load (fetched from Place ID via details API). Separate "Change" and "Disconnect" buttons. Both now delete imported Google reviews (`POST /api/settings/google-disconnect` deletes `ext.external_reviews` where platform='google').
-- **`resolveGooglePlaceId` exported** (`server/externalReviews.ts`): Was not exported — caused "u is not a function" error.
-- **Country restriction removed** from place search (was breaking with "United Kingdom" → "un").
-
-**Unresolved — Google business not found:**
-- Neither search (autocomplete API) nor URL paste (`share.google/hEEzSRdZBfPlRySVj`) is finding/resolving the business.
-- Search: autocomplete returns results but none match "Time for You Domestic Cleaning Berkhamsted".
-- URL paste: `resolveGooglePlaceId` follows the redirect but either can't extract a Place ID from the final page, or the details lookup returns blank.
-- Most likely cause: `share.google` links redirect to a JS-rendered page — Place ID not in raw HTML. OR the Google Places API key doesn't have all required permissions.
-
-**FIRST STEP NEXT SESSION:**
-1. Check Replit server logs after attempting the URL paste — look for `[google] redirect landed on:` line to see what URL it ends up at.
-2. If URL is found but details blank → hex FID fix needs testing on live.
-3. If no URL found → `share.google` redirect is being blocked server-side.
-4. Check API key has "Places API" enabled in Google Cloud Console (not just Maps JS API).
-
-**Pending:**
-- **Connect Google business** (blocker for everything Google-related)
-- **Facebook App Review**: waiting ~2 weeks
-- **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
-
-### Session — 2026-06-12 (ninety-seventh session)
-
-**Context:** Evening continuation of session 96. Diagnosed Google business connection using Replit server logs.
-
-**Key finding from logs:**
-- `share.google/hEEzSRdZBfPlRySVj` redirects correctly to: `https://www.google.com/maps/place/Time+For+You+Domestic+Cleaning+-+Berkhamsted,+Chesham+and+Amersham/@51.7358722,-0.81681,11z/data=...`
-- Hex Place ID `0x66f5ae8488448f69:0x2fa9ce0d197e8cfd` IS extracted correctly
-- BUT Places Details API with `ftid` param returns blank name/address — `ftid` not supported for details endpoint
-
-**Fix applied (`server/externalReviews.ts`, `server/routes.ts`):**
-- Added `resolveGooglePlaceWithName()` export — follows redirect, extracts name from URL path (`/maps/place/Business+Name/@...`)
-- Route handler now uses this instead of calling Places Details API
-- Business name comes from URL path directly — no API call needed, always present
-- `share.google` link correctly identifies as "Time For You Domestic Cleaning - Berkhamsted, Chesham and Amersham" with hex Place ID
-
-**Also confirmed this session:**
-- Google reviews DO pull through to dashboard (tested with a different business) ✓
-- Google Places API only returns 5–7 reviews max — hard limit of the Places Details API
-- Google Business Profile API (free, OAuth-based) needed to get ALL reviews — planned for next session
-
-**Connected state UI improvements (`client/src/pages/Settings.tsx`):**
-- Shows business name + address on load (fetched via place details)
-- Separate "Change" and "Disconnect" buttons
-- Both buttons now delete imported Google reviews (`POST /api/settings/google-disconnect`)
-- `resolveGooglePlaceId` exported (was missing — caused "u is not a function")
-- Autocomplete API restored for search (textsearch was too broad)
-- Photos shown in search dropdown (parallel details fetch per result)
-- "Can't find your business? Paste your Google Maps link" fallback added
-
-**NEXT SESSION:**
-1. **Test link paste** — deploy ed219c5 → Settings → Social → paste `https://share.google/hEEzSRdZBfPlRySVj` → should show business name → confirm
-2. **Build Google Business Profile OAuth** — free API, gives ALL reviews (not just 5–7). Similar to Facebook Connect flow already in app.
-
-**Pending:**
-- **Connect Google business** — likely working now, needs testing
-- **Google Business Profile OAuth** — to get all reviews
-- **Facebook App Review**: waiting ~2 weeks
-- **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
-
-### Session — 2026-06-13 (ninety-eighth session)
-
-**Context:** Entire session spent trying to fix Google business connection. Significant frustration from user due to repeated failed fixes.
-
-**Root cause identified (but NOT fully resolved):**
-- The user's business ("Time For You Domestic Cleaning — Berkhamsted, Chesham, Amersham") is a **service area business** — no physical storefront
-- Google Maps uses a **hex FID** (`0x66f5ae8488448f69:0x2fa9ce0d197e8cfd`) for service area businesses, NOT a ChIJ Place ID
-- The Google Places API **does not accept hex FIDs** — requires ChIJ
-- All conversion attempts (CID decimal lookup, findplacefromtext, nearbysearch, textsearch) were finding the wrong business or returning no results
-- The Places API search without geographic bias defaults to the Replit server IP (US), returning wrong businesses — but adding a UK-only bias was wrong since the platform is worldwide
-
-**What was built this session:**
-
-1. **Multiple hex FID conversion attempts** (all ultimately unreliable for service area businesses):
-   - CID decimal lookup (`place_id=cid:{BigInt second part}`)
-   - `findplacefromtext` with full name from URL + exact pin coordinates (2km circle)
-   - `findplacefromtext` with base name (before " - ") + exact pin coordinates
-   - `nearbysearch` 500m radius at exact pin with base name keyword
-
-2. **Static map fallback** (`server/routes.ts`, `server/externalReviews.ts`, `client/src/pages/Settings.tsx`):
-   - `resolveGooglePlaceWithName()` now returns pin lat/lng from URL (`!3d`/`!4d` coordinates)
-   - `GET /api/settings/google-static-map?lat=...&lng=...` proxy endpoint added
-   - Confirmation step shows static map (zoomed street view) when no business photo available
-   - This ensures users always see SOMETHING to confirm location, even for service area businesses
-
-3. **GBP OAuth button re-added** (`client/src/pages/Settings.tsx`):
-   - "Connect Google Business Profile" button is now the PRIMARY option in Google Reviews section
-   - Below it: search box + URL paste as secondary/fallback
-   - Disconnects via `DELETE /api/social/google-business`
-   - Shows connected state with business name when GBP is connected
-   - All server-side OAuth code was already in place from session 97
-
-**Key insight from session:**
-- The GBP OAuth (Google Business Profile API) is the CORRECT long-term solution
-- It gives ALL reviews (not just 5–7), works for any business type including service area businesses
-- User confirmed "my branding has been verified" on Google Cloud Console
-- With branding verified + app in production mode, ALL users can connect via OAuth
-- Users may see "unverified app" warning — they click "Advanced" → "Go to ReviewOptic" to proceed
-- Once Google completes full scope verification, the warning goes away
-
-**CRITICAL RULES learned:**
-- Service area businesses in Google Maps use hex FIDs — they do NOT appear reliably in `nearbysearch` or `findplacefromtext` because they have no physical premises
-- Do NOT add geographic bias to the search (platform is worldwide, not UK-only)
-- The GBP OAuth (`/auth/google-business`) gives all reviews + correct business — prioritise this over Places API workarounds
-- `!3d{lat}!4d{lng}` in a Google Maps URL = exact business pin (use this for coordinates), `@lat,lng` = map view centre (do NOT use this for business location)
-
-**NEXT SESSION — FIRST STEPS:**
-1. **Test GBP OAuth**: Deploy → Settings → Social → click "Connect Google Business Profile" → sign in with Google account linked to the business → should connect and import all reviews
-2. **If OAuth still shows 403**: Go to Google Cloud Console → OAuth Consent Screen → check if app is "In production" (not Testing). If in Testing, click "Publish App".
-3. **If OAuth works**: Verify reviews appear in dashboard, total count is correct
-4. **If OAuth works**: Remove the URL paste / search fallback complexity and simplify the Google section
-5. **Check debug endpoint**: Remove `/api/debug/google-maps-link` from `server/routes.ts` once Google connection confirmed working
-
-**Pending:**
-- **Google Business Profile OAuth** — built and ready; BLOCKED waiting for Google API access approval
-  - Applied for Basic API Access 2026-06-13, case ID: 6-8166000040742, estimated 7-10 working days
-  - Once approved: test OAuth → confirm reviews appear → remove search/URL paste complexity if OAuth works reliably
-- **Google OAuth scope verification** — submit via Google Cloud Console once OAuth is confirmed working; removes "unverified app" warning for all users
-- **Facebook App Review**: waiting (~2 weeks from June 10)
-- **SEO — fix "review optic" vs "ReviewOptic" in Google search results:**
-  - Audit meta title/description tags across all pages — must say "ReviewOptic" (one word) consistently
-  - Check landing page HTML title tags
-  - Ensure Google Business Profile listing name is "ReviewOptic" (one word)
-  - Backlinks with exact name "ReviewOptic" help over time — mention in blog posts, directories etc.
-- **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
-
-### Session — 2026-06-13 (ninety-ninth session)
-
-**Context:** Short end-of-session wrap-up. Two changes made.
-
-**1. Dashboard "Platform Reviews" subtitle now dynamic (`client/src/pages/Dashboard.tsx`):**
-- Was hardcoded: "Reviews pulled from Google, Checkatrade and other platforms"
-- Now reads `settings` and lists only platforms the user has actually configured
-- Checks: `googleReviewLink`, `facebookReviewLink`, `trustpilotLink`, `tripadvisorLink`, `checkatradeLink`, `mybuilderLink`
-- If none configured: shows "Add platform links in Settings to import reviews"
-- If one: "Reviews pulled from Google"
-- If multiple: "Reviews pulled from Google, Checkatrade and Trustpilot" (proper join)
-
-**2. Google API error still occurring (INVALID_REQUEST):**
-- Fix in 3288c16 was meant to clear bad hex FID values and fall back to `google_review_link`
-- User reports error persists — likely the bad value is still in the database OR the poll errors before clearing
-- **Root cause**: Service area businesses use hex FIDs; Places API rejects anything that isn't ChIJ format
-- **Real fix**: GBP OAuth (case 6-8166000040742) — waiting on Google API allowlist approval (~7-10 days from 2026-06-13)
-- **Quick fix next session**: Manually clear the bad `google_maps_link` value from `ext.settings_extra` table if the poll still errors
-
-**NEXT SESSION — FIRST STEPS:**
-1. Check Replit logs — is it still INVALID_REQUEST or a different error now?
-2. If still erroring: add a one-shot endpoint or SQL command to force-clear `google_maps_link` in `ext.settings_extra`
-3. Once GBP API approved (case 6-8166000040742): test OAuth → reviews should import → real problem solved
-
-**Pending (updated):**
-- **Google API error** — poll still erroring; GBP OAuth (case 6-8166000040742, ~7-10 days from 2026-06-13) is the real fix
-- **Google OAuth scope verification** — submit via Google Cloud Console once OAuth confirmed working
-- **Facebook App Review** — waiting (~2 weeks from June 10)
-- **SEO — "ReviewOptic" vs "review optic"**: consistent branding in meta tags, GBP listing name, backlinks
-- **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
-
-### Session — 2026-06-14 (one-hundredth session)
-
-**LESSON LEARNED (logged after user frustration):**
-- **"Use the link" means USE THE LINK.** When the user says "just use the link", extract the unique ID directly from the URL. Do NOT build search logic that hunts by name/coordinates — searches find approximate matches (wrong franchise, wrong location). The URL itself contains the exact business identifier.
-- Applied fix: hex FID in Google Maps URL contains the CID in the second hex part. Convert `0x2fa9ce0d197e8cfd` → `BigInt("0x2fa9ce0d197e8cfd").toString()` → `cid:DECIMAL`. Pass directly to Places Details API. 5 lines. Should have been the first attempt.
-- This mistake cost 3+ sessions. Do not repeat it.
-
-**Pending:**
-- **Google reviews** — deploy aa6829d → test that correct business profile now loads
-- **Google Business Profile OAuth** (case 6-8166000040742, ~7-10 days from 2026-06-13) — gives ALL reviews, not just 5-7
-- **Facebook App Review** — waiting (~2 weeks from June 10)
-- **SEO — "ReviewOptic" branding**, **landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
+*(Sessions 18–100 archived to CLAUDE_ARCHIVE.md)*
 
 ### Session — 2026-06-14 (one-hundred-and-first session)
 
@@ -499,8 +286,28 @@ Your job is to be the developer they would hire if they could afford a great one
 2. Check **Facebook App Review** status (submitted ~June 10, now ~2 weeks later)
 3. If Google is still blocked, move to other pending work (landing page videos, tracking pixel IDs, first blog post)
 
+### Session — 2026-06-24 (one-hundred-and-fourth session)
+
+**Context:** No code changes. Session spent chasing Google Business Profile API access status and planning next steps.
+
+**What happened:**
+- Investigated case 21707041921 visible in Google Cloud Console when creating a new support case — confirmed it's a past case reference, not an active tracked case, and details are inaccessible on free tier
+- Previous case 6-8166000040742 (June 13) had no confirmation email — submission may not have completed properly
+- **Resubmitted GBP API access** via "Application for Basic Access" form — case **1-6925000040797**, submitted 2026-06-24, expected response ~2026-07-07
+- No confirmation email received (Google's developer support system doesn't reliably send them — the on-screen confirmation is the proof)
+- Facebook App Review — still in progress
+- Tracking pixels — not yet set up (no Facebook ads account yet)
+- Blog posts — deferred; user not ready for public traffic yet
+- **Beta testing** — identified as the right next step before onboarding real customers
+
+**NEXT SESSION — FIRST STEPS:**
+1. **Check Google case 1-6925000040797** — expected response around 2026-07-07
+2. **Check Facebook App Review** status
+3. **Plan beta testing** — identify 2-3 small business owners to test the app for real
+
 **Pending:**
-- **Google Business Profile API access** — visit developers.google.com/my-business/content/prereqs to check/resubmit application; quota increase blocked until this is approved
+- **Google Business Profile API access** — case **1-6925000040797**, submitted 2026-06-24, expected ~2026-07-07
 - **Google OAuth scope verification** — submit once OAuth confirmed working for all users
-- **Facebook App Review** — waiting (submitted ~June 10, ~2 weeks ago now)
-- **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
+- **Facebook App Review** — in progress
+- **Beta testing** — next logical step before opening to paying customers
+- **Landing page videos**, **tracking pixel IDs**, **first blog post** — deferred until ready for public traffic

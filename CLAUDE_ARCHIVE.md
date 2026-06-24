@@ -1281,3 +1281,57 @@ migrate.ts was recreating `external_reviews` each server restart → Replit dete
 - NEVER add a column to both schema.ts AND migrate.ts ALTER TABLE — infinite DROP cycle. Pick one owner.
 - Save logic that must survive validation failures: put it BEFORE any validation checks in the route handler.
 - Autosave guards that check required fields silently block unrelated field saves.
+
+### Session — 2026-06-12 (ninety-fifth session)
+
+**Context:** Entire session spent fixing Google review importing and review dates.
+
+**google_maps_link — final architecture (after many failed attempts):**
+- Stored in: `ext.settings_extra(account_id, google_maps_link)` — invisible to Replit forever
+- Saved by: dedicated `POST /api/settings/google-maps-link` endpoint only — completely isolated from general settings PATCH
+- Read by: `storage.getSettings()` merges from ext.settings_extra; `pollExternalReviewsForAccount()` reads directly from ext.settings_extra
+- NOT in schema.ts, NOT in migrate.ts ALTER TABLE — adding to either triggers Replit DROP cycles
+- The `google_maps_link` field stores a **Place ID** (`ChIJ...`) not a URL — URL resolution was unreliable
+
+**CRITICAL RULES reinforced this session:**
+- NEVER add google_maps_link (or any ext field) to schema.ts or migrate.ts ALTER TABLE — instant DROP cycle
+- The dedicated endpoint pattern (POST /api/settings/google-maps-link) is the only reliable way to save ext fields
+- URL resolution for Google Maps is fundamentally unreliable server-side — always use Place ID directly
+
+### Session — 2026-06-12 (ninety-sixth session)
+
+**Context:** Entire session trying to connect user's Google business via Place search UI. Root cause: service area businesses use hex FIDs, not ChIJ Place IDs. `share.google` links redirect to JS-rendered pages — Place ID not in raw HTML. Multiple API approaches tried (autocomplete, textsearch, URL paste) — all ultimately failed for this business type.
+
+**What was built:** Server-side place search, photos in dropdown, URL paste fallback, connected state with business name/address, Disconnect button deletes imported reviews.
+
+### Session — 2026-06-12 (ninety-seventh session)
+
+**Context:** Evening continuation of session 96. Diagnosed via Replit server logs.
+
+**Key finding:** `share.google` redirects correctly to long Google Maps URL. Hex Place ID extracted correctly. BUT `ftid` param not supported by Places Details API — returns blank.
+
+**Fix:** `resolveGooglePlaceWithName()` — extracts business name from URL path directly (no API call). `share.google` link correctly identifies business with hex Place ID.
+
+**Also confirmed:** Google Places API only returns 5–7 reviews max — GBP OAuth needed for all reviews.
+
+### Session — 2026-06-13 (ninety-eighth session)
+
+**Context:** Entire session trying to fix Google business connection. User frustration from repeated failed fixes.
+
+**Root cause:** User's business is a service area business — uses hex FID, not ChIJ. Places API rejects hex FIDs. All conversion attempts (CID decimal, findplacefromtext, nearbysearch) unreliable for service area businesses.
+
+**Built:** Static map fallback (shows pin on map for confirmation), GBP OAuth button as primary option.
+
+**CRITICAL RULES learned:**
+- Service area businesses use hex FIDs — do NOT appear reliably in nearbysearch/findplacefromtext
+- GBP OAuth (`/auth/google-business`) gives all reviews — prioritise over Places API workarounds
+- `!3d{lat}!4d{lng}` in Google Maps URL = exact business pin; `@lat,lng` = map view centre (different!)
+
+### Session — 2026-06-13 (ninety-ninth session)
+
+**Context:** Short wrap-up. Dashboard "Platform Reviews" subtitle made dynamic — lists only platforms user has actually configured. Google INVALID_REQUEST error still occurring (hex FID in DB).
+
+### Session — 2026-06-14 (one-hundredth session)
+
+**LESSON LEARNED (logged after user frustration):**
+- **"Use the link" means USE THE LINK.** Extract the unique ID directly from the URL — do NOT build search logic. URL contains the exact business identifier. Applied fix: hex FID second part → `BigInt().toString()` → `cid:DECIMAL` → Places Details API. 5 lines. Should have been the first attempt. This mistake cost 3+ sessions. Do not repeat it.
