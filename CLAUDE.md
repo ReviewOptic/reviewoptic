@@ -477,3 +477,30 @@ Your job is to be the developer they would hire if they could afford a great one
 - **Google OAuth scope verification** — submit once OAuth confirmed working for all users
 - **Facebook App Review** — waiting (submitted ~June 10)
 - **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
+
+### Session — 2026-06-24 (one-hundred-and-third session)
+
+**Context:** No code changes. Diagnostic session chasing Google Business Profile API access.
+
+**What was diagnosed:**
+- Quota increase request (case 1-7070000041921) was **denied** — Google says the Cloud project is not yet approved for Business Profile API access
+- Denial email had no case number and no reply-to address — dead end
+- Cloud Console → Support → Cases shows no cases (free tier account — no support plan)
+- Google review scraping is NOT a viable option (confirmed from prior sessions — Google blocks it)
+- Places API only returns 5–7 reviews — not useful
+
+**Key clarification:**
+- The official route for Business Profile API access is through: **developers.google.com/my-business/content/prereqs**
+- Case 6-8166000040742 (submitted June 13) should have gone through this form — status unknown
+- Next step is to visit that URL and either check the existing application status or resubmit if it wasn't filed correctly
+
+**NEXT SESSION — FIRST STEP (do this first):**
+1. Go to **developers.google.com/my-business/content/prereqs** and check/resubmit the Business Profile API access application
+2. Check **Facebook App Review** status (submitted ~June 10, now ~2 weeks later)
+3. If Google is still blocked, move to other pending work (landing page videos, tracking pixel IDs, first blog post)
+
+**Pending:**
+- **Google Business Profile API access** — visit developers.google.com/my-business/content/prereqs to check/resubmit application; quota increase blocked until this is approved
+- **Google OAuth scope verification** — submit once OAuth confirmed working for all users
+- **Facebook App Review** — waiting (submitted ~June 10, ~2 weeks ago now)
+- **Landing page videos**, **tracking pixel IDs**, **first blog post** — all still pending
