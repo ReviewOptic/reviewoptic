@@ -308,6 +308,29 @@ Your job is to be the developer they would hire if they could afford a great one
 **Pending:**
 - **Google Business Profile API access** — case **1-6925000040797**, submitted 2026-06-24, expected ~2026-07-07
 - **Google OAuth scope verification** — submit once OAuth confirmed working for all users
-- **Facebook App Review** — in progress
+- **Facebook App Review** — ✅ APPROVED (2026-06-30). App is Live, all permissions approved.
 - **Beta testing** — next logical step before opening to paying customers
+- **Landing page videos**, **tracking pixel IDs**, **first blog post** — deferred until ready for public traffic
+
+### Session — 2026-06-30 (one-hundred-and-fifth session)
+
+**Context:** Facebook App Review approved. Short session.
+
+**What happened:**
+- Facebook App Review confirmed approved — app is already in Live mode, all permissions granted (`pages_manage_posts`, `pages_read_engagement`, `pages_show_list`, `instagram_basic`, `instagram_content_publish`, `business_management`)
+- Social posting to Facebook Page and Instagram is now fully available to all users (not just testers)
+- Added `fetchFacebook()` to `server/externalReviews.ts` — fetches reviews via `/{pageId}/ratings` Graph API endpoint using stored page access token, handles both star ratings and recommendation_type, paginates up to 5 pages, captures aggregate `rating_count` for Total Reviews stat
+- Facebook wired into `pollExternalReviewsForAccount` alongside other platforms — skips gracefully if no Facebook connected
+- **Decision:** Facebook review fetching left in but deprioritised — `pages_read_user_content` permission was not in the approved set so reviews may not come through. Will revisit when there's real demand or if the existing permissions turn out to be sufficient.
+
+**NEXT SESSION — FIRST STEPS:**
+1. **Test Facebook OAuth** — Settings → Social → Connect Facebook → confirm "Connected · [page name]" shows
+2. **Check Google GBP case 1-6925000040797** — expected response ~2026-07-07
+3. **Plan beta testing** — identify 2-3 small businesses to test the app for real
+
+**Pending:**
+- **Google Business Profile API** — case **1-6925000040797**, submitted 2026-06-24, expected ~2026-07-07
+- **Google OAuth scope verification** — submit once GBP OAuth confirmed working for all users
+- **Facebook review fetching** — code is in place but may need `pages_read_user_content` App Review approval to work; not urgent
+- **Beta testing** — next logical step before paying customers
 - **Landing page videos**, **tracking pixel IDs**, **first blog post** — deferred until ready for public traffic
