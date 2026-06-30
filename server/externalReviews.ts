@@ -503,6 +503,60 @@ async function fetchYell(accountId: string, link: string): Promise<FetchResult> 
   return fetchFromPage("yell", link);
 }
 
+async function fetchFacebook(accountId: string, pageAccessToken: string, pageId: string): Promise<FetchResult> {
+  const reviews: ReviewItem[] = [];
+
+  // Get aggregate rating count for the "Total Reviews" stat
+  let platformTotal: number | undefined;
+  try {
+    const aggRes = await fetch(
+      `https://graph.facebook.com/v18.0/${pageId}?fields=overall_star_rating,rating_count&access_token=${pageAccessToken}`
+    );
+    const aggData = await aggRes.json() as any;
+    if (aggData.rating_count) platformTotal = aggData.rating_count;
+  } catch { /* ignore — aggregate failing shouldn't block review fetch */ }
+
+  // Fetch individual ratings/recommendations with pagination
+  let url: string | null =
+    `https://graph.facebook.com/v18.0/${pageId}/ratings?fields=reviewer,rating,review_text,created_time,recommendation_type&limit=50&access_token=${pageAccessToken}`;
+  let pages = 0;
+
+  try {
+    while (url && pages < 5) {
+      const res = await fetch(url);
+      const data = await res.json() as any;
+      if (!data.data || !Array.isArray(data.data)) break;
+
+      for (const r of data.data) {
+        const text = (r.review_text || "").trim();
+        if (!text) continue;
+        const author = r.reviewer?.name || "Facebook User";
+        let rating: number;
+        if (typeof r.rating === "number" && r.rating >= 1 && r.rating <= 5) {
+          rating = r.rating;
+        } else if (r.recommendation_type === "positive") {
+          rating = 5;
+        } else if (r.recommendation_type === "negative") {
+          rating = 1;
+        } else {
+          continue;
+        }
+        const date = r.created_time ? new Date(r.created_time) : null;
+        reviews.push({ author, rating, text, date, platform: "facebook" });
+      }
+
+      url = data.paging?.next || null;
+      pages++;
+    }
+  } catch (err) {
+    console.error("[externalReviews] Facebook ratings error:", err);
+    return { reviews, platformTotal, error: String(err) };
+  }
+
+  console.log(`[externalReviews] Facebook: found ${reviews.length} reviews, total on platform: ${platformTotal ?? "unknown"}`);
+  return { reviews, platformTotal };
+}
+
 // ── Auto-post logic ──────────────────────────────────────────────────────────
 
 async function autoPostReview(accountId: string, review: {author: string; rating: number; text: string; platform: string}, settings: any): Promise<boolean> {
@@ -597,6 +651,8 @@ export async function pollExternalReviewsForAccount(accountId: string): Promise<
   const tl = (s.trustpilot_link || "").trim();
   const tal = (s.tripadvisor_link || "").trim();
   const ml = (s.mybuilder_link || "").trim();
+  const fbt = (s.facebook_page_access_token || "").trim();
+  const fbpid = (s.facebook_page_id || "").trim();
 
   // Google: use GBP OAuth if connected (all reviews), otherwise Places API (5-7 reviews)
   const googleFetcher = gbpLocationResource && gbpAccessToken
@@ -606,10 +662,11 @@ export async function pollExternalReviewsForAccount(accountId: string): Promise<
 
   const platformConfigs: { platform: string; link: string; fetcher: () => Promise<FetchResult> }[] = [
     { platform: "google",      link: googleLink, fetcher: googleFetcher },
-    { platform: "checkatrade", link: cl,  fetcher: () => fetchCheckatrade(accountId, cl) },
-    { platform: "trustpilot",  link: tl,  fetcher: () => fetchTrustpilot(accountId, tl) },
-    { platform: "tripadvisor", link: tal, fetcher: () => fetchTripAdvisor(accountId, tal) },
-    { platform: "mybuilder",   link: ml,  fetcher: () => fetchMyBuilder(accountId, ml) },
+    { platform: "checkatrade", link: cl,   fetcher: () => fetchCheckatrade(accountId, cl) },
+    { platform: "trustpilot",  link: tl,   fetcher: () => fetchTrustpilot(accountId, tl) },
+    { platform: "tripadvisor", link: tal,  fetcher: () => fetchTripAdvisor(accountId, tal) },
+    { platform: "mybuilder",   link: ml,   fetcher: () => fetchMyBuilder(accountId, ml) },
+    { platform: "facebook",    link: fbpid, fetcher: () => fetchFacebook(accountId, fbt, fbpid) },
   ];
 
   const results: PlatformResult[] = [];
