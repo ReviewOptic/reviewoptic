@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { useState, useEffect, useCallback, useRef } from "react";
 import Cropper from "react-easy-crop";
-import { Save, ExternalLink, Copy, Check, Globe, Bell, FileCode, Star, Share2, Upload, X, Trash2, UserPlus, Mic, Video, Gift, Zap, QrCode, Download, RefreshCw } from "lucide-react";
+import { Save, ExternalLink, Copy, Check, Globe, Bell, FileCode, Star, Share2, Upload, X, Trash2, UserPlus, Gift, Zap, QrCode, Download, RefreshCw } from "lucide-react";
 import { FaFacebook, FaInstagram } from "react-icons/fa";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

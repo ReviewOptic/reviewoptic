@@ -4,7 +4,7 @@ import pkg from "pg";
 const { Pool } = pkg;
 import { randomUUID } from "crypto";
 import { sendFollowUpEmail } from "./email";
-import { sendReviewSMS, sendWhatsAppMessage, sendWhatsAppTemplate } from "./sms";
+import { sendReviewSMS, sendWhatsAppTemplate } from "./sms";
 import {
   accounts, customers, reviewRequests, reviews, privateFeedback, activityLog, templates, users, passwordResetTokens, adminImpersonationLog,
   type Account,
@@ -286,17 +286,23 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(users).orderBy(users.email);
   }
   async getAdminUserStats(): Promise<{ userId: string; customerCount: number; reviewRequestCount: number; lastActive: Date | null }[]> {
-    const allUsers = await db.select().from(users);
-    return Promise.all(allUsers.map(async u => {
-      const [custResult] = await db.select({ count: sql<number>`count(*)::int` }).from(customers).where(eq(customers.accountId, u.accountId));
-      const [rrResult] = await db.select({ count: sql<number>`count(*)::int` }).from(reviewRequests).where(eq(reviewRequests.accountId, u.accountId));
-      const [actResult] = await db.select({ latest: sql<Date | null>`max(created_at)` }).from(activityLog).where(eq(activityLog.accountId, u.accountId));
-      return {
-        userId: u.id,
-        customerCount: custResult?.count ?? 0,
-        reviewRequestCount: rrResult?.count ?? 0,
-        lastActive: actResult?.latest ?? null,
-      };
+    const { rows } = await pool.query(`
+      SELECT u.id AS user_id,
+             COUNT(DISTINCT c.id)::int AS customer_count,
+             COUNT(DISTINCT rr.id)::int AS review_request_count,
+             MAX(al.created_at) AS last_active
+      FROM users u
+      LEFT JOIN customers c ON c.account_id = u.account_id
+      LEFT JOIN review_requests rr ON rr.account_id = u.account_id
+      LEFT JOIN activity_log al ON al.account_id = u.account_id
+      GROUP BY u.id
+      ORDER BY u.email
+    `);
+    return rows.map((r: any) => ({
+      userId: r.user_id,
+      customerCount: r.customer_count ?? 0,
+      reviewRequestCount: r.review_request_count ?? 0,
+      lastActive: r.last_active ?? null,
     }));
   }
   async verifyUserManually(userId: string): Promise<void> {
@@ -362,7 +368,6 @@ export class DatabaseStorage implements IStorage {
   }> {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const allCustomers = await db.select().from(customers).where(eq(customers.accountId, accountId));
     const [{ count: rrCount }] = await db
       .select({ count: sql<number>`count(*)` })
       .from(reviewRequests)
@@ -373,9 +378,21 @@ export class DatabaseStorage implements IStorage {
       .from(privateFeedback)
       .where(and(eq(privateFeedback.accountId, accountId), eq(privateFeedback.responded, false)));
     const pendingRequests = Number(pendingCount);
-    const clicksThisMonth = allCustomers.filter(c => c.status === "clicked" && c.createdAt >= monthStart).length;
-    const sent = allCustomers.filter(c => c.status !== "pending_request").length;
-    const clicked = allCustomers.filter(c => c.status === "clicked").length;
+    const [{ count: clicksCount }] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(customers)
+      .where(and(eq(customers.accountId, accountId), eq(customers.status, "clicked"), sql`${customers.createdAt} >= ${monthStart}`));
+    const clicksThisMonth = Number(clicksCount ?? 0);
+    const [{ count: sentCount }] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(customers)
+      .where(and(eq(customers.accountId, accountId), sql`${customers.status} != 'pending_request'`));
+    const sent = Number(sentCount ?? 0);
+    const [{ count: clickedCount }] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(customers)
+      .where(and(eq(customers.accountId, accountId), eq(customers.status, "clicked")));
+    const clicked = Number(clickedCount ?? 0);
     const clickRate = sent > 0 ? Math.round((clicked / sent) * 100) : 0;
     const [{ avg }] = await db
       .select({ avg: sql<number>`avg(rating)` })
@@ -420,6 +437,20 @@ export class DatabaseStorage implements IStorage {
     let totalSent = 0;
     const now = new Date();
 
+    // Batch-fetch all review requests for active customers in one query
+    const customerIds = activeCustomers.map(c => c.id);
+    const allRequests = customerIds.length > 0
+      ? await db.select().from(reviewRequests)
+          .where(and(inArray(reviewRequests.customerId, customerIds), sql`${reviewRequests.sentAt} IS NOT NULL`))
+          .orderBy(reviewRequests.sentAt)
+      : [];
+    const requestsByCustomer = new Map<string, typeof allRequests>();
+    for (const r of allRequests) {
+      const existing = requestsByCustomer.get(r.customerId) ?? [];
+      existing.push(r);
+      requestsByCustomer.set(r.customerId, existing);
+    }
+
     for (const accountId of accountIds) {
       const s = await this.getSettings(accountId);
       if (!s?.followUpEnabled) continue;
@@ -436,9 +467,7 @@ export class DatabaseStorage implements IStorage {
       const eligible = activeCustomers.filter(c => c.accountId === accountId);
 
       for (const customer of eligible) {
-        const requests = await db.select().from(reviewRequests)
-          .where(and(eq(reviewRequests.customerId, customer.id), sql`${reviewRequests.sentAt} IS NOT NULL`))
-          .orderBy(reviewRequests.sentAt);
+        const requests = requestsByCustomer.get(customer.id) ?? [];
 
         const sentCount = requests.length;
         const firstSentAt = requests[0]?.sentAt;

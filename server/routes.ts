@@ -1834,44 +1834,49 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/customers", requireAuth, requireNotDemo, async (req, res) => {
     if (!req.body.name) return res.status(400).json({ message: "Name is required" });
     if (!req.body.email && !req.body.phone) return res.status(400).json({ message: "Email or phone number is required" });
-    if (!req.body.forceAdd) {
-      const dupe = await storage.findDuplicateCustomer(req.session.accountId!, req.body.email || "", req.body.phone || "");
-      if (dupe) return res.status(409).json({ message: "Duplicate customer", existingName: dupe.name });
-    }
-    const { scheduledSendDate, forceAdd, ...customerData } = req.body;
-    const scheduledSendAt = scheduledSendDate ? new Date(scheduledSendDate) : null;
-    const c = await storage.createCustomer({
-      ...customerData,
-      accountId: req.session.accountId,
-      status: scheduledSendAt ? "scheduled" : customerData.status,
-    });
-    await storage.createActivity({
-      id: randomUUID(),
-      accountId: req.session.accountId!,
-      type: "customer_added",
-      customerId: c.id,
-      customerName: c.name,
-      message: scheduledSendAt
-        ? `${c.name} added — review request scheduled for ${scheduledSendAt.toLocaleDateString("en-GB")}`
-        : `${c.name} added as a customer`,
-      metadata: "{}",
-    });
-    if (scheduledSendAt && !isNaN(scheduledSendAt.getTime())) {
-      const rr = await storage.createReviewRequest({
+    try {
+      if (!req.body.forceAdd) {
+        const dupe = await storage.findDuplicateCustomer(req.session.accountId!, req.body.email || "", req.body.phone || "");
+        if (dupe) return res.status(409).json({ message: "Duplicate customer", existingName: dupe.name });
+      }
+      const { scheduledSendDate, forceAdd, ...customerData } = req.body;
+      const scheduledSendAt = scheduledSendDate ? new Date(scheduledSendDate) : null;
+      const c = await storage.createCustomer({
+        ...customerData,
+        accountId: req.session.accountId,
+        status: scheduledSendAt ? "scheduled" : customerData.status,
+      });
+      await storage.createActivity({
         id: randomUUID(),
         accountId: req.session.accountId!,
+        type: "customer_added",
         customerId: c.id,
-        channel: c.channel,
-        status: "scheduled",
-        sentAt: new Date(),
-        scheduledAt: scheduledSendAt,
+        customerName: c.name,
+        message: scheduledSendAt
+          ? `${c.name} added — review request scheduled for ${scheduledSendAt.toLocaleDateString("en-GB")}`
+          : `${c.name} added as a customer`,
+        metadata: "{}",
       });
-      await pool.query(
-        `UPDATE review_requests SET scheduled_send_at = $1, schedule_status = 'pending' WHERE id = $2`,
-        [scheduledSendAt, rr.id]
-      );
+      if (scheduledSendAt && !isNaN(scheduledSendAt.getTime())) {
+        const rr = await storage.createReviewRequest({
+          id: randomUUID(),
+          accountId: req.session.accountId!,
+          customerId: c.id,
+          channel: c.channel,
+          status: "scheduled",
+          sentAt: new Date(),
+          scheduledAt: scheduledSendAt,
+        });
+        await pool.query(
+          `UPDATE review_requests SET scheduled_send_at = $1, schedule_status = 'pending' WHERE id = $2`,
+          [scheduledSendAt, rr.id]
+        );
+      }
+      res.json(c);
+    } catch (err: any) {
+      console.error("[POST /api/customers]", err?.message || err);
+      res.status(500).json({ message: "Failed to add customer. Please try again." });
     }
-    res.json(c);
   });
   app.post("/api/customers/import", requireAuth, requireNotDemo, async (req, res) => {
     const customers: any[] = req.body.customers || [];
@@ -1906,18 +1911,33 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.patch("/api/customers/:id", requireAuth, async (req, res) => {
-    const c = await storage.updateCustomer(String(req.params.id), req.body, req.session.accountId!);
-    if (!c) return res.status(404).json({ message: "Customer not found" });
-    res.json(c);
+    try {
+      const c = await storage.updateCustomer(String(req.params.id), req.body, req.session.accountId!);
+      if (!c) return res.status(404).json({ message: "Customer not found" });
+      res.json(c);
+    } catch (err: any) {
+      console.error("[PATCH /api/customers]", err?.message || err);
+      res.status(500).json({ message: "Failed to update customer. Please try again." });
+    }
   });
   app.delete("/api/customers/:id", requireAuth, async (req, res) => {
-    await storage.deleteCustomer(String(req.params.id), req.session.accountId!);
-    res.json({ success: true });
+    try {
+      await storage.deleteCustomer(String(req.params.id), req.session.accountId!);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("[DELETE /api/customers]", err?.message || err);
+      res.status(500).json({ message: "Failed to delete customer. Please try again." });
+    }
   });
 
   app.post("/api/customers/:id/reactivate", requireAuth, async (req, res) => {
-    await storage.reactivateCustomer(String(req.params.id), req.session.accountId!);
-    res.json({ success: true });
+    try {
+      await storage.reactivateCustomer(String(req.params.id), req.session.accountId!);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("[POST /api/customers/reactivate]", err?.message || err);
+      res.status(500).json({ message: "Failed to reactivate customer. Please try again." });
+    }
   });
 
   // Review Requests
