@@ -3463,7 +3463,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const accountsData = await accountsRes.json() as any;
       console.log("[gbp] accounts:", JSON.stringify(accountsData).substring(0, 300));
       const gbpAccount = accountsData.accounts?.[0];
-      if (!gbpAccount) return res.redirect(`${APP_URL}/settings?tab=social&gbp_error=${encodeURIComponent("No Google Business Profile account found for this Google account")}`);
+      if (!gbpAccount) {
+        const apiError = accountsData.error;
+        let msg = "No Google Business Profile account found for this Google account.";
+        if (apiError?.code === 429 || apiError?.status === "RESOURCE_EXHAUSTED") {
+          msg = "Google Business Profile API quota is not yet active. The API access application is still pending approval from Google.";
+        } else if (apiError?.message) {
+          msg = `Google API error: ${apiError.message}`;
+        }
+        return res.redirect(`${APP_URL}/settings?tab=social&gbp_error=${encodeURIComponent(msg)}`);
+      }
 
       // Get locations for this account
       const locRes = await fetch(`https://mybusinessaccountmanagement.googleapis.com/v1/${gbpAccount.name}/locations`, {
