@@ -2223,11 +2223,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/external-reviews", requireAuth, async (req, res) => {
     try {
       const reviewRows = await pool.query(
-        `SELECT * FROM ext.external_reviews WHERE account_id = $1 ORDER BY review_date DESC NULLS LAST, created_at DESC`,
+        `SELECT * FROM ext.external_reviews WHERE account_id = $1 ORDER BY review_date DESC NULLS LAST, created_at DESC LIMIT 20`,
         [req.session.accountId]
       );
       // Use real platform totals (scraped from platform pages) if available — shows true count, not just imported
-      let total = reviewRows.rows.length;
+      const countRow = await pool.query(`SELECT COUNT(*) FROM ext.external_reviews WHERE account_id = $1`, [req.session.accountId]);
+      let total = parseInt(countRow.rows[0].count, 10);
       try {
         const extRow = await pool.query(
           `SELECT platform_review_totals FROM ext.settings_extra WHERE account_id = $1`,
@@ -3494,15 +3495,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.redirect(`${APP_URL}/settings?tab=social&gbp_error=${encodeURIComponent(msg)}`);
       }
 
-      // Get locations for this account
-      const locRes = await fetch(`https://mybusinessaccountmanagement.googleapis.com/v1/${gbpAccount.name}/locations`, {
+      // Get locations for this account (must use the Business Information API, not Account Management — different service)
+      const locRes = await fetch(`https://mybusinessbusinessinformation.googleapis.com/v1/${gbpAccount.name}/locations?readMask=name,title`, {
         headers: { "Authorization": `Bearer ${accessToken}` },
       });
       const locData = await locRes.json() as any;
       console.log("[gbp] locations:", JSON.stringify(locData).substring(0, 300));
       const location = locData.locations?.[0];
-      const locationResource = location?.name || gbpAccount.name;
-      const businessName = location?.title || location?.locationName || gbpAccount.accountName || "";
+      if (!location) {
+        const msg = `Could not find a business location on this Google account: ${locData.error?.message || "no locations returned"}`;
+        return res.redirect(`${APP_URL}/settings?tab=social&gbp_error=${encodeURIComponent(msg)}`);
+      }
+      const locationResource = `${gbpAccount.name}/${location.name}`;
+      const businessName = location.title || gbpAccount.accountName || "";
 
       // Store in ext.settings_extra (invisible to Replit migrations)
       await pool.query(`

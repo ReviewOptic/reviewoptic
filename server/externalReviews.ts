@@ -329,8 +329,9 @@ async function fetchGBP(accountId: string, locationResource: string, accessToken
       date: r.createTime ? new Date(r.createTime) : null,
       platform: "google",
     }));
-  console.log(`[externalReviews] GBP: ${reviews.length} reviews from ${locationResource}`);
-  return { reviews };
+  const platformTotal: number | undefined = data.totalReviewCount || undefined;
+  console.log(`[externalReviews] GBP: ${reviews.length} reviews from ${locationResource}, total on platform: ${platformTotal ?? "unknown"}`);
+  return { reviews, platformTotal };
 }
 
 // ── Platform fetchers ────────────────────────────────────────────────────────
