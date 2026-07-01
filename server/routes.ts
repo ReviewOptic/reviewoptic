@@ -2229,9 +2229,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       // Use real platform totals (scraped from platform pages) if available — shows true count, not just imported
       const countRow = await pool.query(`SELECT COUNT(*) FROM ext.external_reviews WHERE account_id = $1`, [req.session.accountId]);
       let total = parseInt(countRow.rows[0].count, 10);
+      let gainedSinceJoining = 0;
       try {
         const extRow = await pool.query(
-          `SELECT platform_review_totals FROM ext.settings_extra WHERE account_id = $1`,
+          `SELECT platform_review_totals, starting_review_count FROM ext.settings_extra WHERE account_id = $1`,
           [req.session.accountId]
         );
         const stored = extRow.rows[0]?.platform_review_totals;
@@ -2240,8 +2241,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           const sum = Object.values(map).reduce((a, b) => a + b, 0);
           if (sum > 0) total = sum;
         }
+        // "Reviews gained since joining" — current total minus the starting count entered at signup
+        const startingCount = extRow.rows[0]?.starting_review_count || 0;
+        gainedSinceJoining = Math.max(0, total - startingCount);
       } catch { /* no stored totals yet — fall back to imported count */ }
-      res.json({ reviews: reviewRows.rows, total });
+      res.json({ reviews: reviewRows.rows, total, gainedSinceJoining });
     } catch { res.json({ reviews: [], total: 0 }); }
   });
 
@@ -2832,6 +2836,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           pollExternalReviewsForAccount(req.session.accountId!).catch(console.error)
         );
       }
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/settings/starting-review-count", requireAuth, async (req, res) => {
+    const count = parseInt(req.body?.startingReviewCount, 10);
+    if (isNaN(count) || count < 0) return res.status(400).json({ message: "startingReviewCount must be a positive number" });
+    try {
+      await pool.query(
+        `INSERT INTO ext.settings_extra (account_id, starting_review_count) VALUES ($1, $2) ON CONFLICT (account_id) DO UPDATE SET starting_review_count = $2`,
+        [req.session.accountId!, count]
+      );
+      res.json({ ok: true });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }

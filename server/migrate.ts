@@ -657,6 +657,8 @@ export async function ensureExternalReviewsTable() {
     await pool.query(`ALTER TABLE ext.settings_extra ADD COLUMN IF NOT EXISTS gbp_location_resource TEXT NOT NULL DEFAULT ''`).catch(() => {});
     await pool.query(`ALTER TABLE ext.settings_extra ADD COLUMN IF NOT EXISTS gbp_business_name TEXT NOT NULL DEFAULT ''`).catch(() => {});
     await pool.query(`ALTER TABLE ext.settings_extra ADD COLUMN IF NOT EXISTS platform_review_totals TEXT NOT NULL DEFAULT ''`).catch(() => {});
+    // Manually entered starting review count (set during signup) — lets us show "reviews gained since joining ReviewOptic"
+    await pool.query(`ALTER TABLE ext.settings_extra ADD COLUMN IF NOT EXISTS starting_review_count INTEGER NOT NULL DEFAULT 0`).catch(() => {});
     await pool.query(`
       CREATE TABLE IF NOT EXISTS ext.external_reviews (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

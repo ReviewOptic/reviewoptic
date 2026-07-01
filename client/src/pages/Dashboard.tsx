@@ -215,6 +215,7 @@ export default function Dashboard() {
   const [showIntro, setShowIntro] = useState(false);
   const [videoWatched, setVideoWatched] = useState(!INTRO_VIDEO_URL);
   const [respondingTo, setRespondingTo] = useState<any>(null);
+  const [refreshResult, setRefreshResult] = useState<string | null>(null);
   const ignoreFeedbackMutation = useMutation({
     mutationFn: (id: string) => apiRequest("PATCH", `/api/private-feedback/${id}/ignore`, {}),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/private-feedback"] }),
@@ -264,7 +265,7 @@ export default function Dashboard() {
   const { data: settings } = useQuery<Settings>({ queryKey: ["/api/settings"] });
   const { data: privateFeedback = [] } = useQuery<any[]>({ queryKey: ["/api/private-feedback"], refetchInterval: 15000 });
   const { data: allRequests = [] } = useQuery<ReviewRequest[]>({ queryKey: ["/api/review-requests"] });
-  const { data: externalData, refetch: refetchExternal, isFetching: externalFetching } = useQuery<{ reviews: any[]; total: number }>({ queryKey: ["/api/external-reviews"], refetchInterval: 10 * 60 * 1000 });
+  const { data: externalData, refetch: refetchExternal, isFetching: externalFetching } = useQuery<{ reviews: any[]; total: number; gainedSinceJoining: number }>({ queryKey: ["/api/external-reviews"], refetchInterval: 10 * 60 * 1000 });
   const externalReviews = externalData?.reviews ?? [];
   const externalTotal = externalData?.total ?? externalReviews.length;
 
@@ -423,6 +424,9 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
             <div>
               <div className="text-xl font-bold text-white leading-none">{externalTotal}</div>
               <div className="text-[11.5px] text-white/70 mt-1 leading-tight">Total Reviews</div>
+              {!!externalData?.gainedSinceJoining && (
+                <div className="text-[10.5px] text-white/60 mt-0.5 leading-tight">+{externalData.gainedSinceJoining} since joining</div>
+              )}
             </div>
           </>
         </button>
@@ -537,13 +541,13 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
                     try {
                       const res = await fetch("/api/external-reviews/refresh", { method: "POST" });
                       const data = await res.json();
-                      if (data.error) { alert("Error: " + data.error); }
-                      else if (!data.results || data.results.length === 0) { alert("No platforms configured — settings row may be missing. Try saving your Google link in Settings first."); }
+                      if (data.error) { setRefreshResult("Error: " + data.error); }
+                      else if (!data.results || data.results.length === 0) { setRefreshResult("No platforms configured — settings row may be missing. Try saving your Google link in Settings first."); }
                       else {
                         const summary = data.results
                           .map((r: any) => `${r.platform}: ${r.skipped ? "⏭ skipped (no link)" : r.error ? `❌ ${r.error}` : `✓ ${r.found} found, ${r.saved} new`}`)
                           .join("\n");
-                        alert(summary);
+                        setRefreshResult(summary);
                       }
                       await refetchExternal();
                     } catch {}
@@ -619,6 +623,29 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
               )}
             </CardContent>
           </Card>
+
+          <Dialog open={!!refreshResult} onOpenChange={(open) => { if (!open) setRefreshResult(null); }}>
+            <DialogContent className="sm:max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Refresh results</DialogTitle>
+              </DialogHeader>
+              <textarea
+                readOnly
+                value={refreshResult || ""}
+                className="w-full h-40 text-[12.5px] font-mono border rounded-md p-2.5 bg-muted/30 resize-none"
+                onFocus={(e) => e.currentTarget.select()}
+              />
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => { navigator.clipboard.writeText(refreshResult || ""); toast({ title: "Copied" }); }}
+                >
+                  Copy
+                </Button>
+                <Button onClick={() => setRefreshResult(null)}>Close</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Sidebar */}

@@ -289,6 +289,7 @@ export default function Settings() {
     logoPosition: "left",
     googleReviewLink: "",
     googleMapsLink: "",
+    startingReviewCount: 0,
     facebookReviewLink: "",
     trustpilotLink: "",
     tripadvisorLink: "",
@@ -327,6 +328,7 @@ export default function Settings() {
         logoPosition: settings.logoPosition || "left",
         googleReviewLink: settings.googleReviewLink || "",
         googleMapsLink: settings.googleMapsLink || "",
+        startingReviewCount: (settings as any).startingReviewCount || 0,
         facebookReviewLink: settings.facebookReviewLink || "",
         trustpilotLink: settings.trustpilotLink || "",
         tripadvisorLink: settings.tripadvisorLink || "",
@@ -660,6 +662,29 @@ export default function Settings() {
               <CardDescription className="text-[12.5px]">Add links where customers can leave reviews. Happy customers (4-5 stars) will be directed here.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 pb-5">
+              <div className="space-y-1.5 border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900 rounded-lg p-3">
+                <Label className="text-[12.5px]">Total existing reviews (all platforms) — required</Label>
+                <p className="text-[11px] text-muted-foreground">Add up your review counts from Google, Checkatrade, Trustpilot etc. right now. This lets us show how many reviews you've gained since joining ReviewOptic.</p>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    min={0}
+                    value={form.startingReviewCount}
+                    onChange={e => setForm(f => ({ ...f, startingReviewCount: parseInt(e.target.value, 10) || 0 }))}
+                    className="flex-1"
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      await fetch("/api/settings/starting-review-count", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ startingReviewCount: form.startingReviewCount }) });
+                      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+                      toast({ title: "Saved" });
+                    }}
+                  >
+                    Save
+                  </Button>
+                </div>
+              </div>
               <p className="text-[12px] text-muted-foreground">Add at least one. Happy customers will be directed to whichever platforms you've filled in.</p>
               {[
                 { label: "Google Business (review link)", key: "googleReviewLink", placeholder: "https://g.page/r/...", hint: "Sent to customers when requesting a review." },

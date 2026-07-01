@@ -314,8 +314,10 @@ async function fetchGBP(accountId: string, locationResource: string, accessToken
 
   if (!resp || !resp.ok) {
     const errText = resp ? await resp.text().catch(() => "") : "fetch failed";
-    console.error(`[externalReviews] GBP error ${resp?.status}: ${errText.substring(0, 100)}`);
-    return { reviews: [], error: `Google Business Profile error ${resp?.status}` };
+    console.error(`[externalReviews] GBP error ${resp?.status}: ${errText.substring(0, 200)}`);
+    let reason = "";
+    try { reason = JSON.parse(errText)?.error?.message || ""; } catch { /* not JSON */ }
+    return { reviews: [], error: `Google Business Profile error ${resp?.status}${reason ? `: ${reason}` : ""}` };
   }
 
   const data = await resp.json() as any;
@@ -655,9 +657,13 @@ export async function pollExternalReviewsForAccount(accountId: string): Promise<
   const fbt = (s.facebook_page_access_token || "").trim();
   const fbpid = (s.facebook_page_id || "").trim();
 
-  // Google: use GBP OAuth if connected (all reviews), otherwise Places API (5-7 reviews)
+  // Google: use GBP OAuth if connected (all reviews), falling back to Places API (real total, 5-7 reviews)
+  // if GBP errors — e.g. while Google's API access is still being sorted out
   const googleFetcher = gbpLocationResource && gbpAccessToken
-    ? () => fetchGBP(accountId, gbpLocationResource, gbpAccessToken, gbpRefreshToken)
+    ? async () => {
+        const result = await fetchGBP(accountId, gbpLocationResource, gbpAccessToken, gbpRefreshToken);
+        return result.error ? fetchGoogle(accountId, gl) : result;
+      }
     : () => fetchGoogle(accountId, gl);
   const googleLink = gbpLocationResource || gl;
 
