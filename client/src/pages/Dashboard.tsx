@@ -5,7 +5,7 @@ import { useLocation } from "wouter";
 import {
   Send, Clock, CheckCircle2, ArrowRight, Plus, BarChart2,
   Eye, Users, Star, MessageSquare, Play, AlertCircle, Mail,
-  FileText, Settings as SettingsIcon, X, CreditCard, BookOpen, Lightbulb, RefreshCw, Share2
+  FileText, Settings as SettingsIcon, X, CreditCard, BookOpen, Lightbulb
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -215,7 +215,6 @@ export default function Dashboard() {
   const [showIntro, setShowIntro] = useState(false);
   const [videoWatched, setVideoWatched] = useState(!INTRO_VIDEO_URL);
   const [respondingTo, setRespondingTo] = useState<any>(null);
-  const [refreshResult, setRefreshResult] = useState<string | null>(null);
   const ignoreFeedbackMutation = useMutation({
     mutationFn: (id: string) => apiRequest("PATCH", `/api/private-feedback/${id}/ignore`, {}),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/private-feedback"] }),
@@ -265,16 +264,6 @@ export default function Dashboard() {
   const { data: settings } = useQuery<Settings>({ queryKey: ["/api/settings"] });
   const { data: privateFeedback = [] } = useQuery<any[]>({ queryKey: ["/api/private-feedback"], refetchInterval: 15000 });
   const { data: allRequests = [] } = useQuery<ReviewRequest[]>({ queryKey: ["/api/review-requests"] });
-  const { data: externalData, refetch: refetchExternal, isFetching: externalFetching } = useQuery<{ reviews: any[]; total: number; gainedSinceJoining: number }>({ queryKey: ["/api/external-reviews"], refetchInterval: 10 * 60 * 1000 });
-  const externalReviews = externalData?.reviews ?? [];
-  const externalTotal = externalData?.total ?? externalReviews.length;
-
-  // Auto-poll external platforms on page load — results appear without any manual action
-  useEffect(() => {
-    fetch("/api/external-reviews/refresh", { method: "POST" })
-      .then(() => refetchExternal())
-      .catch(() => {});
-  }, []);
 
   const pendingFollowUp = customers?.filter(c => c.status === "request_sent" && !c.doNotContact) || [];
 const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
@@ -361,7 +350,7 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
       <OnboardingChecklist />
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <button onClick={() => navigate("/customers")} className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4 hover:brightness-110 transition-[filter] text-left w-full">
           {statsLoading ? <Skeleton className="h-12 w-full opacity-30" /> : (
             <>
@@ -415,20 +404,6 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
               </div>
             </>
           )}
-        </button>
-        <button onClick={() => document.getElementById("platform-reviews")?.scrollIntoView({ behavior: "smooth", block: "start" })} className="flex items-center gap-3 bg-primary rounded-xl px-4 py-4 hover:brightness-110 transition-[filter] text-left w-full">
-          <>
-            <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-white/20">
-              <Star className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <div className="text-xl font-bold text-white leading-none">{externalTotal}</div>
-              <div className="text-[11.5px] text-white/70 mt-1 leading-tight">Total Reviews</div>
-              {!!externalData?.gainedSinceJoining && (
-                <div className="text-[10.5px] text-white/60 mt-0.5 leading-tight">+{externalData.gainedSinceJoining} since joining</div>
-              )}
-            </div>
-          </>
         </button>
       </div>
 
@@ -527,125 +502,6 @@ const unrespondedFeedback = privateFeedback.filter(f => !f.responded);
             </CardContent>
           </Card>
 
-          {/* Platform reviews feed */}
-          <Card id="platform-reviews" className="border-card-border">
-            <CardHeader className="pb-2 pt-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">Platform Reviews</CardTitle>
-                <button
-                  className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
-                  title="Refresh now"
-                  onClick={async (e) => {
-                    const btn = e.currentTarget as HTMLButtonElement;
-                    btn.disabled = true;
-                    try {
-                      const res = await fetch("/api/external-reviews/refresh", { method: "POST" });
-                      const data = await res.json();
-                      if (data.error) { setRefreshResult("Error: " + data.error); }
-                      else if (!data.results || data.results.length === 0) { setRefreshResult("No platforms configured — settings row may be missing. Try saving your Google link in Settings first."); }
-                      else {
-                        const summary = data.results
-                          .map((r: any) => `${r.platform}: ${r.skipped ? "⏭ skipped (no link)" : r.error ? `❌ ${r.error}` : `✓ ${r.found} found, ${r.saved} new`}`)
-                          .join("\n");
-                        setRefreshResult(summary);
-                      }
-                      await refetchExternal();
-                    } catch {}
-                    btn.disabled = false;
-                  }}
-                >
-                  <RefreshCw className={cn("w-3.5 h-3.5", externalFetching && "animate-spin")} />
-                </button>
-              </div>
-              <p className="text-[11.5px] text-muted-foreground mt-0.5">
-                {(() => {
-                  const platforms = [
-                    settings?.googleReviewLink && "Google",
-                    settings?.facebookReviewLink && "Facebook",
-                    settings?.trustpilotLink && "Trustpilot",
-                    settings?.tripadvisorLink && "TripAdvisor",
-                    settings?.checkatradeLink && "Checkatrade",
-                    settings?.mybuilderLink && "MyBuilder",
-                  ].filter(Boolean) as string[];
-                  if (platforms.length === 0) return "Add platform links in Settings to import reviews";
-                  if (platforms.length === 1) return `Reviews pulled from ${platforms[0]}`;
-                  return `Reviews pulled from ${platforms.slice(0, -1).join(", ")} and ${platforms[platforms.length - 1]}`;
-                })()}
-              </p>
-            </CardHeader>
-            <CardContent className="px-4 pb-3">
-              {externalReviews.length === 0 ? (
-                (() => {
-                  const hasLinks = !!(settings?.googleReviewLink || settings?.facebookReviewLink || settings?.trustpilotLink || settings?.tripadvisorLink || settings?.checkatradeLink || settings?.mybuilderLink);
-                  return hasLinks
-                    ? <p className="text-[12px] text-muted-foreground py-2">Links added — checking your platforms for reviews. This can take a minute. Hit the refresh button above if nothing appears.</p>
-                    : <p className="text-[12px] text-muted-foreground py-2">Add your platform links in Settings → Review Platforms, then come back here to see your reviews pulled in automatically.</p>;
-                })()
-              ) : (
-                <>
-                <p className="text-[11px] text-muted-foreground mb-2">{externalTotal} review{externalTotal !== 1 ? "s" : ""} imported from your platforms</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 max-h-[480px] overflow-y-auto pr-1">
-                  {externalReviews.map((r: any) => {
-                    const platformColours: Record<string, { bg: string; text: string; label: string }> = {
-                      google:       { bg: "bg-blue-50 dark:bg-blue-950/30",  text: "text-blue-700 dark:text-blue-300",  label: "Google" },
-                      checkatrade:  { bg: "bg-teal-50 dark:bg-teal-950/30",  text: "text-teal-700 dark:text-teal-300",  label: "Checkatrade" },
-                      trustpilot:   { bg: "bg-green-50 dark:bg-green-950/30",text: "text-green-700 dark:text-green-300", label: "Trustpilot" },
-                      tripadvisor:  { bg: "bg-emerald-50 dark:bg-emerald-950/30", text: "text-emerald-700 dark:text-emerald-300", label: "TripAdvisor" },
-                      mybuilder:    { bg: "bg-orange-50 dark:bg-orange-950/30", text: "text-orange-700 dark:text-orange-300", label: "MyBuilder" },
-                    };
-                    const p = platformColours[r.platform] || { bg: "bg-muted", text: "text-muted-foreground", label: r.platform };
-                    return (
-                      <div key={r.id} className="py-2.5 border-b border-border/50 last:border-0 sm:[&:nth-last-child(-n+2)]:border-0">
-                        <div className="flex items-start justify-between gap-2 mb-1">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0", p.bg, p.text)}>{p.label}</span>
-                            <div className="flex gap-0.5">
-                              {[1,2,3,4,5].map(i => (
-                                <Star key={i} className={cn("w-2.5 h-2.5", i <= r.rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30")} />
-                              ))}
-                            </div>
-                          </div>
-                          {r.posted_to_social && (
-                            <span className="flex items-center gap-1 text-[10px] text-green-600 dark:text-green-400 shrink-0">
-                              <Share2 className="w-2.5 h-2.5" />Posted
-                            </span>
-                          )}
-                        </div>
-                        {r.review_text && (
-                          <p className="text-[12px] text-foreground line-clamp-2 mb-0.5">"{r.review_text}"</p>
-                        )}
-                        <p className="text-[11px] text-muted-foreground">{r.author_name}{r.review_date ? ` · ${formatDistanceToNow(new Date(r.review_date), { addSuffix: true })}` : ""}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          <Dialog open={!!refreshResult} onOpenChange={(open) => { if (!open) setRefreshResult(null); }}>
-            <DialogContent className="sm:max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Refresh results</DialogTitle>
-              </DialogHeader>
-              <textarea
-                readOnly
-                value={refreshResult || ""}
-                className="w-full h-40 text-[12.5px] font-mono border rounded-md p-2.5 bg-muted/30 resize-none"
-                onFocus={(e) => e.currentTarget.select()}
-              />
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => { navigator.clipboard.writeText(refreshResult || ""); toast({ title: "Copied" }); }}
-                >
-                  Copy
-                </Button>
-                <Button onClick={() => setRefreshResult(null)}>Close</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
         </div>
 
         {/* Sidebar */}

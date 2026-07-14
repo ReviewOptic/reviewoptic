@@ -31,182 +31,6 @@ function SettingSection({ title, description, children }: { title: string; descr
   );
 }
 
-function GooglePlaceSearch({ savedPlaceId, onSelect }: { savedPlaceId: string; onSelect: (placeId: string) => void }) {
-  const [confirmed, setConfirmed] = useState(!!savedPlaceId);
-  const [confirmedName, setConfirmedName] = useState("");
-  const [connectedDetails, setConnectedDetails] = useState<{ name: string; address: string } | null>(null);
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<{ place_id: string; name: string; formatted_address: string; photo_ref: string | null }[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [pending, setPending] = useState<{ place_id: string; name: string; address: string; photoUrl: string | null; staticMapUrl?: string | null } | null>(null);
-  const [showUrlPaste, setShowUrlPaste] = useState(false);
-  const [urlInput, setUrlInput] = useState("");
-  const [urlLoading, setUrlLoading] = useState(false);
-  const [urlError, setUrlError] = useState("");
-  const [checkedLink, setCheckedLink] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const search = (q: string) => {
-    setQuery(q);
-    setError("");
-    if (timerRef.current) clearTimeout(timerRef.current);
-    if (!q.trim()) { setResults([]); return; }
-    timerRef.current = setTimeout(async () => {
-      setLoading(true);
-      try {
-        const r = await fetch(`/api/settings/google-place-search?q=${encodeURIComponent(q)}`, { credentials: "include" });
-        const data = await r.json();
-        if (!r.ok) { setError(data.error || "Search failed"); setResults([]); }
-        else setResults(data);
-      } catch { setError("Search failed"); }
-      finally { setLoading(false); }
-    }, 350);
-  };
-
-  const pick = (item: { place_id: string; name: string; formatted_address: string; photo_ref: string | null }) => {
-    setResults([]);
-    setQuery("");
-    setCheckedLink(false);
-    const photoUrl = item.photo_ref ? `/api/settings/google-place-photo?ref=${encodeURIComponent(item.photo_ref)}` : null;
-    setPending({ place_id: item.place_id, name: item.name, address: item.formatted_address, photoUrl });
-  };
-
-  useEffect(() => {
-    if (savedPlaceId && confirmed && !confirmedName) {
-      fetch(`/api/settings/google-place-details?place_id=${savedPlaceId}`, { credentials: "include" })
-        .then(r => r.ok ? r.json() : null)
-        .then(d => { if (d?.name) setConnectedDetails({ name: d.name, address: d.formatted_address || "" }); })
-        .catch(() => {});
-    }
-  }, [savedPlaceId, confirmed]);
-
-  const disconnect = async () => {
-    await fetch("/api/settings/google-maps-link", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ googleMapsLink: "" }) });
-    await fetch("/api/settings/google-disconnect", { method: "POST", credentials: "include" });
-    setConfirmed(false);
-    setConnectedDetails(null);
-    setConfirmedName("");
-  };
-
-  const resolveUrl = async () => {
-    if (!urlInput.trim()) return;
-    setUrlLoading(true);
-    setUrlError("");
-    try {
-      const r = await fetch(`/api/settings/google-resolve-url?url=${encodeURIComponent(urlInput.trim())}`, { credentials: "include" });
-      const d = await r.json();
-      if (!r.ok) { setUrlError(d.error || "Could not find your business from that link."); }
-      else {
-        const photoUrl = d.photo_ref ? `/api/settings/google-place-photo?ref=${encodeURIComponent(d.photo_ref)}` : null;
-        const staticMapUrl = (!photoUrl && d.lat && d.lng) ? `/api/settings/google-static-map?lat=${d.lat}&lng=${d.lng}` : null;
-        setCheckedLink(false);
-        setPending({ place_id: d.place_id, name: d.name, address: d.formatted_address, photoUrl, staticMapUrl });
-        setShowUrlPaste(false);
-        setUrlInput("");
-      }
-    } catch { setUrlError("Something went wrong. Try again."); }
-    finally { setUrlLoading(false); }
-  };
-
-  if (confirmed && savedPlaceId) {
-    const displayName = confirmedName || connectedDetails?.name;
-    const displayAddress = connectedDetails?.address;
-    return (
-      <div className="space-y-2">
-        <div className="p-3 rounded-md border bg-muted/40 space-y-2">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <p className="text-[13px] font-medium text-green-700 dark:text-green-400">✓ Connected</p>
-              {displayName && <p className="text-[13px] font-semibold mt-0.5">{displayName}</p>}
-              {displayAddress && <p className="text-[11px] text-muted-foreground">{displayAddress}</p>}
-              <p className="text-[11px] text-muted-foreground mt-1">Reviews import automatically every 6 hours.</p>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="text-[12px]" onClick={async () => { await fetch("/api/settings/google-disconnect", { method: "POST", credentials: "include" }); setConfirmed(false); setPending(null); setConnectedDetails(null); setConfirmedName(""); }}>Change</Button>
-            <Button variant="outline" size="sm" className="text-[12px] text-red-600 hover:text-red-700 border-red-200" onClick={disconnect}>Disconnect</Button>
-            <a href={savedPlaceId.startsWith("cid:") ? `https://www.google.com/maps?cid=${savedPlaceId.slice(4)}` : `https://www.google.com/maps/place/?q=place_id:${savedPlaceId}`} target="_blank" rel="noreferrer" className="text-[11px] text-blue-600 dark:text-blue-400 underline self-center ml-auto">View on Google Maps →</a>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (pending) {
-    const mapsUrl = pending.place_id.startsWith("cid:")
-      ? `https://www.google.com/maps?cid=${pending.place_id.slice(4)}`
-      : `https://www.google.com/maps/place/?q=place_id:${pending.place_id}`;
-    return (
-      <div className="space-y-3">
-        <div className="p-3 rounded-md border bg-muted/40">
-          <p className="text-[13px] font-medium">{pending.name}</p>
-          <a href={mapsUrl} target="_blank" rel="noreferrer" onClick={() => setCheckedLink(true)} className="text-[11px] text-blue-600 dark:text-blue-400 underline">Check this is correct on Google Maps →</a>
-        </div>
-        {!checkedLink && <p className="text-[11px] text-muted-foreground">Please open the link above to confirm this is your business.</p>}
-        <div className="flex gap-2">
-          <Button size="sm" disabled={!checkedLink} onClick={() => { onSelect(pending.place_id); setConfirmed(true); setConfirmedName(pending.name); setPending(null); }}>Yes, this is my business</Button>
-          <Button variant="outline" size="sm" onClick={() => { setPending(null); setCheckedLink(false); }}>No, try a different link</Button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-1.5">
-      <Label className="text-[12.5px]">Search for your business</Label>
-      <div className="relative">
-        <input
-          value={query}
-          onChange={e => search(e.target.value)}
-          placeholder="Start typing your business name…"
-          autoComplete="off"
-          spellCheck={false}
-          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-        />
-        {results.length > 0 && (
-          <div className="absolute z-50 w-full mt-1 rounded-md border bg-popover shadow-lg">
-            {results.map(r => (
-              <button
-                key={r.place_id}
-                type="button"
-                onClick={() => pick(r)}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-muted/60 border-b last:border-b-0 flex items-center gap-2.5"
-              >
-                {r.photo_ref
-                  ? <img src={`/api/settings/google-place-photo?ref=${encodeURIComponent(r.photo_ref)}`} alt="" className="w-9 h-9 rounded object-cover flex-shrink-0" />
-                  : <div className="w-9 h-9 rounded bg-muted flex-shrink-0" />}
-                <div className="min-w-0">
-                  <p className="font-medium truncate">{r.name}</p>
-                  {r.formatted_address && <p className="text-muted-foreground text-[11px] truncate">{r.formatted_address}</p>}
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-      {loading && <p className="text-[11px] text-muted-foreground">Searching…</p>}
-      {error && <p className="text-[11px] text-red-500">{error}</p>}
-
-      <div className="pt-1 space-y-1.5">
-        <p className="text-[11px] text-muted-foreground">Can't find your business? Paste your Google Maps link instead:</p>
-        <div className="flex gap-2">
-          <input
-            value={urlInput}
-            onChange={e => { setUrlInput(e.target.value); setUrlError(""); }}
-            placeholder="https://maps.app.goo.gl/..."
-            autoComplete="off"
-            spellCheck={false}
-            className="flex h-9 flex-1 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          />
-          <Button size="sm" onClick={resolveUrl} disabled={urlLoading}>{urlLoading ? "Looking up…" : "Connect"}</Button>
-        </div>
-        {urlError && <p className="text-[11px] text-red-500">{urlError}</p>}
-      </div>
-    </div>
-  );
-}
-
 export default function Settings() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -230,7 +54,6 @@ export default function Settings() {
   const [fbManual, setFbManual] = useState(() => new URLSearchParams(window.location.search).get("fbmanual") === "1");
   const [fbPageUrl, setFbPageUrl] = useState("");
   const [fbPageLoading, setFbPageLoading] = useState(false);
-  const [gbpError] = useState(() => new URLSearchParams(window.location.search).get("gbp_error") || "");
 
   const connectFbPage = async () => {
     if (!fbPageUrl.trim()) return;
@@ -288,8 +111,6 @@ export default function Settings() {
     logoUrl: "",
     logoPosition: "left",
     googleReviewLink: "",
-    googleMapsLink: "",
-    startingReviewCount: 0,
     facebookReviewLink: "",
     trustpilotLink: "",
     tripadvisorLink: "",
@@ -327,8 +148,6 @@ export default function Settings() {
         logoUrl: settings.logoUrl || "",
         logoPosition: settings.logoPosition || "left",
         googleReviewLink: settings.googleReviewLink || "",
-        googleMapsLink: settings.googleMapsLink || "",
-        startingReviewCount: (settings as any).startingReviewCount || 0,
         facebookReviewLink: settings.facebookReviewLink || "",
         trustpilotLink: settings.trustpilotLink || "",
         tripadvisorLink: settings.tripadvisorLink || "",
@@ -662,29 +481,6 @@ export default function Settings() {
               <CardDescription className="text-[12.5px]">Add links where customers can leave reviews. Happy customers (4-5 stars) will be directed here.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 pb-5">
-              <div className="space-y-1.5 border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900 rounded-lg p-3">
-                <Label className="text-[12.5px]">Total existing reviews (all platforms) — required</Label>
-                <p className="text-[11px] text-muted-foreground">Add up your review counts from Google, Checkatrade, Trustpilot etc. right now. This lets us show how many reviews you've gained since joining ReviewOptic.</p>
-                <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    min={0}
-                    value={form.startingReviewCount}
-                    onChange={e => setForm(f => ({ ...f, startingReviewCount: parseInt(e.target.value, 10) || 0 }))}
-                    className="flex-1"
-                  />
-                  <Button
-                    variant="outline"
-                    onClick={async () => {
-                      await fetch("/api/settings/starting-review-count", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ startingReviewCount: form.startingReviewCount }) });
-                      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
-                      toast({ title: "Saved" });
-                    }}
-                  >
-                    Save
-                  </Button>
-                </div>
-              </div>
               <p className="text-[12px] text-muted-foreground">Add at least one. Happy customers will be directed to whichever platforms you've filled in.</p>
               {[
                 { label: "Google Business (review link)", key: "googleReviewLink", placeholder: "https://g.page/r/...", hint: "Sent to customers when requesting a review." },
@@ -997,53 +793,6 @@ export default function Settings() {
                   </div>
                 </div>
 
-                <div className="border-t border-border" />
-
-                {/* Google Review Importing */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-3">
-                    <img src="https://www.google.com/favicon.ico" alt="Google" className="w-8 h-8 flex-shrink-0" />
-                    <div>
-                      <p className="text-[13.5px] font-medium">Google Reviews</p>
-                      {(settings as any)?.gbpConnected && (
-                        <p className="text-[12px] text-green-600 font-medium">Connected · {(settings as any)?.gbpBusinessName || "Google Business Profile"}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {gbpError && (
-                    <p className="text-[12px] text-red-600 bg-red-50 border border-red-200 rounded p-2">{gbpError}</p>
-                  )}
-
-                  {/* GBP OAuth — primary connection method */}
-                  {(settings as any)?.gbpConnected ? (
-                    <Button
-                      variant="outline" size="sm" className="text-[12px] text-red-600 hover:text-red-700 border-red-200"
-                      onClick={async () => {
-                        await fetch("/api/social/google-business", { method: "DELETE", credentials: "include" });
-                        window.location.reload();
-                      }}
-                    >
-                      Disconnect Google Business Profile
-                    </Button>
-                  ) : (
-                    <div className="space-y-3">
-                      <Button variant="outline" size="sm" className="text-[12px] gap-2" onClick={() => window.location.href = "/auth/google-business"}>
-                        <img src="https://www.google.com/favicon.ico" alt="" className="w-4 h-4" />
-                        Connect Google Business Profile
-                      </Button>
-                      <p className="text-[11px] text-muted-foreground">Sign in with Google to import all your reviews automatically. Or find your business manually:</p>
-                      <GooglePlaceSearch
-                        savedPlaceId={form.googleMapsLink}
-                        onSelect={placeId => {
-                          setForm(f => ({ ...f, googleMapsLink: placeId }));
-                          fetch("/api/settings/google-maps-link", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ googleMapsLink: placeId }) })
-                            .catch(() => {});
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
 
                 <div className="border-t border-border" />
 

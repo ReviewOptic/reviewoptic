@@ -756,7 +756,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       await pool.query(`DELETE FROM reviews WHERE account_id = $1`, [existing.accountId]);
       await pool.query(`DELETE FROM review_requests WHERE account_id = $1`, [existing.accountId]);
       await pool.query(`DELETE FROM customers WHERE account_id = $1`, [existing.accountId]);
-      await pool.query(`DELETE FROM ext.external_reviews WHERE account_id = $1`, [existing.accountId]).catch(() => {});
       await pool.query(`DELETE FROM settings WHERE account_id = $1`, [existing.accountId]);
       await pool.query(`DELETE FROM users WHERE id = $1`, [existing.id]);
       await pool.query(`DELETE FROM accounts WHERE id = $1`, [existing.accountId]);
@@ -908,35 +907,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
          VALUES ($1,$2,$3,$4,$5,$6)`,
         [logId, aid, type, c.name, message, daysAgo(c.daysAgo)]
       );
-    }
-
-    // Seed external reviews so the Platform Reviews card looks realistic
-    const EXTERNAL_REVIEWS = [
-      { platform: "google", author: "J. Mitchell", rating: 5, text: "Absolutely fantastic service. James came out the same day and sorted our boiler in under an hour. Couldn't ask for more.", daysAgo: 3, social: true },
-      { platform: "google", author: "C. Brown", rating: 5, text: "Brilliant from start to finish. Very professional, tidy and reasonably priced. Would 100% recommend to anyone.", daysAgo: 7, social: false },
-      { platform: "google", author: "R. Patel", rating: 4, text: "Really happy with the work. Arrived on time and kept us informed throughout. Will definitely use again.", daysAgo: 12, social: false },
-      { platform: "google", author: "S. Thompson", rating: 5, text: "Had an emergency leak late on a Friday — James was there within the hour. Absolute lifesaver. Top quality work.", daysAgo: 18, social: true },
-      { platform: "trustpilot", author: "L. Davies", rating: 5, text: "Professional, friendly and great value. The bathroom installation was completed ahead of schedule and looks amazing.", daysAgo: 5, social: true },
-      { platform: "trustpilot", author: "M. Wilson", rating: 5, text: "Used Hartley Plumbing twice now and both times they've been excellent. Highly recommended local tradesman.", daysAgo: 22, social: false },
-      { platform: "trustpilot", author: "A. Evans", rating: 4, text: "Solid work on our central heating installation. Honest pricing and no hidden extras. Would use again.", daysAgo: 35, social: false },
-      { platform: "checkatrade", author: "P. Clarke", rating: 5, text: "5 stars all round. Turned up when they said, did the job properly and cleaned up after themselves. Rare these days!", daysAgo: 9, social: true },
-      { platform: "checkatrade", author: "D. Harris", rating: 5, text: "Replaced our old boiler quickly and efficiently. The price matched the quote exactly. Very impressed.", daysAgo: 28, social: false },
-      { platform: "checkatrade", author: "F. Martin", rating: 4, text: "Good reliable service. Came out for an annual boiler service — quick, thorough and reasonably priced.", daysAgo: 45, social: false },
-      { platform: "tripadvisor", author: "B. Anderson", rating: 5, text: "Fantastic job on our new bathroom. Clean, professional and finished on time. Highly recommend to anyone looking for a reliable tradesperson.", daysAgo: 14, social: false },
-      { platform: "tripadvisor", author: "K. Roberts", rating: 5, text: "Excellent service from start to finish. Quoted a fair price, stuck to it, and the quality of work is outstanding.", daysAgo: 31, social: false },
-      { platform: "mybuilder", author: "T. Hughes", rating: 5, text: "James was brilliant — turned up on time, knew exactly what the problem was and fixed it quickly. Great price too.", daysAgo: 20, social: true },
-      { platform: "mybuilder", author: "N. Foster", rating: 5, text: "Hired for a full heating system replacement. Completed in two days, everything works perfectly. Would recommend without hesitation.", daysAgo: 40, social: false },
-    ];
-    for (const r of EXTERNAL_REVIEWS) {
-      const extId = `demo-${r.platform}-${r.author.replace(/\s/g, "")}`;
-      try {
-        await pool.query(
-          `INSERT INTO ext.external_reviews (id, account_id, platform, external_id, author_name, rating, review_text, review_date, posted_to_social, created_at)
-           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, NOW())
-           ON CONFLICT (account_id, platform, external_id) DO NOTHING`,
-          [aid, r.platform, extId, r.author, r.rating, r.text, daysAgo(r.daysAgo), r.social]
-        );
-      } catch { /* table may not exist yet — will seed on next restart once Replit creates it */ }
     }
 
     return { email: demoEmail, password: demoPassword };
@@ -1695,6 +1665,25 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           const appUrl = process.env.APP_URL || "https://reviewoptic.com";
           sendRatingNotificationEmail(ownerEmail.email, customer.name, rating, businessName, appUrl).catch(() => {});
         }
+
+        // Auto-post a star-rating card to Facebook/Instagram for 4-5★ ratings — consistent trigger,
+        // fires off a real ReviewOptic rating rather than depending on scraping external platforms
+        if (rating >= 4 && settings?.socialPostEnabled && settings.facebookPageAccessToken && settings.facebookPageId) {
+          const initials = customer.name.trim().split(/\s+/).map((p: string) => p[0]?.toUpperCase() + ".").join(" ") || "A. C.";
+          const caption = (settings.socialPostMessage || "⭐ We just received a {stars}★ review! Thank you {customer_name}!")
+            .replace("{stars}", String(rating))
+            .replace("{customer_name}", initials);
+          import("./social").then(({ postCardToSocial }) => postCardToSocial({
+            stars: rating,
+            customerInitials: initials,
+            businessName: settings.businessName || "",
+            cardTemplate: settings.socialCardTemplate || "classic",
+            caption,
+            facebookPageAccessToken: settings.facebookPageAccessToken,
+            facebookPageId: settings.facebookPageId,
+            instagramBusinessAccountId: settings.instagramBusinessAccountId || undefined,
+          })).catch(err => console.error("[social] Auto-post error:", err));
+        }
       }
 
       const templateType = rating >= 4 ? "response_positive" : "response_negative";
@@ -2219,47 +2208,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(await storage.getReviews(req.session.accountId!));
   });
 
-  // External reviews — fetched from public platforms (Google, Checkatrade etc.)
-  app.get("/api/external-reviews", requireAuth, async (req, res) => {
-    try {
-      const reviewRows = await pool.query(
-        `SELECT * FROM ext.external_reviews WHERE account_id = $1 ORDER BY review_date DESC NULLS LAST, created_at DESC LIMIT 20`,
-        [req.session.accountId]
-      );
-      // Use real platform totals (scraped from platform pages) if available — shows true count, not just imported
-      const countRow = await pool.query(`SELECT COUNT(*) FROM ext.external_reviews WHERE account_id = $1`, [req.session.accountId]);
-      let total = parseInt(countRow.rows[0].count, 10);
-      let gainedSinceJoining = 0;
-      try {
-        const extRow = await pool.query(
-          `SELECT platform_review_totals, starting_review_count FROM ext.settings_extra WHERE account_id = $1`,
-          [req.session.accountId]
-        );
-        const stored = extRow.rows[0]?.platform_review_totals;
-        if (stored) {
-          const map = JSON.parse(stored) as Record<string, number>;
-          const sum = Object.values(map).reduce((a, b) => a + b, 0);
-          if (sum > 0) total = sum;
-        }
-        // "Reviews gained since joining" — current total minus the starting count entered at signup
-        const startingCount = extRow.rows[0]?.starting_review_count || 0;
-        gainedSinceJoining = Math.max(0, total - startingCount);
-      } catch { /* no stored totals yet — fall back to imported count */ }
-      res.json({ reviews: reviewRows.rows, total, gainedSinceJoining });
-    } catch { res.json({ reviews: [], total: 0 }); }
-  });
-
-  // Manually trigger a refresh for the current account — waits for poll and returns per-platform results
-  app.post("/api/external-reviews/refresh", requireAuth, async (req, res) => {
-    const { pollExternalReviewsForAccount } = await import("./externalReviews");
-    try {
-      const results = await pollExternalReviewsForAccount(req.session.accountId!);
-      res.json({ results });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
   // Private Feedback (GET/PATCH — protected; POST is public above)
   app.get("/api/private-feedback", requireAuth, async (req, res) => {
     const rows = await pool.query(`
@@ -2665,196 +2613,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ key, country });
   });
 
-  app.get("/api/settings/google-place-search", requireAuth, async (req, res) => {
-    const q = (req.query.q as string || "").trim();
-    if (!q) return res.json([]);
-    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
-    if (!apiKey) return res.status(500).json({ error: "GOOGLE_PLACES_API_KEY not set" });
-    try {
-      const axios = (await import("axios")).default;
-      // Fire findplacefromtext (text-match, not popularity-ranked) and autocomplete in parallel
-      const [findRes, acRes] = await Promise.allSettled([
-        axios.get("https://maps.googleapis.com/maps/api/place/findplacefromtext/json", {
-          params: { input: q, inputtype: "textquery", fields: "place_id,name,formatted_address,photos", key: apiKey }, timeout: 8000
-        }),
-        axios.get("https://maps.googleapis.com/maps/api/place/autocomplete/json", {
-          params: { input: q, key: apiKey, language: "en" }, timeout: 8000
-        }),
-      ]);
-
-      const seen = new Set<string>();
-      const merged: any[] = [];
-
-      // findplacefromtext results first — text-match beats popularity ranking
-      if (findRes.status === "fulfilled") {
-        console.log(`[place-search] findplacefromtext status=${findRes.value.data?.status} candidates=${findRes.value.data?.candidates?.length ?? 0}`);
-        for (const p of (findRes.value.data?.candidates || []).slice(0, 4)) {
-          if (!seen.has(p.place_id)) {
-            seen.add(p.place_id);
-            merged.push({ place_id: p.place_id, name: p.name, formatted_address: p.formatted_address || "", photo_ref: p.photos?.[0]?.photo_reference || null });
-          }
-        }
-      }
-
-      // Autocomplete fills remaining slots
-      if (acRes.status === "fulfilled") {
-        console.log(`[place-search] autocomplete status=${acRes.value.data?.status} predictions=${acRes.value.data?.predictions?.length ?? 0}`);
-        for (const p of (acRes.value.data?.predictions || []).slice(0, 6)) {
-          if (!seen.has(p.place_id)) {
-            seen.add(p.place_id);
-            merged.push({ place_id: p.place_id, name: p.structured_formatting?.main_text || p.description, formatted_address: p.structured_formatting?.secondary_text || "", photo_ref: null });
-          }
-        }
-      }
-
-      if (merged.length === 0) {
-        const err = (acRes.status === "fulfilled" && acRes.value.data?.status !== "OK" && acRes.value.data?.status !== "ZERO_RESULTS") ? acRes.value.data?.status : null;
-        if (err) return res.status(500).json({ error: `Google API: ${err} — check API key and billing` });
-        return res.json([]);
-      }
-
-      // Fetch photos for autocomplete-only entries (findplacefromtext already has them)
-      const withPhotos = await Promise.all(merged.slice(0, 6).map(async (c) => {
-        if (c.photo_ref) return c;
-        try {
-          const det = await axios.get("https://maps.googleapis.com/maps/api/place/details/json", {
-            params: { place_id: c.place_id, fields: "photos", key: apiKey }, timeout: 5000
-          });
-          return { ...c, photo_ref: det.data?.result?.photos?.[0]?.photo_reference || null };
-        } catch { return c; }
-      }));
-      res.json(withPhotos);
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  app.get("/api/settings/google-resolve-url", requireAuth, async (req, res) => {
-    const url = (req.query.url as string || "").trim();
-    if (!url) return res.status(400).json({ error: "url required" });
-    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
-    if (!apiKey) return res.status(500).json({ error: "GOOGLE_PLACES_API_KEY not set" });
-    try {
-      const { resolveGooglePlaceWithName } = await import("./externalReviews");
-      const resolved = await resolveGooglePlaceWithName(url, apiKey);
-      if (!resolved) return res.status(404).json({ error: "Could not find your business from that link. Try a different link." });
-
-      let photo_ref: string | null = null;
-      let formatted_address = "";
-      if (resolved.placeId && (resolved.placeId.startsWith("ChIJ") || resolved.placeId.startsWith("cid:"))) {
-        try {
-          const axiosLib = (await import("axios")).default;
-          const det = await axiosLib.get("https://maps.googleapis.com/maps/api/place/details/json", {
-            params: { place_id: resolved.placeId, fields: "photos,formatted_address", key: apiKey }, timeout: 6000
-          });
-          photo_ref = det.data?.result?.photos?.[0]?.photo_reference || null;
-          formatted_address = det.data?.result?.formatted_address || "";
-        } catch {}
-      }
-
-      res.json({
-        place_id: resolved.placeId,
-        name: resolved.name,
-        formatted_address,
-        photo_ref,
-        // Pin coordinates returned so UI can show static map when no photo available
-        lat: resolved.lat,
-        lng: resolved.lng,
-      });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  app.get("/api/settings/google-place-details", requireAuth, async (req, res) => {
-    const placeId = req.query.place_id as string;
-    if (!placeId) return res.status(400).end();
-    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
-    if (!apiKey) return res.status(500).end();
-    try {
-      const r = await (await import("axios")).default.get(
-        "https://maps.googleapis.com/maps/api/place/details/json",
-        { params: { place_id: placeId, fields: "name,formatted_address,photos", key: apiKey }, timeout: 8000 }
-      );
-      const result = r.data?.result || {};
-      res.json({ photo_ref: result.photos?.[0]?.photo_reference || null, name: result.name || "", formatted_address: result.formatted_address || "" });
-    } catch { res.json({ photo_ref: null, name: "", formatted_address: "" }); }
-  });
-
-  app.post("/api/settings/google-disconnect", requireAuth, async (req, res) => {
-    try {
-      await pool.query(`DELETE FROM ext.external_reviews WHERE account_id = $1 AND platform = 'google'`, [req.session.accountId!]);
-      res.json({ ok: true });
-    } catch (err: any) {
-      res.status(500).json({ message: err.message });
-    }
-  });
-
-  app.get("/api/settings/google-static-map", requireAuth, async (req, res) => {
-    const { lat, lng } = req.query as { lat: string; lng: string };
-    if (!lat || !lng) return res.status(400).end();
-    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
-    if (!apiKey) return res.status(500).end();
-    try {
-      const r = await (await import("axios")).default.get(
-        "https://maps.googleapis.com/maps/api/staticmap",
-        { params: { center: `${lat},${lng}`, zoom: 16, size: "200x200", markers: `color:red|${lat},${lng}`, key: apiKey }, responseType: "stream", timeout: 8000 }
-      );
-      res.setHeader("Content-Type", "image/png");
-      res.setHeader("Cache-Control", "public, max-age=86400");
-      r.data.pipe(res);
-    } catch { res.status(404).end(); }
-  });
-
-  app.get("/api/settings/google-place-photo", requireAuth, async (req, res) => {
-    const ref = req.query.ref as string;
-    if (!ref) return res.status(400).end();
-    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
-    if (!apiKey) return res.status(500).end();
-    try {
-      const r = await (await import("axios")).default.get(
-        "https://maps.googleapis.com/maps/api/place/photo",
-        { params: { maxwidth: 80, photo_reference: ref, key: apiKey }, responseType: "stream", timeout: 8000 }
-      );
-      res.setHeader("Content-Type", r.headers["content-type"] || "image/jpeg");
-      res.setHeader("Cache-Control", "public, max-age=86400");
-      r.data.pipe(res);
-    } catch { res.status(404).end(); }
-  });
-
-  app.post("/api/settings/google-maps-link", requireAuth, async (req, res) => {
-    const { googleMapsLink } = req.body;
-    if (googleMapsLink === undefined) return res.status(400).json({ message: "googleMapsLink required" });
-    try {
-      await pool.query(
-        `INSERT INTO ext.settings_extra (account_id, google_maps_link) VALUES ($1, $2) ON CONFLICT (account_id) DO UPDATE SET google_maps_link = $2`,
-        [req.session.accountId!, googleMapsLink]
-      );
-      res.json({ ok: true });
-      if (googleMapsLink.trim()) {
-        import("./externalReviews").then(({ pollExternalReviewsForAccount }) =>
-          pollExternalReviewsForAccount(req.session.accountId!).catch(console.error)
-        );
-      }
-    } catch (err: any) {
-      res.status(500).json({ message: err.message });
-    }
-  });
-
-  app.post("/api/settings/starting-review-count", requireAuth, async (req, res) => {
-    const count = parseInt(req.body?.startingReviewCount, 10);
-    if (isNaN(count) || count < 0) return res.status(400).json({ message: "startingReviewCount must be a positive number" });
-    try {
-      await pool.query(
-        `INSERT INTO ext.settings_extra (account_id, starting_review_count) VALUES ($1, $2) ON CONFLICT (account_id) DO UPDATE SET starting_review_count = $2`,
-        [req.session.accountId!, count]
-      );
-      res.json({ ok: true });
-    } catch (err: any) {
-      res.status(500).json({ message: err.message });
-    }
-  });
-
   app.patch("/api/settings", requireAuth, async (req, res) => {
     try {
       const body = { ...req.body };
@@ -2876,13 +2634,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         );
       }
       res.json(s);
-      // If any review platform links were updated, trigger a background poll immediately
-      const platformKeys = ["googleReviewLink", "googleMapsLink", "checkatradeLink", "trustpilotLink", "tripadvisorLink", "mybuilderLink"];
-      if (platformKeys.some(k => body[k] !== undefined)) {
-        import("./externalReviews").then(({ pollExternalReviewsForAccount }) =>
-          pollExternalReviewsForAccount(req.session.accountId!).catch(console.error)
-        );
-      }
     } catch (err: any) {
       console.error("Failed to save settings:", err);
       res.status(500).json({ message: "Failed to save settings", detail: err?.message });
@@ -3256,17 +3007,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       platformClicks = pcRows.map(r => ({ platform: r.platform, count: r.count }));
     } catch { /* ignore */ }
 
-    // Review sources — where external reviews have come from (all time)
-    let reviewSources: { platform: string; count: number }[] = [];
-    try {
-      const { rows: srcRows } = await pool.query(`
-        SELECT platform, COUNT(*)::int as count
-        FROM ext.external_reviews WHERE account_id = $1
-        GROUP BY platform ORDER BY count DESC
-      `, [accountId]);
-      reviewSources = srcRows.map(r => ({ platform: r.platform, count: r.count }));
-    } catch { /* ignore */ }
-
     res.json({
       daily: Object.values(dailyData),
       dailyByChannel: Object.values(channelDailyData),
@@ -3286,7 +3026,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       platformClicks,
       pipelineData,
       contentTypeData,
-      reviewSources,
     });
   });
 
@@ -3449,109 +3188,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.delete("/api/social/facebook", requireAuth, async (req, res) => {
     await storage.upsertSettings(req.session.accountId!, { facebookPageAccessToken: "", facebookPageId: "", facebookPageName: "", instagramBusinessAccountId: "", instagramUsername: "", instagramProfilePicUrl: "" });
     res.json({ success: true });
-  });
-
-  // ── Google Business Profile OAuth ─────────────────────────────────────────
-
-  app.get("/auth/google-business", requireAuth, async (req, res) => {
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    if (!clientId) return res.status(400).send("GOOGLE_CLIENT_ID not set in Replit Secrets.");
-    const state = randomUUID();
-    req.session.gbpOauthState = state;
-    await new Promise<void>((resolve, reject) => req.session.save(err => err ? reject(err) : resolve()));
-    const APP_URL = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000");
-    const params = new URLSearchParams({
-      client_id: clientId,
-      redirect_uri: `${APP_URL}/auth/google-business/callback`,
-      response_type: "code",
-      scope: "https://www.googleapis.com/auth/business.manage",
-      access_type: "offline",
-      prompt: "consent",
-      state,
-    });
-    res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
-  });
-
-  app.get("/auth/google-business/callback", async (req, res) => {
-    const { code, state, error } = req.query as any;
-    const APP_URL = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000");
-    if (error) return res.redirect(`${APP_URL}/settings?tab=social&gbp_error=${encodeURIComponent(String(error))}`);
-    if (!state || state !== req.session.gbpOauthState) return res.status(400).send("Invalid OAuth state — please try connecting again.");
-    const accountId = req.session.accountId;
-    if (!accountId) return res.status(401).send("Not authenticated.");
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-    if (!clientId || !clientSecret) return res.status(500).send("GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET not set in Replit Secrets.");
-    try {
-      // Exchange code for tokens
-      const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ code, client_id: clientId, client_secret: clientSecret, redirect_uri: `${APP_URL}/auth/google-business/callback`, grant_type: "authorization_code" }),
-      });
-      const tokenData = await tokenRes.json() as any;
-      console.log("[gbp] token exchange:", tokenData.access_token ? "OK" : `FAILED: ${JSON.stringify(tokenData)}`);
-      if (!tokenData.access_token) return res.redirect(`${APP_URL}/settings?tab=social&gbp_error=${encodeURIComponent("Token exchange failed: " + (tokenData.error_description || tokenData.error || "unknown"))}`);
-      const accessToken = tokenData.access_token as string;
-      const refreshToken = (tokenData.refresh_token || "") as string;
-
-      // Get the user's Business Profile account
-      const accountsRes = await fetch("https://mybusinessaccountmanagement.googleapis.com/v1/accounts", {
-        headers: { "Authorization": `Bearer ${accessToken}` },
-      });
-      const accountsData = await accountsRes.json() as any;
-      console.log("[gbp] accounts:", JSON.stringify(accountsData).substring(0, 300));
-      const gbpAccount = accountsData.accounts?.[0];
-      if (!gbpAccount) {
-        const apiError = accountsData.error;
-        let msg = "No Google Business Profile account found for this Google account.";
-        if (apiError?.code === 429 || apiError?.status === "RESOURCE_EXHAUSTED") {
-          msg = "Google Business Profile API quota is not yet active. The API access application is still pending approval from Google.";
-        } else if (apiError?.message) {
-          msg = `Google API error: ${apiError.message}`;
-        }
-        return res.redirect(`${APP_URL}/settings?tab=social&gbp_error=${encodeURIComponent(msg)}`);
-      }
-
-      // Get locations for this account (must use the Business Information API, not Account Management — different service)
-      const locRes = await fetch(`https://mybusinessbusinessinformation.googleapis.com/v1/${gbpAccount.name}/locations?readMask=name,title`, {
-        headers: { "Authorization": `Bearer ${accessToken}` },
-      });
-      const locData = await locRes.json() as any;
-      console.log("[gbp] locations:", JSON.stringify(locData).substring(0, 300));
-      const location = locData.locations?.[0];
-      if (!location) {
-        const msg = `Could not find a business location on this Google account: ${locData.error?.message || "no locations returned"}`;
-        return res.redirect(`${APP_URL}/settings?tab=social&gbp_error=${encodeURIComponent(msg)}`);
-      }
-      const locationResource = `${gbpAccount.name}/${location.name}`;
-      const businessName = location.title || gbpAccount.accountName || "";
-
-      // Store in ext.settings_extra (invisible to Replit migrations)
-      await pool.query(`
-        INSERT INTO ext.settings_extra (account_id, google_maps_link, gbp_access_token, gbp_refresh_token, gbp_location_resource, gbp_business_name)
-        VALUES ($1, '', $2, $3, $4, $5)
-        ON CONFLICT (account_id) DO UPDATE SET
-          gbp_access_token     = EXCLUDED.gbp_access_token,
-          gbp_refresh_token    = EXCLUDED.gbp_refresh_token,
-          gbp_location_resource = EXCLUDED.gbp_location_resource,
-          gbp_business_name    = EXCLUDED.gbp_business_name
-      `, [accountId, accessToken, refreshToken, locationResource, businessName]);
-
-      res.redirect(`${APP_URL}/settings?tab=social&gbp=connected`);
-    } catch (err: any) {
-      console.error("[gbp oauth callback]", err.message);
-      res.redirect(`${APP_URL}/settings?tab=social&gbp_error=unexpected`);
-    }
-  });
-
-  app.delete("/api/social/google-business", requireAuth, async (req, res) => {
-    await pool.query(`
-      UPDATE ext.settings_extra
-      SET gbp_access_token = '', gbp_refresh_token = '', gbp_location_resource = '', gbp_business_name = ''
-      WHERE account_id = $1
-    `, [req.session.accountId!]).catch(() => {});
-    res.json({ ok: true });
   });
 
   // ── Billing / Stripe ──────────────────────────────────────────────────────

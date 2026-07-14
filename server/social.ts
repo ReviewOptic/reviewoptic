@@ -1,6 +1,5 @@
 import { generateReviewCard } from "./reviewCard";
 import { isCloudinaryConfigured, uploadBufferToCloudinary } from "./cloudinary";
-import { pool } from "./storage";
 
 export interface SocialPostData {
   stars: number;
@@ -76,17 +75,4 @@ export async function postCardToSocial(data: SocialPostData): Promise<void> {
       console.error("[social] Instagram post error:", err);
     }
   }
-}
-
-// Check if an identical review (same account, same normalised text) has already been posted to social.
-// Prevents the same review appearing on multiple platforms from being posted twice.
-export async function hasBeenPostedAlready(accountId: string, reviewText: string): Promise<boolean> {
-  const normalised = reviewText.trim().toLowerCase().slice(0, 100);
-  const { rows } = await pool.query(
-    `SELECT id FROM external_reviews
-     WHERE account_id = $1 AND posted_to_social = true
-     AND LOWER(TRIM(review_text)) LIKE $2`,
-    [accountId, `${normalised}%`]
-  );
-  return rows.length > 0;
 }

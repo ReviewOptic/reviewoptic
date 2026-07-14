@@ -46,7 +46,7 @@ function useChartColors() {
 // ── Chart layout system ───────────────────────────────────────────────────
 const CHART_IDS = [
   "requests_vs_clicks", "requests_by_channel", "team", "funnel_channel",
-  "best_day", "follow_up", "pipeline", "platform_clicks", "review_sources", "template_perf", "content_type", "sentiment", "rating_over_time",
+  "best_day", "follow_up", "pipeline", "platform_clicks", "template_perf", "content_type", "sentiment", "rating_over_time",
 ] as const;
 type ChartId = typeof CHART_IDS[number];
 
@@ -59,7 +59,6 @@ const CHART_LABELS: Record<ChartId, string> = {
   follow_up: "Follow-up Effectiveness",
   pipeline: "Customer Pipeline",
   platform_clicks: "Where Reviews Are Going",
-  review_sources: "Reviews by Platform",
   template_perf: "Template Performance",
   content_type: "Content Type Performance",
   sentiment: "Sentiment Split & Star Ratings",
@@ -108,7 +107,6 @@ interface AnalyticsData {
   privateFeedbackCount?: number;
   avgResponseTimeHours?: number | null;
   platformClicks?: Array<{ platform: string; count: number }>;
-  reviewSources?: Array<{ platform: string; count: number }>;
   pipelineData?: Array<{ status: string; label: string; count: number }>;
   contentTypeData?: Array<{ type: string; label: string; sent: number; platformClicked: number; clickRate: number }>;
 }
@@ -803,39 +801,6 @@ export default function Analytics() {
                             <Tooltip contentStyle={tooltipStyle} formatter={(v) => [v, "Clicks"]} />
                             <Bar dataKey="count" name="Clicks" radius={[0, 4, 4, 0]} barSize={22} label={{ position: "right", fontSize: 11, fill: "hsl(var(--muted-foreground))" }}>
                               {chartData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
-                            </Bar>
-                          </BarChart>
-                        </ResponsiveContainer>
-                      );
-                    })()}
-                  </CardContent>
-                </Card>
-              );
-            case "review_sources":
-              if (!data?.reviewSources?.length) return null;
-              return (
-                <Card className="border-card-border">
-                  <CardHeader className="pb-2 pt-4 px-5">
-                    <CardTitle className="text-[14px] font-semibold">Reviews by Platform</CardTitle>
-                    <p className="text-[12px] text-muted-foreground">Where your external reviews are coming from</p>
-                  </CardHeader>
-                  <CardContent className="px-5 pb-4">
-                    {isLoading ? <Skeleton className="h-40 w-full" /> : (() => {
-                      const palette = [colors.requests, colors.reviews, colors.positive, colors.email, colors.sms, colors.rating, colors.negative, colors.whatsapp];
-                      const chartData = data.reviewSources!.map((p, i) => ({
-                        platform: p.platform.charAt(0).toUpperCase() + p.platform.slice(1),
-                        count: p.count,
-                        fill: palette[i % palette.length],
-                      }));
-                      return (
-                        <ResponsiveContainer width="100%" height={Math.max(120, chartData.length * 44)}>
-                          <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 40, bottom: 5, left: 10 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
-                            <XAxis type="number" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
-                            <YAxis type="category" dataKey="platform" tick={{ fontSize: 12, fill: "hsl(var(--foreground))" }} tickLine={false} axisLine={false} width={90} />
-                            <Tooltip contentStyle={tooltipStyle} formatter={(v) => [v, "Reviews"]} />
-                            <Bar dataKey="count" name="Reviews" radius={[0, 4, 4, 0]} barSize={22} label={{ position: "right", fontSize: 11, fill: "hsl(var(--muted-foreground))" }}>
-                              {chartData.map((_, i) => <Cell key={i} fill={palette[i % palette.length]} />)}
                             </Bar>
                           </BarChart>
                         </ResponsiveContainer>

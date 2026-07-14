@@ -14,7 +14,6 @@ type Settings = {
   tripadvisorLink?: string;
   checkatradeLink?: string;
   mybuilderLink?: string;
-  startingReviewCount?: number;
 };
 
 const DISMISSED_KEY = "ro_onboarding_dismissed";
@@ -44,7 +43,6 @@ export default function OnboardingChecklist() {
   const steps = [
     { done: hasBusinessDetails, label: "Add your business details", path: "/settings", hint: "Settings → Business tab" },
     { done: hasReviewPlatform, label: "Connect a review platform", path: "/settings?tab=platforms", hint: "Settings → Review Platforms tab" },
-    { done: !!settings?.startingReviewCount, label: "Enter your total existing reviews", path: "/settings?tab=platforms", hint: "Settings → Review Platforms tab" },
     { done: hasCustomers, label: "Add your first customer", path: "/customers", hint: "Customers page → Add Customer" },
     { done: hasSentRequest, label: "Send your first review request", path: "/customers", hint: "Customers page → Send Request" },
   ];
