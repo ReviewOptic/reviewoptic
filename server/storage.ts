@@ -347,7 +347,7 @@ export class DatabaseStorage implements IStorage {
     // Remove any existing tokens for this user
     await db.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, userId));
     const token = randomUUID();
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
     await db.insert(passwordResetTokens).values({ token, userId, expiresAt });
     return token;
   }

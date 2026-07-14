@@ -54,7 +54,6 @@ async function getUserStats(accountId: string): Promise<UserStats | null> {
   const now = new Date();
   const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
   const [
     settingsRes, totalReviewsRes, avgRatingRes, reviewsThisMonthRes,
@@ -66,11 +65,12 @@ async function getUserStats(accountId: string): Promise<UserStats | null> {
     pool.query(`SELECT ROUND(AVG(stars)::numeric, 1) as avg FROM reviews WHERE account_id = $1`, [accountId]),
     pool.query(`SELECT COUNT(*) FROM reviews WHERE account_id = $1 AND created_at >= $2`, [accountId, startOfThisMonth]),
     pool.query(`SELECT COUNT(*) as count, ROUND(AVG(stars)::numeric, 1) as avg FROM reviews WHERE account_id = $1 AND created_at >= $2 AND created_at < $3`, [accountId, startOfLastMonth, startOfThisMonth]),
-    pool.query(`SELECT COUNT(*) FROM review_requests WHERE account_id = $1 AND created_at >= $2`, [accountId, startOfThisMonth]),
+    // Cohort conversion: of the requests SENT this period, how many have since received a direct response (rating), however long that took
+    pool.query(`SELECT COUNT(*) as sent, COUNT(rating) as responded FROM review_requests WHERE account_id = $1 AND created_at >= $2`, [accountId, startOfThisMonth]),
     pool.query(`SELECT channel, COUNT(*) as count FROM review_requests WHERE account_id = $1 AND created_at >= $2 GROUP BY channel ORDER BY count DESC LIMIT 1`, [accountId, startOfThisMonth]),
     pool.query(`SELECT COUNT(*) FROM customers WHERE account_id = $1`, [accountId]),
     pool.query(`SELECT platform, COUNT(*) as count FROM review_platform_clicks WHERE account_id = $1 AND clicked_at >= $2 GROUP BY platform ORDER BY count DESC`, [accountId, startOfThisMonth]),
-    pool.query(`SELECT EXTRACT(DOW FROM clicked_at)::int as dow, COUNT(*) as clicks FROM review_requests WHERE account_id = $1 AND clicked_at >= $2 AND clicked_at IS NOT NULL GROUP BY dow ORDER BY clicks DESC LIMIT 1`, [accountId, thirtyDaysAgo]),
+    pool.query(`SELECT EXTRACT(DOW FROM clicked_at)::int as dow, COUNT(*) as clicks FROM review_requests WHERE account_id = $1 AND clicked_at >= $2 AND clicked_at IS NOT NULL GROUP BY dow ORDER BY clicks DESC LIMIT 1`, [accountId, startOfThisMonth]),
     pool.query(`SELECT rating, COUNT(*) as cnt FROM review_requests WHERE account_id = $1 AND rating IS NOT NULL GROUP BY rating ORDER BY rating DESC`, [accountId]),
   ]);
 
@@ -82,8 +82,9 @@ async function getUserStats(accountId: string): Promise<UserStats | null> {
   const reviewsThisMonth = parseInt(reviewsThisMonthRes.rows[0].count) || 0;
   const reviewsLastMonth = parseInt(reviewsLastMonthRes.rows[0]?.count) || 0;
   const avgRatingLastMonth = parseFloat(reviewsLastMonthRes.rows[0]?.avg) || 0;
-  const requestsSentThisMonth = parseInt(requestsThisMonthRes.rows[0].count) || 0;
-  const conversionRate = requestsSentThisMonth > 0 ? Math.round((reviewsThisMonth / requestsSentThisMonth) * 100) : 0;
+  const requestsSentThisMonth = parseInt(requestsThisMonthRes.rows[0].sent) || 0;
+  const requestsRespondedThisMonth = parseInt(requestsThisMonthRes.rows[0].responded) || 0;
+  const conversionRate = requestsSentThisMonth > 0 ? Math.round((requestsRespondedThisMonth / requestsSentThisMonth) * 100) : 0;
   const bestChannel = channelRes.rows[0]?.channel || "email";
   const totalCustomers = parseInt(customersRes.rows[0].count) || 0;
   const platformClicks = platformClicksRes.rows.map(r => ({
@@ -127,12 +128,12 @@ Their data this period:
 - Average rating: ${stats.avgRating || "No data"} stars
 - Rating breakdown: ${ratingText || "No ratings yet"}
 - Requests sent: ${stats.requestsSentThisMonth}, Conversion rate: ${stats.conversionRate}%
-- Industry average conversion: ${benchmark.conversionRange}
+- Typical conversion range for this industry: ${benchmark.conversionRange} (general guidance only, not a verified statistic — treat as rough context, not fact)
 - Best day to send: ${stats.bestDay}
 - Best channel: ${stats.bestChannel}
 - All-time reviews: ${stats.totalReviews}
 
-Write exactly 3 short, specific, actionable tips to help them get more reviews. Tailor each tip to their industry (${benchmark.label}) and their actual stats above. If their conversion is below the ${benchmark.conversionRange} industry range, suggest improvements. If a channel is performing well, suggest doubling down. If they have low-star ratings, suggest following up with those customers.
+Write exactly 3 short, specific, actionable tips to help them get more reviews. Tailor each tip to their industry (${benchmark.label}) and their actual stats above. Base tips primarily on their own data, not the industry range. If their conversion is below the typical range, suggest improvements — but phrase it as a general comparison, not a precise fact. If a channel is performing well, suggest doubling down. If they have low-star ratings, suggest following up with those customers.
 
 Format: numbered list (1. 2. 3.), one sentence each. Under 100 words total. No intro sentence.`;
 

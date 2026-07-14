@@ -4035,29 +4035,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     try {
 
-    if (event.type === "invoice.upcoming") {
-      const invoice = event.data.object as any;
-      const subId = typeof invoice.subscription === "string" ? invoice.subscription : invoice.subscription?.id;
-      const customerId = typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id;
-      if (subId && customerId) {
-        const { rows: userRows } = await pool.query(
-          `SELECT email, first_name, plan_type, plan_period FROM users WHERE stripe_subscription_id = $1`,
-          [subId]
-        );
-        if (userRows[0]) {
-          const u = userRows[0];
-          const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://www.reviewoptic.com");
-          const planName = u.plan_type === "pro" ? "Pro Plan" : "Standard Plan";
-          const renewalDate = new Date(invoice.period_end * 1000).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
-          const amount = `£${(invoice.amount_due / 100).toFixed(2)}`;
-          const { sendRenewalReminderEmail } = await import("./email");
-          sendRenewalReminderEmail(u.email, u.first_name || "", planName, renewalDate, amount, `${appUrl}/billing`).catch(err =>
-            console.error("[stripe-webhook] Failed to send renewal reminder email:", err.message)
-          );
-        }
-      }
-    }
-
     if (event.type === "invoice.payment_failed") {
       const invoice = event.data.object as any;
       const subId = typeof invoice.subscription === "string" ? invoice.subscription : invoice.subscription?.id;
@@ -4735,23 +4712,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           await sendRatingNotificationEmail(adminEmail, "Jane Smith", 5, "Demo Plumbing Co", appUrl);
           break;
         case "private_feedback": {
-          const resendPF = new Resend(process.env.RESEND_API_KEY);
-          const baseUrl = appUrl;
-          await resendPF.emails.send({
-            from: REVIEWOPTIC_FROM, to: adminEmail,
-            subject: "[TEST] Private feedback received from Jane Smith (2★)",
-            html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
-              <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:6px;padding:10px 14px;font-size:13px;color:#92400e;margin-bottom:20px">TEST EMAIL</div>
-              <div style="margin-bottom:28px;"><img src="${baseUrl}/logo.png" alt="ReviewOptic" style="height:36px;max-width:180px;object-fit:contain;display:block;" /></div>
-              <h2 style="font-size:18px;font-weight:700;margin:0 0 8px;">Private feedback received</h2>
-              <p style="color:#555;margin:0 0 16px;line-height:1.6;"><strong>Jane Smith</strong> rated their experience <strong>2 stars</strong> and left the following message:</p>
-              <div style="background:#f5f5f5;border-left:4px solid #e5e7eb;padding:12px 16px;border-radius:4px;margin:0 0 24px;">
-                <p style="margin:0;font-style:italic;color:#333;">"The service took longer than expected and the engineer left a mess."</p>
-              </div>
-              <p style="color:#555;margin:0 0 24px;">This feedback is private — only you can see it. Log in to respond.</p>
-              <a href="${baseUrl}" style="display:inline-block;background:#0E679D;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">View &amp; Respond in Dashboard</a>
-            </div>`,
-          });
+          const { sendPrivateFeedbackNotificationEmail } = await import("./email");
+          await sendPrivateFeedbackNotificationEmail(
+            adminEmail, "Jane Smith", 2,
+            "The service took longer than expected and the engineer left a mess.",
+            appUrl
+          );
           break;
         }
         case "subscription_confirmation":

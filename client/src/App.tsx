@@ -1,5 +1,6 @@
 import { Switch, Route, useLocation } from "wouter";
-import { useEffect, lazy, Suspense } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
+import { Mail } from "lucide-react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -124,6 +125,46 @@ function PlanCancelled() {
   );
 }
 
+function VerifyEmailPrompt() {
+  const { user } = useAuth();
+  const [resendDone, setResendDone] = useState(false);
+
+  async function resend() {
+    if (!user?.email) return;
+    await fetch("/api/auth/resend-verification", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: user.email }),
+    });
+    setResendDone(true);
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4 text-center">
+      <img src="/logo.png" alt="ReviewOptic" className="h-28 mb-8 object-contain" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+      <div className="bg-white border border-gray-200 rounded-xl p-6 max-w-sm w-full text-left shadow-sm">
+        <div className="flex items-center gap-3 mb-3">
+          <Mail className="w-5 h-5 text-blue-600 shrink-0" />
+          <h2 className="font-semibold text-gray-900">Please verify your email</h2>
+        </div>
+        <p className="text-sm text-gray-500 mb-2">
+          We sent a verification link to <strong>{user?.email}</strong>. Click it to access your dashboard.
+        </p>
+        <p className="text-sm text-gray-400 mb-4">
+          Can't see it? Check your spam or junk folder.
+        </p>
+        <button
+          onClick={resend}
+          disabled={resendDone}
+          className="text-sm text-blue-600 hover:underline font-medium disabled:opacity-50"
+        >
+          {resendDone ? "Email resent!" : "Resend verification email"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ProtectedRoutes() {
   const { user, loading } = useAuth();
   const [location, navigate] = useLocation();
@@ -143,6 +184,8 @@ function ProtectedRoutes() {
   if (user?.isSuspended) return <AccountSuspended />;
 
   if (!user || user.requiresPayment) return null;
+
+  if (!user.emailVerified) return <VerifyEmailPrompt />;
 
   return (
     <Layout>

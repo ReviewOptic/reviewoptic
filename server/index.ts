@@ -15,7 +15,7 @@ import { seedDatabase } from "./seed";
 import { storage } from "./storage";
 import { runMigrations, ensureExternalReviewsTable } from "./migrate";
 import { runMonthlyInsightEmails } from "./insightEmail";
-import { sendPlatformReviewRequest, sendPreScreenEmail } from "./email";
+import { sendPreScreenEmail } from "./email";
 import { sendReviewSMS, sendWhatsAppMessage, sendWhatsAppTemplate } from "./sms";
 import { pool } from "./storage";
 import path from "path";
@@ -231,76 +231,8 @@ app.use((req, res, next) => {
   await runMonthlyInsightEmails().catch(console.error);
   setInterval(() => runMonthlyInsightEmails().catch(console.error), 24 * 60 * 60 * 1000);
 
-  // Automated platform review requests — ask ReviewOptic users to leave a review
-  // Initial: 30 days after registration. Follow-up 1: +3 days. Follow-up 2: +7 days.
-  const runPlatformReviewRequests = async () => {
-    try {
-      // Initial requests: registered 30+ days ago, not yet sent, email verified, not admin
-      const { rows: initial } = await pool.query(`
-        SELECT id, email, first_name, last_name, company_name FROM users
-        WHERE email_verified = true
-          AND is_admin = false
-          AND COALESCE(email_unsubscribed, false) = false
-          AND auto_review_requested_at IS NULL
-          AND created_at <= NOW() - INTERVAL '30 days'
-      `);
-      for (const u of initial) {
-        try {
-          await sendPlatformReviewRequest({ id: u.id, email: u.email, firstName: u.first_name, companyName: u.company_name }, false);
-          await pool.query(`UPDATE users SET auto_review_requested_at = NOW(), auto_review_follow_ups = 0 WHERE id = $1`, [u.id]);
-          log(`[platform review] Initial request sent to ${u.email}`);
-        } catch (err: any) {
-          console.error(`[platform review] Failed for ${u.email}:`, err.message);
-        }
-      }
-
-      // Follow-up 1: sent initial 3+ days ago, 0 follow-ups so far
-      const { rows: fu1 } = await pool.query(`
-        SELECT id, email, first_name, last_name, company_name FROM users
-        WHERE email_verified = true
-          AND is_admin = false
-          AND COALESCE(email_unsubscribed, false) = false
-          AND auto_review_requested_at IS NOT NULL
-          AND auto_review_follow_ups = 0
-          AND auto_review_requested_at <= NOW() - INTERVAL '3 days'
-      `);
-      for (const u of fu1) {
-        try {
-          await sendPlatformReviewRequest({ id: u.id, email: u.email, firstName: u.first_name, companyName: u.company_name }, true);
-          await pool.query(`UPDATE users SET auto_review_follow_ups = 1 WHERE id = $1`, [u.id]);
-          log(`[platform review] Follow-up 1 sent to ${u.email}`);
-        } catch (err: any) {
-          console.error(`[platform review] FU1 failed for ${u.email}:`, err.message);
-        }
-      }
-
-      // Follow-up 2: sent initial 7+ days ago, 1 follow-up so far
-      const { rows: fu2 } = await pool.query(`
-        SELECT id, email, first_name, last_name, company_name FROM users
-        WHERE email_verified = true
-          AND is_admin = false
-          AND COALESCE(email_unsubscribed, false) = false
-          AND auto_review_requested_at IS NOT NULL
-          AND auto_review_follow_ups = 1
-          AND auto_review_requested_at <= NOW() - INTERVAL '7 days'
-      `);
-      for (const u of fu2) {
-        try {
-          await sendPlatformReviewRequest({ id: u.id, email: u.email, firstName: u.first_name, companyName: u.company_name }, true);
-          await pool.query(`UPDATE users SET auto_review_follow_ups = 2 WHERE id = $1`, [u.id]);
-          log(`[platform review] Follow-up 2 sent to ${u.email}`);
-        } catch (err: any) {
-          console.error(`[platform review] FU2 failed for ${u.email}:`, err.message);
-        }
-      }
-    } catch (err: any) {
-      console.error("[platform review] Runner error:", err.message);
-    }
-  };
-  await runPlatformReviewRequests().catch(console.error);
-  setInterval(() => runPlatformReviewRequests().catch(console.error), 24 * 60 * 60 * 1000);
-
-  // Daily: send a review request to ReviewOptic subscribers who joined 30+ days ago and haven't been contacted yet
+  // Daily: send a review request to ReviewOptic subscribers who joined 2+ months ago and haven't been contacted yet
+  // 2 months = 30-day free trial + 1 full paid month, so they've had real time to see ReviewOptic working
   const runSubscriberReviewRequests = async () => {
     if (!process.env.ADMIN_EMAIL) return;
     try {
@@ -308,7 +240,7 @@ app.use((req, res, next) => {
       if (!adminUser) return;
       const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://www.reviewoptic.com");
 
-      // Find admin's customers who registered 30+ days ago and are still pending (haven't been sent a request)
+      // Find admin's customers who registered 2+ months ago and are still pending (haven't been sent a request)
       const { rows: due } = await pool.query(`
         SELECT c.id, c.email, c.name, c.notes
         FROM customers c
@@ -316,7 +248,7 @@ app.use((req, res, next) => {
         WHERE c.account_id = $1
           AND c.status = 'pending_request'
           AND c.do_not_contact = false
-          AND c.created_at <= NOW() - INTERVAL '30 days'
+          AND c.created_at <= NOW() - INTERVAL '2 months'
       `, [adminUser.accountId]);
 
       for (const customer of due) {

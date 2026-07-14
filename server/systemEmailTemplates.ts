@@ -17,13 +17,13 @@ export const DEFAULT_EMAIL_TEMPLATES: Record<string, { subject: string; body: st
   },
   reset: {
     subject: "Reset your ReviewOptic password",
-    body: "We received a request to reset your password. Click the button below to choose a new one. This link expires in 1 hour.",
+    body: "We received a request to reset your password. Click the button below to choose a new one. This link expires in 15 minutes.",
     variables: [],
     description: "Sent when a user requests a password reset",
   },
   team_invite: {
     subject: "You've been invited to join {{company_name}} on ReviewOptic",
-    body: "{{inviter_name}} has invited you to join {{company_name}} on ReviewOptic — the platform that helps businesses collect more genuine reviews and grow their reputation online.\n\nClick below to set your password and get started. We think you're going to love it.",
+    body: "{{inviter_name}} has invited you to join {{company_name}} on ReviewOptic — the platform that helps businesses collect more ⭐⭐⭐⭐⭐ reviews and grow their reputation online.\n\nClick below to set your password and get started. We think you're going to love it.",
     variables: ["{{inviter_name}}", "{{company_name}}"],
     description: "Sent when a team member is invited",
   },
@@ -34,15 +34,15 @@ export const DEFAULT_EMAIL_TEMPLATES: Record<string, { subject: string; body: st
     description: "Sent to customers asking them to tap a star rating",
   },
   rating_notification: {
-    subject: "{{customer_name}} left you a {{rating}}-star rating",
-    body: "{{customer_name}} rated {{business_name}} {{rating}} star{{rating_plural}}.\n\nHead to your customers page to see the details.",
-    variables: ["{{customer_name}}", "{{business_name}}", "{{rating}}", "{{rating_plural}}"],
-    description: "Sent to you when a customer submits a star rating",
+    subject: "{{customer_name}} left you a rating {{stars}}",
+    body: "{{customer_name}} rated {{business_name}} {{stars}}.\n\nReviewOptic is working hard to get this rating published on one of your review platforms.",
+    variables: ["{{customer_name}}", "{{business_name}}", "{{rating}}", "{{rating_plural}}", "{{stars}}"],
+    description: "Sent to you when a customer submits a star rating (4-5★ shows a congratulations banner; below 4★ always shows the private-feedback wording, regardless of this text)",
   },
   private_feedback: {
-    subject: "Private feedback received from {{customer_name}}",
-    body: "{{customer_name}} rated their experience and left private feedback. Log in to read it and respond.",
-    variables: ["{{customer_name}}", "{{business_name}}"],
+    subject: "Private feedback received from {{customer_name}} ({{stars}})",
+    body: "{{customer_name}} rated their experience {{stars}} and left the following message:\n\n\"{{message}}\"\n\nThis feedback is private — only you can see it. Log in to read & respond.",
+    variables: ["{{customer_name}}", "{{business_name}}", "{{rating}}", "{{stars}}", "{{message}}"],
     description: "Sent to you when a customer leaves private negative feedback",
   },
   subscription_confirmation: {
@@ -107,16 +107,16 @@ export const DEFAULT_EMAIL_TEMPLATES: Record<string, { subject: string; body: st
   },
   referral_reward: {
     subject: "You've earned a free month on ReviewOptic 🎉",
-    body: "Hi {{first_name}},\n\nSomeone you referred just signed up and paid — so we've added a {{credit_amount}} credit to your account.\n\nThis will be automatically applied against your next invoice. If you refer more people, credits stack up and keep reducing your future bills.\n\nThanks for spreading the word — we really appreciate it.",
+    body: "Hi {{first_name}},\n\nSomeone you referred just signed up and paid — so you've earned a free month on us, worth {{credit_amount}}.\n\nThis will be applied automatically to your next billing period, no action needed. If you refer more people, the free months stack up.\n\nThanks for spreading the word — we really appreciate it.",
     variables: ["{{first_name}}", "{{credit_amount}}"],
     description: "Sent to a user when they earn a referral credit",
     adminOnly: true,
   },
   subscriber_review_request: {
     subject: "How are you finding ReviewOptic?",
-    body: "You've been using ReviewOptic for about a month now — we hope it's been making a real difference for {{company_name}}!\n\nWe'd love to know how we're doing. Tap a star below to leave us a quick rating:",
+    body: "You've been using ReviewOptic for a couple of months now — we hope it's been making a real difference for {{company_name}}!\n\nWe'd love to know how we're doing. Tap a star below to leave us a quick rating:",
     variables: ["{{first_name}}", "{{company_name}}"],
-    description: "Sent to ReviewOptic subscribers after 1 month asking for a 1–5 star rating",
+    description: "Sent to ReviewOptic subscribers after 2 months asking for a 1–5 star rating",
     adminOnly: true,
   },
 };
