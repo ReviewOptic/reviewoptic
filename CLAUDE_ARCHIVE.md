@@ -1493,3 +1493,50 @@ migrate.ts was recreating `external_reviews` each server restart → Replit dete
 - **Beta testing** — next logical step before paying customers
 - **Landing page videos**, **tracking pixel IDs**, **first blog post** — deferred until ready for public traffic
 
+
+### Session — 2026-07-01 (one-hundred-and-sixth session)
+
+**Context:** Google's quota increase (case 1-6925000040797) came through — GBP OAuth API access approved, quota set to 300 req/min. Rest of session spent getting real reviews flowing end-to-end and fixing bugs surfaced along the way.
+
+**Fixes applied:**
+
+1. **Google Business Profile location lookup bug (`server/routes.ts`)** — the OAuth callback was calling the wrong Google API to look up the user's business location (`mybusinessaccountmanagement.googleapis.com` instead of `mybusinessbusinessinformation.googleapis.com` — Google splits these into separate services). This produced an invalid location resource ID, causing every reviews fetch to 404. Fixed to call the correct API with the required `readMask` param, and build the resource name correctly as `accounts/{id}/locations/{id}`.
+
+2. **Google GBP total count (`server/externalReviews.ts`)** — `fetchGBP()` never returned `platformTotal`, so Google never contributed to the "Total Reviews" stat even when connected. Now reads `data.totalReviewCount` from the v4 API response.
+
+3. **GBP error messages now show Google's real reason (`server/externalReviews.ts`)** — was just showing the HTTP status code (e.g. "403"). Now parses and surfaces Google's actual `error.message`, which is how we discovered the real blocker below.
+
+4. **Discovered: "Google My Business API" (legacy v4, used for reviews) is a separate product from "Google Business Profile API"** in Google Cloud Console, and Google has hidden it from the API Library for new projects — it can't be self-service enabled no matter how you search. Confirmed via direct testing that even a properly-formed request 403s with "API has not been used in project ... or it is disabled," and it's absent from the Enabled APIs list and from Library search results entirely. User emailed Google support (via the same channel as the approved case 1-6925000040797) asking them to enable `mybusiness.googleapis.com` directly. **This is now a Google-side blocker, not a code issue — nothing more to do until they respond.**
+
+5. **Google now falls back gracefully (`server/externalReviews.ts`)** — while GBP reviews are blocked, the Google fetcher automatically falls back to the Places API (already enabled, gives a real `user_ratings_total`) instead of just failing. So the Total Reviews stat still works for Google right now, and it'll automatically start using full GBP data the moment Google enables the legacy API — no user action needed either way.
+
+6. **Checkatrade investigated** — direct testing (fetching their live page with browser headers) showed Checkatrade has fully redesigned their site: reviews and review counts are no longer in the server-rendered HTML at all, loaded by client-side JS instead. Our scraper can't see any review data anymore for that reason (not a regex bug). A headless-browser fix was attempted (`puppeteer-core` + `@sparticuz/chromium`, chosen for the autoscale deployment target) but hit a missing system library (`libnspr4.so`) on first test — user then reconsidered and deprioritised it (see below), so **packages were uninstalled and the attempt abandoned**, not shipped.
+   - **Note:** user separately reported Checkatrade still shows ~6 individual reviews pulling through in production, suggesting the redesign may be a partial/gradual rollout — worth re-testing before writing this off entirely.
+
+7. **New "reviews gained since joining" feature** — after discussing that full review-content scraping isn't core to the product (ReviewOptic's job is generating reviews via requests, not archiving them), landed on a simpler approach:
+   - Added a manual "Total existing reviews (all platforms) — required" field in Settings → Review Platforms (`starting_review_count` column in `ext.settings_extra`, new endpoint `POST /api/settings/starting-review-count`).
+   - Added to the onboarding checklist (`OnboardingChecklist.tsx`) as a required step.
+   - Dashboard now shows "+X since joining" under Total Reviews = current total minus that manual number (`gainedSinceJoining` in `GET /api/external-reviews`).
+   - This is framed as **growth evidence, not causal attribution** — we cannot know which specific review came from a ReviewOptic request (no platform exposes that link).
+   - **User flagged this added too much friction/complexity in-session** — leaning toward simplifying further (e.g. making it optional, not required) next time. Revisit before assuming this is the final design.
+
+8. **Dashboard feed capped to 20 most recent reviews (`server/routes.ts`)** — was showing every imported review; "Total Reviews" stat is unaffected (computed via separate COUNT query + platform totals, not the capped list).
+
+9. **Refresh popup now copyable (`client/src/pages/Dashboard.tsx`)** — "Refresh now" results were a native `alert()`, which the user couldn't select/copy text from (needed to paste Google's error message to me). Replaced with an in-page `Dialog` containing a read-only textarea + Copy button.
+
+**IMPORTANT — engineering environment note:** the sandbox's Nix store mount broke mid-session (`Transport endpoint is not connected`), taking out `node`/`npm`/`npx` entirely. `git` still worked via `GIT_CONFIG_NOSYSTEM=1` (bypasses reading `/etc/gitconfig`, which is symlinked into the broken mount) — use that workaround if this happens again. Could not run a final type-check after the last edit of the session (Google fallback fix) for this reason — the change is small and type-safe (both branches return `Promise<FetchResult>`) but hasn't been machine-verified.
+
+**NEXT SESSION — FIRST STEPS:**
+1. **Check for a reply from Google support** re: enabling `mybusiness.googleapis.com` (the legacy "Google My Business API") for the project — this is the one remaining blocker on full GBP reviews.
+2. **Run a type-check** (`npx tsc --noEmit`) to verify the last edit of this session (Google fallback in `externalReviews.ts`) — wasn't machine-verified due to the Nix mount outage above.
+3. **Revisit "reviews gained since joining"** — user found the required manual field added too much friction. Consider making it optional rather than a blocking onboarding step.
+4. **Re-test Checkatrade** — user saw ~6 reviews still pulling through in production after I found the site apparently redesigned with no scrapable data. Worth checking directly again before deciding this platform is a dead end.
+
+**Pending:**
+- **Google "Google My Business API" enablement** — hidden from self-service API Library, user emailed Google support to enable it directly for project 1097305399176 (referencing approved case 1-6925000040797)
+- **Google OAuth scope verification** — submit once GBP OAuth confirmed working for all users
+- **Checkatrade scraping** — site redesign broke it; automated total/detail scraping may not be worth pursuing further (see note above re: partial rollout)
+- **"Reviews gained since joining" UX** — simplify per user feedback (make optional, not required)
+- **Facebook review fetching** — code in place, may need `pages_read_user_content` App Review; not urgent
+- **Beta testing** — next logical step before paying customers
+- **Landing page videos**, **tracking pixel IDs**, **first blog post** — deferred until ready for public traffic

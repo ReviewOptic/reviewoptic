@@ -184,54 +184,7 @@ Your job is to be the developer they would hire if they could afford a great one
 
 ## SESSION LOGS
 
-*(Sessions 18–105 archived to CLAUDE_ARCHIVE.md)*
-
-### Session — 2026-07-01 (one-hundred-and-sixth session)
-
-**Context:** Google's quota increase (case 1-6925000040797) came through — GBP OAuth API access approved, quota set to 300 req/min. Rest of session spent getting real reviews flowing end-to-end and fixing bugs surfaced along the way.
-
-**Fixes applied:**
-
-1. **Google Business Profile location lookup bug (`server/routes.ts`)** — the OAuth callback was calling the wrong Google API to look up the user's business location (`mybusinessaccountmanagement.googleapis.com` instead of `mybusinessbusinessinformation.googleapis.com` — Google splits these into separate services). This produced an invalid location resource ID, causing every reviews fetch to 404. Fixed to call the correct API with the required `readMask` param, and build the resource name correctly as `accounts/{id}/locations/{id}`.
-
-2. **Google GBP total count (`server/externalReviews.ts`)** — `fetchGBP()` never returned `platformTotal`, so Google never contributed to the "Total Reviews" stat even when connected. Now reads `data.totalReviewCount` from the v4 API response.
-
-3. **GBP error messages now show Google's real reason (`server/externalReviews.ts`)** — was just showing the HTTP status code (e.g. "403"). Now parses and surfaces Google's actual `error.message`, which is how we discovered the real blocker below.
-
-4. **Discovered: "Google My Business API" (legacy v4, used for reviews) is a separate product from "Google Business Profile API"** in Google Cloud Console, and Google has hidden it from the API Library for new projects — it can't be self-service enabled no matter how you search. Confirmed via direct testing that even a properly-formed request 403s with "API has not been used in project ... or it is disabled," and it's absent from the Enabled APIs list and from Library search results entirely. User emailed Google support (via the same channel as the approved case 1-6925000040797) asking them to enable `mybusiness.googleapis.com` directly. **This is now a Google-side blocker, not a code issue — nothing more to do until they respond.**
-
-5. **Google now falls back gracefully (`server/externalReviews.ts`)** — while GBP reviews are blocked, the Google fetcher automatically falls back to the Places API (already enabled, gives a real `user_ratings_total`) instead of just failing. So the Total Reviews stat still works for Google right now, and it'll automatically start using full GBP data the moment Google enables the legacy API — no user action needed either way.
-
-6. **Checkatrade investigated** — direct testing (fetching their live page with browser headers) showed Checkatrade has fully redesigned their site: reviews and review counts are no longer in the server-rendered HTML at all, loaded by client-side JS instead. Our scraper can't see any review data anymore for that reason (not a regex bug). A headless-browser fix was attempted (`puppeteer-core` + `@sparticuz/chromium`, chosen for the autoscale deployment target) but hit a missing system library (`libnspr4.so`) on first test — user then reconsidered and deprioritised it (see below), so **packages were uninstalled and the attempt abandoned**, not shipped.
-   - **Note:** user separately reported Checkatrade still shows ~6 individual reviews pulling through in production, suggesting the redesign may be a partial/gradual rollout — worth re-testing before writing this off entirely.
-
-7. **New "reviews gained since joining" feature** — after discussing that full review-content scraping isn't core to the product (ReviewOptic's job is generating reviews via requests, not archiving them), landed on a simpler approach:
-   - Added a manual "Total existing reviews (all platforms) — required" field in Settings → Review Platforms (`starting_review_count` column in `ext.settings_extra`, new endpoint `POST /api/settings/starting-review-count`).
-   - Added to the onboarding checklist (`OnboardingChecklist.tsx`) as a required step.
-   - Dashboard now shows "+X since joining" under Total Reviews = current total minus that manual number (`gainedSinceJoining` in `GET /api/external-reviews`).
-   - This is framed as **growth evidence, not causal attribution** — we cannot know which specific review came from a ReviewOptic request (no platform exposes that link).
-   - **User flagged this added too much friction/complexity in-session** — leaning toward simplifying further (e.g. making it optional, not required) next time. Revisit before assuming this is the final design.
-
-8. **Dashboard feed capped to 20 most recent reviews (`server/routes.ts`)** — was showing every imported review; "Total Reviews" stat is unaffected (computed via separate COUNT query + platform totals, not the capped list).
-
-9. **Refresh popup now copyable (`client/src/pages/Dashboard.tsx`)** — "Refresh now" results were a native `alert()`, which the user couldn't select/copy text from (needed to paste Google's error message to me). Replaced with an in-page `Dialog` containing a read-only textarea + Copy button.
-
-**IMPORTANT — engineering environment note:** the sandbox's Nix store mount broke mid-session (`Transport endpoint is not connected`), taking out `node`/`npm`/`npx` entirely. `git` still worked via `GIT_CONFIG_NOSYSTEM=1` (bypasses reading `/etc/gitconfig`, which is symlinked into the broken mount) — use that workaround if this happens again. Could not run a final type-check after the last edit of the session (Google fallback fix) for this reason — the change is small and type-safe (both branches return `Promise<FetchResult>`) but hasn't been machine-verified.
-
-**NEXT SESSION — FIRST STEPS:**
-1. **Check for a reply from Google support** re: enabling `mybusiness.googleapis.com` (the legacy "Google My Business API") for the project — this is the one remaining blocker on full GBP reviews.
-2. **Run a type-check** (`npx tsc --noEmit`) to verify the last edit of this session (Google fallback in `externalReviews.ts`) — wasn't machine-verified due to the Nix mount outage above.
-3. **Revisit "reviews gained since joining"** — user found the required manual field added too much friction. Consider making it optional rather than a blocking onboarding step.
-4. **Re-test Checkatrade** — user saw ~6 reviews still pulling through in production after I found the site apparently redesigned with no scrapable data. Worth checking directly again before deciding this platform is a dead end.
-
-**Pending:**
-- **Google "Google My Business API" enablement** — hidden from self-service API Library, user emailed Google support to enable it directly for project 1097305399176 (referencing approved case 1-6925000040797)
-- **Google OAuth scope verification** — submit once GBP OAuth confirmed working for all users
-- **Checkatrade scraping** — site redesign broke it; automated total/detail scraping may not be worth pursuing further (see note above re: partial rollout)
-- **"Reviews gained since joining" UX** — simplify per user feedback (make optional, not required)
-- **Facebook review fetching** — code in place, may need `pages_read_user_content` App Review; not urgent
-- **Beta testing** — next logical step before paying customers
-- **Landing page videos**, **tracking pixel IDs**, **first blog post** — deferred until ready for public traffic
+*(Sessions 18–106 archived to CLAUDE_ARCHIVE.md)*
 
 ### Session — 2026-07-14 (one-hundred-and-seventh session)
 
@@ -299,3 +252,50 @@ Your job is to be the developer they would hire if they could afford a great one
 **NEXT SESSION — FIRST STEPS:**
 1. Carry over all "NEXT SESSION" items from session 107 above (insight template dead-entry decision, renewal_reminder/platform_review admin entry cleanup, fresh test emails, and the "which header will you delete" question) — none were addressed this session.
 2. Confirm the logout-link fix actually resolves the reviewoptic.com issue in the live/deployed app.
+
+### Session — 2026-07-14 (one-hundred-and-ninth session)
+
+**Context:** Continued from an interrupted session — found an uncommitted, undocumented change to `client/src/pages/Dashboard.tsx` mid-way through removing the "Platform Reviews" feature (the external-reviews feed card added in sessions 106–107). Confirmed with the user to finish removing it, which then grew into a much bigger decision: drop external review scraping entirely.
+
+**Tasks completed:**
+
+1. **Finished removing the Dashboard "Platform Reviews" feed** — the review card, refresh button/dialog, and "Total Reviews" stat tile (was mid-removal, uncommitted, from before this session started).
+
+2. **Removed "reviews gained since joining" entirely** — the manual "Total existing reviews" field in Settings, its onboarding checklist step, its save endpoint, and its `storage.ts`/`ext.settings_extra` plumbing. This had been flagged in session 106 as adding too much friction; rather than making it optional, the user chose full removal since it was tied to the scraping feature being dropped anyway.
+
+3. **Major decision — social auto-posting now triggers from real ReviewOptic ratings, not scraped reviews.** Reasoning discussed with the user: Google's GBP API access was never actually confirmed working (still blocked — see session 106), and the other platforms (Checkatrade, Trustpilot, TripAdvisor, MyBuilder) were being pulled via spoofed-browser-header HTML scraping, not an official API. That already broke once for Checkatrade (session 106) and carries real risk of the shared server IP getting blocked across every customer at once if any of these sites tightens anti-bot detection. Consistency won out over completeness — auto-post now fires from `POST /api/public/review/:id/rate` (a customer tapping 4-5★ on a real ReviewOptic request) instead, posting a star-only card (no scraped review text) to Facebook/Instagram. 100% reliable, no ToS/scraping risk.
+
+4. **Deleted the entire scraping engine**: `server/externalReviews.ts` (Google Places/GBP, Checkatrade, Trustpilot, TripAdvisor, MyBuilder, Facebook fetchers — 744 lines) removed outright; the hourly polling cron in `server/index.ts` removed; the now-dead `hasBeenPostedAlready` dedup helper removed from `server/social.ts`.
+
+5. **Removed the Google Business Profile OAuth connect flow entirely** — the "Connect Google Business Profile" button/section in Settings, the `GooglePlaceSearch` business-search/URL-paste picker component, and all 9 supporting backend endpoints (`/auth/google-business` + its callback, `DELETE /api/social/google-business`, and 7 `/api/settings/google-*` place-search/photo/map/disconnect endpoints). This resolves session 106's "Google My Business API enablement" blocker by making it moot — there's no more scraping to unblock.
+
+6. **Removed the "Reviews by Platform" Analytics chart** — fed by the now-deleted scraped data, and the user separately confirmed it "wasn't accurate" anyway. Left the "Where Reviews Are Going" chart untouched (real first-party click-through data from `review_platform_clicks`, unaffected by any of this).
+
+7. **Cleanup**: `storage.ts`'s `getSettings()` no longer queries the dead `ext.settings_extra` GBP/Maps columns; `server/index.ts`'s session type no longer declares `gbpOauthState`; the demo-account seeder no longer seeds fake external reviews.
+
+**Verification:**
+- Ran a before/after `tsc --noEmit` diff against the pre-session commit — confirmed zero new type errors (only line-number shifts in the same pre-existing errors: Admin.tsx `adminOnly`, Analytics.tsx `settings.logoUrl`, Blog.tsx args count, routes.ts stripe/Set-iteration/index-type — none touched this session).
+- Repo-wide grep confirmed zero remaining references to any removed endpoint, function, or component.
+- Attempted a full `npm run dev` boot to sanity-check — crashed with `ReferenceError: __dirname is not defined` in `server/email.ts:26`. Confirmed via `git stash` that this is **pre-existing and unrelated** — reproduces identically on the commit from before this session. Sandbox-only ESM quirk, not something this session touched or broke.
+
+**New issue discovered (not fixed):**
+- `server/email.ts:26` uses `__dirname`, which throws under this sandbox's ESM module loader (`"type": "module"` in package.json). Reproduces on old code too, so it's not new — but if it ever surfaces in the actual Replit deployment (logo loading for emails), the fix is swapping to `import.meta.dirname` (Node 20+) or `fileURLToPath(import.meta.url)`.
+
+**Deliberately left alone:**
+- The DB tables/columns tied to the removed scraping feature (`ext.external_reviews`, and `ext.settings_extra`'s `gbp_access_token`/`gbp_refresh_token`/`gbp_location_resource`/`gbp_business_name`/`google_maps_link`/`platform_review_totals`/`starting_review_count` columns) — code no longer reads or writes any of them, but no destructive migration was run. `migrate.ts` still idempotently creates them on boot (harmless dead weight).
+- The "Auto-Post Reviews" toggle and its message-template settings in Settings — unchanged, just now triggered by real ratings instead of scraped ones.
+
+Committed as `5a9fce6`.
+
+**NEXT SESSION — FIRST STEPS:**
+1. Carry over all still-unresolved "NEXT SESSION" items from sessions 107/108 (insight email template dead-entry decision, renewal_reminder/platform_review admin entry cleanup, fresh test emails, "which header will you delete" question, confirm the verify-email logout fix works live) — none addressed this session, which was entirely about the review-scraping removal.
+2. Decide whether to also drop the orphaned `ext.external_reviews` table and dead `ext.settings_extra` columns from the database, or leave them as harmless dead weight.
+3. If `server/email.ts`'s `__dirname` issue ever appears in production logs, fix it (see note above).
+
+**Pending (superseded/resolved by this session, kept here for continuity with the archive):**
+- ~~Google "Google My Business API" enablement~~ — moot, GBP integration removed entirely.
+- ~~"Reviews gained since joining" UX~~ — resolved by full removal.
+- ~~Checkatrade scraping~~ — moot, all scraping removed.
+- **Facebook review fetching** — this was about *importing* Facebook reviews via scraping/API, now removed along with everything else. Facebook *posting* (auto-post cards) is unaffected and still works.
+- **Beta testing** — next logical step before paying customers.
+- **Landing page videos**, **tracking pixel IDs**, **first blog post** — deferred until ready for public traffic.
