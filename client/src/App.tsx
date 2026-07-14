@@ -126,7 +126,7 @@ function PlanCancelled() {
 }
 
 function VerifyEmailPrompt() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [resendDone, setResendDone] = useState(false);
 
   async function resend() {
@@ -161,6 +161,9 @@ function VerifyEmailPrompt() {
           {resendDone ? "Email resent!" : "Resend verification email"}
         </button>
       </div>
+      <button onClick={logout} className="text-sm text-gray-400 hover:text-gray-600 hover:underline mt-6">
+        Not you? Log out
+      </button>
     </div>
   );
 }
