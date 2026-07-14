@@ -1461,3 +1461,35 @@ migrate.ts was recreating `external_reviews` each server restart → Replit dete
 - **Beta testing** — next logical step before opening to paying customers
 - **Landing page videos**, **tracking pixel IDs**, **first blog post** — deferred until ready for public traffic
 
+### Session — 2026-06-30 (one-hundred-and-fifth session)
+
+**What was built/fixed this session:**
+
+1. **Facebook App Review approved** — app is Live, all permissions granted (`pages_manage_posts`, `pages_read_engagement`, `pages_show_list`, `instagram_basic`, `instagram_content_publish`, `business_management`). Social posting to Facebook and Instagram now available to all users.
+
+2. **Facebook review fetching added (`server/externalReviews.ts`)** — `fetchFacebook()` calls `/{pageId}/ratings` Graph API using stored page access token. Handles star ratings and recommendation_type (positive=5★, negative=1★), paginates up to 5 pages, captures `rating_count` for Total Reviews stat. Wired into the hourly poll alongside other platforms.
+   - **Deprioritised:** `pages_read_user_content` was not in the approved permissions — reviews may not come through. Left in place, will revisit if there's demand or if existing permissions prove sufficient.
+
+3. **Google GBP OAuth quota increase submitted** — quota was still 0. Submitted increase request via Google Cloud Platform Trust & Safety form (2026-06-30, expects 2 business days). Also submitted case 1-6925000040797 for API access (expected ~2026-07-07). Improved GBP OAuth error message to distinguish quota errors from "no account found" (`server/routes.ts`).
+
+4. **QA audit and fixes (`server/storage.ts`, `server/routes.ts`, `client/src/pages/Settings.tsx`):**
+   - `getAdminUserStats()`: was making 3 DB queries per user (N+1). Replaced with single JOIN query.
+   - `getStats()`: was loading ALL customers into memory then filtering in JS. Replaced with SQL COUNT queries.
+   - `sendFollowUps()`: was querying review requests once per customer inside a loop. Now batch-fetches all requests before the loop, groups into a Map by customerId. Logic and ordering verified correct.
+   - `POST /api/customers`: added try-catch — now returns friendly 500 instead of crashing.
+   - `PATCH/DELETE /api/customers/:id` and reactivate: same error handling added.
+   - Removed unused imports: `sendWhatsAppMessage` (storage.ts), `Mic` and `Video` (Settings.tsx).
+
+**NEXT SESSION — FIRST STEPS:**
+1. **Check Google GBP quota** — Trust & Safety response expected ~2026-07-02. If approved, test Connect Google Business Profile button.
+2. **Check Google API access case 1-6925000040797** — expected ~2026-07-07.
+3. **Plan beta testing** — identify 2-3 real small businesses to test the app before opening to paying customers.
+
+**Pending:**
+- **Google Business Profile API access** — case **1-6925000040797**, submitted 2026-06-24, expected ~2026-07-07
+- **Google GBP OAuth quota increase** — submitted to Trust & Safety 2026-06-30, expected ~2026-07-02
+- **Google OAuth scope verification** — submit once GBP OAuth confirmed working for all users
+- **Facebook review fetching** — code in place, may need `pages_read_user_content` App Review; not urgent
+- **Beta testing** — next logical step before paying customers
+- **Landing page videos**, **tracking pixel IDs**, **first blog post** — deferred until ready for public traffic
+

@@ -184,39 +184,7 @@ Your job is to be the developer they would hire if they could afford a great one
 
 ## SESSION LOGS
 
-*(Sessions 18–104 archived to CLAUDE_ARCHIVE.md)*
-
-### Session — 2026-06-30 (one-hundred-and-fifth session)
-
-**What was built/fixed this session:**
-
-1. **Facebook App Review approved** — app is Live, all permissions granted (`pages_manage_posts`, `pages_read_engagement`, `pages_show_list`, `instagram_basic`, `instagram_content_publish`, `business_management`). Social posting to Facebook and Instagram now available to all users.
-
-2. **Facebook review fetching added (`server/externalReviews.ts`)** — `fetchFacebook()` calls `/{pageId}/ratings` Graph API using stored page access token. Handles star ratings and recommendation_type (positive=5★, negative=1★), paginates up to 5 pages, captures `rating_count` for Total Reviews stat. Wired into the hourly poll alongside other platforms.
-   - **Deprioritised:** `pages_read_user_content` was not in the approved permissions — reviews may not come through. Left in place, will revisit if there's demand or if existing permissions prove sufficient.
-
-3. **Google GBP OAuth quota increase submitted** — quota was still 0. Submitted increase request via Google Cloud Platform Trust & Safety form (2026-06-30, expects 2 business days). Also submitted case 1-6925000040797 for API access (expected ~2026-07-07). Improved GBP OAuth error message to distinguish quota errors from "no account found" (`server/routes.ts`).
-
-4. **QA audit and fixes (`server/storage.ts`, `server/routes.ts`, `client/src/pages/Settings.tsx`):**
-   - `getAdminUserStats()`: was making 3 DB queries per user (N+1). Replaced with single JOIN query.
-   - `getStats()`: was loading ALL customers into memory then filtering in JS. Replaced with SQL COUNT queries.
-   - `sendFollowUps()`: was querying review requests once per customer inside a loop. Now batch-fetches all requests before the loop, groups into a Map by customerId. Logic and ordering verified correct.
-   - `POST /api/customers`: added try-catch — now returns friendly 500 instead of crashing.
-   - `PATCH/DELETE /api/customers/:id` and reactivate: same error handling added.
-   - Removed unused imports: `sendWhatsAppMessage` (storage.ts), `Mic` and `Video` (Settings.tsx).
-
-**NEXT SESSION — FIRST STEPS:**
-1. **Check Google GBP quota** — Trust & Safety response expected ~2026-07-02. If approved, test Connect Google Business Profile button.
-2. **Check Google API access case 1-6925000040797** — expected ~2026-07-07.
-3. **Plan beta testing** — identify 2-3 real small businesses to test the app before opening to paying customers.
-
-**Pending:**
-- **Google Business Profile API access** — case **1-6925000040797**, submitted 2026-06-24, expected ~2026-07-07
-- **Google GBP OAuth quota increase** — submitted to Trust & Safety 2026-06-30, expected ~2026-07-02
-- **Google OAuth scope verification** — submit once GBP OAuth confirmed working for all users
-- **Facebook review fetching** — code in place, may need `pages_read_user_content` App Review; not urgent
-- **Beta testing** — next logical step before paying customers
-- **Landing page videos**, **tracking pixel IDs**, **first blog post** — deferred until ready for public traffic
+*(Sessions 18–105 archived to CLAUDE_ARCHIVE.md)*
 
 ### Session — 2026-07-01 (one-hundred-and-sixth session)
 
@@ -317,3 +285,17 @@ Your job is to be the developer they would hire if they could afford a great one
 **LESSON LEARNED:**
 - Email wording edits: always check BOTH `email.ts` (actual send logic) AND `systemEmailTemplates.ts` (`DEFAULT_EMAIL_TEMPLATES`, what the admin panel shows/edits) — two separate copies of "default" text, go out of sync silently if only one is updated.
 - Broad instructions ("every email should X") — apply narrowly to what's clearly in scope, confirm before sweeping. Over-applied `hello@reviewoptic.com` reply-to to all 16 emails when user meant only the 2 named (cancellation + expiry); had to revert 14.
+
+### Session — 2026-07-14 (one-hundred-and-eighth session)
+
+**Context:** Short session. User reported that visiting reviewoptic.com went straight to the "verify your email" screen instead of the normal marketing landing page.
+
+**Bug found and fixed:**
+- The `VerifyEmailPrompt` screen added last session (`client/src/App.tsx`) had no way to leave it — no logout button, no link back to the landing page. A logged-in-but-unverified session (e.g. a leftover test account from last session's testing) would get stuck there indefinitely, including when visiting the plain root domain. Added a "Not you? Log out" link using the existing `logout()` from `useAuth()`.
+- Confirmed the underlying gate itself is working as intended (only shows for a logged-in user with `emailVerified: false`, matches what the user asked for last session) — the bug was purely the missing exit, not the gating logic. Anonymous visitors with no session still correctly see the normal `<Home />` landing page.
+
+**Engineering note:** Replit's own auto-publish/deploy system is committing on save independently of explicit `git commit` calls in this session — file changes landed under generic "Published your App" checkpoint commits (author `Replit Agent`) rather than the descriptive commit message written for them. Diff content was verified correct in each case; just a less informative commit history. Not something to fix in code — just be aware `git commit` may report "nothing to commit" if Replit's checkpoint already captured the change first.
+
+**NEXT SESSION — FIRST STEPS:**
+1. Carry over all "NEXT SESSION" items from session 107 above (insight template dead-entry decision, renewal_reminder/platform_review admin entry cleanup, fresh test emails, and the "which header will you delete" question) — none were addressed this session.
+2. Confirm the logout-link fix actually resolves the reviewoptic.com issue in the live/deployed app.
