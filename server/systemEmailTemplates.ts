@@ -8,7 +8,9 @@ export interface EmailTemplateOverride {
 // Default subject + body (plain text, \n\n = paragraph break) for every system email.
 // Body text is injected into the standard HTML wrapper — dynamic parts (buttons, tables) are added by code.
 // adminOnly: true means this template is only shown in the ReviewOptic admin section, not the general system emails list.
-export const DEFAULT_EMAIL_TEMPLATES: Record<string, { subject: string; body: string; variables: string[]; description: string; adminOnly?: boolean }> = {
+// notEditable: true means the subject/body below are for reference only — the real email is built
+// from live stats/charts, not this text, so editing it here has no effect (still testable via Send Test).
+export const DEFAULT_EMAIL_TEMPLATES: Record<string, { subject: string; body: string; variables: string[]; description: string; adminOnly?: boolean; notEditable?: boolean }> = {
   verification: {
     subject: "Verify your email and choose your plan",
     body: "We're really happy to have you here. Just verify your email below to unlock your free trial and start building the reviews your business deserves.\n\nIt takes less than a minute — and your first 30 days are completely free.",
@@ -80,12 +82,13 @@ export const DEFAULT_EMAIL_TEMPLATES: Record<string, { subject: string; body: st
     body: "Here's how {{business_name}} is performing this period.",
     variables: ["{{business_name}}", "{{frequency}}", "{{month}}"],
     description: "Sent weekly or monthly with review stats and AI insights",
+    notEditable: true,
   },
   payment_failed: {
     subject: "Action required: your ReviewOptic payment failed",
-    body: "We weren't able to take your latest payment. This can happen if your card has expired or your details have changed.\n\nTo avoid interruption to your service, please update your payment details as soon as possible.",
+    body: "We weren't able to take your latest payment. This can happen if your card has expired or your details have changed.\n\nTo avoid interruption to your service, please update your payment details or retry below. We'll try again automatically in 24 hours.",
     variables: ["{{first_name}}"],
-    description: "Sent when a subscription payment fails",
+    description: "Sent on the first failed payment. If a second attempt also fails, a fixed 'final notice — account will be cancelled' version sends instead, regardless of this text.",
   },
   dialog_positive: {
     subject: "Thanks for the rating!",

@@ -171,7 +171,7 @@ export default function Admin() {
   const [deletedAccounts, setDeletedAccounts] = useState<any[]>([]);
   const [emailSending, setEmailSending] = useState<string | null>(null);
   const [emailResult, setEmailResult] = useState<Record<string, "sent" | "error">>({});
-  const [emailTemplates, setEmailTemplates] = useState<{ type: string; label: string; subject: string; body: string; variables: string[]; customised: boolean }[]>([]);
+  const [emailTemplates, setEmailTemplates] = useState<{ type: string; label: string; subject: string; body: string; variables: string[]; customised: boolean; adminOnly: boolean; notEditable: boolean }[]>([]);
   const [editingTemplate, setEditingTemplate] = useState<{ type: string; label: string; subject: string; body: string; variables: string[] } | null>(null);
   const [editSubject, setEditSubject] = useState("");
   const [editBody, setEditBody] = useState("");
@@ -970,9 +970,10 @@ export default function Admin() {
                     {e.customised && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 flex-shrink-0">Edited</span>}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5 truncate">{e.subject}</p>
+                  {e.notEditable && <p className="text-xs text-amber-600 dark:text-amber-500 mt-0.5">Built from live stats/charts — not editable here, use Test to preview the real email</p>}
                 </div>
                 <div className="flex gap-1.5 flex-shrink-0">
-                  <button onClick={() => openEdit(e)} className="text-xs font-medium px-3 py-1.5 rounded-lg border border-border hover:bg-muted transition-colors">Edit</button>
+                  {!e.notEditable && <button onClick={() => openEdit(e)} className="text-xs font-medium px-3 py-1.5 rounded-lg border border-border hover:bg-muted transition-colors">Edit</button>}
                   <button
                     onClick={() => sendTestEmail(e.type)}
                     disabled={emailSending === e.type}

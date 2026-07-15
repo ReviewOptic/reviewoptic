@@ -4332,6 +4332,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       variables: def.variables,
       customised: !!overrides[type],
       adminOnly: def.adminOnly ?? false,
+      notEditable: def.notEditable ?? false,
     }));
     res.json(result);
   });
