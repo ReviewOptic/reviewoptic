@@ -257,6 +257,8 @@ export const systemEmailTemplates = pgTable("system_email_templates", {
   type: text("type").primaryKey(),
   subject: text("subject").notNull(),
   body: text("body").notNull(),
+  heading: text("heading"),
+  locked: boolean("locked").notNull().default(false),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 

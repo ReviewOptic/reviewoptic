@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import type { Customer, Settings } from "@shared/schema";
-import { getEmailTemplateOverride, getEffectiveTemplate, renderBodyHtml } from "./systemEmailTemplates";
+import { getEmailTemplateOverride, getEffectiveTemplate, renderBodyHtml, renderHeading } from "./systemEmailTemplates";
 import { pool } from "./storage";
 
 async function getUserUnsubscribeInfo(email: string): Promise<{ unsubscribed: boolean; userId: string | null }> {
@@ -131,7 +131,7 @@ export async function sendVerificationEmail(to: string, verifyUrl: string) {
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
         ${LOGO_HTML}
-        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Welcome — you're one step away! 👋</h2>
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">${renderHeading("verification", tmpl)}</h2>
         ${bodyHtml}
         <a href="${verifyUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
           Verify email &amp; start free trial
@@ -166,7 +166,7 @@ export async function sendTeamInviteEmail(to: string, inviterName: string, compa
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
         ${LOGO_HTML}
-        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">You're in — welcome to the team! 🎉</h2>
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">${renderHeading("team_invite", tmpl)}</h2>
         ${bodyHtml}
         <a href="${acceptUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
           Accept invitation &amp; get started
@@ -203,7 +203,7 @@ export async function sendTeamMemberJoinedEmail(to: string, ownerFirstName: stri
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
         ${LOGO_HTML}
-        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">${memberName} has joined your team${ownerFirstName ? `, ${ownerFirstName}` : ""} 🎉</h2>
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">${renderHeading("team_member_joined", tmpl, { "{{first_name}}": ownerFirstName || "", "{{member_name}}": memberName })}</h2>
         ${bodyHtml}
         <a href="${appUrl}/" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
           View your dashboard
@@ -356,7 +356,7 @@ export async function sendPreScreenEmail(
     html: `
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:32px 24px;color:#111;">
         ${logoHtml}
-        <h2 style="font-size:20px;font-weight:700;margin:0 0 8px;">Hi ${firstName},</h2>
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 8px;">${renderHeading("pre_screen", tmpl, { "{{first_name}}": firstName, "{{business_name}}": settings.businessName })}</h2>
         ${introHtml}
         <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 auto 24px;">
           <tr>${stars}</tr>
@@ -455,7 +455,7 @@ export async function sendCancellationEmail(to: string, firstName: string, acces
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
         ${LOGO_HTML}
-        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">We're sad to see you go${firstName ? `, ${firstName}` : ""} 💙</h2>
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">${renderHeading("cancellation", tmplC, { "{{first_name}}": firstName || "" })}</h2>
         ${bodyHtmlC}
         <a href="${reactivateUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin:16px 0 12px;">
           Reactivate my subscription
@@ -488,7 +488,7 @@ export async function sendSubscriptionEndedEmail(to: string, firstName: string, 
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
         ${LOGO_HTML}
-        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Your subscription has now ended${firstName ? `, ${firstName}` : ""}</h2>
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">${renderHeading("subscription_ended", tmplSE, { "{{first_name}}": firstName || "" })}</h2>
         ${bodyHtmlSE}
         <a href="${reactivateUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin:16px 0 24px;">
           Reactivate my account
@@ -520,7 +520,7 @@ export async function sendAccountDeletionEmail(to: string, firstName: string, pu
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
         ${LOGO_HTML}
-        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Your account has been deleted${firstName ? `, ${firstName}` : ""}</h2>
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">${renderHeading("account_deletion", tmplAD, { "{{first_name}}": firstName || "" })}</h2>
         ${bodyHtmlAD}
         <a href="${reactivateUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin:16px 0 24px;">
           Reactivate my account
@@ -553,7 +553,7 @@ export async function sendSubscriptionConfirmationEmail(
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
         ${LOGO_HTML}
-        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Your subscription is now active${firstName ? `, ${firstName}` : ""}! 🎉</h2>
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">${renderHeading("subscription_confirmation", tmplSC, { "{{first_name}}": firstName || "" })}</h2>
         ${bodyHtmlSC}
         <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:20px;margin-bottom:24px;">
           <p style="margin:0 0 4px;font-size:12px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;">Your subscription</p>
@@ -608,7 +608,7 @@ export async function sendRatingNotificationEmail(
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
         ${LOGO_HTML}
         ${congratsBanner}
-        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">New rating received</h2>
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">${renderHeading("rating_notification", tmpl, { "{{customer_name}}": customerName, "{{business_name}}": businessName, "{{rating}}": String(rating), "{{rating_plural}}": ratingPlural, "{{stars}}": stars })}</h2>
         ${bodyHtml}
         ${rating < 4 ? `<a href="${appUrl}/customers" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin-bottom:24px;">
           View in ReviewOptic
@@ -647,7 +647,7 @@ export async function sendPaymentFailedEmail(to: string, firstName: string, bill
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
         ${LOGO_HTML}
-        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Hi${firstName ? ` ${firstName}` : ""},</h2>
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">${renderHeading("payment_failed", tmpl, { "{{first_name}}": firstName || "" })}</h2>
         ${bodyHtml}
         <a href="${billingUrl}" style="display:inline-block;background:#dc2626;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin:16px 0 12px;">
           Retry payment now
@@ -734,7 +734,7 @@ export async function sendResetPasswordEmail(to: string, resetUrl: string) {
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
         ${LOGO_HTML}
-        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Reset your password</h2>
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">${renderHeading("reset", tmpl)}</h2>
         ${bodyHtml}
         <a href="${resetUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">Reset my password</a>
         <p style="color:#999;font-size:12px;margin-top:32px;line-height:1.6;">If you didn't request this, you can safely ignore this email. Your password won't change.</p>
@@ -777,7 +777,7 @@ export async function sendPrivateFeedbackNotificationEmail(
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
         ${LOGO_HTML}
-        <h2 style="font-size:18px;font-weight:700;margin:0 0 8px;">Private feedback received</h2>
+        <h2 style="font-size:18px;font-weight:700;margin:0 0 8px;">${renderHeading("private_feedback", tmpl, { "{{customer_name}}": customerName, "{{business_name}}": "", "{{rating}}": String(rating), "{{stars}}": stars, "{{message}}": message })}</h2>
         ${bodyHtml}
         <a href="${appUrl}/#private-feedback" style="display:inline-block;background:#0E679D;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">View &amp; Respond in Dashboard</a>
         ${platformFooter(referralLink)}

@@ -3,76 +3,88 @@ import { pool } from "./storage";
 export interface EmailTemplateOverride {
   subject: string;
   body: string;
+  heading: string | null;
+  locked: boolean;
 }
 
 // Default subject + body (plain text, \n\n = paragraph break) for every system email.
 // Body text is injected into the standard HTML wrapper — dynamic parts (buttons, tables) are added by code.
-// adminOnly: true means this template is only shown in the ReviewOptic admin section, not the general system emails list.
 // notEditable: true means the subject/body below are for reference only — the real email is built
 // from live stats/charts, not this text, so editing it here has no effect (still testable via Send Test).
-export const DEFAULT_EMAIL_TEMPLATES: Record<string, { subject: string; body: string; variables: string[]; description: string; adminOnly?: boolean; notEditable?: boolean }> = {
+export const DEFAULT_EMAIL_TEMPLATES: Record<string, { subject: string; heading?: string; body: string; variables: string[]; description: string; notEditable?: boolean }> = {
   verification: {
     subject: "Verify your email and choose your plan",
+    heading: "Welcome — you're one step away! 👋",
     body: "We're really happy to have you here. Just verify your email below to unlock your free trial and start building the reviews your business deserves.\n\nIt takes less than a minute — and your first 30 days are completely free.",
     variables: [],
     description: "Sent when a new user signs up",
   },
   reset: {
     subject: "Reset your ReviewOptic password",
+    heading: "Reset your password",
     body: "We received a request to reset your password. Click the button below to choose a new one. This link expires in 15 minutes.",
     variables: [],
     description: "Sent when a user requests a password reset",
   },
   team_invite: {
     subject: "You've been invited to join {{company_name}} on ReviewOptic",
+    heading: "You're in — welcome to the team! 🎉",
     body: "{{inviter_name}} has invited you to join {{company_name}} on ReviewOptic — the platform that helps businesses collect more ⭐⭐⭐⭐⭐ reviews and grow their reputation online.\n\nClick below to set your password and get started. We think you're going to love it.",
     variables: ["{{inviter_name}}", "{{company_name}}"],
     description: "Sent when a team member is invited",
   },
   team_member_joined: {
     subject: "{{member_name}} has joined your ReviewOptic team",
+    heading: "{{member_name}} has joined your team, {{first_name}} 🎉",
     body: "{{member_name}} has accepted your invitation and set up their account.\n\nThey can now log in and you can both view stats, customers, and review activity from your dashboard.",
     variables: ["{{first_name}}", "{{member_name}}"],
     description: "Sent to the account owner once an invited team member sets their password and joins",
   },
   pre_screen: {
     subject: "How would you rate your experience with {{business_name}}?",
+    heading: "Hi {{first_name}},",
     body: "Thank you for choosing {{business_name}}! How would you rate your experience? Tap a star below:",
     variables: ["{{first_name}}", "{{business_name}}"],
     description: "Sent to customers asking them to tap a star rating",
   },
   rating_notification: {
     subject: "{{customer_name}} left you a rating {{stars}}",
+    heading: "New rating received",
     body: "{{customer_name}} rated {{business_name}} {{stars}}.\n\nReviewOptic is working hard to get this rating published on one of your review platforms.",
     variables: ["{{customer_name}}", "{{business_name}}", "{{rating}}", "{{rating_plural}}", "{{stars}}"],
     description: "Sent to you when a customer submits a star rating (4-5★ shows a congratulations banner; below 4★ always shows the private-feedback wording, regardless of this text)",
   },
   private_feedback: {
     subject: "Private feedback received from {{customer_name}} ({{stars}})",
+    heading: "Private feedback received",
     body: "{{customer_name}} rated their experience {{stars}} and left the following message:\n\n\"{{message}}\"\n\nThis feedback is private — only you can see it. Log in to read & respond.",
     variables: ["{{customer_name}}", "{{business_name}}", "{{rating}}", "{{stars}}", "{{message}}"],
     description: "Sent to you when a customer leaves private negative feedback",
   },
   subscription_confirmation: {
     subject: "Your ReviewOptic subscription is now active",
+    heading: "Your subscription is now active, {{first_name}}! 🎉",
     body: "We're so glad you enjoyed your free trial — and we're even more excited to see what you'll achieve from here.\n\nYour ReviewOptic subscription is now active. This is just the start — businesses that stay consistent with review requests typically see their ratings grow within the first 30 days. Keep sending, keep following up, and let ReviewOptic do the heavy lifting.",
     variables: ["{{first_name}}"],
     description: "Sent when a subscription payment goes through",
   },
   cancellation: {
     subject: "Your ReviewOptic subscription has been cancelled",
+    heading: "We're sad to see you go, {{first_name}} 💙",
     body: "Your cancellation is confirmed. You'll still have full access to all features until {{access_ends}} — so keep making the most of it until then.\n\nAfter {{access_ends}}, you'll still be able to log in and view your analytics — but you won't be able to add new customers or send review requests.\n\nYour account and all your data will be kept safe indefinitely. If you ever want to reactivate, you're always welcome back — one click is all it takes. If you'd rather we permanently deleted everything instead, you can request that below.\n\nWe're always looking to improve — if there's anything we could have done better, or if something didn't work the way you hoped, we'd genuinely love to hear it. Just hit reply.\n\nThank you for trusting us with your business. It's meant a lot to us. 🙏",
     variables: ["{{first_name}}", "{{access_ends}}"],
     description: "Sent when a user cancels their subscription",
   },
   subscription_ended: {
     subject: "Your ReviewOptic subscription has ended",
+    heading: "Your subscription has now ended, {{first_name}}",
     body: "Your ReviewOptic subscription ended {{access_ended}} and billing has stopped. You won't be charged again. ✅\n\nYou can still log in and view your analytics — but you won't be able to add new customers or send review requests. Your account data will be kept safe for 30 days.\n\nWe hope ReviewOptic made a difference while you were with us. If there's anything we could have done better, we'd genuinely love to know — just hit reply.\n\nThank you for being part of ReviewOptic. The door is always open. 🙏",
     variables: ["{{first_name}}", "{{access_ended}}"],
     description: "Sent when a user's access period expires after cancellation",
   },
   account_deletion: {
     subject: "Your ReviewOptic account has been deleted",
+    heading: "Your account has been deleted, {{first_name}}",
     body: "As requested, your ReviewOptic account has been deleted. All your data — customers, review requests, templates, analytics, and team members — will be permanently and irreversibly removed on {{purge_date}}.\n\nChanged your mind? You can reactivate your account at any time before {{purge_date}} and everything will be restored exactly as you left it.",
     variables: ["{{first_name}}", "{{purge_date}}"],
     description: "Sent when a user deletes their account",
@@ -86,6 +98,7 @@ export const DEFAULT_EMAIL_TEMPLATES: Record<string, { subject: string; body: st
   },
   payment_failed: {
     subject: "Action required: your ReviewOptic payment failed",
+    heading: "Hi {{first_name}},",
     body: "We weren't able to take your latest payment. This can happen if your card has expired or your details have changed.\n\nTo avoid interruption to your service, please update your payment details or retry below. We'll try again automatically in 24 hours.",
     variables: ["{{first_name}}"],
     description: "Sent on the first failed payment. If a second attempt also fails, a fixed 'final notice — account will be cancelled' version sends instead, regardless of this text.",
@@ -107,7 +120,6 @@ export const DEFAULT_EMAIL_TEMPLATES: Record<string, { subject: string; body: st
     body: "Hi {{first_name}},\n\nSomeone you referred just signed up and paid — so you've earned a free month on us, worth {{credit_amount}}.\n\nThis will be applied automatically to your next billing period, no action needed. If you refer more people, the free months stack up.\n\nThanks for spreading the word — we really appreciate it.",
     variables: ["{{first_name}}", "{{credit_amount}}"],
     description: "Sent to a user when they earn a referral credit",
-    adminOnly: true,
   },
 };
 
@@ -115,7 +127,7 @@ export const DEFAULT_EMAIL_TEMPLATES: Record<string, { subject: string; body: st
 export async function getEmailTemplateOverride(type: string): Promise<EmailTemplateOverride | null> {
   try {
     const { rows } = await pool.query(
-      `SELECT subject, body FROM system_email_templates WHERE type = $1`, [type]
+      `SELECT subject, body, heading, locked FROM system_email_templates WHERE type = $1`, [type]
     );
     return rows[0] || null;
   } catch {
@@ -131,14 +143,25 @@ export async function getEffectiveTemplate(type: string): Promise<{ subject: str
   return { subject: def?.subject || "", body: def?.body || "" };
 }
 
-// Convert plain text body (with \n\n paragraph breaks and {{vars}}) to styled HTML paragraphs.
-export function renderBodyHtml(text: string, vars: Record<string, string> = {}): string {
+// Substitute {{var}} placeholders in a piece of text.
+export function renderVars(text: string, vars: Record<string, string> = {}): string {
   let out = text;
   for (const [k, v] of Object.entries(vars)) {
     out = out.replaceAll(k, v);
   }
-  return out
+  return out;
+}
+
+// Convert plain text body (with \n\n paragraph breaks and {{vars}}) to styled HTML paragraphs.
+export function renderBodyHtml(text: string, vars: Record<string, string> = {}): string {
+  return renderVars(text, vars)
     .split("\n\n")
     .map(p => `<p style="color:#555;margin:0 0 16px;line-height:1.6;">${p.replace(/\n/g, "<br>")}</p>`)
     .join("");
+}
+
+// Get the heading to use for a template (DB override, or default with vars substituted).
+export function renderHeading(type: string, tmpl: EmailTemplateOverride | null, vars: Record<string, string> = {}): string {
+  const text = tmpl?.heading ?? DEFAULT_EMAIL_TEMPLATES[type]?.heading ?? "";
+  return renderVars(text, vars);
 }

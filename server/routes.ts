@@ -4321,41 +4321,75 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // Admin: get all system email templates (DB overrides merged with defaults)
   app.get("/api/admin/email-templates", requireAdmin, async (_req, res) => {
     const { DEFAULT_EMAIL_TEMPLATES } = await import("./systemEmailTemplates");
-    const { rows } = await pool.query(`SELECT type, subject, body FROM system_email_templates`).catch(() => ({ rows: [] as any[] }));
-    const overrides: Record<string, { subject: string; body: string }> = {};
-    for (const r of rows) overrides[r.type] = { subject: r.subject, body: r.body };
+    const { rows } = await pool.query(`SELECT type, subject, body, heading, locked FROM system_email_templates`).catch(() => ({ rows: [] as any[] }));
+    const overrides: Record<string, { subject: string; body: string; heading: string | null; locked: boolean }> = {};
+    for (const r of rows) overrides[r.type] = { subject: r.subject, body: r.body, heading: r.heading, locked: r.locked };
     const result = Object.entries(DEFAULT_EMAIL_TEMPLATES).map(([type, def]) => ({
       type,
       label: def.description,
       subject: overrides[type]?.subject ?? def.subject,
+      heading: overrides[type]?.heading ?? def.heading ?? null,
       body: overrides[type]?.body ?? def.body,
       variables: def.variables,
       customised: !!overrides[type],
-      adminOnly: def.adminOnly ?? false,
       notEditable: def.notEditable ?? false,
+      locked: overrides[type]?.locked ?? false,
     }));
     res.json(result);
   });
 
-  // Admin: save a custom subject/body for a system email
+  // Admin: save a custom subject/body/heading for a system email
   app.put("/api/admin/email-templates/:type", requireAdmin, async (req, res) => {
     const { type } = req.params;
-    const { subject, body } = req.body as { subject: string; body: string };
+    const { subject, body, heading } = req.body as { subject: string; body: string; heading?: string };
     const { DEFAULT_EMAIL_TEMPLATES } = await import("./systemEmailTemplates");
-    if (!DEFAULT_EMAIL_TEMPLATES[type]) return res.status(404).json({ message: "Unknown email type" });
+    const def = DEFAULT_EMAIL_TEMPLATES[type];
+    if (!def) return res.status(404).json({ message: "Unknown email type" });
     if (!subject?.trim() || !body?.trim()) return res.status(400).json({ message: "Subject and body are required" });
+    const { rows: lockRows } = await pool.query(`SELECT locked FROM system_email_templates WHERE type = $1`, [type]);
+    if (lockRows[0]?.locked) return res.status(403).json({ message: "This template is locked. Unlock it first." });
     await pool.query(
-      `INSERT INTO system_email_templates (type, subject, body, updated_at)
-       VALUES ($1, $2, $3, NOW())
-       ON CONFLICT (type) DO UPDATE SET subject = $2, body = $3, updated_at = NOW()`,
-      [type, subject.trim(), body.trim()]
+      `INSERT INTO system_email_templates (type, subject, body, heading, updated_at)
+       VALUES ($1, $2, $3, $4, NOW())
+       ON CONFLICT (type) DO UPDATE SET subject = $2, body = $3, heading = $4, updated_at = NOW()`,
+      [type, subject.trim(), body.trim(), def.heading ? (heading?.trim() || null) : null]
     );
     res.json({ ok: true });
   });
 
   // Admin: reset a system email template to its default
   app.delete("/api/admin/email-templates/:type", requireAdmin, async (req, res) => {
+    const { rows: lockRows } = await pool.query(`SELECT locked FROM system_email_templates WHERE type = $1`, [req.params.type]);
+    if (lockRows[0]?.locked) return res.status(403).json({ message: "This template is locked. Unlock it first." });
     await pool.query(`DELETE FROM system_email_templates WHERE type = $1`, [req.params.type]);
+    res.json({ ok: true });
+  });
+
+  // Admin: lock a system email template so it can't be edited without unlocking
+  app.post("/api/admin/email-templates/:type/lock", requireAdmin, async (req, res) => {
+    const { type } = req.params;
+    const { DEFAULT_EMAIL_TEMPLATES } = await import("./systemEmailTemplates");
+    const def = DEFAULT_EMAIL_TEMPLATES[type];
+    if (!def) return res.status(404).json({ message: "Unknown email type" });
+    await pool.query(
+      `INSERT INTO system_email_templates (type, subject, body, heading, locked, updated_at)
+       VALUES ($1, $2, $3, $4, true, NOW())
+       ON CONFLICT (type) DO UPDATE SET locked = true, updated_at = NOW()`,
+      [type, def.subject, def.body, def.heading ?? null]
+    );
+    res.json({ ok: true });
+  });
+
+  // Admin: unlock a system email template — requires the admin's own password
+  app.post("/api/admin/email-templates/:type/unlock", requireAdmin, async (req, res) => {
+    const { type } = req.params;
+    const { password } = req.body as { password: string };
+    if (!password) return res.status(400).json({ message: "Password is required to unlock." });
+    const adminId = req.session.originalUserId || req.session.userId;
+    const { rows: pwRows } = await pool.query(`SELECT password FROM users WHERE id = $1`, [adminId]);
+    const passwordMatch = await bcrypt.compare(password, pwRows[0]?.password || "");
+    if (!passwordMatch) return res.status(401).json({ message: "Incorrect password — please try again." });
+    await pool.query(`UPDATE system_email_templates SET locked = false, updated_at = NOW() WHERE type = $1`, [type]);
     res.json({ ok: true });
   });
 

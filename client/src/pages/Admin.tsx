@@ -9,6 +9,7 @@ import {
   Shield, LogIn, CheckCircle2, XCircle, Trash2, ShieldCheck, ShieldOff, Ban,
   Users, BarChart3, TrendingUp, TrendingDown, AlertTriangle, AlertCircle,
   CheckCircle, RefreshCw, Download, Zap, Target, Activity, Printer, Mail, Wrench, Radio,
+  Lock, Unlock,
 } from "lucide-react";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
@@ -171,11 +172,17 @@ export default function Admin() {
   const [deletedAccounts, setDeletedAccounts] = useState<any[]>([]);
   const [emailSending, setEmailSending] = useState<string | null>(null);
   const [emailResult, setEmailResult] = useState<Record<string, "sent" | "error">>({});
-  const [emailTemplates, setEmailTemplates] = useState<{ type: string; label: string; subject: string; body: string; variables: string[]; customised: boolean; adminOnly: boolean; notEditable: boolean }[]>([]);
-  const [editingTemplate, setEditingTemplate] = useState<{ type: string; label: string; subject: string; body: string; variables: string[] } | null>(null);
+  const [emailTemplates, setEmailTemplates] = useState<{ type: string; label: string; subject: string; heading: string | null; body: string; variables: string[]; customised: boolean; notEditable: boolean; locked: boolean }[]>([]);
+  const [editingTemplate, setEditingTemplate] = useState<{ type: string; label: string; subject: string; heading: string | null; body: string; variables: string[] } | null>(null);
   const [editSubject, setEditSubject] = useState("");
+  const [editHeading, setEditHeading] = useState("");
   const [editBody, setEditBody] = useState("");
   const [savingTemplate, setSavingTemplate] = useState(false);
+  const [unlockTarget, setUnlockTarget] = useState<{ type: string; label: string } | null>(null);
+  const [unlockPassword, setUnlockPassword] = useState("");
+  const [unlocking, setUnlocking] = useState(false);
+  const [unlockError, setUnlockError] = useState("");
+  const [locking, setLocking] = useState<string | null>(null);
 
   const loadInsightStats = () => fetch("/api/admin/insight-stats", { credentials: "include" })
     .then(r => r.ok ? r.json().catch(() => null) : null)
@@ -251,6 +258,7 @@ export default function Admin() {
   const openEdit = (t: typeof emailTemplates[0]) => {
     setEditingTemplate(t);
     setEditSubject(t.subject);
+    setEditHeading(t.heading || "");
     setEditBody(t.body);
   };
 
@@ -261,7 +269,7 @@ export default function Admin() {
       await fetch(`/api/admin/email-templates/${editingTemplate.type}`, {
         method: "PUT", credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subject: editSubject, body: editBody }),
+        body: JSON.stringify({ subject: editSubject, heading: editHeading, body: editBody }),
       });
       await loadEmailTemplates();
       setEditingTemplate(null);
@@ -274,6 +282,39 @@ export default function Admin() {
     await fetch(`/api/admin/email-templates/${type}`, { method: "DELETE", credentials: "include" });
     await loadEmailTemplates();
     setEditingTemplate(null);
+  };
+
+  const lockTemplate = async (type: string) => {
+    setLocking(type);
+    try {
+      await fetch(`/api/admin/email-templates/${type}/lock`, { method: "POST", credentials: "include" });
+      await loadEmailTemplates();
+    } finally {
+      setLocking(null);
+    }
+  };
+
+  const unlockTemplate = async () => {
+    if (!unlockTarget) return;
+    setUnlocking(true);
+    setUnlockError("");
+    try {
+      const r = await fetch(`/api/admin/email-templates/${unlockTarget.type}/unlock`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: unlockPassword }),
+      });
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({}));
+        setUnlockError(data.message || "Incorrect password — please try again.");
+        return;
+      }
+      await loadEmailTemplates();
+      setUnlockTarget(null);
+      setUnlockPassword("");
+    } finally {
+      setUnlocking(false);
+    }
   };
 
   const sendTestEmail = async (type: string) => {
@@ -916,6 +957,17 @@ export default function Admin() {
                   />
                 </div>
 
+                {editingTemplate.heading !== null && (
+                  <div className="mb-3">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-1">Heading (shown at the top of the email)</label>
+                    <input
+                      value={editHeading}
+                      onChange={e => setEditHeading(e.target.value)}
+                      className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
+                    />
+                  </div>
+                )}
+
                 <div className="mb-3">
                   <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-1">Body text</label>
                   <textarea
@@ -956,57 +1008,62 @@ export default function Admin() {
             </div>
           )}
 
+          {/* Unlock modal */}
+          {unlockTarget && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+              <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-sm p-6">
+                <h3 className="text-base font-semibold mb-1">Unlock "{unlockTarget.label}"</h3>
+                <p className="text-xs text-muted-foreground mb-4">Enter your admin password to unlock this template for editing.</p>
+                <input
+                  type="password"
+                  value={unlockPassword}
+                  onChange={e => setUnlockPassword(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && unlockTemplate()}
+                  placeholder="Password"
+                  autoFocus
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background mb-2"
+                />
+                {unlockError && <p className="text-xs text-destructive mb-2">{unlockError}</p>}
+                <div className="flex justify-end gap-2 pt-2">
+                  <button onClick={() => { setUnlockTarget(null); setUnlockPassword(""); setUnlockError(""); }} className="text-sm px-4 py-2 rounded-lg border border-border hover:bg-muted transition-colors">Cancel</button>
+                  <button onClick={unlockTemplate} disabled={unlocking || !unlockPassword} className="text-sm px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50">
+                    {unlocking ? "Unlocking…" : "Unlock"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* System emails section */}
           <div className="mb-5">
             <p className="text-sm font-semibold mb-0.5">System emails</p>
             <p className="text-xs text-muted-foreground">Emails sent by ReviewOptic to your users. Click Edit to update subject and body. Use Test to preview in your inbox.</p>
           </div>
           <div className="bg-card border border-border rounded-xl overflow-hidden mb-8">
-            {emailTemplates.filter(e => !e.type.startsWith("dialog_") && !e.adminOnly).map((e, i, arr) => (
-              <div key={e.type} className={`flex items-center justify-between gap-3 px-4 py-3.5 ${i < arr.length - 1 ? "border-b border-border" : ""}`}>
+            {emailTemplates.filter(e => !e.type.startsWith("dialog_")).map((e, i, arr) => (
+              <div key={e.type} className={`flex items-center justify-between gap-3 px-4 py-3.5 ${i < arr.length - 1 ? "border-b border-border" : ""} ${e.locked ? "bg-muted/40" : ""}`}>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium truncate">{e.label}</p>
-                    {e.customised && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 flex-shrink-0">Edited</span>}
+                    <p className={`text-sm font-medium truncate ${e.locked ? "text-muted-foreground" : ""}`}>{e.label}</p>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5 truncate">{e.subject}</p>
                   {e.notEditable && <p className="text-xs text-amber-600 dark:text-amber-500 mt-0.5">Built from live stats/charts — not editable here, use Test to preview the real email</p>}
                 </div>
                 <div className="flex gap-1.5 flex-shrink-0">
-                  {!e.notEditable && <button onClick={() => openEdit(e)} className="text-xs font-medium px-3 py-1.5 rounded-lg border border-border hover:bg-muted transition-colors">Edit</button>}
-                  <button
-                    onClick={() => sendTestEmail(e.type)}
-                    disabled={emailSending === e.type}
-                    className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
-                      emailResult[e.type] === "sent" ? "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400" :
-                      emailResult[e.type] === "error" ? "bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400" :
-                      "bg-primary text-primary-foreground hover:bg-primary/90"
-                    } disabled:opacity-50`}
-                  >
-                    {emailSending === e.type ? "Sending…" : emailResult[e.type] === "sent" ? "✓ Sent" : emailResult[e.type] === "error" ? "✗ Failed" : "Test"}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* ReviewOptic admin-only templates */}
-          <div className="mb-5">
-            <p className="text-sm font-semibold mb-0.5">ReviewOptic admin templates</p>
-            <p className="text-xs text-muted-foreground">These templates are used only by the ReviewOptic admin account — not sent to end users of the platform. Edit to customise the message ReviewOptic sends to its own subscribers.</p>
-          </div>
-          <div className="bg-card border border-border rounded-xl overflow-hidden mb-8">
-            {emailTemplates.filter(e => e.adminOnly).map((e, i, arr) => (
-              <div key={e.type} className={`flex items-center justify-between gap-3 px-4 py-3.5 ${i < arr.length - 1 ? "border-b border-border" : ""}`}>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium truncate">{e.label}</p>
-                    {e.customised && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 flex-shrink-0">Edited</span>}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5 truncate">{e.subject}</p>
-                </div>
-                <div className="flex gap-1.5 flex-shrink-0">
-                  <button onClick={() => openEdit(e)} className="text-xs font-medium px-3 py-1.5 rounded-lg border border-border hover:bg-muted transition-colors">Edit</button>
+                  {!e.notEditable && (
+                    e.locked ? (
+                      <button onClick={() => setUnlockTarget({ type: e.type, label: e.label })} className="flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-lg border border-border hover:bg-muted transition-colors">
+                        <Unlock className="w-3 h-3" /> Unlock
+                      </button>
+                    ) : (
+                      <>
+                        <button onClick={() => openEdit(e)} className="text-xs font-medium px-3 py-1.5 rounded-lg border border-border hover:bg-muted transition-colors">Edit</button>
+                        <button onClick={() => lockTemplate(e.type)} disabled={locking === e.type} className="flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-lg border border-border hover:bg-muted transition-colors disabled:opacity-50">
+                          <Lock className="w-3 h-3" /> Lock
+                        </button>
+                      </>
+                    )
+                  )}
                   <button
                     onClick={() => sendTestEmail(e.type)}
                     disabled={emailSending === e.type}
@@ -1030,16 +1087,26 @@ export default function Admin() {
           </div>
           <div className="bg-card border border-border rounded-xl overflow-hidden">
             {emailTemplates.filter(e => e.type.startsWith("dialog_")).map((e, i, arr) => (
-              <div key={e.type} className={`flex items-center justify-between gap-3 px-4 py-3.5 ${i < arr.length - 1 ? "border-b border-border" : ""}`}>
+              <div key={e.type} className={`flex items-center justify-between gap-3 px-4 py-3.5 ${i < arr.length - 1 ? "border-b border-border" : ""} ${e.locked ? "bg-muted/40" : ""}`}>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium truncate">{e.label}</p>
-                    {e.customised && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 flex-shrink-0">Edited</span>}
+                    <p className={`text-sm font-medium truncate ${e.locked ? "text-muted-foreground" : ""}`}>{e.label}</p>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5 truncate">{e.subject}</p>
                 </div>
                 <div className="flex gap-1.5 flex-shrink-0">
-                  <button onClick={() => openEdit(e)} className="text-xs font-medium px-3 py-1.5 rounded-lg border border-border hover:bg-muted transition-colors">Edit</button>
+                  {e.locked ? (
+                    <button onClick={() => setUnlockTarget({ type: e.type, label: e.label })} className="flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-lg border border-border hover:bg-muted transition-colors">
+                      <Unlock className="w-3 h-3" /> Unlock
+                    </button>
+                  ) : (
+                    <>
+                      <button onClick={() => openEdit(e)} className="text-xs font-medium px-3 py-1.5 rounded-lg border border-border hover:bg-muted transition-colors">Edit</button>
+                      <button onClick={() => lockTemplate(e.type)} disabled={locking === e.type} className="flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-lg border border-border hover:bg-muted transition-colors disabled:opacity-50">
+                        <Lock className="w-3 h-3" /> Lock
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             ))}

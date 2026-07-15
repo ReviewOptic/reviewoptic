@@ -582,6 +582,8 @@ export async function runMigrations() {
       body TEXT NOT NULL,
       updated_at TIMESTAMP NOT NULL DEFAULT NOW()
     )`);
+    await pool.query(`ALTER TABLE system_email_templates ADD COLUMN IF NOT EXISTS heading TEXT`);
+    await pool.query(`ALTER TABLE system_email_templates ADD COLUMN IF NOT EXISTS locked BOOLEAN NOT NULL DEFAULT false`);
 
     // Admin manual suspension
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN NOT NULL DEFAULT false`);
