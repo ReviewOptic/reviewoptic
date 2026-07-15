@@ -184,9 +184,9 @@ Your job is to be the developer they would hire if they could afford a great one
 
 ## SESSION LOGS
 
-*(Sessions 18–107 archived to CLAUDE_ARCHIVE.md. Session 107's still-pending items are carried forward in session 109/110's "NEXT SESSION" lists below.)*
+*(Sessions 18–109 archived to CLAUDE_ARCHIVE.md. Still-pending items from those sessions are carried forward in session 110/111's "NEXT SESSION" lists below.)*
 
-### Session — 2026-07-14 (one-hundred-and-eighth session)
+### Session — 2026-07-15 (one-hundred-and-tenth session)
 
 **Context:** Short session. User reported that visiting reviewoptic.com went straight to the "verify your email" screen instead of the normal marketing landing page.
 
@@ -285,5 +285,26 @@ Committed as `5a9fce6`.
 **NEXT SESSION — FIRST STEPS:**
 1. Get the user's saved template text for `cancellation` and `account_deletion` from the admin panel to find and strip the stray hyperlinks around dates/words.
 2. Confirm the republish actually succeeded after the `import.meta.dirname` fix — this was the last action of the session, unconfirmed.
-3. Carry over still-unresolved items from sessions 107-109: insight email template dead-entry decision (the `insight` admin template entry is still fully decorative, doesn't read from `DEFAULT_EMAIL_TEMPLATES`), "which header will you delete" question, decide on dropping orphaned `ext.external_reviews`/`ext.settings_extra` columns.
+3. Carry over still-unresolved items from sessions 107-109: "which header will you delete" question, decide on dropping orphaned `ext.external_reviews`/`ext.settings_extra` columns.
 4. `bucksandherts` — user said they'd delete and recreate this account themselves; confirm if it comes up again.
+
+### Session — 2026-07-15 (one-hundred-and-eleventh session)
+
+**Context:** Short, focused session. User reported "the templates showing in admin panel under emails are not what is sent... what is sent seems ok but these are not what shows in the admin panel... i can't edit them as they aren't showing the correct wording." This is the exact class of bug flagged (and twice already caught) in session 107 — `DEFAULT_EMAIL_TEMPLATES` in `systemEmailTemplates.ts` is a hand-maintained copy of the real inline fallback text in each `send*Email()` function in `email.ts`, and the two silently drift apart whenever only one gets edited.
+
+**Did a full audit — checked every one of the 16 templates in `DEFAULT_EMAIL_TEMPLATES` line-by-line against its corresponding function in `email.ts`.** 14 matched exactly (verification, reset, team_invite, team_member_joined, pre_screen, private_feedback, subscription_confirmation, cancellation, subscription_ended, account_deletion, referral_reward, dialog_positive, dialog_negative all confirmed in sync — the latter three read directly from `DEFAULT_EMAIL_TEMPLATES` via `getEffectiveTemplate()` with no separate hardcoded copy, so they structurally can't drift). Found two real problems:
+
+1. **`payment_failed` was out of sync.** The admin panel showed different wording than what's actually sent on a first failed payment, and didn't mention at all that a second failed payment sends a completely different "final notice — account will be cancelled" version. Fixed: synced the body text to match the real first-attempt wording, and added a note in the description explaining the final-notice exception (same pattern already used for `rating_notification`'s own documented edge case, from session 107).
+2. **`insight` (weekly/monthly report) is still fully disconnected** — flagged as an unresolved decision back in session 107, never actioned. It's built entirely from live stats/charts in `insightEmail.ts`, which never reads `DEFAULT_EMAIL_TEMPLATES` or DB overrides at all — so any text typed into that admin panel field has always done nothing. Decided (rather than defer a 4th time): keep the entry so the "Send Test" button still works (it genuinely sends the real email), but mark it `notEditable: true` and hide the Edit button in the UI, replacing it with a note explaining why. Threaded the new flag through the `/api/admin/email-templates` GET response and `Admin.tsx`'s rendering.
+
+**Bonus fix:** while adding `notEditable` to `Admin.tsx`'s email-template state type, also added the already-used-but-never-declared `adminOnly` field — this silently fixed one of the long-standing pre-existing TypeScript errors that's been in every `tsc --noEmit` baseline since session 107 (`Property 'adminOnly' does not exist on type...`, Admin.tsx lines ~965/998).
+
+**Verification:** booted the actual dev server, logged in as admin, and confirmed via `GET /api/admin/email-templates` that `payment_failed.body` now matches the real send-time text and `insight.notEditable === true` — not just a code read, an actual live API response check.
+
+**NEXT SESSION — FIRST STEPS:**
+1. Still the top pending item across three sessions now: get the saved template text for `cancellation` and `account_deletion` from the admin panel to strip the stray hyperlinks around dates/words (confirmed not a code bug — needs the actual saved text to fix).
+2. Confirm the production republish from last session succeeded and the live site is healthy.
+3. `bucksandherts` and the "which header will you delete" question — still unconfirmed, ask directly if they resurface.
+4. Orphaned `ext.external_reviews`/`ext.settings_extra` DB columns from the review-scraping removal (session 109) — still just harmless dead weight, no urgency.
+
+**LESSON LEARNED:** the admin-panel/`email.ts` sync problem is now confirmed to be a recurring category of bug, not a one-off — it's bitten this codebase at least 4 times across 3 sessions (rating_notification, private_feedback in session 107; payment_failed and the insight non-editability decision this session). Worth proactively re-auditing this pair of files after any future email-related session, not just waiting for the user to notice a specific mismatch.

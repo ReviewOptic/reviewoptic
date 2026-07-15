@@ -1594,3 +1594,65 @@ migrate.ts was recreating `external_reviews` each server restart → Replit dete
 - Email wording edits: always check BOTH `email.ts` (actual send logic) AND `systemEmailTemplates.ts` (`DEFAULT_EMAIL_TEMPLATES`, what the admin panel shows/edits) — two separate copies of "default" text, go out of sync silently if only one is updated.
 - Broad instructions ("every email should X") — apply narrowly to what's clearly in scope, confirm before sweeping. Over-applied `hello@reviewoptic.com` reply-to to all 16 emails when user meant only the 2 named (cancellation + expiry); had to revert 14.
 
+
+### Session — 2026-07-14 (one-hundred-and-eighth session)
+
+**Context:** Short session. User reported that visiting reviewoptic.com went straight to the "verify your email" screen instead of the normal marketing landing page.
+
+**Bug found and fixed:**
+- The `VerifyEmailPrompt` screen added last session (`client/src/App.tsx`) had no way to leave it — no logout button, no link back to the landing page. A logged-in-but-unverified session (e.g. a leftover test account from last session's testing) would get stuck there indefinitely, including when visiting the plain root domain. Added a "Not you? Log out" link using the existing `logout()` from `useAuth()`.
+- Confirmed the underlying gate itself is working as intended (only shows for a logged-in user with `emailVerified: false`, matches what the user asked for last session) — the bug was purely the missing exit, not the gating logic. Anonymous visitors with no session still correctly see the normal `<Home />` landing page.
+
+**Engineering note:** Replit's own auto-publish/deploy system is committing on save independently of explicit `git commit` calls in this session — file changes landed under generic "Published your App" checkpoint commits (author `Replit Agent`) rather than the descriptive commit message written for them. Diff content was verified correct in each case; just a less informative commit history. Not something to fix in code — just be aware `git commit` may report "nothing to commit" if Replit's checkpoint already captured the change first.
+
+**NEXT SESSION — FIRST STEPS:**
+1. Carry over all "NEXT SESSION" items from session 107 above (insight template dead-entry decision, renewal_reminder/platform_review admin entry cleanup, fresh test emails, and the "which header will you delete" question) — none were addressed this session.
+2. Confirm the logout-link fix actually resolves the reviewoptic.com issue in the live/deployed app.
+
+### Session — 2026-07-14 (one-hundred-and-ninth session)
+
+**Context:** Continued from an interrupted session — found an uncommitted, undocumented change to `client/src/pages/Dashboard.tsx` mid-way through removing the "Platform Reviews" feature (the external-reviews feed card added in sessions 106–107). Confirmed with the user to finish removing it, which then grew into a much bigger decision: drop external review scraping entirely.
+
+**Tasks completed:**
+
+1. **Finished removing the Dashboard "Platform Reviews" feed** — the review card, refresh button/dialog, and "Total Reviews" stat tile (was mid-removal, uncommitted, from before this session started).
+
+2. **Removed "reviews gained since joining" entirely** — the manual "Total existing reviews" field in Settings, its onboarding checklist step, its save endpoint, and its `storage.ts`/`ext.settings_extra` plumbing. This had been flagged in session 106 as adding too much friction; rather than making it optional, the user chose full removal since it was tied to the scraping feature being dropped anyway.
+
+3. **Major decision — social auto-posting now triggers from real ReviewOptic ratings, not scraped reviews.** Reasoning discussed with the user: Google's GBP API access was never actually confirmed working (still blocked — see session 106), and the other platforms (Checkatrade, Trustpilot, TripAdvisor, MyBuilder) were being pulled via spoofed-browser-header HTML scraping, not an official API. That already broke once for Checkatrade (session 106) and carries real risk of the shared server IP getting blocked across every customer at once if any of these sites tightens anti-bot detection. Consistency won out over completeness — auto-post now fires from `POST /api/public/review/:id/rate` (a customer tapping 4-5★ on a real ReviewOptic request) instead, posting a star-only card (no scraped review text) to Facebook/Instagram. 100% reliable, no ToS/scraping risk.
+
+4. **Deleted the entire scraping engine**: `server/externalReviews.ts` (Google Places/GBP, Checkatrade, Trustpilot, TripAdvisor, MyBuilder, Facebook fetchers — 744 lines) removed outright; the hourly polling cron in `server/index.ts` removed; the now-dead `hasBeenPostedAlready` dedup helper removed from `server/social.ts`.
+
+5. **Removed the Google Business Profile OAuth connect flow entirely** — the "Connect Google Business Profile" button/section in Settings, the `GooglePlaceSearch` business-search/URL-paste picker component, and all 9 supporting backend endpoints (`/auth/google-business` + its callback, `DELETE /api/social/google-business`, and 7 `/api/settings/google-*` place-search/photo/map/disconnect endpoints). This resolves session 106's "Google My Business API enablement" blocker by making it moot — there's no more scraping to unblock.
+
+6. **Removed the "Reviews by Platform" Analytics chart** — fed by the now-deleted scraped data, and the user separately confirmed it "wasn't accurate" anyway. Left the "Where Reviews Are Going" chart untouched (real first-party click-through data from `review_platform_clicks`, unaffected by any of this).
+
+7. **Cleanup**: `storage.ts`'s `getSettings()` no longer queries the dead `ext.settings_extra` GBP/Maps columns; `server/index.ts`'s session type no longer declares `gbpOauthState`; the demo-account seeder no longer seeds fake external reviews.
+
+**Verification:**
+- Ran a before/after `tsc --noEmit` diff against the pre-session commit — confirmed zero new type errors (only line-number shifts in the same pre-existing errors: Admin.tsx `adminOnly`, Analytics.tsx `settings.logoUrl`, Blog.tsx args count, routes.ts stripe/Set-iteration/index-type — none touched this session).
+- Repo-wide grep confirmed zero remaining references to any removed endpoint, function, or component.
+- Attempted a full `npm run dev` boot to sanity-check — crashed with `ReferenceError: __dirname is not defined` in `server/email.ts:26`. Confirmed via `git stash` that this is **pre-existing and unrelated** — reproduces identically on the commit from before this session. Sandbox-only ESM quirk, not something this session touched or broke.
+
+**New issue discovered (not fixed):**
+- `server/email.ts:26` uses `__dirname`, which throws under this sandbox's ESM module loader (`"type": "module"` in package.json). Reproduces on old code too, so it's not new — but if it ever surfaces in the actual Replit deployment (logo loading for emails), the fix is swapping to `import.meta.dirname` (Node 20+) or `fileURLToPath(import.meta.url)`.
+
+**Deliberately left alone:**
+- The DB tables/columns tied to the removed scraping feature (`ext.external_reviews`, and `ext.settings_extra`'s `gbp_access_token`/`gbp_refresh_token`/`gbp_location_resource`/`gbp_business_name`/`google_maps_link`/`platform_review_totals`/`starting_review_count` columns) — code no longer reads or writes any of them, but no destructive migration was run. `migrate.ts` still idempotently creates them on boot (harmless dead weight).
+- The "Auto-Post Reviews" toggle and its message-template settings in Settings — unchanged, just now triggered by real ratings instead of scraped ones.
+
+Committed as `5a9fce6`.
+
+**NEXT SESSION — FIRST STEPS:**
+1. Carry over all still-unresolved "NEXT SESSION" items from sessions 107/108 (insight email template dead-entry decision, renewal_reminder/platform_review admin entry cleanup, fresh test emails, "which header will you delete" question, confirm the verify-email logout fix works live) — none addressed this session, which was entirely about the review-scraping removal.
+2. Decide whether to also drop the orphaned `ext.external_reviews` table and dead `ext.settings_extra` columns from the database, or leave them as harmless dead weight.
+3. If `server/email.ts`'s `__dirname` issue ever appears in production logs, fix it (see note above).
+
+**Pending (superseded/resolved by this session, kept here for continuity with the archive):**
+- ~~Google "Google My Business API" enablement~~ — moot, GBP integration removed entirely.
+- ~~"Reviews gained since joining" UX~~ — resolved by full removal.
+- ~~Checkatrade scraping~~ — moot, all scraping removed.
+- **Facebook review fetching** — this was about *importing* Facebook reviews via scraping/API, now removed along with everything else. Facebook *posting* (auto-post cards) is unaffected and still works.
+- **Beta testing** — next logical step before paying customers.
+- **Landing page videos**, **tracking pixel IDs**, **first blog post** — deferred until ready for public traffic.
+
