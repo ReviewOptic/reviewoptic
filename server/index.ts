@@ -13,7 +13,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seedDatabase } from "./seed";
 import { storage } from "./storage";
-import { runMigrations, ensureExternalReviewsTable } from "./migrate";
+import { runMigrations } from "./migrate";
 import { runMonthlyInsightEmails } from "./insightEmail";
 import { sendPreScreenEmail } from "./email";
 import { sendReviewSMS, sendWhatsAppMessage, sendWhatsAppTemplate } from "./sms";
@@ -170,7 +170,6 @@ app.use((req, res, next) => {
 
 (async () => {
   await runMigrations().catch(console.error);
-  await ensureExternalReviewsTable().catch(console.error);
   await seedDatabase().catch(console.error);
   await registerRoutes(httpServer, app);
 
@@ -226,9 +225,10 @@ app.use((req, res, next) => {
   // The interval below handles all scheduled checks.
   setInterval(runScheduledChecks, 60 * 60 * 1000);
 
-  // Monthly insight emails — checked once a day
-  await runMonthlyInsightEmails().catch(console.error);
-  setInterval(() => runMonthlyInsightEmails().catch(console.error), 24 * 60 * 60 * 1000);
+  // Insight emails — checked hourly, only actually sends during the Friday-evening
+  // (weekly) or last-day-of-month-evening (monthly) window. Do NOT run on startup —
+  // same reasoning as runScheduledChecks above, prevents emails firing on every redeploy.
+  setInterval(() => runMonthlyInsightEmails().catch(console.error), 60 * 60 * 1000);
 
   // Daily: cancel accounts that have had a failed payment for more than 7 days
   const runPaymentFailedCancellations = async () => {

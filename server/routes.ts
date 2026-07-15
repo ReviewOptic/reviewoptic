@@ -289,9 +289,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
 
     // Auto-add as customer in admin account for ReviewOptic's own review requests
-    if (process.env.ADMIN_EMAIL) {
+    if (!process.env.ADMIN_EMAIL) {
+      console.error("[register] ADMIN_EMAIL is not set — new signup was not added as a customer on the admin account");
+    } else {
       const adminUser = await storage.getUserByEmail(process.env.ADMIN_EMAIL);
-      if (adminUser) {
+      if (!adminUser) {
+        console.error(`[register] ADMIN_EMAIL (${process.env.ADMIN_EMAIL}) does not match any user — new signup was not added as a customer on the admin account`);
+      } else {
         await storage.createCustomer({
           id: randomUUID(),
           accountId: adminUser.accountId,
@@ -304,7 +308,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           status: "pending_request",
           doNotContact: false,
           channel: "email",
-        });
+        }).catch(err => console.error("[register] Failed to auto-add new signup as a customer:", err.message));
       }
     }
 
@@ -4352,14 +4356,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const { rows: adminCheck } = await pool.query(`SELECT is_admin FROM users WHERE id = $1`, [req.session.userId]);
     if (!adminCheck[0]?.is_admin) return res.status(403).json({ message: "Forbidden" });
 
+    // Exclude admin/test sends (e.g. the "Send Test" button in the admin panel) as well as
+    // demo/Meta-reviewer accounts — this should only reflect emails sent to real customers.
+    const excludeLogUsers = `NOT u.is_admin AND u.email NOT IN (${nonCustomerEmailList})`;
     const [totalRes, openedRes, optOutRes, recentRes] = await Promise.all([
-      pool.query(`SELECT COUNT(*) FROM insight_email_log WHERE email NOT IN (${nonCustomerEmailList})`),
-      pool.query(`SELECT COUNT(*) FROM insight_email_log WHERE opened_at IS NOT NULL AND email NOT IN (${nonCustomerEmailList})`),
-      pool.query(`SELECT COUNT(*) FROM users WHERE insight_emails_opt_out = true AND email NOT IN (${nonCustomerEmailList})`),
+      pool.query(`SELECT COUNT(*) FROM insight_email_log l JOIN users u ON u.id = l.user_id WHERE ${excludeLogUsers}`),
+      pool.query(`SELECT COUNT(*) FROM insight_email_log l JOIN users u ON u.id = l.user_id WHERE l.opened_at IS NOT NULL AND ${excludeLogUsers}`),
+      pool.query(`SELECT COUNT(*) FROM users u WHERE u.insight_emails_opt_out = true AND NOT u.is_admin AND u.email NOT IN (${nonCustomerEmailList})`),
       pool.query(`SELECT l.email, l.sent_at, l.opened_at, s.business_name
         FROM insight_email_log l
+        JOIN users u ON u.id = l.user_id
         LEFT JOIN settings s ON s.account_id = l.account_id
-        WHERE l.email NOT IN (${nonCustomerEmailList})
+        WHERE ${excludeLogUsers}
         ORDER BY l.sent_at DESC LIMIT 20`),
     ]);
 

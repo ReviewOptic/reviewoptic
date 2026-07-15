@@ -502,6 +502,9 @@ export class DatabaseStorage implements IStorage {
     const accountIds = Array.from(new Set(activeCustomers.map(c => c.accountId)));
     let totalSent = 0;
     const now = new Date();
+    // Templates are fetched at most once per account (not once per customer) and reused
+    // across every customer in that account within this run.
+    const templatesByAccount = new Map<string, Template[]>();
 
     // Batch-fetch all review requests for active customers in one query
     const customerIds = activeCustomers.map(c => c.id);
@@ -576,7 +579,13 @@ export class DatabaseStorage implements IStorage {
         if (!shouldSend) continue;
 
         const templateType = `follow_up_${sentCount}`;
-        const allTemplates = hasHighRating ? await this.getTemplates(accountId) : [];
+        let allTemplates: Template[] = [];
+        if (hasHighRating) {
+          if (!templatesByAccount.has(accountId)) {
+            templatesByAccount.set(accountId, await this.getTemplates(accountId));
+          }
+          allTemplates = templatesByAccount.get(accountId)!;
+        }
 
         // Pre-set rating on the new request if already rated 4-5★ so ReviewLanding skips
         // the star step and goes straight to the platform buttons page

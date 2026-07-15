@@ -301,6 +301,18 @@ export async function sendInsightEmailToUser(userId: string, accountId: string, 
 export async function runMonthlyInsightEmails(): Promise<void> {
   const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000");
 
+  // Only sends during the Friday-evening (weekly) or last-day-of-month-evening (monthly) window.
+  // Called hourly, so this only actually matches during the 18:00 hour on the correct day.
+  const now = new Date();
+  const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const isFridayEvening = now.getDay() === 5 && now.getHours() === 18;
+  const isMonthEndEvening = now.getDate() === lastDayOfMonth && now.getHours() === 18;
+  if (!isFridayEvening && !isMonthEndEvening) return;
+
+  const dueFrequencies: string[] = [];
+  if (isFridayEvening) dueFrequencies.push("'weekly'");
+  if (isMonthEndEvening) dueFrequencies.push("'monthly'");
+
   const nonCustomerEmailList = NON_CUSTOMER_EMAILS.map(e => `'${e}'`).join(", ");
   const { rows: users } = await pool.query(`
     SELECT id, email, account_id, insight_email_frequency FROM users
@@ -309,14 +321,10 @@ export async function runMonthlyInsightEmails(): Promise<void> {
       AND plan_type NOT IN ('free', 'complimentary')
       AND role = 'owner'
       AND email NOT IN (${nonCustomerEmailList})
-      AND insight_email_frequency != 'never'
+      AND insight_email_frequency IN (${dueFrequencies.join(", ")})
       AND insight_emails_opt_out = false
       AND COALESCE(email_unsubscribed, false) = false
-      AND (
-        last_insight_email_at IS NULL
-        OR (insight_email_frequency = 'weekly'  AND last_insight_email_at < NOW() - INTERVAL '7 days')
-        OR (insight_email_frequency = 'monthly' AND last_insight_email_at < NOW() - INTERVAL '30 days')
-      )
+      AND (last_insight_email_at IS NULL OR last_insight_email_at < NOW() - INTERVAL '1 day')
   `);
 
   console.log(`[insight email] ${users.length} user(s) due for an insight email`);

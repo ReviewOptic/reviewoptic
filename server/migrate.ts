@@ -648,48 +648,27 @@ export async function runMigrations() {
 
 
 
+    // Performance: every query in this app filters by account_id (or a handful of other
+    // hot lookup columns), but until now only primary keys were indexed — every one of
+    // those queries was doing a full table scan. Safe/additive, no existing behavior changes.
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_customers_account_id ON customers (account_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_review_requests_account_id ON review_requests (account_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_review_requests_customer_id ON review_requests (customer_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_review_requests_sent_by_user_id ON review_requests (sent_by_user_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_reviews_account_id ON reviews (account_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_activity_log_account_id ON activity_log (account_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_private_feedback_account_id ON private_feedback (account_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_private_feedback_review_request_id ON private_feedback (review_request_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_templates_account_id ON templates (account_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_account_id ON users (account_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_stripe_subscription_id ON users (stripe_subscription_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_review_platform_clicks_account_id ON review_platform_clicks (account_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_insight_email_log_user_id ON insight_email_log (user_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_insight_email_log_account_id ON insight_email_log (account_id)`);
+
     console.log("[migrate] Migrations complete");
   } finally {
     await pool.end();
   }
 }
 
-// Uses the 'ext' schema so Replit's migration tool (which only scans 'public') never sees this table.
-export async function ensureExternalReviewsTable() {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-  try {
-    await pool.query(`CREATE SCHEMA IF NOT EXISTS ext`);
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS ext.settings_extra (
-        account_id TEXT PRIMARY KEY,
-        google_maps_link TEXT NOT NULL DEFAULT ''
-      )
-    `);
-    // GBP OAuth columns — added via ALTER so existing rows are preserved
-    await pool.query(`ALTER TABLE ext.settings_extra ADD COLUMN IF NOT EXISTS gbp_access_token TEXT NOT NULL DEFAULT ''`).catch(() => {});
-    await pool.query(`ALTER TABLE ext.settings_extra ADD COLUMN IF NOT EXISTS gbp_refresh_token TEXT NOT NULL DEFAULT ''`).catch(() => {});
-    await pool.query(`ALTER TABLE ext.settings_extra ADD COLUMN IF NOT EXISTS gbp_location_resource TEXT NOT NULL DEFAULT ''`).catch(() => {});
-    await pool.query(`ALTER TABLE ext.settings_extra ADD COLUMN IF NOT EXISTS gbp_business_name TEXT NOT NULL DEFAULT ''`).catch(() => {});
-    await pool.query(`ALTER TABLE ext.settings_extra ADD COLUMN IF NOT EXISTS platform_review_totals TEXT NOT NULL DEFAULT ''`).catch(() => {});
-    // Manually entered starting review count (set during signup) — lets us show "reviews gained since joining ReviewOptic"
-    await pool.query(`ALTER TABLE ext.settings_extra ADD COLUMN IF NOT EXISTS starting_review_count INTEGER NOT NULL DEFAULT 0`).catch(() => {});
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS ext.external_reviews (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        account_id VARCHAR NOT NULL,
-        platform TEXT NOT NULL,
-        external_id TEXT NOT NULL DEFAULT '',
-        author_name TEXT NOT NULL DEFAULT '',
-        rating INTEGER NOT NULL,
-        review_text TEXT NOT NULL DEFAULT '',
-        review_date TIMESTAMP,
-        posted_to_social BOOLEAN NOT NULL DEFAULT false,
-        posted_at TIMESTAMP,
-        created_at TIMESTAMP NOT NULL DEFAULT NOW()
-      )
-    `);
-    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS external_reviews_dedup ON ext.external_reviews (account_id, platform, external_id)`).catch(() => {});
-  } finally {
-    await pool.end();
-  }
-}
