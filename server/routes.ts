@@ -1707,9 +1707,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const notifBody = rating >= 4
           ? `${stars} — great news!`
           : `${rating} star${rating === 1 ? "" : "s"} — they've left feedback for you to review.`;
+        // Notify whoever actually sent this request (owner or the team member) — falls back
+        // to the owner if there's no recorded sender (e.g. a request sent before this tracking existed).
         const ownerEmail = await pool.query(
-          `SELECT u.email, s.notify_ratings FROM users u JOIN settings s ON s.account_id = u.account_id WHERE u.account_id = $1 AND u.role = 'owner' LIMIT 1`,
-          [request.accountId]
+          `SELECT COALESCE(sender.email, owner_u.email) as email, s.notify_ratings
+           FROM settings s
+           LEFT JOIN users owner_u ON owner_u.account_id = s.account_id AND owner_u.role = 'owner'
+           LEFT JOIN users sender ON sender.id = $2 AND sender.account_id = s.account_id
+           WHERE s.account_id = $1`,
+          [request.accountId, request.sentByUserId || null]
         ).then(r => r.rows[0]).catch(() => null);
 
         // In-app notification
@@ -1850,10 +1856,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         metadata: "{}",
       });
 
-      // Email notification to business owner
+      // Email notification — goes to whoever sent this request (owner or team member),
+      // falling back to the owner if there's no recorded sender.
       {
-        const ownerUser = await pool.query(`SELECT email FROM users WHERE account_id = $1 AND role = 'owner' LIMIT 1`, [request.accountId]);
-        const toEmail = ownerUser.rows[0]?.email;
+        const recipient = await pool.query(
+          `SELECT COALESCE(sender.email, owner_u.email) as email
+           FROM users owner_u
+           LEFT JOIN users sender ON sender.id = $2 AND sender.account_id = $1
+           WHERE owner_u.account_id = $1 AND owner_u.role = 'owner'`,
+          [request.accountId, request.sentByUserId || null]
+        );
+        const toEmail = recipient.rows[0]?.email;
         const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://reviewoptic.com");
         if (toEmail) {
           sendPrivateFeedbackNotificationEmail(toEmail, customer?.name || "A customer", request.rating || 1, message, appUrl).catch(() => {});
@@ -2272,15 +2285,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // Private Feedback (GET/PATCH — protected; POST is public above)
   app.get("/api/private-feedback", requireAuth, async (req, res) => {
+    // Members only see feedback tied to requests they personally sent; the owner sees everything.
+    const isMember = req.session.userRole === "member";
+    const params: any[] = [req.session.accountId];
+    let where = `pf.account_id = $1`;
+    if (isMember) {
+      params.push(req.session.userId);
+      where += ` AND rr.sent_by_user_id = $${params.length}`;
+    }
     const rows = await pool.query(`
       SELECT pf.*, c.name as customer_name, c.email as customer_email, c.phone as customer_phone,
              rr.channel as request_channel
       FROM private_feedback pf
       LEFT JOIN customers c ON c.id = pf.customer_id
       LEFT JOIN review_requests rr ON rr.id = pf.review_request_id
-      WHERE pf.account_id = $1
+      WHERE ${where}
       ORDER BY pf.created_at DESC
-    `, [req.session.accountId]);
+    `, params);
     res.json(rows.rows);
   });
   app.patch("/api/private-feedback/:id/respond", requireAuth, async (req, res) => {
@@ -2288,11 +2309,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     // At least one of response note or a reply must be provided
     if (!response?.trim() && !replyMessage?.trim()) return res.status(400).json({ message: "Response or reply message is required" });
 
-    // If sending a reply to the customer, look up customer + settings
+    const feedbackRow = await pool.query(
+      `SELECT pf.*, c.email, c.phone, c.name, rr.sent_by_user_id
+       FROM private_feedback pf
+       LEFT JOIN customers c ON c.id = pf.customer_id
+       LEFT JOIN review_requests rr ON rr.id = pf.review_request_id
+       WHERE pf.id = $1`,
+      [req.params.id]
+    );
+    if (feedbackRow.rows.length === 0) return res.status(404).json({ message: "Not found" });
+    const fb = feedbackRow.rows[0];
+    if (fb.account_id !== req.session.accountId) return res.status(404).json({ message: "Not found" });
+    if (req.session.userRole === "member" && fb.sent_by_user_id !== req.session.userId) {
+      return res.status(403).json({ message: "You can only respond to feedback from your own requests." });
+    }
+
+    // If sending a reply to the customer, look up settings
     if (replyChannel && replyMessage?.trim()) {
-      const feedbackRow = await pool.query(`SELECT pf.*, c.email, c.phone, c.name FROM private_feedback pf LEFT JOIN customers c ON c.id = pf.customer_id WHERE pf.id = $1`, [req.params.id]);
-      if (feedbackRow.rows.length === 0) return res.status(404).json({ message: "Not found" });
-      const fb = feedbackRow.rows[0];
       const settings = await storage.getSettings(req.session.accountId!);
       const firstName = (fb.name || "").split(" ")[0] || "there";
 
@@ -2329,6 +2362,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.patch("/api/private-feedback/:id/ignore", requireAuth, async (req, res) => {
+    const feedbackRow = await pool.query(
+      `SELECT pf.account_id, rr.sent_by_user_id
+       FROM private_feedback pf
+       LEFT JOIN review_requests rr ON rr.id = pf.review_request_id
+       WHERE pf.id = $1`,
+      [req.params.id]
+    );
+    if (feedbackRow.rows.length === 0) return res.status(404).json({ message: "Not found" });
+    const fb = feedbackRow.rows[0];
+    if (fb.account_id !== req.session.accountId) return res.status(404).json({ message: "Not found" });
+    if (req.session.userRole === "member" && fb.sent_by_user_id !== req.session.userId) {
+      return res.status(403).json({ message: "You can only manage feedback from your own requests." });
+    }
     const f = await storage.updatePrivateFeedback(String(req.params.id), {
       responded: true,
       response: "ignored",
@@ -2702,9 +2748,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  // Stats
+  // Stats — team members only see their own numbers, not the whole account's
   app.get("/api/stats", requireAuth, async (req, res) => {
-    const stats = await storage.getStats(req.session.accountId!);
+    const sentByUserId = req.session.userRole === "member" ? req.session.userId! : undefined;
+    const stats = await storage.getStats(req.session.accountId!, sentByUserId);
     res.json(stats);
   });
 
@@ -2739,7 +2786,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
 
     const channel = (req.query.channel as string) || "all";
-    const userId = req.query.userId as string | undefined;
+    const isMember = req.session.userRole === "member";
+    // Team members are always locked to their own numbers — ignore any userId they pass in.
+    const userId = isMember ? req.session.userId! : (req.query.userId as string | undefined);
 
     // Build WHERE clause fragments for review_requests queries
     const baseParams: any[] = [accountId, cutoff, cutoffEnd];
@@ -2842,9 +2891,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     });
 
 
-    // Per-user breakdown (owner only)
+    // Per-user breakdown (owner only — members never see other members' numbers)
     let byUser: any[] = [];
-    try {
+    if (!isMember) try {
       const { rows: userRows } = await pool.query(`
         SELECT u.first_name, u.last_name, u.email, u.role,
                COUNT(rr.id) as requests_sent,
@@ -3364,7 +3413,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     );
 
     // Send verification email now that payment is confirmed
-    const { rows: userRows } = await pool.query(`SELECT email, verification_token, email_verified, referred_by_account_id, referral_rewarded FROM users WHERE id = $1`, [userId]);
+    const { rows: userRows } = await pool.query(`SELECT email, verification_token, email_verified FROM users WHERE id = $1`, [userId]);
     const paidUser = userRows[0];
     if (paidUser && !paidUser.email_verified && paidUser.verification_token) {
       const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000");
@@ -3373,42 +3422,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         console.error("[billing/confirm] Failed to send verification email:", err.message)
       );
     }
-
-    // Referral reward: if this user was referred and hasn't been rewarded yet, credit the referrer 1 month free
-    // Credit is based on the referred person's plan price (locked at time of referral, unaffected by future plan changes)
-    if (paidUser && paidUser.referred_by_account_id && !paidUser.referral_rewarded) {
-      try {
-        const { rows: referrerRows } = await pool.query(
-          `SELECT stripe_customer_id, email, first_name FROM users WHERE account_id = $1 AND role = 'owner' LIMIT 1`,
-          [paidUser.referred_by_account_id]
-        );
-        const referrerCustomerId = referrerRows[0]?.stripe_customer_id;
-        if (referrerCustomerId) {
-          // Credit = monthly price of the referred person's plan at time of sign-up
-          // Always use monthly rate so annual sign-ups don't generate an outsized credit
-          const monthlyAmount = PRICES[`${plan}_monthly`]?.unit_amount ?? 0;
-          if (monthlyAmount > 0) {
-            // Add a negative balance transaction — credits stack and auto-apply to future invoices
-            await stripe.customers.createBalanceTransaction(referrerCustomerId, {
-              amount: -monthlyAmount,
-              currency: "gbp",
-              description: "Referral reward — 1 free month",
-            });
-            console.log(`[billing/confirm] Referral credit of ${monthlyAmount}p added to customer ${referrerCustomerId}`);
-            // Notify the referrer
-            const { sendReferralRewardEmail } = await import("./email");
-            const creditAmount = `£${(monthlyAmount / 100).toFixed(2)}`;
-            sendReferralRewardEmail(referrerRows[0].email, referrerRows[0].first_name || "", creditAmount).catch((err: any) =>
-              console.error("[billing/confirm] Failed to send referral reward email:", err.message)
-            );
-          }
-        }
-        // Mark as rewarded regardless (prevents double-rewarding if Stripe call fails partially)
-        await pool.query(`UPDATE users SET referral_rewarded = true WHERE id = $1`, [userId]);
-      } catch (err: any) {
-        console.error("[billing/confirm] Failed to apply referral reward:", err.message);
-      }
-    }
+    // Note: referral rewards are credited later, once the trial ends and the first real
+    // payment actually goes through — see the invoice.paid webhook handler below. This
+    // checkout-completion step only starts the trial, no money has moved yet.
 
     res.json({ success: true, plan, period });
     } catch (err: any) {
@@ -3770,7 +3786,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             `UPDATE users SET subscription_confirmation_sent = true
              WHERE stripe_subscription_id = $1
                AND (subscription_confirmation_sent IS NULL OR subscription_confirmation_sent = false)
-             RETURNING email, first_name, plan_type, plan_period`,
+             RETURNING email, first_name, plan_type, plan_period, referred_by_account_id, referral_rewarded`,
             [subId]
           );
           if (userRows[0]) {
@@ -3788,6 +3804,40 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             sendSubscriptionConfirmationEmail(u.email, u.first_name || "", planName, billingPeriod, amountPaid, nextBillingDate, invoiceUrl, `${appUrl}/billing`).catch(err =>
               console.error("[stripe-webhook] Failed to send subscription confirmation email:", err.message)
             );
+
+            // Referral reward: this is the referred person's actual first payment (trial just ended)
+            // — credit the referrer 1 month free, based on the referred person's plan price.
+            if (u.referred_by_account_id && !u.referral_rewarded) {
+              try {
+                const { rows: referrerRows } = await pool.query(
+                  `SELECT stripe_customer_id, email, first_name FROM users WHERE account_id = $1 AND role = 'owner' LIMIT 1`,
+                  [u.referred_by_account_id]
+                );
+                const referrerCustomerId = referrerRows[0]?.stripe_customer_id;
+                if (referrerCustomerId) {
+                  // Always use monthly rate so annual sign-ups don't generate an outsized credit
+                  const monthlyAmount = PRICES[`${u.plan_type}_monthly`]?.unit_amount ?? 0;
+                  if (monthlyAmount > 0) {
+                    // Add a negative balance transaction — credits stack and auto-apply to future invoices
+                    await stripe.customers.createBalanceTransaction(referrerCustomerId, {
+                      amount: -monthlyAmount,
+                      currency: "gbp",
+                      description: "Referral reward — 1 free month",
+                    });
+                    console.log(`[stripe-webhook] Referral credit of ${monthlyAmount}p added to customer ${referrerCustomerId}`);
+                    const { sendReferralRewardEmail } = await import("./email");
+                    const creditAmount = `£${(monthlyAmount / 100).toFixed(2)}`;
+                    sendReferralRewardEmail(referrerRows[0].email, referrerRows[0].first_name || "", creditAmount).catch((err: any) =>
+                      console.error("[stripe-webhook] Failed to send referral reward email:", err.message)
+                    );
+                  }
+                }
+                // Mark as rewarded regardless (prevents double-rewarding if the Stripe call fails partially)
+                await pool.query(`UPDATE users SET referral_rewarded = true WHERE stripe_subscription_id = $1`, [subId]);
+              } catch (err: any) {
+                console.error("[stripe-webhook] Failed to apply referral reward:", err.message);
+              }
+            }
           }
         }
       }
@@ -3822,7 +3872,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           : undefined;
         const { sendSubscriptionEndedEmail } = await import("./email");
         const reactivateToken = await storage.createReactivationToken(u.id);
-        sendSubscriptionEndedEmail(u.email, u.first_name || "", `${appUrl}/api/auth/magic-login?token=${reactivateToken}`, accessEndedDate).catch(err =>
+        const deleteToken = await storage.createReactivationToken(u.id);
+        sendSubscriptionEndedEmail(
+          u.email, u.first_name || "",
+          `${appUrl}/api/auth/magic-login?token=${reactivateToken}`,
+          accessEndedDate,
+          `${appUrl}/api/auth/magic-login?token=${deleteToken}&redirect=billing`
+        ).catch(err =>
           console.error("[stripe-webhook] Failed to send subscription-ended email:", err.message)
         );
       }
@@ -4492,7 +4548,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           break;
         case "subscription_ended":
           await sendSubscriptionEndedEmail(adminEmail, adminName, `${appUrl}/pricing`,
-            new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }));
+            new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }),
+            `${appUrl}/billing`);
           break;
         case "account_deletion":
           await sendAccountDeletionEmail(adminEmail, adminName,

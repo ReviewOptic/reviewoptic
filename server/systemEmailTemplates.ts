@@ -78,7 +78,7 @@ export const DEFAULT_EMAIL_TEMPLATES: Record<string, { subject: string; heading?
   subscription_ended: {
     subject: "Your ReviewOptic subscription has ended",
     heading: "Your subscription has now ended, {{first_name}}",
-    body: "Your ReviewOptic subscription ended {{access_ended}} and billing has stopped. You won't be charged again. ✅\n\nYou can still log in and view your analytics — but you won't be able to add new customers or send review requests. Your account data will be kept safe for 30 days.\n\nWe hope ReviewOptic made a difference while you were with us. If there's anything we could have done better, we'd genuinely love to know — just hit reply.\n\nThank you for being part of ReviewOptic. The door is always open. 🙏",
+    body: "Your ReviewOptic subscription ended {{access_ended}} and billing has stopped. You won't be charged again. ✅\n\nYou can still log in and view your analytics — but you won't be able to add new customers or send review requests. Your account data will be kept safe for 30 days. If you'd rather we permanently deleted everything sooner, you can request that below.\n\nWe hope ReviewOptic made a difference while you were with us. If there's anything we could have done better, we'd genuinely love to know — just hit reply.\n\nThank you for being part of ReviewOptic. The door is always open. 🙏",
     variables: ["{{first_name}}", "{{access_ended}}"],
     description: "Sent when a user's access period expires after cancellation",
   },
@@ -101,7 +101,7 @@ export const DEFAULT_EMAIL_TEMPLATES: Record<string, { subject: string; heading?
     heading: "Hi {{first_name}},",
     body: "We weren't able to take your latest payment. This can happen if your card has expired or your details have changed.\n\nTo avoid interruption to your service, please update your payment details or retry below. We'll try again automatically in 24 hours.",
     variables: ["{{first_name}}"],
-    description: "Sent on the first failed payment. If a second attempt also fails, a fixed 'final notice — account will be cancelled' version sends instead, regardless of this text.",
+    description: "Sent on the first failed payment (Stripe retries once, 1 day later). If that retry also fails, a fixed 'subscription has been cancelled' version sends instead, regardless of this text.",
   },
   dialog_positive: {
     subject: "Thanks for the rating!",

@@ -38,6 +38,7 @@ export const reviewRequests = pgTable("review_requests", {
   rating: integer("rating"),
   openedAt: timestamp("opened_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  sentByUserId: text("sent_by_user_id"),
 });
 
 export const reviews = pgTable("reviews", {

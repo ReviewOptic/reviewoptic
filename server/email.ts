@@ -467,7 +467,7 @@ export async function sendCancellationEmail(to: string, firstName: string, acces
   });
 }
 
-export async function sendSubscriptionEndedEmail(to: string, firstName: string, reactivateUrl: string, accessEndedDate?: string) {
+export async function sendSubscriptionEndedEmail(to: string, firstName: string, reactivateUrl: string, accessEndedDate?: string, deleteDataUrl?: string) {
   if (!process.env.RESEND_API_KEY) {
     console.log(`[subscription-ended email] No RESEND_API_KEY. Would have sent to ${to}`);
     return;
@@ -479,7 +479,7 @@ export async function sendSubscriptionEndedEmail(to: string, firstName: string, 
   const bodyHtmlSE = tmplSE?.body
     ? renderBodyHtml(tmplSE.body, { "{{first_name}}": firstName || "", "{{access_ended}}": accessEndedDate || "today" })
     : `<p style="color:#555;margin:0 0 16px;line-height:1.6;">Your ReviewOptic subscription ended ${accessEndedDate ? `on <strong>${accessEndedDate}</strong>` : "today"} and billing has stopped. You won't be charged again. ✅</p>
-       <p style="color:#555;margin:0 0 16px;line-height:1.6;">You can still log in and view your analytics — but you won't be able to add new customers or send review requests. Your account data will be kept safe for 30 days.</p>
+       <p style="color:#555;margin:0 0 16px;line-height:1.6;">You can still log in and view your analytics — but you won't be able to add new customers or send review requests. Your account data will be kept safe for 30 days. If you'd rather we permanently deleted everything sooner, you can request that below.</p>
        <p style="color:#555;margin:0 0 8px;line-height:1.6;">We hope ReviewOptic made a difference while you were with us. If there's anything we could have done better, we'd genuinely love to know — just hit reply.</p>
        <p style="color:#555;margin:0;line-height:1.6;">Thank you for being part of ReviewOptic. The door is always open. 🙏</p>`;
   await resend.emails.send({
@@ -490,9 +490,10 @@ export async function sendSubscriptionEndedEmail(to: string, firstName: string, 
         ${LOGO_HTML}
         <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">${renderHeading("subscription_ended", tmplSE, { "{{first_name}}": firstName || "" })}</h2>
         ${bodyHtmlSE}
-        <a href="${reactivateUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin:16px 0 24px;">
+        <a href="${reactivateUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin:16px 0 12px;">
           Reactivate my account
         </a>
+        ${deleteDataUrl ? `<p style="margin:0 0 24px;"><a href="${deleteDataUrl}" style="color:#9ca3af;font-size:12px;text-decoration:underline;">Or permanently delete my account and data</a></p>` : ""}
         ${platformFooter(referralLink)}
       </div>
     `,
@@ -628,17 +629,19 @@ export async function sendPaymentFailedEmail(to: string, firstName: string, bill
   const referralLink = await getReferralLink(to);
   const tmpl = await getEmailTemplateOverride("payment_failed");
   const resend = new Resend(process.env.RESEND_API_KEY);
+  // Stripe is configured to retry once, 1 day later, then cancel immediately if that also fails —
+  // so by the time this 2nd-attempt email sends, the subscription is already cancelled, not "about to be."
   const isFinal = attemptCount >= 2;
   const subject = tmpl?.subject
     ? tmpl.subject
     : isFinal
-      ? "Final notice: your ReviewOptic payment has failed — account will be cancelled"
+      ? "Your ReviewOptic subscription has been cancelled — final payment attempt failed"
       : "Action required: your ReviewOptic payment failed";
   const bodyHtml = tmpl?.body
     ? renderBodyHtml(tmpl.body, { "{{first_name}}": firstName || "" })
     : isFinal
-      ? `<p style="color:#555;margin:0 0 16px;line-height:1.6;">We've tried to take your payment again but it has failed a second time. <strong style="color:#111;">Your subscription will be cancelled shortly</strong> if this isn't resolved.</p>
-         <p style="color:#555;margin:0 0 20px;line-height:1.6;">You can retry with your existing card or update your payment details below. Your account data will be kept safe.</p>`
+      ? `<p style="color:#555;margin:0 0 16px;line-height:1.6;">We tried your payment again but it failed a second time, so <strong style="color:#111;">your subscription has now been cancelled</strong>.</p>
+         <p style="color:#555;margin:0 0 20px;line-height:1.6;">You can restart it any time by updating your payment details below — no need to sign up again, we'll just get your account back up and running. Your data has been kept safe.</p>`
       : `<p style="color:#555;margin:0 0 16px;line-height:1.6;">We weren't able to take your latest payment. This can happen if your card has expired or your details have changed.</p>
          <p style="color:#555;margin:0 0 20px;line-height:1.6;">To avoid interruption to your service, please update your payment details or retry below. We'll try again automatically in 24 hours.</p>`;
   await resend.emails.send({
@@ -650,9 +653,9 @@ export async function sendPaymentFailedEmail(to: string, firstName: string, bill
         <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">${renderHeading("payment_failed", tmpl, { "{{first_name}}": firstName || "" })}</h2>
         ${bodyHtml}
         <a href="${billingUrl}" style="display:inline-block;background:#dc2626;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin:16px 0 12px;">
-          Retry payment now
+          ${isFinal ? "Update payment details & reactivate" : "Retry payment now"}
         </a>
-        <p style="margin:0 0 24px;"><a href="${billingUrl}" style="color:#2563eb;font-size:14px;text-decoration:underline;">Or update your card details</a></p>
+        ${!isFinal ? `<p style="margin:0 0 24px;"><a href="${billingUrl}" style="color:#2563eb;font-size:14px;text-decoration:underline;">Or update your card details</a></p>` : ""}
         ${platformFooter(referralLink)}
       </div>
     `,

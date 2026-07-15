@@ -379,7 +379,9 @@ export class DatabaseStorage implements IStorage {
     await db.delete(reactivationTokens).where(eq(reactivationTokens.token, token));
   }
 
-  async getStats(accountId: string): Promise<{
+  // sentByUserId: when provided (team members), every metric is scoped to just the requests
+  // that user personally sent, instead of the whole account's combined totals.
+  async getStats(accountId: string, sentByUserId?: string): Promise<{
     requestsThisMonth: number;
     pendingRequests: number;
     clicksThisMonth: number;
@@ -388,6 +390,50 @@ export class DatabaseStorage implements IStorage {
   }> {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    if (sentByUserId) {
+      const [rrRes, pendingRes, clicksRes, sentRes, clickedRes, ratingRes] = await Promise.all([
+        pool.query(
+          `SELECT COUNT(*)::int AS count FROM review_requests WHERE account_id = $1 AND sent_by_user_id = $2 AND created_at >= $3`,
+          [accountId, sentByUserId, monthStart]
+        ),
+        pool.query(
+          `SELECT COUNT(*)::int AS count FROM private_feedback pf JOIN review_requests rr ON rr.id = pf.review_request_id
+           WHERE pf.account_id = $1 AND pf.responded = false AND rr.sent_by_user_id = $2`,
+          [accountId, sentByUserId]
+        ),
+        pool.query(
+          `SELECT COUNT(*)::int AS count FROM customers c WHERE c.account_id = $1 AND c.status = 'clicked' AND c.created_at >= $3
+           AND EXISTS (SELECT 1 FROM review_requests rr WHERE rr.customer_id = c.id AND rr.sent_by_user_id = $2)`,
+          [accountId, sentByUserId, monthStart]
+        ),
+        pool.query(
+          `SELECT COUNT(*)::int AS count FROM customers c WHERE c.account_id = $1 AND c.status != 'pending_request'
+           AND EXISTS (SELECT 1 FROM review_requests rr WHERE rr.customer_id = c.id AND rr.sent_by_user_id = $2)`,
+          [accountId, sentByUserId]
+        ),
+        pool.query(
+          `SELECT COUNT(*)::int AS count FROM customers c WHERE c.account_id = $1 AND c.status = 'clicked'
+           AND EXISTS (SELECT 1 FROM review_requests rr WHERE rr.customer_id = c.id AND rr.sent_by_user_id = $2)`,
+          [accountId, sentByUserId]
+        ),
+        pool.query(
+          `SELECT AVG(rating) AS avg FROM review_requests WHERE account_id = $1 AND sent_by_user_id = $2 AND rating IS NOT NULL`,
+          [accountId, sentByUserId]
+        ),
+      ]);
+      const sent = sentRes.rows[0]?.count ?? 0;
+      const clicked = clickedRes.rows[0]?.count ?? 0;
+      const avg = ratingRes.rows[0]?.avg;
+      return {
+        requestsThisMonth: rrRes.rows[0]?.count ?? 0,
+        pendingRequests: pendingRes.rows[0]?.count ?? 0,
+        clicksThisMonth: clicksRes.rows[0]?.count ?? 0,
+        clickRate: sent > 0 ? Math.round((clicked / sent) * 100) : 0,
+        averageRating: avg != null ? Math.round(Number(avg) * 10) / 10 : null,
+      };
+    }
+
     const [{ count: rrCount }] = await db
       .select({ count: sql<number>`count(*)` })
       .from(reviewRequests)
