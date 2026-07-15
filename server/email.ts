@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 import type { Customer, Settings } from "@shared/schema";
 import { getEmailTemplateOverride, getEffectiveTemplate, renderBodyHtml } from "./systemEmailTemplates";
 import { pool } from "./storage";
@@ -20,10 +21,15 @@ async function getUserUnsubscribeInfo(email: string): Promise<{ unsubscribed: bo
 
 const APP_URL = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://reviewoptic.com");
 
+// esbuild bundles this to CommonJS for production, where __dirname is real and import.meta
+// is stripped to an empty object — but tsx runs this file as genuine ESM in dev, where the
+// reverse is true. `typeof __dirname` is a safe check even when __dirname is undeclared.
+const currentDir = typeof __dirname !== "undefined" ? __dirname : path.dirname(fileURLToPath(import.meta.url));
+
 // Embed logo as base64 so it displays in all email clients without external image blocking
 function loadLogoBase64(): string {
   const candidates = [
-    path.join(import.meta.dirname, "public", "logo.png"), // production: dist/public/logo.png
+    path.join(currentDir, "public", "logo.png"), // production: dist/public/logo.png
     path.join(process.cwd(), "client", "public", "logo.png"), // development
   ];
   for (const p of candidates) {
