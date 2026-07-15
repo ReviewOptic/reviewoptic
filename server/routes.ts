@@ -296,7 +296,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!adminUser) {
         console.error(`[register] ADMIN_EMAIL (${process.env.ADMIN_EMAIL}) does not match any user — new signup was not added as a customer on the admin account`);
       } else {
-        await storage.createCustomer({
+        const newCustomer = await storage.createCustomer({
           id: randomUUID(),
           accountId: adminUser.accountId,
           name: `${firstName} ${lastName}`,
@@ -308,7 +308,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           status: "pending_request",
           doNotContact: false,
           channel: "email",
-        }).catch(err => console.error("[register] Failed to auto-add new signup as a customer:", err.message));
+        }).catch(err => { console.error("[register] Failed to auto-add new signup as a customer:", err.message); return null; });
+        if (newCustomer) {
+          await storage.createActivity({
+            id: randomUUID(),
+            accountId: adminUser.accountId,
+            type: "customer_added",
+            customerId: newCustomer.id,
+            customerName: newCustomer.name,
+            message: `${newCustomer.name} added as a customer`,
+            metadata: "{}",
+          }).catch(err => console.error("[register] Failed to log customer_added activity:", err.message));
+        }
       }
     }
 
