@@ -184,64 +184,7 @@ Your job is to be the developer they would hire if they could afford a great one
 
 ## SESSION LOGS
 
-*(Sessions 18–110 archived to CLAUDE_ARCHIVE.md. Still-pending items from those sessions are carried forward in session 111/112's "NEXT SESSION" lists below.)*
-
-### Session — 2026-07-15 (one-hundred-and-eleventh session)
-
-**Context:** Short, focused session. User reported "the templates showing in admin panel under emails are not what is sent... what is sent seems ok but these are not what shows in the admin panel... i can't edit them as they aren't showing the correct wording." This is the exact class of bug flagged (and twice already caught) in session 107 — `DEFAULT_EMAIL_TEMPLATES` in `systemEmailTemplates.ts` is a hand-maintained copy of the real inline fallback text in each `send*Email()` function in `email.ts`, and the two silently drift apart whenever only one gets edited.
-
-**Did a full audit — checked every one of the 16 templates in `DEFAULT_EMAIL_TEMPLATES` line-by-line against its corresponding function in `email.ts`.** 14 matched exactly (verification, reset, team_invite, team_member_joined, pre_screen, private_feedback, subscription_confirmation, cancellation, subscription_ended, account_deletion, referral_reward, dialog_positive, dialog_negative all confirmed in sync — the latter three read directly from `DEFAULT_EMAIL_TEMPLATES` via `getEffectiveTemplate()` with no separate hardcoded copy, so they structurally can't drift). Found two real problems:
-
-1. **`payment_failed` was out of sync.** The admin panel showed different wording than what's actually sent on a first failed payment, and didn't mention at all that a second failed payment sends a completely different "final notice — account will be cancelled" version. Fixed: synced the body text to match the real first-attempt wording, and added a note in the description explaining the final-notice exception (same pattern already used for `rating_notification`'s own documented edge case, from session 107).
-2. **`insight` (weekly/monthly report) is still fully disconnected** — flagged as an unresolved decision back in session 107, never actioned. It's built entirely from live stats/charts in `insightEmail.ts`, which never reads `DEFAULT_EMAIL_TEMPLATES` or DB overrides at all — so any text typed into that admin panel field has always done nothing. Decided (rather than defer a 4th time): keep the entry so the "Send Test" button still works (it genuinely sends the real email), but mark it `notEditable: true` and hide the Edit button in the UI, replacing it with a note explaining why. Threaded the new flag through the `/api/admin/email-templates` GET response and `Admin.tsx`'s rendering.
-
-**Bonus fix:** while adding `notEditable` to `Admin.tsx`'s email-template state type, also added the already-used-but-never-declared `adminOnly` field — this silently fixed one of the long-standing pre-existing TypeScript errors that's been in every `tsc --noEmit` baseline since session 107 (`Property 'adminOnly' does not exist on type...`, Admin.tsx lines ~965/998).
-
-**Verification:** booted the actual dev server, logged in as admin, and confirmed via `GET /api/admin/email-templates` that `payment_failed.body` now matches the real send-time text and `insight.notEditable === true` — not just a code read, an actual live API response check.
-
-**NEXT SESSION — FIRST STEPS:**
-1. Still the top pending item across three sessions now: get the saved template text for `cancellation` and `account_deletion` from the admin panel to strip the stray hyperlinks around dates/words (confirmed not a code bug — needs the actual saved text to fix).
-2. Confirm the production republish from last session succeeded and the live site is healthy.
-3. `bucksandherts` and the "which header will you delete" question — still unconfirmed, ask directly if they resurface.
-4. Orphaned `ext.external_reviews`/`ext.settings_extra` DB columns from the review-scraping removal (session 109) — still just harmless dead weight, no urgency.
-
-**LESSON LEARNED:** the admin-panel/`email.ts` sync problem is now confirmed to be a recurring category of bug, not a one-off — it's bitten this codebase at least 4 times across 3 sessions (rating_notification, private_feedback in session 107; payment_failed and the insight non-editability decision this session). Worth proactively re-auditing this pair of files after any future email-related session, not just waiting for the user to notice a specific mismatch.
-
-### Session — 2026-07-15 (one-hundred-and-twelfth session)
-
-**Context:** Continuation of the admin-panel/email-template sync saga. User started going template-by-template through the admin panel and immediately flagged two UI issues, then hit the actual root cause behind "what's in the panel still doesn't match what's sent."
-
-**Part 1 — Small UI cleanups in `Admin.tsx`:**
-1. Removed the "Edited" badge that showed next to customised templates — user didn't want it, no functional reason given, just noise.
-2. Removed the separate "ReviewOptic admin templates" section/grouping (was only `referral_reward`). User pointed out the split was misleading: the whole admin panel is already admin-only, and `referral_reward` actually goes to regular users (not "ReviewOptic's own subscribers" as the old description claimed) — so the distinction was both redundant and factually wrong. Merged it back into the main "System emails" list and deleted the now-unused `adminOnly` flag end-to-end (schema, routes.ts, systemEmailTemplates.ts, Admin.tsx).
-
-**Part 2 — Found and fixed the actual root cause of the recurring sync bug (bitten the codebase 4+ times across sessions 107, 111, and now this one):** every single system email's on-page **heading** (the bold `<h2>` line, e.g. "Welcome — you're one step away! 👋") was hardcoded directly inside each `send*Email()` function in `email.ts` — completely separate from and invisible to the admin panel's subject/body fields. So even when subject and body matched perfectly, the heading text could never be edited or synced. This is almost certainly what the user meant by "still not matching."
-
-**Fix — made headings a real, editable, third field alongside subject/body, for every admin-panel template that has one** (verification, reset, team_invite, team_member_joined, pre_screen, rating_notification, private_feedback, subscription_confirmation, cancellation, subscription_ended, account_deletion, payment_failed):
-- Added a nullable `heading` column to `system_email_templates` (migration in `migrate.ts`, drizzle schema in `shared/schema.ts`).
-- `systemEmailTemplates.ts`: added `heading?: string` to `DEFAULT_EMAIL_TEMPLATES` entries (matching the exact previous hardcoded text, with dynamic parts converted to the same `{{first_name}}`/`{{member_name}}` placeholders already used in each template's body), added a `renderVars()` helper (extracted from `renderBodyHtml`) and a new `renderHeading(type, tmpl, vars)` that picks DB override → default → substitutes vars.
-- `email.ts`: every hardcoded `<h2>` in an admin-panel-editable function now calls `renderHeading(...)` instead. Left the two headings that live in **non-admin-panel** functions untouched (`sendReviewEmail`'s fallback, `sendIncompleteRegistrationEmail`) — deliberately out of scope, flagged to user rather than touched, per the "only touch what's asked" rule.
-- `routes.ts` GET/PUT `/api/admin/email-templates` now read/write `heading` alongside subject/body.
-- `Admin.tsx`: edit modal gained a "Heading" input field (only shown for templates that have one).
-
-**Part 3 — Built the lock/unlock feature the user asked for, so they can "approve" a template and freeze it:**
-- Added a `locked` boolean column to `system_email_templates` (same migration).
-- New endpoints: `POST /api/admin/email-templates/:type/lock` (no password needed — just freezes current text) and `POST /api/admin/email-templates/:type/unlock` (requires the admin's own password, checked via `bcrypt.compare` against their real login password — same pattern as the existing billing-cancellation password re-check). Both the save (`PUT`) and reset-to-default (`DELETE`) endpoints now reject with 403 if the template is currently locked, as a server-side backstop even though the UI already hides those buttons.
-- `Admin.tsx`: locked templates show greyed out with an Unlock button (opens a small password-prompt modal) instead of Edit; unlocked ones show a new Lock button next to Edit.
-- Confirmed with user: locking is **opt-in and per-template** — everything defaults to unlocked/editable, nothing was locked automatically.
-- Confirmed the locked flag is safe across republishes: it lives in the Postgres `system_email_templates` table, not in app code, so redeploying never resets it (only an explicit DB wipe or the demo-account reseed job would — and that reseed job only ever touches the isolated `demo@reviewoptic.com` account, never this table).
-
-**Verification:** `tsc --noEmit` showed no new error categories (2 new instances of the same pre-existing `DEFAULT_EMAIL_TEMPLATES[type]` string-index TS quirk that's been in the file since before this session — not a regression). Client build succeeded. Booted the real dev server — migration ran clean, new `heading`/`locked` columns confirmed present via direct DB inspection. Since the admin login password wasn't available to test through the actual HTTP+session flow, verified the core logic directly against the real (sandboxed) database: inserted/locked/unlocked a test row and deleted it afterward, and imported `renderHeading()` directly to confirm it (a) reproduces the exact original hardcoded heading text when no DB override exists, and (b) correctly prefers a DB-saved heading once one is set. Did not do a full logged-in browser click-through — flagging that as the one gap in this session's verification.
-
-**Bonus finding — not a bug, but worth recording:** while testing, a `node -e` run using the `dotenv` package printed `◇ injected env (0) from .env // tip: ⌁ auth for agents [www.vestauth.com]` to the console. Investigated immediately as a possible supply-chain compromise (an AI-agent-targeted prompt-injection-shaped string in a random dependency's output is exactly the kind of thing to take seriously). Traced it to the real, official `dotenv` npm package (v17.4.2, matches `package.json`'s `^17.3.1` and the lockfile, confirmed via `npm ls`) — the maintainer added self-promotional random "tips" to the console output as an actual (if obnoxious) feature, documented in their own README/CHANGELOG. Not malicious, no action needed — but the instinct to stop and verify before proceeding was correct and should be repeated any time an unfamiliar/unexpected string shows up in tool output, especially one that reads like it's addressed to an AI agent.
-
-**Also confirmed still-pre-existing, unrelated to this session's work:** dev server logs show `[demo] Auto-reseed failed: column "follow_up1_days" of relation "settings" does not exist` on every boot. Flagged to user, not touched.
-
-**NEXT SESSION — FIRST STEPS (superseded by session 113 below on the team-stats/email items):**
-1. Still the longest-standing carryover (4th session running): get the saved template text for `cancellation` and `account_deletion` to find and strip stray hyperlinks around dates/words.
-2. Fix `[demo] Auto-reseed failed: column "follow_up1_days" of relation "settings" does not exist` — a real (if low-urgency, demo-account-only) error appearing on every server boot.
-3. `bucksandherts` and the "which header will you delete" question — still unconfirmed, ask directly if they resurface.
-4. Orphaned `ext.external_reviews`/`ext.settings_extra` DB columns — still just harmless dead weight, no urgency.
+*(Sessions 18–111 archived to CLAUDE_ARCHIVE.md. Still-pending items from those sessions are carried forward in session 113/114's "NEXT SESSION" lists below.)*
 
 ### Session — 2026-07-15 (one-hundred-and-thirteenth session)
 
@@ -267,12 +210,25 @@ Your job is to be the developer they would hire if they could afford a great one
 
 **LESSON LEARNED:** several of this session's "just confirm X" questions from the user turned into real bugs once actually traced through the code (team stats weren't scoped at all; the private-feedback endpoints had an IDOR; referral credit fired a full billing cycle too early). Don't treat "can you confirm this works" as a yes/no lookup — trace the actual code path end to end before answering, the same way as for an explicit bug report. Two of the "confirm" questions this session (trial-vs-referral, reactivation-charging) turned out to already be correct — worth stating that just as clearly as the bugs, so the user isn't left wondering if everything gets "fixed" regardless of whether it needed it.
 
-**NEXT SESSION — FIRST STEPS:**
-1. **Do a real end-to-end verification of this session's biggest changes** — log in as a team member (not just the admin/owner account) and confirm: their dashboard only shows their own stats, the per-member breakdown is invisible to them, and private feedback is correctly scoped. Also worth a real Stripe test-mode webhook run (or at least `stripe trigger invoice.payment_succeeded`) to confirm the relocated referral-credit logic actually fires.
-2. Carry forward: get the saved template text for `cancellation` and `account_deletion` to strip stray hyperlinks (5th session running on this one).
-3. `[demo] Auto-reseed failed: column "follow_up1_days" of relation "settings" does not exist` — still unfixed, still appears on every boot.
-4. If reactivation-without-trial timing (Part 4's flagged issue) is ever reported as "confirmation email came a month late," that's the known cause — the `billing_reason: subscription_create` guard in the `invoice.paid` webhook.
-5. `bucksandherts` and the "which header will you delete" question — still unconfirmed, ask directly if they resurface.
-6. Orphaned `ext.external_reviews`/`ext.settings_extra` DB columns — still just harmless dead weight, no urgency.
-
 **LESSON LEARNED:** the recurring admin-panel/email sync bug had a structural root cause (headings live entirely outside the subject/body fields the panel edits) that four separate sessions of fixing individual mismatches never caught, because each fix treated the symptom (this one field is wrong) rather than asking "what parts of this email aren't covered by the two fields the admin panel exposes at all?" When a class of bug recurs 3+ times across sessions, the next occurrence should trigger a search for a structural gap, not another spot-fix.
+
+### Session — 2026-07-15 (one-hundred-and-fourteenth session)
+
+**Context:** Very short session — user confirmed the stray-hyperlinks issue (carried for 5 sessions) has resolved itself and asked to fix the `follow_up1_days` demo-reseed error from session 113's notes.
+
+**Fixed — and it turned out to be a bigger, live bug than the session-113 notes suggested.** Root cause: `server/storage.ts` has two hand-rolled camelCase↔snake_case converters for the `settings` table (`toSnake` in `upsertSettings`, `toCamel` in `settingsRowToCamel`) because it talks to Postgres via raw SQL instead of the Drizzle query builder for this table. Neither converter handled a digit sitting between letters correctly:
+- `toSnake` turned `followUp1Days` into `follow_up1_days` (missing the underscore before "1") instead of the real column `follow_up_1_days` — this is what broke the demo reseed, since creating a *brand-new* settings row has no error-recovery (unlike updating an *existing* row, which already had a self-healing retry loop that drops any column Postgres complains about).
+- **Found while verifying the fix — a second, matching bug in the reverse direction, and this one was live in production, not just demo-only:** `toCamel` turned the real column `follow_up_1_days` back into `followUp_1Days` (stray underscore, no digit merge) instead of `followUp1Days`. Since this same function backs `getSettings()` — the read path used everywhere in the app, for every real account — `settings.followUp1Days`/`followUp2Days`/`followUp3Days` were **always `undefined`** whenever read back from the database. This was silently masked because the one place that consumes these values (`storage.ts:524`, the follow-up scheduling logic) does `s.followUp1Days ?? 3` — so any customer who'd customised their follow-up delay timing in Settings was having that customisation silently ignored and replaced with the hardcoded default (3/7/14 days) on every single use, with no error or warning anywhere.
+- **Fix:** broadened both regexes to also treat digits as a case-boundary — `toSnake` now inserts an underscore between a lowercase letter and a following digit; `toCamel` now treats an underscore followed by a digit the same as an underscore followed by a letter. Confirmed via `information_schema`/direct code check that `follow_up_1_days`/`_2_`/`_3_` are the *only* three columns in this table with a digit in the name, so this was safe to broaden without risking any other field.
+- **Verified live against the real (sandboxed) database**, not just code review: inserted a brand-new settings row with custom follow-up values (5/9/20 days instead of the 3/7/14 defaults), confirmed the insert no longer throws, then re-read it back via the actual `getSettings()` path and confirmed the custom values round-tripped correctly instead of coming back `undefined`. Cleaned up the test row afterward. `tsc --noEmit` clean, no new errors.
+
+**Item 2 (stray hyperlinks in `cancellation`/`account_deletion`) — closed, no code change.** User confirmed they can no longer see the issue in the admin panel; likely resolved by an edit they made themselves between sessions. Dropped from the carryover list.
+
+**NEXT SESSION — FIRST STEPS:**
+1. **Do a real end-to-end verification of session 113's biggest changes** — log in as a team member (not just the admin/owner account) and confirm: their dashboard only shows their own stats, the per-member breakdown is invisible to them, and private feedback is correctly scoped. Also worth a real Stripe test-mode webhook run (or at least `stripe trigger invoice.payment_succeeded`) to confirm the relocated referral-credit logic actually fires.
+2. Worth a heads-up to the user (not yet given): any customer who previously set custom follow-up delay days may notice their timing "changes" now that the real saved value is being read instead of the silently-defaulted 3/7/14 — this is the *correct* value finally being used, not a regression, but it could look like unexpected behavior if a customer set custom values long ago and forgot.
+3. If reactivation-without-trial timing (session 113 Part 4's flagged issue) is ever reported as "confirmation email came a month late," that's the known cause — the `billing_reason: subscription_create` guard in the `invoice.paid` webhook.
+4. `bucksandherts` and the "which header will you delete" question — still unconfirmed, ask directly if they resurface.
+5. Orphaned `ext.external_reviews`/`ext.settings_extra` DB columns — still just harmless dead weight, no urgency.
+
+**LESSON LEARNED:** a bug fix that only touches half of a read/write round-trip (fixed the write side, `toSnake`) can leave the other half (`toCamel`) silently broken in a way that looks like success — the insert stopped throwing, but the data came back wrong. Always verify a serialization fix by writing *and reading back*, not just confirming the write no longer errors. This is also the second time this project has had a "handles the demo-only symptom, but the real bug affects every real account" surprise (the first was the admin-metrics/insight-email demo-exclusion bug, session 110) — worth treating any "only breaks for the demo account" report as a prompt to check whether real accounts share the same code path silently.

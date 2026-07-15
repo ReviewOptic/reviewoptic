@@ -20,7 +20,7 @@ import {
 
 // Convert a raw DB row (snake_case) to camelCase for the Settings type
 function settingsRowToCamel(row: Record<string, any>): Settings {
-  const toCamel = (s: string) => s.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+  const toCamel = (s: string) => s.replace(/_([a-z0-9])/g, (_, c) => c.toUpperCase());
   return Object.fromEntries(Object.entries(row).map(([k, v]) => [toCamel(k), v])) as Settings;
 }
 
@@ -234,7 +234,7 @@ export class DatabaseStorage implements IStorage {
   }
   async upsertSettings(accountId: string, data: Partial<InsertSettings>): Promise<Settings> {
     const existing = await this.getSettings(accountId);
-    const toSnake = (s: string) => s.replace(/[A-Z]/g, c => `_${c.toLowerCase()}`);
+    const toSnake = (s: string) => s.replace(/[A-Z]/g, c => `_${c.toLowerCase()}`).replace(/([a-z])(\d)/g, "$1_$2");
     let entries = Object.entries(data).filter(([, v]) => v !== undefined);
 
     if (existing) {
