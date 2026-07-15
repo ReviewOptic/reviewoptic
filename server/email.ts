@@ -23,7 +23,7 @@ const APP_URL = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https:/
 // Embed logo as base64 so it displays in all email clients without external image blocking
 function loadLogoBase64(): string {
   const candidates = [
-    path.join(__dirname, "public", "logo.png"),           // production: dist/public/logo.png
+    path.join(import.meta.dirname, "public", "logo.png"), // production: dist/public/logo.png
     path.join(process.cwd(), "client", "public", "logo.png"), // development
   ];
   for (const p of candidates) {
@@ -65,7 +65,7 @@ function customerFooter(customerId: string): string {
   return `
   <div style="border-top:1px solid #e5e7eb;margin-top:32px;padding-top:20px;text-align:center;">
     <p style="font-size:11px;color:#9ca3af;margin:0 0 8px;">Powered by</p>
-    <a href="${APP_URL}" style="text-decoration:none;display:inline-block;margin-bottom:14px;">
+    <a href="https://www.reviewoptic.com" style="text-decoration:none;display:inline-block;margin-bottom:14px;">
       <img src="${LOGO_SRC}" alt="ReviewOptic" style="width:100px;height:auto;display:block;" />
     </a>
     <p style="font-size:11px;color:#9ca3af;margin:0;">
@@ -75,10 +75,23 @@ function customerFooter(customerId: string): string {
   </div>`;
 }
 
-const PLATFORM_FOOTER = `
+// Looks up the recipient's own account so "Refer a friend" links to THEIR real referral
+// link (same one shown in Settings) instead of a generic, untracked pricing page.
+async function getReferralLink(email: string): Promise<string> {
+  try {
+    const { rows } = await pool.query(`SELECT account_id FROM users WHERE email = $1 LIMIT 1`, [email]);
+    const accountId = rows[0]?.account_id;
+    return accountId ? `${APP_URL}/referral/${accountId.slice(0, 8)}` : `${APP_URL}/pricing`;
+  } catch {
+    return `${APP_URL}/pricing`;
+  }
+}
+
+function platformFooter(referralLink: string): string {
+  return `
   <div style="border-top:1px solid #e5e7eb;margin-top:32px;padding-top:24px;text-align:center;">
     <p style="font-size:13px;color:#555;margin:0 0 12px;text-align:center;">Know someone who could benefit from ReviewOptic?</p>
-    <a href="https://reviewoptic.com/pricing" style="display:inline-block;background:#2563eb;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;">Refer a friend</a>
+    <a href="${referralLink}" style="display:inline-block;background:#2563eb;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;">Refer a friend</a>
     <div style="border-top:1px solid #e5e7eb;margin-top:24px;padding-top:16px;">
       <p style="font-size:11px;color:#9ca3af;text-align:center;margin:0 0 8px;">Powered by <a href="https://reviewoptic.com" style="color:#9ca3af;text-decoration:underline;">ReviewOptic</a></p>
       <p style="font-size:11px;color:#9ca3af;text-align:center;margin:0;">
@@ -90,12 +103,14 @@ const PLATFORM_FOOTER = `
       </p>
     </div>
   </div>`;
+}
 
 export async function sendVerificationEmail(to: string, verifyUrl: string) {
   if (!process.env.RESEND_API_KEY) {
     console.log("[verify email] No RESEND_API_KEY - skipping");
     return;
   }
+  const referralLink = await getReferralLink(to);
   const tmpl = await getEmailTemplateOverride("verification");
   const subject = tmpl?.subject || "Verify your email and choose your plan";
   const bodyHtml = tmpl?.body
@@ -118,7 +133,7 @@ export async function sendVerificationEmail(to: string, verifyUrl: string) {
         <p style="color:#999;font-size:12px;margin-top:32px;line-height:1.6;">
           If you didn't create a ReviewOptic account, you can safely ignore this email.
         </p>
-        ${PLATFORM_FOOTER}
+        ${platformFooter(referralLink)}
       </div>
     `,
   });
@@ -130,6 +145,7 @@ export async function sendTeamInviteEmail(to: string, inviterName: string, compa
     console.log(`[team invite] No RESEND_API_KEY. Invite link for ${to}: ${acceptUrl}`);
     return;
   }
+  const referralLink = await getReferralLink(to);
   const tmpl = await getEmailTemplateOverride("team_invite");
   const subject = tmpl?.subject
     ? tmpl.subject.replace("{{company_name}}", companyName)
@@ -152,11 +168,44 @@ export async function sendTeamInviteEmail(to: string, inviterName: string, compa
         <p style="color:#999;font-size:12px;margin-top:32px;line-height:1.6;">
           If you weren't expecting this invitation, you can safely ignore this email.
         </p>
-        ${PLATFORM_FOOTER}
+        ${platformFooter(referralLink)}
       </div>
     `,
   });
   console.log(`[team invite] Sent to ${to}`);
+}
+
+// Sent to the account owner once an invited team member sets their password and joins.
+export async function sendTeamMemberJoinedEmail(to: string, ownerFirstName: string, memberName: string, appUrl: string) {
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`[team member joined] No RESEND_API_KEY. Would have sent to ${to}`);
+    return;
+  }
+  const referralLink = await getReferralLink(to);
+  const tmpl = await getEmailTemplateOverride("team_member_joined");
+  const subject = tmpl?.subject
+    ? tmpl.subject.replace("{{member_name}}", memberName)
+    : `${memberName} has joined your ReviewOptic team`;
+  const bodyHtml = tmpl?.body
+    ? renderBodyHtml(tmpl.body, { "{{first_name}}": ownerFirstName || "", "{{member_name}}": memberName })
+    : `<p style="color:#555;margin:0 0 16px;line-height:1.6;"><strong>${memberName}</strong> has accepted your invitation and set up their account.</p>
+       <p style="color:#555;margin:0 0 24px;line-height:1.6;">They can now log in and you can both view stats, customers, and review activity from your dashboard.</p>`;
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  await resend.emails.send({
+    from: REVIEWOPTIC_FROM, to,
+    subject,
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
+        ${LOGO_HTML}
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">${memberName} has joined your team${ownerFirstName ? `, ${ownerFirstName}` : ""} 🎉</h2>
+        ${bodyHtml}
+        <a href="${appUrl}/" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
+          View your dashboard
+        </a>
+        ${platformFooter(referralLink)}
+      </div>
+    `,
+  });
 }
 
 function getReviewLink(settings: Settings): string {
@@ -315,59 +364,6 @@ export async function sendPreScreenEmail(
   console.log(`[pre-screen email] result:`, JSON.stringify(result));
 }
 
-// Sent to ReviewOptic subscribers after 2 months — asks them to rate ReviewOptic with 1–5 stars.
-// Uses the subscriber_review_request system template (editable in admin panel).
-export async function sendSubscriberReviewRequestEmail(
-  subscriber: { id: string; email: string; name: string; companyName: string },
-  requestId: string,
-  appUrl: string
-): Promise<void> {
-  if (!process.env.RESEND_API_KEY) {
-    console.log("[subscriber review request] No RESEND_API_KEY - skipping");
-    return;
-  }
-  const { unsubscribed } = await getUserUnsubscribeInfo(subscriber.email);
-  if (unsubscribed) return;
-  const { getEffectiveTemplate, renderBodyHtml } = await import("./systemEmailTemplates");
-  const tmpl = await getEffectiveTemplate("subscriber_review_request");
-  const firstName = subscriber.name.split(" ")[0];
-  const subject = tmpl.subject;
-  const introHtml = renderBodyHtml(tmpl.body, {
-    "{{first_name}}": firstName,
-    "{{company_name}}": subscriber.companyName,
-  });
-
-  const stars = [1, 2, 3, 4, 5].map(n =>
-    `<td style="padding:0 6px;text-align:center;">
-      <a href="${appUrl}/review-landing?rid=${requestId}&rating=${n}"
-         style="display:inline-block;width:52px;height:52px;line-height:52px;text-align:center;font-size:42px;color:#f59e0b;text-decoration:none;font-family:Arial,sans-serif;">&#9733;</a>
-      <div style="font-size:11px;color:#9ca3af;text-align:center;margin-top:2px;">${n}</div>
-    </td>`
-  ).join("");
-
-  const resend = new Resend(process.env.RESEND_API_KEY);
-  const result = await resend.emails.send({
-    from: REVIEWOPTIC_FROM,
-    to: subscriber.email,
-    subject,
-    html: `
-      <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#111;">
-        ${LOGO_HTML}
-        <h2 style="font-size:20px;font-weight:700;margin:0 0 8px;">Hi ${firstName},</h2>
-        ${introHtml}
-        <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 auto 24px;">
-          <tr>${stars}</tr>
-        </table>
-        <p style="text-align:center;color:#9ca3af;font-size:12px;margin:0 0 32px;">Tap a star to submit your rating</p>
-        ${PLATFORM_FOOTER}
-        ${platformUnsubscribeFooter(subscriber.id)}
-        <img src="${appUrl}/api/track/${requestId}/open" width="1" height="1" alt="" style="display:block;border:0;width:1px;height:1px;" />
-      </div>
-    `,
-  });
-  console.log(`[subscriber review request] result:`, JSON.stringify(result));
-}
-
 // Sent as a follow-up to unrated customers — uses the follow-up template body + a "Rate your experience" button.
 export async function sendFollowUpEmail(
   customer: Customer,
@@ -431,80 +427,12 @@ export async function sendFollowUpEmail(
   console.log("[follow-up email] sent");
 }
 
-export async function sendPlatformReviewRequest(user: { id: string; email: string; firstName: string; companyName: string }, isFollowUp: boolean) {
-  if (!process.env.RESEND_API_KEY) {
-    console.log("[platform review request] No RESEND_API_KEY - skipping");
-    return;
-  }
-  const { unsubscribed } = await getUserUnsubscribeInfo(user.email);
-  if (unsubscribed) return;
-
-  const googleUrl = process.env.PLATFORM_REVIEW_GOOGLE_URL || "https://g.page/r/reviewoptic/review";
-  const trustpilotUrl = process.env.PLATFORM_REVIEW_TRUSTPILOT_URL || "";
-  const videoUrl = process.env.PLATFORM_REVIEW_VIDEO_URL || "";
-
-  const videoHtml = videoUrl ? `
-    <div style="margin:24px 0;text-align:center;">
-      <a href="${videoUrl}" target="_blank" style="display:inline-block;position:relative;text-decoration:none;">
-        <div style="background:#000;border-radius:12px;overflow:hidden;width:480px;max-width:100%;position:relative;">
-          <div style="background:linear-gradient(135deg,#1e40af,#3b82f6);height:200px;display:flex;align-items:center;justify-content:center;">
-            <div style="width:56px;height:56px;background:rgba(255,255,255,0.95);border-radius:50%;display:flex;align-items:center;justify-content:center;">
-              <div style="width:0;height:0;border-style:solid;border-width:10px 0 10px 18px;border-color:transparent transparent transparent #1e40af;margin-left:4px;"></div>
-            </div>
-          </div>
-          <div style="background:#1e3a5f;color:#fff;padding:12px 16px;font-size:13px;font-family:Arial,sans-serif;">
-            Watch: a quick message from Alicia &amp; Rob
-          </div>
-        </div>
-      </a>
-    </div>` : "";
-
-  const platformLinks = [
-    { name: "Google", url: googleUrl },
-    ...(trustpilotUrl ? [{ name: "Trustpilot", url: trustpilotUrl }] : []),
-  ].map(p =>
-    `<a href="${p.url}" target="_blank" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;font-family:Arial,sans-serif;margin:4px;">${p.name}</a>`
-  ).join("");
-
-  const subjectLine = isFollowUp
-    ? `A quick reminder — would you mind leaving us a review?`
-    : `How are you finding ReviewOptic? We'd love your feedback`;
-
-  const intro = isFollowUp
-    ? `<p style="color:#555;margin:0 0 16px;line-height:1.6;">We wanted to follow up on our earlier message — if you've had a chance to try ReviewOptic, we'd really love to hear what you think.</p>`
-    : `<p style="color:#555;margin:0 0 16px;line-height:1.6;">You've been using ReviewOptic for a little while now, and we hope it's been making a real difference for ${user.companyName}.</p>
-       <p style="color:#555;margin:0 0 16px;line-height:1.6;">We're a small team and honest reviews help us grow so we can keep improving the product for businesses like yours. If you've got 60 seconds, we'd be incredibly grateful if you could share your experience:</p>`;
-
-  const resend = new Resend(process.env.RESEND_API_KEY);
-  await resend.emails.send({
-    from: REVIEWOPTIC_FROM,
-    to: user.email,
-    subject: subjectLine,
-    html: `
-      <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#111;">
-        ${LOGO_HTML}
-        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Hi ${user.firstName},</h2>
-        ${intro}
-        ${videoHtml}
-        <div style="text-align:center;margin:28px 0;">
-          ${platformLinks}
-        </div>
-        <p style="color:#999;font-size:12px;line-height:1.6;margin-top:32px;">
-          You're receiving this because you have an account with ReviewOptic.
-        </p>
-        ${PLATFORM_FOOTER}
-        ${platformUnsubscribeFooter(user.id)}
-      </div>
-    `,
-  });
-  console.log(`[platform review request] sent (followUp=${isFollowUp})`);
-}
-
-export async function sendCancellationEmail(to: string, firstName: string, accessEndsDate: string, reactivateUrl: string) {
+export async function sendCancellationEmail(to: string, firstName: string, accessEndsDate: string, reactivateUrl: string, deleteDataUrl?: string) {
   if (!process.env.RESEND_API_KEY) {
     console.log(`[cancellation email] No RESEND_API_KEY. Would have sent to ${to}`);
     return;
   }
+  const referralLink = await getReferralLink(to);
   const tmplC = await getEmailTemplateOverride("cancellation");
   const resend = new Resend(process.env.RESEND_API_KEY);
   const subjectC = tmplC?.subject?.replace("{{first_name}}", firstName || "") || "Your ReviewOptic subscription has been cancelled";
@@ -512,7 +440,7 @@ export async function sendCancellationEmail(to: string, firstName: string, acces
     ? renderBodyHtml(tmplC.body, { "{{first_name}}": firstName || "", "{{access_ends}}": accessEndsDate })
     : `<p style="color:#555;margin:0 0 16px;line-height:1.6;">Your cancellation is confirmed. You'll still have <strong>full access to all features</strong> until <strong>${accessEndsDate}</strong> — so keep making the most of it until then.</p>
        <p style="color:#555;margin:0 0 16px;line-height:1.6;">After ${accessEndsDate}, you'll still be able to log in and view your analytics — but you won't be able to add new customers or send review requests.</p>
-       <p style="color:#555;margin:0 0 16px;line-height:1.6;">Your account and all your data will be kept safe. If you ever want to reactivate, you're always welcome back — one click is all it takes.</p>
+       <p style="color:#555;margin:0 0 16px;line-height:1.6;">Your account and all your data will be kept safe indefinitely. If you ever want to reactivate, you're always welcome back — one click is all it takes. If you'd rather we permanently deleted everything instead, you can request that below.</p>
        <p style="color:#555;margin:0 0 8px;line-height:1.6;">We're always looking to improve — if there's anything we could have done better, we'd genuinely love to hear it. Just hit reply.</p>
        <p style="color:#555;margin:0;line-height:1.6;">Thank you for trusting us with your business. It's meant a lot to us. 🙏</p>`;
   await resend.emails.send({
@@ -523,10 +451,11 @@ export async function sendCancellationEmail(to: string, firstName: string, acces
         ${LOGO_HTML}
         <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">We're sad to see you go${firstName ? `, ${firstName}` : ""} 💙</h2>
         ${bodyHtmlC}
-        <a href="${reactivateUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin:16px 0 24px;">
+        <a href="${reactivateUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin:16px 0 12px;">
           Reactivate my subscription
         </a>
-        ${PLATFORM_FOOTER}
+        ${deleteDataUrl ? `<p style="margin:0 0 24px;"><a href="${deleteDataUrl}" style="color:#9ca3af;font-size:12px;text-decoration:underline;">Or permanently delete my account and data</a></p>` : ""}
+        ${platformFooter(referralLink)}
       </div>
     `,
   });
@@ -537,6 +466,7 @@ export async function sendSubscriptionEndedEmail(to: string, firstName: string, 
     console.log(`[subscription-ended email] No RESEND_API_KEY. Would have sent to ${to}`);
     return;
   }
+  const referralLink = await getReferralLink(to);
   const tmplSE = await getEmailTemplateOverride("subscription_ended");
   const resend = new Resend(process.env.RESEND_API_KEY);
   const subjectSE = tmplSE?.subject?.replace("{{first_name}}", firstName || "") || "Your ReviewOptic subscription has ended";
@@ -557,7 +487,7 @@ export async function sendSubscriptionEndedEmail(to: string, firstName: string, 
         <a href="${reactivateUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin:16px 0 24px;">
           Reactivate my account
         </a>
-        ${PLATFORM_FOOTER}
+        ${platformFooter(referralLink)}
       </div>
     `,
   });
@@ -568,6 +498,7 @@ export async function sendAccountDeletionEmail(to: string, firstName: string, pu
     console.log(`[account deletion email] No RESEND_API_KEY. Would have sent to ${to}`);
     return;
   }
+  const referralLink = await getReferralLink(to);
   const tmplAD = await getEmailTemplateOverride("account_deletion");
   const resend = new Resend(process.env.RESEND_API_KEY);
   const subjectAD = tmplAD?.subject?.replace("{{first_name}}", firstName || "") || "Your ReviewOptic account has been deleted";
@@ -588,7 +519,7 @@ export async function sendAccountDeletionEmail(to: string, firstName: string, pu
         <a href="${reactivateUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin:16px 0 24px;">
           Reactivate my account
         </a>
-        ${PLATFORM_FOOTER}
+        ${platformFooter(referralLink)}
       </div>
     `,
   });
@@ -602,6 +533,7 @@ export async function sendSubscriptionConfirmationEmail(
     console.log(`[subscription confirmation] No RESEND_API_KEY. Would have sent to ${to}`);
     return;
   }
+  const referralLink = await getReferralLink(to);
   const tmplSC = await getEmailTemplateOverride("subscription_confirmation");
   const resend = new Resend(process.env.RESEND_API_KEY);
   const subjectSC = tmplSC?.subject?.replace("{{first_name}}", firstName || "") || "Your ReviewOptic subscription is now active";
@@ -627,7 +559,7 @@ export async function sendSubscriptionConfirmationEmail(
         ${invoiceUrl ? `<a href="${invoiceUrl}" style="display:inline-block;background:#f3f4f6;color:#111;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;margin-bottom:24px;border:1px solid #e5e7eb;">View receipt →</a>` : ""}
         <p style="color:#555;margin:0 0 16px;line-height:1.6;">You can manage your subscription, switch plans, or cancel at any time from your billing settings.</p>
         <a href="${billingUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin-bottom:24px;">Manage billing</a>
-        ${PLATFORM_FOOTER}
+        ${platformFooter(referralLink)}
       </div>
     `,
   });
@@ -643,6 +575,7 @@ export async function sendRatingNotificationEmail(
   if (!process.env.RESEND_API_KEY) return;
   const { unsubscribed, userId } = await getUserUnsubscribeInfo(to);
   if (unsubscribed) return;
+  const referralLink = await getReferralLink(to);
   const resend = new Resend(process.env.RESEND_API_KEY);
   const stars = rating >= 4 ? "\u2b50".repeat(rating) : "";
   const tmpl = await getEmailTemplateOverride("rating_notification");
@@ -674,34 +607,8 @@ export async function sendRatingNotificationEmail(
         ${rating < 4 ? `<a href="${appUrl}/customers" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin-bottom:24px;">
           View in ReviewOptic
         </a>` : ""}
-        ${PLATFORM_FOOTER}
+        ${platformFooter(referralLink)}
         ${userId ? platformUnsubscribeFooter(userId) : ""}
-      </div>
-    `,
-  });
-}
-
-export async function sendRenewalReminderEmail(to: string, firstName: string, planName: string, renewalDate: string, amount: string, billingUrl: string) {
-  if (!process.env.RESEND_API_KEY) return;
-  const tmpl = await getEmailTemplateOverride("renewal_reminder");
-  const resend = new Resend(process.env.RESEND_API_KEY);
-  const subject = tmpl?.subject || "Your ReviewOptic subscription renews in 7 days";
-  const bodyHtml = tmpl?.body
-    ? renderBodyHtml(tmpl.body, { "{{first_name}}": firstName, "{{plan_name}}": planName, "{{renewal_date}}": renewalDate, "{{amount}}": amount })
-    : `<p style="color:#555;margin:0 0 16px;line-height:1.6;">Just a heads-up — your <strong style="color:#111;">${planName}</strong> subscription will automatically renew in 3 days on <strong style="color:#111;">${renewalDate}</strong> for <strong style="color:#111;">${amount}</strong>.</p>
-       <p style="color:#555;margin:0 0 20px;line-height:1.6;">No action needed. If you'd like to make any changes to your plan or payment details, you can do so from your billing settings.</p>`;
-  await resend.emails.send({
-    from: REVIEWOPTIC_FROM, to,
-    subject,
-    html: `
-      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
-        ${LOGO_HTML}
-        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Renewal reminder${firstName ? ` — hi ${firstName}` : ""}</h2>
-        ${bodyHtml}
-        <a href="${billingUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin:16px 0 24px;">
-          Manage billing
-        </a>
-        ${PLATFORM_FOOTER}
       </div>
     `,
   });
@@ -712,6 +619,7 @@ export async function sendPaymentFailedEmail(to: string, firstName: string, bill
     console.log(`[payment-failed email] No RESEND_API_KEY. Would have sent to ${to}`);
     return;
   }
+  const referralLink = await getReferralLink(to);
   const tmpl = await getEmailTemplateOverride("payment_failed");
   const resend = new Resend(process.env.RESEND_API_KEY);
   const isFinal = attemptCount >= 2;
@@ -733,13 +641,13 @@ export async function sendPaymentFailedEmail(to: string, firstName: string, bill
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#111;">
         ${LOGO_HTML}
-        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Payment failed${firstName ? ` — hi ${firstName}` : ""}</h2>
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 12px;">Hi${firstName ? ` ${firstName}` : ""},</h2>
         ${bodyHtml}
         <a href="${billingUrl}" style="display:inline-block;background:#dc2626;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin:16px 0 12px;">
           Retry payment now
         </a>
         <p style="margin:0 0 24px;"><a href="${billingUrl}" style="color:#2563eb;font-size:14px;text-decoration:underline;">Or update your card details</a></p>
-        ${PLATFORM_FOOTER}
+        ${platformFooter(referralLink)}
       </div>
     `,
   });
@@ -752,6 +660,7 @@ export async function sendIncompleteRegistrationEmail(to: string, firstName: str
   }
   const { unsubscribed, userId } = await getUserUnsubscribeInfo(to);
   if (unsubscribed) return;
+  const referralLink = await getReferralLink(to);
   const resend = new Resend(process.env.RESEND_API_KEY);
   const name = firstName ? `, ${firstName}` : "";
   await resend.emails.send({
@@ -767,7 +676,7 @@ export async function sendIncompleteRegistrationEmail(to: string, firstName: str
         <a href="${registerUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin:8px 0 24px;">
           Complete my sign-up
         </a>
-        ${PLATFORM_FOOTER}
+        ${platformFooter(referralLink)}
         ${userId ? platformUnsubscribeFooter(userId) : ""}
       </div>
     `,
@@ -781,6 +690,7 @@ export async function sendReferralRewardEmail(to: string, firstName: string, cre
   }
   const { unsubscribed, userId } = await getUserUnsubscribeInfo(to);
   if (unsubscribed) return;
+  const referralLink = await getReferralLink(to);
   const resend = new Resend(process.env.RESEND_API_KEY);
   const { subject, body } = await getEffectiveTemplate("referral_reward");
   const bodyHtml = renderBodyHtml(body, { "{{first_name}}": firstName || "there", "{{credit_amount}}": creditAmount });
@@ -792,7 +702,7 @@ export async function sendReferralRewardEmail(to: string, firstName: string, cre
       <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;background:#fff;">
         ${LOGO_HTML}
         ${bodyHtml}
-        ${PLATFORM_FOOTER}
+        ${platformFooter(referralLink)}
         ${userId ? platformUnsubscribeFooter(userId) : ""}
       </div>
     `,
@@ -805,6 +715,7 @@ export async function sendResetPasswordEmail(to: string, resetUrl: string) {
     console.log(`[password reset] No RESEND_API_KEY. Reset link for ${to}: ${resetUrl}`);
     return;
   }
+  const referralLink = await getReferralLink(to);
   const tmpl = await getEmailTemplateOverride("reset");
   const resend = new Resend(process.env.RESEND_API_KEY);
   const subject = tmpl?.subject || "Reset your ReviewOptic password";
@@ -821,7 +732,7 @@ export async function sendResetPasswordEmail(to: string, resetUrl: string) {
         ${bodyHtml}
         <a href="${resetUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">Reset my password</a>
         <p style="color:#999;font-size:12px;margin-top:32px;line-height:1.6;">If you didn't request this, you can safely ignore this email. Your password won't change.</p>
-        ${PLATFORM_FOOTER}
+        ${platformFooter(referralLink)}
       </div>
     `,
   });
@@ -838,6 +749,7 @@ export async function sendPrivateFeedbackNotificationEmail(
   if (!process.env.RESEND_API_KEY) return;
   const { unsubscribed, userId } = await getUserUnsubscribeInfo(to);
   if (unsubscribed) return;
+  const referralLink = await getReferralLink(to);
   const resend = new Resend(process.env.RESEND_API_KEY);
   const stars = "⭐".repeat(rating);
   const tmpl = await getEmailTemplateOverride("private_feedback");
@@ -862,7 +774,7 @@ export async function sendPrivateFeedbackNotificationEmail(
         <h2 style="font-size:18px;font-weight:700;margin:0 0 8px;">Private feedback received</h2>
         ${bodyHtml}
         <a href="${appUrl}/#private-feedback" style="display:inline-block;background:#0E679D;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">View &amp; Respond in Dashboard</a>
-        ${PLATFORM_FOOTER}
+        ${platformFooter(referralLink)}
         ${userId ? platformUnsubscribeFooter(userId) : ""}
       </div>
     `,

@@ -1,7 +1,7 @@
 import express from "express";
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
-import { storage, pool } from "./storage";
+import { storage, pool, NON_CUSTOMER_EMAILS } from "./storage";
 import { randomUUID } from "crypto";
 import multer from "multer";
 import path from "path";
@@ -221,9 +221,6 @@ setInterval(() => {
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
 
-  // Accounts that should never show up as a "user" anywhere in the admin panel —
-  // the public try-before-signup demo, and the account created for Meta's app reviewers.
-  const NON_CUSTOMER_EMAILS = ["demo@reviewoptic.com", "meta-reviewer@reviewoptic.com"];
   const nonCustomerEmailList = NON_CUSTOMER_EMAILS.map(e => `'${e}'`).join(", ");
 
   // ── Auth routes (no requireAuth) ──────────────────────────────────────────
@@ -570,7 +567,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (emailRows[0]) {
         const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://reviewoptic.com");
         const { sendAccountDeletionEmail } = await import("./email");
-        sendAccountDeletionEmail(emailRows[0].email, emailRows[0].first_name || "", purgeDate, `${appUrl}/pricing`).catch(err =>
+        const reactivateToken = await storage.createReactivationToken(userId);
+        sendAccountDeletionEmail(emailRows[0].email, emailRows[0].first_name || "", purgeDate, `${appUrl}/api/auth/magic-login?token=${reactivateToken}`).catch(err =>
           console.error("[delete account] Failed to send deletion email:", err.message)
         );
       }
@@ -598,6 +596,31 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       );
     }
     res.json({ success: true });
+  });
+
+  // One-time magic sign-in link used by the "Reactivate" and "Delete my data" buttons in
+  // emails — logs the person back into their EXISTING account (instead of treating them as
+  // a logged-out stranger who'd otherwise end up registering a brand new, unrelated account).
+  app.get("/api/auth/magic-login", async (req, res) => {
+    const token = String(req.query.token || "");
+    const redirectTo = req.query.redirect === "billing" ? "/billing" : "/pricing";
+    if (!token) return res.redirect("/login");
+
+    const record = await storage.getReactivationToken(token);
+    if (!record || new Date() > record.expiresAt) {
+      if (record) await storage.deleteReactivationToken(token);
+      return res.redirect("/login");
+    }
+
+    const { rows } = await pool.query(`SELECT account_id, role FROM users WHERE id = $1`, [record.userId]);
+    if (!rows[0]) return res.redirect("/login");
+
+    req.session.userId = record.userId;
+    req.session.accountId = rows[0].account_id;
+    if (rows[0].role === "member") (req.session as any).userRole = "member";
+    await storage.deleteReactivationToken(token);
+    await new Promise<void>(resolve => req.session.save(() => resolve()));
+    res.redirect(redirectTo);
   });
 
   app.post("/api/auth/reset-password", async (req, res) => {
@@ -691,8 +714,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.get("/api/admin/users", requireAdmin, async (req, res) => {
     const [allUsers, stats] = await Promise.all([storage.getAllUsers(), storage.getAdminUserStats()]);
-    const { rows: planRows } = await pool.query(`SELECT id, plan_type, COALESCE(email_unsubscribed, false) as email_unsubscribed, COALESCE(is_suspended, false) as is_suspended FROM users`);
+    const { rows: planRows } = await pool.query(`SELECT id, plan_type, plan_period, COALESCE(email_unsubscribed, false) as email_unsubscribed, COALESCE(is_suspended, false) as is_suspended FROM users`);
     const planMap = Object.fromEntries(planRows.map((r: any) => [r.id, r.plan_type]));
+    const planPeriodMap = Object.fromEntries(planRows.map((r: any) => [r.id, r.plan_period]));
     const unsubMap = Object.fromEntries(planRows.map((r: any) => [r.id, r.email_unsubscribed]));
     const suspendMap = Object.fromEntries(planRows.map((r: any) => [r.id, r.is_suspended]));
     const statsMap = Object.fromEntries(stats.map(s => [s.userId, s]));
@@ -709,6 +733,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       isAdmin: u.isAdmin,
       emailVerified: u.emailVerified,
       planType: planMap[u.id] || "free",
+      planPeriod: planPeriodMap[u.id] || "monthly",
       emailUnsubscribed: unsubMap[u.id] ?? false,
       isSuspended: suspendMap[u.id] ?? false,
       customerCount: statsMap[u.id]?.customerCount ?? 0,
@@ -967,6 +992,28 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (target.isAdmin) return res.status(400).json({ message: "Cannot suspend an admin account" });
     const { rows } = await pool.query(`UPDATE users SET is_suspended = NOT is_suspended WHERE id = $1 RETURNING is_suspended`, [target.id]);
     res.json({ isSuspended: rows[0]?.is_suspended });
+  });
+
+  // Manually override an account's plan — a local label only, does not touch Stripe/billing.
+  // Mainly for switching your own account between Standard/Pro without going through checkout.
+  app.post("/api/admin/set-plan/:userId", requireAdmin, async (req, res) => {
+    const target = await storage.getUser(String(req.params.userId));
+    if (!target) return res.status(404).json({ message: "User not found" });
+    if (target.isAdmin) return res.status(400).json({ message: "Cannot modify an admin account" });
+
+    const { planType, planPeriod } = req.body;
+    const validPlans = ["free", "lite", "pro", "complimentary"];
+    const validPeriods = ["monthly", "annual"];
+    if (!validPlans.includes(planType)) return res.status(400).json({ message: "Invalid plan type" });
+    if ((planType === "lite" || planType === "pro") && !validPeriods.includes(planPeriod)) {
+      return res.status(400).json({ message: "Invalid plan period" });
+    }
+
+    await pool.query(
+      `UPDATE users SET plan_type = $1, plan_period = $2 WHERE id = $3`,
+      [planType, validPeriods.includes(planPeriod) ? planPeriod : null, target.id]
+    );
+    res.json({ success: true });
   });
 
   app.post("/api/admin/toggle-admin/:userId", requireAdmin, async (req, res) => {
@@ -3576,7 +3623,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const endDate = new Date(sub.current_period_end * 1000).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
         const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000");
         const { sendCancellationEmail } = await import("./email");
-        sendCancellationEmail(u.email, u.first_name || "", endDate, `${appUrl}/billing`).catch(err =>
+        const deleteToken = await storage.createReactivationToken(req.session.userId!);
+        sendCancellationEmail(u.email, u.first_name || "", endDate, `${appUrl}/billing`, `${appUrl}/api/auth/magic-login?token=${deleteToken}&redirect=billing`).catch(err =>
           console.error("[billing/cancel] Failed to send cancellation email:", err.message)
         );
       }
@@ -3750,7 +3798,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const { rows: userRows } = await pool.query(
         `UPDATE users SET plan_type = 'cancelled', plan_period = 'monthly', cancelled_at = NOW()
          WHERE stripe_subscription_id = $1
-         RETURNING email, first_name, email_unsubscribed`,
+         RETURNING id, email, first_name, email_unsubscribed`,
         [subId]
       );
       // Move them to "former subscribers" in the admin's customer list
@@ -3773,7 +3821,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           ? new Date(stripeEndDate * 1000).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
           : undefined;
         const { sendSubscriptionEndedEmail } = await import("./email");
-        sendSubscriptionEndedEmail(u.email, u.first_name || "", `${appUrl}/pricing`, accessEndedDate).catch(err =>
+        const reactivateToken = await storage.createReactivationToken(u.id);
+        sendSubscriptionEndedEmail(u.email, u.first_name || "", `${appUrl}/api/auth/magic-login?token=${reactivateToken}`, accessEndedDate).catch(err =>
           console.error("[stripe-webhook] Failed to send subscription-ended email:", err.message)
         );
       }
@@ -4068,7 +4117,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (password.length < 8) return res.status(400).json({ message: "Password must be at least 8 characters" });
 
     const { rows } = await pool.query(
-      `SELECT id, account_id FROM users WHERE invite_token = $1`, [token]
+      `SELECT id, account_id, first_name, last_name FROM users WHERE invite_token = $1`, [token]
     );
     if (!rows[0]) return res.status(400).json({ message: "Invalid or expired invitation link." });
 
@@ -4082,6 +4131,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     req.session.accountId = rows[0].account_id;
     (req.session as any).userRole = "member";
     await new Promise<void>(resolve => req.session.save(() => resolve()));
+
+    // Let the account owner know their new team member is set up and ready
+    const { rows: ownerRows } = await pool.query(
+      `SELECT email, first_name FROM users WHERE account_id = $1 AND role = 'owner' LIMIT 1`,
+      [rows[0].account_id]
+    );
+    if (ownerRows[0]) {
+      const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://reviewoptic.com");
+      const memberName = [rows[0].first_name, rows[0].last_name].filter(Boolean).join(" ") || "Your team member";
+      const { sendTeamMemberJoinedEmail } = await import("./email");
+      sendTeamMemberJoinedEmail(ownerRows[0].email, ownerRows[0].first_name || "", memberName, appUrl).catch(err =>
+        console.error("[accept-invite] Failed to send team-member-joined email:", err.message)
+      );
+    }
+
     res.json({ ok: true });
   });
 
@@ -4233,12 +4297,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!adminCheck[0]?.is_admin) return res.status(403).json({ message: "Forbidden" });
 
     const [totalRes, openedRes, optOutRes, recentRes] = await Promise.all([
-      pool.query(`SELECT COUNT(*) FROM insight_email_log`),
-      pool.query(`SELECT COUNT(*) FROM insight_email_log WHERE opened_at IS NOT NULL`),
-      pool.query(`SELECT COUNT(*) FROM users WHERE insight_emails_opt_out = true`),
+      pool.query(`SELECT COUNT(*) FROM insight_email_log WHERE email NOT IN (${nonCustomerEmailList})`),
+      pool.query(`SELECT COUNT(*) FROM insight_email_log WHERE opened_at IS NOT NULL AND email NOT IN (${nonCustomerEmailList})`),
+      pool.query(`SELECT COUNT(*) FROM users WHERE insight_emails_opt_out = true AND email NOT IN (${nonCustomerEmailList})`),
       pool.query(`SELECT l.email, l.sent_at, l.opened_at, s.business_name
         FROM insight_email_log l
         LEFT JOIN settings s ON s.account_id = l.account_id
+        WHERE l.email NOT IN (${nonCustomerEmailList})
         ORDER BY l.sent_at DESC LIMIT 20`),
     ]);
 
@@ -4323,8 +4388,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const {
       sendVerificationEmail, sendTeamInviteEmail, sendRatingNotificationEmail,
       sendCancellationEmail, sendSubscriptionEndedEmail, sendAccountDeletionEmail,
-      sendSubscriptionConfirmationEmail, sendPlatformReviewRequest,
-      sendRenewalReminderEmail, sendPaymentFailedEmail, sendReferralRewardEmail,
+      sendSubscriptionConfirmationEmail,
+      sendPaymentFailedEmail, sendReferralRewardEmail,
     } = await import("./email");
 
     const dummyCustomer = {
@@ -4354,6 +4419,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         case "team_invite":
           await sendTeamInviteEmail(adminEmail, adminName, "Demo Plumbing Co", `${appUrl}/accept-invite?token=TEST_TOKEN`);
           break;
+        case "team_member_joined": {
+          const { sendTeamMemberJoinedEmail } = await import("./email");
+          await sendTeamMemberJoinedEmail(adminEmail, adminName, "Jane Smith", appUrl);
+          break;
+        }
         case "pre_screen": {
           const { sendPreScreenEmail } = await import("./email");
           await sendPreScreenEmail(dummyCustomer, dummySettings, "test-request-id", appUrl);
@@ -4382,7 +4452,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           await sendCancellationEmail(
             adminEmail, adminName,
             new Date(Date.now() + 30 * 86400000).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }),
-            `${appUrl}/billing`
+            `${appUrl}/billing`, `${appUrl}/billing`
           );
           break;
         case "subscription_ended":
@@ -4399,27 +4469,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           await sendInsightEmailToUser(req.session.userId!, req.session.accountId!, adminEmail, appUrl);
           break;
         }
-        case "renewal_reminder":
-          await sendRenewalReminderEmail(
-            adminEmail, adminName, "Pro",
-            new Date(Date.now() + 7 * 86400000).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }),
-            "£39.00", `${appUrl}/billing`
-          );
-          break;
         case "payment_failed":
           await sendPaymentFailedEmail(adminEmail, adminName, `${appUrl}/billing`);
           break;
         case "referral_reward":
           await sendReferralRewardEmail(adminEmail, adminName, "£39.00");
           break;
-        case "platform_review":
-          await sendPlatformReviewRequest({ id: req.session.userId!, email: adminEmail, firstName: adminName, companyName: "Demo Plumbing Co" }, false);
-          break;
-        case "subscriber_review_request": {
-          const { sendSubscriberReviewRequestEmail } = await import("./email");
-          await sendSubscriberReviewRequestEmail({ id: "test-id", email: adminEmail, name: adminName, companyName: "Demo Plumbing Co" }, "test-request-id", appUrl);
-          break;
-        }
         default:
           return res.status(400).json({ message: `Unknown email type: ${type}` });
       }

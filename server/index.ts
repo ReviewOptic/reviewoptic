@@ -230,56 +230,6 @@ app.use((req, res, next) => {
   await runMonthlyInsightEmails().catch(console.error);
   setInterval(() => runMonthlyInsightEmails().catch(console.error), 24 * 60 * 60 * 1000);
 
-  // Daily: send a review request to ReviewOptic subscribers who joined 2+ months ago and haven't been contacted yet
-  // 2 months = 30-day free trial + 1 full paid month, so they've had real time to see ReviewOptic working
-  const runSubscriberReviewRequests = async () => {
-    if (!process.env.ADMIN_EMAIL) return;
-    try {
-      const adminUser = await storage.getUserByEmail(process.env.ADMIN_EMAIL);
-      if (!adminUser) return;
-      const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://www.reviewoptic.com");
-
-      // Find admin's customers who registered 2+ months ago and are still pending (haven't been sent a request)
-      const { rows: due } = await pool.query(`
-        SELECT c.id, c.email, c.name, c.notes
-        FROM customers c
-        JOIN users u ON u.email = c.email AND u.is_admin = false AND u.email_verified = true AND u.plan_type NOT IN ('free', 'cancelled')
-        WHERE c.account_id = $1
-          AND c.status = 'pending_request'
-          AND c.do_not_contact = false
-          AND c.created_at <= NOW() - INTERVAL '2 months'
-      `, [adminUser.accountId]);
-
-      for (const customer of due) {
-        try {
-          const { randomUUID } = await import("crypto");
-          const requestId = randomUUID();
-          // Extract company name from notes field (stored as "Company: <name>" at registration)
-          const companyMatch = (customer.notes || "").match(/Company:\s*(.+)/);
-          const companyName = companyMatch?.[1]?.trim() || customer.name;
-
-          await pool.query(
-            `INSERT INTO review_requests (id, account_id, customer_id, channel, status, created_at)
-             VALUES ($1, $2, $3, 'email', 'sent', NOW())`,
-            [requestId, adminUser.accountId, customer.id]
-          );
-
-          const { sendSubscriberReviewRequestEmail } = await import("./email");
-          await sendSubscriberReviewRequestEmail({ id: customer.id, email: customer.email, name: customer.name, companyName }, requestId, appUrl);
-
-          await pool.query(`UPDATE customers SET status = 'request_sent' WHERE id = $1`, [customer.id]);
-          log(`[subscriber review] Sent to ${customer.email}`);
-        } catch (err: any) {
-          console.error(`[subscriber review] Failed for ${customer.email}:`, err.message);
-        }
-      }
-    } catch (err: any) {
-      console.error("[subscriber review] Runner error:", err.message);
-    }
-  };
-  await runSubscriberReviewRequests().catch(console.error);
-  setInterval(() => runSubscriberReviewRequests().catch(console.error), 24 * 60 * 60 * 1000);
-
   // Daily: cancel accounts that have had a failed payment for more than 7 days
   const runPaymentFailedCancellations = async () => {
     try {

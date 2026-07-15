@@ -16,7 +16,7 @@ import {
 
 interface AdminUser {
   id: string; email: string; accountId: string; isAdmin: boolean;
-  emailVerified: boolean; planType: string; emailUnsubscribed: boolean; isSuspended: boolean; customerCount: number; reviewRequestCount: number; lastActive: string | null;
+  emailVerified: boolean; planType: string; planPeriod: string; emailUnsubscribed: boolean; isSuspended: boolean; customerCount: number; reviewRequestCount: number; lastActive: string | null;
 }
 
 interface Metrics {
@@ -234,6 +234,14 @@ export default function Admin() {
   const grantAccess = async (userId: string) => { const r = await fetch(`/api/admin/grant-access/${userId}`, { method: "POST", credentials: "include" }); if (r.ok) { await loadUsers(); await loadPendingUsers(); } };
   const toggleAdmin = async (userId: string) => { const r = await fetch(`/api/admin/toggle-admin/${userId}`, { method: "POST", credentials: "include" }); if (r.ok) await loadUsers(); };
   const toggleSuspend = async (userId: string) => { const r = await fetch(`/api/admin/toggle-suspend/${userId}`, { method: "POST", credentials: "include" }); if (r.ok) await loadUsers(); };
+  const setPlan = async (userId: string, planType: string, planPeriod: string) => {
+    const r = await fetch(`/api/admin/set-plan/${userId}`, {
+      method: "POST", credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ planType, planPeriod }),
+    });
+    if (r.ok) await loadUsers();
+  };
   const deleteUser = async (userId: string) => { const r = await fetch(`/api/admin/user/${userId}`, { method: "DELETE", credentials: "include" }); if (r.ok) { setConfirmDelete(null); await loadUsers(); await loadPendingUsers(); } };
   const fmtDate = (d: string | null) => { if (!d) return "Never"; return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); };
   const fmtDateTime = (d: string) => new Date(d).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -1081,13 +1089,32 @@ export default function Admin() {
                   <tr key={u.id} className="border-b border-border last:border-0">
                     <td className="px-3 py-3 font-medium">{u.email}</td>
                     <td className="px-3 py-3">
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${
-                        u.planType === "pro" ? "bg-blue-100 text-blue-700" :
-                        u.planType === "lite" ? "bg-indigo-100 text-indigo-700" :
-                        u.planType === "complimentary" ? "bg-green-100 text-green-700" :
-                        u.planType === "cancelled" ? "bg-red-100 text-red-700" :
-                        "bg-muted text-muted-foreground"
-                      }`}>{u.planType === "lite" ? "standard" : u.planType}</span>
+                      {u.isAdmin || u.planType === "cancelled" ? (
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${
+                          u.planType === "pro" ? "bg-blue-100 text-blue-700" :
+                          u.planType === "lite" ? "bg-indigo-100 text-indigo-700" :
+                          u.planType === "complimentary" ? "bg-green-100 text-green-700" :
+                          u.planType === "cancelled" ? "bg-red-100 text-red-700" :
+                          "bg-muted text-muted-foreground"
+                        }`}>{u.planType === "lite" ? "standard" : u.planType}</span>
+                      ) : (
+                        <select
+                          className="text-xs font-medium px-2 py-1 rounded-full border border-border bg-background capitalize"
+                          value={`${u.planType}:${u.planPeriod || "monthly"}`}
+                          title="Change plan (local override only — does not touch Stripe billing)"
+                          onChange={(e) => {
+                            const [planType, planPeriod] = e.target.value.split(":");
+                            setPlan(u.id, planType, planPeriod);
+                          }}
+                        >
+                          <option value="free:monthly">Free</option>
+                          <option value="lite:monthly">Standard — Monthly</option>
+                          <option value="lite:annual">Standard — Annual</option>
+                          <option value="pro:monthly">Pro — Monthly</option>
+                          <option value="pro:annual">Pro — Annual</option>
+                          <option value="complimentary:monthly">Complimentary</option>
+                        </select>
+                      )}
                     </td>
                     <td className="px-3 py-3 text-muted-foreground hidden md:table-cell">{u.customerCount}</td>
                     <td className="px-3 py-3 text-muted-foreground hidden md:table-cell">{u.reviewRequestCount}</td>

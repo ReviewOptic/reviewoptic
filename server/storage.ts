@@ -6,7 +6,7 @@ import { randomUUID } from "crypto";
 import { sendFollowUpEmail } from "./email";
 import { sendReviewSMS, sendWhatsAppTemplate } from "./sms";
 import {
-  accounts, customers, reviewRequests, reviews, privateFeedback, activityLog, templates, users, passwordResetTokens, adminImpersonationLog,
+  accounts, customers, reviewRequests, reviews, privateFeedback, activityLog, templates, users, passwordResetTokens, reactivationTokens, adminImpersonationLog,
   type Account,
   type Customer, type InsertCustomer,
   type ReviewRequest, type InsertReviewRequest,
@@ -23,6 +23,12 @@ function settingsRowToCamel(row: Record<string, any>): Settings {
   const toCamel = (s: string) => s.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
   return Object.fromEntries(Object.entries(row).map(([k, v]) => [toCamel(k), v])) as Settings;
 }
+
+// Accounts that should never be treated as a real customer — the public
+// try-before-signup demo (auto-recreated every few days) and the account
+// created for Meta's app reviewers. Excluded from admin stats/lists and
+// from any automated email job that targets "real" subscribers.
+export const NON_CUSTOMER_EMAILS = ["demo@reviewoptic.com", "meta-reviewer@reviewoptic.com"];
 
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 3 });
 // Prevent stale connections (e.g. Neon serverless suspend) from crashing the server
@@ -87,6 +93,10 @@ export interface IStorage {
   createResetToken(userId: string): Promise<string>;
   getResetToken(token: string): Promise<{ userId: string; expiresAt: Date } | undefined>;
   deleteResetToken(token: string): Promise<void>;
+  // Reactivation tokens (magic sign-in links for "Reactivate" / "Delete my data" email buttons)
+  createReactivationToken(userId: string): Promise<string>;
+  getReactivationToken(token: string): Promise<{ userId: string; expiresAt: Date } | undefined>;
+  deleteReactivationToken(token: string): Promise<void>;
   // Stats
   getStats(accountId: string): Promise<{
     requestsThisMonth: number;
@@ -349,6 +359,24 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteResetToken(token: string): Promise<void> {
     await db.delete(passwordResetTokens).where(eq(passwordResetTokens.token, token));
+  }
+  // Reactivation tokens — one-time login links used by the "Reactivate" and "Delete my data"
+  // buttons in emails, so clicking them logs back into the existing account instead of
+  // treating the person as a brand new, logged-out visitor.
+  async createReactivationToken(userId: string): Promise<string> {
+    await db.delete(reactivationTokens).where(eq(reactivationTokens.userId, userId));
+    const token = randomUUID();
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days — matches the purge window
+    await db.insert(reactivationTokens).values({ token, userId, expiresAt });
+    return token;
+  }
+  async getReactivationToken(token: string): Promise<{ userId: string; expiresAt: Date } | undefined> {
+    const [row] = await db.select().from(reactivationTokens).where(eq(reactivationTokens.token, token));
+    if (!row) return undefined;
+    return { userId: row.userId, expiresAt: row.expiresAt };
+  }
+  async deleteReactivationToken(token: string): Promise<void> {
+    await db.delete(reactivationTokens).where(eq(reactivationTokens.token, token));
   }
 
   async getStats(accountId: string): Promise<{

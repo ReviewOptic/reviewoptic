@@ -1,5 +1,5 @@
 import { Resend } from "resend";
-import { pool } from "./storage";
+import { pool, NON_CUSTOMER_EMAILS } from "./storage";
 import { randomUUID } from "crypto";
 
 interface UserStats {
@@ -301,12 +301,14 @@ export async function sendInsightEmailToUser(userId: string, accountId: string, 
 export async function runMonthlyInsightEmails(): Promise<void> {
   const appUrl = process.env.APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:5000");
 
+  const nonCustomerEmailList = NON_CUSTOMER_EMAILS.map(e => `'${e}'`).join(", ");
   const { rows: users } = await pool.query(`
     SELECT id, email, account_id, insight_email_frequency FROM users
     WHERE NOT is_admin
       AND email_verified = true
       AND plan_type NOT IN ('free', 'complimentary')
       AND role = 'owner'
+      AND email NOT IN (${nonCustomerEmailList})
       AND insight_email_frequency != 'never'
       AND insight_emails_opt_out = false
       AND COALESCE(email_unsubscribed, false) = false

@@ -113,6 +113,18 @@ export async function runMigrations() {
       )
     `);
 
+    // Reactivation tokens — one-time login links sent in the subscription-ended/account-deletion
+    // emails, so clicking "Reactivate" logs back into the SAME existing account instead of
+    // sending an anonymous visitor to register a brand new one.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS reactivation_tokens (
+        token VARCHAR PRIMARY KEY,
+        user_id VARCHAR NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+
     // Fix legacy username column if it exists
     await pool.query(`ALTER TABLE users ALTER COLUMN username SET DEFAULT ''`).catch(() => {});
     await pool.query(`UPDATE users SET username = '' WHERE username IS NULL`).catch(() => {});

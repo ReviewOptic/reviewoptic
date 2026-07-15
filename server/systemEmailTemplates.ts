@@ -27,6 +27,12 @@ export const DEFAULT_EMAIL_TEMPLATES: Record<string, { subject: string; body: st
     variables: ["{{inviter_name}}", "{{company_name}}"],
     description: "Sent when a team member is invited",
   },
+  team_member_joined: {
+    subject: "{{member_name}} has joined your ReviewOptic team",
+    body: "{{member_name}} has accepted your invitation and set up their account.\n\nThey can now log in and you can both view stats, customers, and review activity from your dashboard.",
+    variables: ["{{first_name}}", "{{member_name}}"],
+    description: "Sent to the account owner once an invited team member sets their password and joins",
+  },
   pre_screen: {
     subject: "How would you rate your experience with {{business_name}}?",
     body: "Thank you for choosing {{business_name}}! How would you rate your experience? Tap a star below:",
@@ -53,7 +59,7 @@ export const DEFAULT_EMAIL_TEMPLATES: Record<string, { subject: string; body: st
   },
   cancellation: {
     subject: "Your ReviewOptic subscription has been cancelled",
-    body: "Your cancellation is confirmed. You'll still have full access to all features until {{access_ends}} — so keep making the most of it until then.\n\nAfter {{access_ends}}, you'll still be able to log in and view your analytics — but you won't be able to add new customers or send review requests.\n\nYour account and all your data will be kept safe. If you ever want to reactivate, you're always welcome back — one click is all it takes.\n\nWe're always looking to improve — if there's anything we could have done better, or if something didn't work the way you hoped, we'd genuinely love to hear it. Just hit reply.\n\nThank you for trusting us with your business. It's meant a lot to us. 🙏",
+    body: "Your cancellation is confirmed. You'll still have full access to all features until {{access_ends}} — so keep making the most of it until then.\n\nAfter {{access_ends}}, you'll still be able to log in and view your analytics — but you won't be able to add new customers or send review requests.\n\nYour account and all your data will be kept safe indefinitely. If you ever want to reactivate, you're always welcome back — one click is all it takes. If you'd rather we permanently deleted everything instead, you can request that below.\n\nWe're always looking to improve — if there's anything we could have done better, or if something didn't work the way you hoped, we'd genuinely love to hear it. Just hit reply.\n\nThank you for trusting us with your business. It's meant a lot to us. 🙏",
     variables: ["{{first_name}}", "{{access_ends}}"],
     description: "Sent when a user cancels their subscription",
   },
@@ -74,18 +80,6 @@ export const DEFAULT_EMAIL_TEMPLATES: Record<string, { subject: string; body: st
     body: "Here's how {{business_name}} is performing this period.",
     variables: ["{{business_name}}", "{{frequency}}", "{{month}}"],
     description: "Sent weekly or monthly with review stats and AI insights",
-  },
-  platform_review: {
-    subject: "How are you finding ReviewOptic? We'd love your feedback",
-    body: "You've been using ReviewOptic for a little while now, and we hope it's been making a real difference for {{company_name}}.\n\nWe're a small team and honest reviews help us grow so we can keep improving the product for businesses like yours. If you've got 60 seconds, we'd be incredibly grateful if you could share your experience:",
-    variables: ["{{first_name}}", "{{company_name}}"],
-    description: "Sent to users asking them to review ReviewOptic on Google",
-  },
-  renewal_reminder: {
-    subject: "Your ReviewOptic subscription renews in 3 days",
-    body: "Just a heads-up — your {{plan_name}} subscription will automatically renew in 3 days on {{renewal_date}} for {{amount}}.\n\nNo action needed. If you'd like to make any changes to your plan or payment details, you can do so from your billing settings.",
-    variables: ["{{first_name}}", "{{plan_name}}", "{{renewal_date}}", "{{amount}}"],
-    description: "Sent 1 day before a subscription renewal",
   },
   payment_failed: {
     subject: "Action required: your ReviewOptic payment failed",
@@ -110,13 +104,6 @@ export const DEFAULT_EMAIL_TEMPLATES: Record<string, { subject: string; body: st
     body: "Hi {{first_name}},\n\nSomeone you referred just signed up and paid — so you've earned a free month on us, worth {{credit_amount}}.\n\nThis will be applied automatically to your next billing period, no action needed. If you refer more people, the free months stack up.\n\nThanks for spreading the word — we really appreciate it.",
     variables: ["{{first_name}}", "{{credit_amount}}"],
     description: "Sent to a user when they earn a referral credit",
-    adminOnly: true,
-  },
-  subscriber_review_request: {
-    subject: "How are you finding ReviewOptic?",
-    body: "You've been using ReviewOptic for a couple of months now — we hope it's been making a real difference for {{company_name}}!\n\nWe'd love to know how we're doing. Tap a star below to leave us a quick rating:",
-    variables: ["{{first_name}}", "{{company_name}}"],
-    description: "Sent to ReviewOptic subscribers after 2 months asking for a 1–5 star rating",
     adminOnly: true,
   },
 };
