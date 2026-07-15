@@ -221,6 +221,11 @@ setInterval(() => {
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
 
+  // Accounts that should never show up as a "user" anywhere in the admin panel —
+  // the public try-before-signup demo, and the account created for Meta's app reviewers.
+  const NON_CUSTOMER_EMAILS = ["demo@reviewoptic.com", "meta-reviewer@reviewoptic.com"];
+  const nonCustomerEmailList = NON_CUSTOMER_EMAILS.map(e => `'${e}'`).join(", ");
+
   // ── Auth routes (no requireAuth) ──────────────────────────────────────────
 
   app.post("/api/auth/register", async (req, res) => {
@@ -692,6 +697,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const suspendMap = Object.fromEntries(planRows.map((r: any) => [r.id, r.is_suspended]));
     const statsMap = Object.fromEntries(stats.map(s => [s.userId, s]));
     const activeUsers = allUsers.filter(u => {
+      if (NON_CUSTOMER_EMAILS.includes(u.email)) return false;
       if (u.isAdmin) return true;
       const plan = planMap[u.id] || "free";
       return u.emailVerified && plan !== "free";
@@ -738,7 +744,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!target) return res.status(404).json({ message: "User not found" });
     if (target.isAdmin) return res.status(400).json({ message: "Cannot modify an admin account" });
     await pool.query(
-      `UPDATE users SET plan_type = 'standard', plan_period = 'monthly', email_verified = true, verification_token = NULL WHERE id = $1`,
+      `UPDATE users SET plan_type = 'lite', plan_period = 'monthly', email_verified = true, verification_token = NULL WHERE id = $1`,
       [req.params.userId]
     );
     res.json({ success: true });
@@ -983,7 +989,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
               (SELECT COUNT(*) FROM customers c WHERE c.account_id = u.account_id)::int AS customer_count,
               (SELECT COUNT(*) FROM review_requests rr WHERE rr.account_id = u.account_id)::int AS request_count
        FROM users u
-       WHERE u.plan_type = 'cancelled' AND u.role = 'owner'
+       WHERE u.plan_type = 'cancelled' AND u.role = 'owner' AND u.email NOT IN (${nonCustomerEmailList})
        ORDER BY u.cancelled_at DESC NULLS LAST`
     );
     res.json(rows);
@@ -995,7 +1001,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const { rows } = await pool.query(
         `SELECT scheduled_for_deletion_at AS deletion_scheduled_at, cancelled_at
          FROM users
-         WHERE scheduled_for_deletion_at IS NOT NULL AND role = 'owner'
+         WHERE scheduled_for_deletion_at IS NOT NULL AND role = 'owner' AND email NOT IN (${nonCustomerEmailList})
          ORDER BY scheduled_for_deletion_at DESC`
       );
       res.json(rows);
@@ -1058,6 +1064,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const rrDateFilter = hasRange ? `AND rr.created_at >= $1 AND rr.created_at < ($2::date + 1)` : "";
       const topUsersFilter = hasRange ? `AND a.created_at >= $1 AND a.created_at < ($2::date + 1)` : `AND a.created_at >= NOW() - INTERVAL '7 days'`;
 
+      // A "real" user row = one business account owner, not an admin, not a demo/test account.
+      // Team member invites (role='member') share an account_id with the owner and would
+      // otherwise double-count as new signups/activity; demo@reviewoptic.com gets wiped and
+      // recreated every few days by the auto-reseed job, which was making it look like a
+      // fresh signup each time.
+      const excludeUsers = `NOT is_admin AND role = 'owner' AND email NOT IN (${nonCustomerEmailList})`;
+      const excludeUsersAliased = `NOT u.is_admin AND u.role = 'owner' AND u.email NOT IN (${nonCustomerEmailList})`;
+      const excludeAccounts = `account_id NOT IN (SELECT account_id FROM users WHERE is_admin OR email IN (${nonCustomerEmailList}))`;
+
       const [
         totalUsersR, newThisWeekR, newLastWeekR, activeThisWeekR, activeTodayR,
         totalRequestsR, requestsThisWeekR, requestsLastWeekR, requestsTodayR,
@@ -1067,35 +1082,35 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         signupsYesterdayR, activityYesterdayR, activityTodayCountR,
         planBreakdownR, reactivatedR, geoR, devicesR, browsersR,
       ] = await Promise.all([
-        pool.query(`SELECT COUNT(*) FROM users WHERE NOT is_admin`),
-        pool.query(`SELECT COUNT(*) FROM users WHERE NOT is_admin AND created_at >= NOW() - INTERVAL '7 days'`),
-        pool.query(`SELECT COUNT(*) FROM users WHERE NOT is_admin AND created_at >= NOW() - INTERVAL '14 days' AND created_at < NOW() - INTERVAL '7 days'`),
-        pool.query(`SELECT COUNT(DISTINCT account_id) FROM activity_log WHERE created_at >= NOW() - INTERVAL '7 days'`),
-        pool.query(`SELECT COUNT(DISTINCT account_id) FROM activity_log WHERE created_at >= CURRENT_DATE`),
-        pool.query(`SELECT COUNT(*) FROM review_requests`),
-        pool.query(`SELECT COUNT(*) FROM review_requests WHERE created_at >= NOW() - INTERVAL '7 days'`),
-        pool.query(`SELECT COUNT(*) FROM review_requests WHERE created_at >= NOW() - INTERVAL '14 days' AND created_at < NOW() - INTERVAL '7 days'`),
-        pool.query(`SELECT COUNT(*) FROM review_requests WHERE created_at >= CURRENT_DATE`),
-        pool.query(`SELECT rr.id, rr.channel, rr.status, rr.created_at, u.email, COALESCE(s.business_name, u.email) as business_name FROM review_requests rr JOIN users u ON u.account_id = rr.account_id JOIN settings s ON s.account_id = rr.account_id WHERE 1=1 ${rrDateFilter} ORDER BY rr.created_at DESC LIMIT 50`, dateParams),
-        pool.query(`SELECT type, COUNT(*) as count FROM activity_log WHERE 1=1 ${dateFilter} GROUP BY type ORDER BY count DESC`, dateParams),
-        pool.query(`SELECT u.email, u.created_at as signup_date, COUNT(a.id) as action_count, MAX(a.created_at) as last_active FROM users u JOIN activity_log a ON a.account_id = u.account_id WHERE NOT u.is_admin ${topUsersFilter} GROUP BY u.id, u.email, u.created_at ORDER BY action_count DESC LIMIT 10`, dateParams),
-        pool.query(`SELECT (SELECT COUNT(*) FROM users WHERE NOT is_admin) as signups, (SELECT COUNT(DISTINCT account_id) FROM activity_log) as first_action, (SELECT COUNT(*) FROM (SELECT account_id FROM activity_log GROUP BY account_id, DATE(created_at) HAVING COUNT(*) > 0) sub GROUP BY account_id HAVING COUNT(*) >= 2) as return_visit, (SELECT COUNT(DISTINCT account_id) FROM activity_log GROUP BY account_id HAVING COUNT(*) >= 10) as power_users`),
-        pool.query(`SELECT ROUND(100.0 * COUNT(DISTINCT d.account_id) / NULLIF(COUNT(DISTINCT u.account_id), 0), 1) as rate FROM users u LEFT JOIN activity_log d ON d.account_id = u.account_id AND d.created_at >= u.created_at + INTERVAL '1 day' AND d.created_at < u.created_at + INTERVAL '2 days' WHERE NOT u.is_admin`),
-        pool.query(`SELECT ROUND(100.0 * COUNT(DISTINCT d.account_id) / NULLIF(COUNT(DISTINCT u.account_id), 0), 1) as rate FROM users u LEFT JOIN activity_log d ON d.account_id = u.account_id AND d.created_at >= u.created_at AND d.created_at < u.created_at + INTERVAL '7 days' WHERE NOT u.is_admin`),
-        pool.query(`SELECT u.email, MAX(a.created_at) as last_active FROM users u JOIN activity_log a ON a.account_id = u.account_id WHERE NOT u.is_admin GROUP BY u.id, u.email HAVING MAX(a.created_at) < NOW() - INTERVAL '7 days' AND MAX(a.created_at) > NOW() - INTERVAL '30 days' ORDER BY last_active DESC LIMIT 10`),
-        pool.query(`SELECT ROUND(AVG(EXTRACT(EPOCH FROM (first_act - u.created_at))/3600), 1) as avg_hours FROM users u JOIN (SELECT account_id, MIN(created_at) as first_act FROM activity_log GROUP BY account_id) fa ON fa.account_id = u.account_id WHERE NOT u.is_admin`),
-        pool.query(`SELECT TO_CHAR(created_at, 'YYYY-MM-DD') as date, COUNT(*) as count FROM users WHERE NOT is_admin AND (${hasRange ? `created_at >= $1 AND created_at < ($2::date + 1)` : `created_at >= NOW() - INTERVAL '30 days'`}) GROUP BY date ORDER BY date`, dateParams),
-        pool.query(`SELECT TO_CHAR(created_at, 'YYYY-MM-DD') as date, COUNT(*) as count FROM review_requests WHERE (${hasRange ? `created_at >= $1 AND created_at < ($2::date + 1)` : `created_at >= NOW() - INTERVAL '30 days'`}) GROUP BY date ORDER BY date`, dateParams),
-        pool.query(`SELECT EXTRACT(DOW FROM created_at) as dow, COUNT(*) as count FROM activity_log WHERE 1=1 ${dateFilter} GROUP BY dow ORDER BY dow`, dateParams),
-        pool.query(`SELECT EXTRACT(HOUR FROM created_at) as hour, COUNT(*) as count FROM activity_log WHERE 1=1 ${dateFilter} GROUP BY hour ORDER BY hour`, dateParams),
-        pool.query(`SELECT COUNT(*) FROM users WHERE NOT is_admin AND created_at >= CURRENT_DATE - INTERVAL '1 day' AND created_at < CURRENT_DATE`),
-        pool.query(`SELECT COUNT(*) FROM activity_log WHERE created_at >= CURRENT_DATE - INTERVAL '1 day' AND created_at < CURRENT_DATE`),
-        pool.query(`SELECT COUNT(*) FROM activity_log WHERE created_at >= CURRENT_DATE`),
-        pool.query(`SELECT plan_type, plan_period, COUNT(*) as count FROM users WHERE NOT is_admin AND plan_type NOT IN ('free', 'complimentary') GROUP BY plan_type, plan_period ORDER BY plan_type, plan_period`),
-        pool.query(`SELECT u.email, u.cancelled_at, u.reactivated_at, ROUND(EXTRACT(EPOCH FROM (u.reactivated_at - u.cancelled_at))/86400) as days_away FROM users u WHERE u.cancelled_at IS NOT NULL AND u.reactivated_at IS NOT NULL AND NOT u.is_admin ORDER BY u.reactivated_at DESC`),
-        pool.query(`SELECT s.country, COUNT(*) as count FROM settings s JOIN users u ON u.account_id = s.account_id WHERE s.country != '' AND NOT u.is_admin AND u.role = 'owner' GROUP BY s.country ORDER BY count DESC`),
-        pool.query(`SELECT device_type, COUNT(*) as count FROM user_sessions GROUP BY device_type ORDER BY count DESC`),
-        pool.query(`SELECT browser, COUNT(*) as count FROM user_sessions GROUP BY browser ORDER BY count DESC LIMIT 8`),
+        pool.query(`SELECT COUNT(*) FROM users WHERE ${excludeUsers}`),
+        pool.query(`SELECT COUNT(*) FROM users WHERE ${excludeUsers} AND created_at >= NOW() - INTERVAL '7 days'`),
+        pool.query(`SELECT COUNT(*) FROM users WHERE ${excludeUsers} AND created_at >= NOW() - INTERVAL '14 days' AND created_at < NOW() - INTERVAL '7 days'`),
+        pool.query(`SELECT COUNT(DISTINCT account_id) FROM activity_log WHERE created_at >= NOW() - INTERVAL '7 days' AND ${excludeAccounts}`),
+        pool.query(`SELECT COUNT(DISTINCT account_id) FROM activity_log WHERE created_at >= CURRENT_DATE AND ${excludeAccounts}`),
+        pool.query(`SELECT COUNT(*) FROM review_requests WHERE ${excludeAccounts}`),
+        pool.query(`SELECT COUNT(*) FROM review_requests WHERE created_at >= NOW() - INTERVAL '7 days' AND ${excludeAccounts}`),
+        pool.query(`SELECT COUNT(*) FROM review_requests WHERE created_at >= NOW() - INTERVAL '14 days' AND created_at < NOW() - INTERVAL '7 days' AND ${excludeAccounts}`),
+        pool.query(`SELECT COUNT(*) FROM review_requests WHERE created_at >= CURRENT_DATE AND ${excludeAccounts}`),
+        pool.query(`SELECT rr.id, rr.channel, rr.status, rr.created_at, u.email, COALESCE(s.business_name, u.email) as business_name FROM review_requests rr JOIN users u ON u.account_id = rr.account_id AND u.role = 'owner' JOIN settings s ON s.account_id = rr.account_id WHERE rr.${excludeAccounts} ${rrDateFilter} ORDER BY rr.created_at DESC LIMIT 50`, dateParams),
+        pool.query(`SELECT type, COUNT(*) as count FROM activity_log WHERE ${excludeAccounts} ${dateFilter} GROUP BY type ORDER BY count DESC`, dateParams),
+        pool.query(`SELECT u.email, u.created_at as signup_date, COUNT(a.id) as action_count, MAX(a.created_at) as last_active FROM users u JOIN activity_log a ON a.account_id = u.account_id WHERE ${excludeUsers} ${topUsersFilter} GROUP BY u.id, u.email, u.created_at ORDER BY action_count DESC LIMIT 10`, dateParams),
+        pool.query(`SELECT (SELECT COUNT(*) FROM users WHERE ${excludeUsers}) as signups, (SELECT COUNT(DISTINCT account_id) FROM activity_log WHERE ${excludeAccounts}) as first_action, (SELECT COUNT(*) FROM (SELECT account_id FROM activity_log WHERE ${excludeAccounts} GROUP BY account_id, DATE(created_at) HAVING COUNT(*) > 0) sub GROUP BY account_id HAVING COUNT(*) >= 2) as return_visit, (SELECT COUNT(DISTINCT account_id) FROM activity_log WHERE ${excludeAccounts} GROUP BY account_id HAVING COUNT(*) >= 10) as power_users`),
+        pool.query(`SELECT ROUND(100.0 * COUNT(DISTINCT d.account_id) / NULLIF(COUNT(DISTINCT u.account_id), 0), 1) as rate FROM users u LEFT JOIN activity_log d ON d.account_id = u.account_id AND d.created_at >= u.created_at + INTERVAL '1 day' AND d.created_at < u.created_at + INTERVAL '2 days' WHERE ${excludeUsers}`),
+        pool.query(`SELECT ROUND(100.0 * COUNT(DISTINCT d.account_id) / NULLIF(COUNT(DISTINCT u.account_id), 0), 1) as rate FROM users u LEFT JOIN activity_log d ON d.account_id = u.account_id AND d.created_at >= u.created_at AND d.created_at < u.created_at + INTERVAL '7 days' WHERE ${excludeUsers}`),
+        pool.query(`SELECT u.email, MAX(a.created_at) as last_active FROM users u JOIN activity_log a ON a.account_id = u.account_id WHERE ${excludeUsers} GROUP BY u.id, u.email HAVING MAX(a.created_at) < NOW() - INTERVAL '7 days' AND MAX(a.created_at) > NOW() - INTERVAL '30 days' ORDER BY last_active DESC LIMIT 10`),
+        pool.query(`SELECT ROUND(AVG(EXTRACT(EPOCH FROM (first_act - u.created_at))/3600), 1) as avg_hours FROM users u JOIN (SELECT account_id, MIN(created_at) as first_act FROM activity_log GROUP BY account_id) fa ON fa.account_id = u.account_id WHERE ${excludeUsers}`),
+        pool.query(`SELECT TO_CHAR(created_at, 'YYYY-MM-DD') as date, COUNT(*) as count FROM users WHERE ${excludeUsers} AND (${hasRange ? `created_at >= $1 AND created_at < ($2::date + 1)` : `created_at >= NOW() - INTERVAL '30 days'`}) GROUP BY date ORDER BY date`, dateParams),
+        pool.query(`SELECT TO_CHAR(created_at, 'YYYY-MM-DD') as date, COUNT(*) as count FROM review_requests WHERE ${excludeAccounts} AND (${hasRange ? `created_at >= $1 AND created_at < ($2::date + 1)` : `created_at >= NOW() - INTERVAL '30 days'`}) GROUP BY date ORDER BY date`, dateParams),
+        pool.query(`SELECT EXTRACT(DOW FROM created_at) as dow, COUNT(*) as count FROM activity_log WHERE ${excludeAccounts} ${dateFilter} GROUP BY dow ORDER BY dow`, dateParams),
+        pool.query(`SELECT EXTRACT(HOUR FROM created_at) as hour, COUNT(*) as count FROM activity_log WHERE ${excludeAccounts} ${dateFilter} GROUP BY hour ORDER BY hour`, dateParams),
+        pool.query(`SELECT COUNT(*) FROM users WHERE ${excludeUsers} AND created_at >= CURRENT_DATE - INTERVAL '1 day' AND created_at < CURRENT_DATE`),
+        pool.query(`SELECT COUNT(*) FROM activity_log WHERE created_at >= CURRENT_DATE - INTERVAL '1 day' AND created_at < CURRENT_DATE AND ${excludeAccounts}`),
+        pool.query(`SELECT COUNT(*) FROM activity_log WHERE created_at >= CURRENT_DATE AND ${excludeAccounts}`),
+        pool.query(`SELECT plan_type, plan_period, COUNT(*) as count FROM users WHERE ${excludeUsers} AND plan_type NOT IN ('free', 'complimentary') GROUP BY plan_type, plan_period ORDER BY plan_type, plan_period`),
+        pool.query(`SELECT u.email, u.cancelled_at, u.reactivated_at, ROUND(EXTRACT(EPOCH FROM (u.reactivated_at - u.cancelled_at))/86400) as days_away FROM users u WHERE u.cancelled_at IS NOT NULL AND u.reactivated_at IS NOT NULL AND ${excludeUsersAliased} ORDER BY u.reactivated_at DESC`),
+        pool.query(`SELECT s.country, COUNT(*) as count FROM settings s JOIN users u ON u.account_id = s.account_id WHERE s.country != '' AND ${excludeUsersAliased} GROUP BY s.country ORDER BY count DESC`),
+        pool.query(`SELECT device_type, COUNT(*) as count FROM user_sessions WHERE ${excludeAccounts} GROUP BY device_type ORDER BY count DESC`),
+        pool.query(`SELECT browser, COUNT(*) as count FROM user_sessions WHERE ${excludeAccounts} GROUP BY browser ORDER BY count DESC LIMIT 8`),
       ]);
 
       const totalUsers = parseInt(totalUsersR.rows[0].count);
@@ -1111,8 +1126,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const funnelRow = funnelR.rows[0];
       const funnelSignups = parseInt(funnelRow?.signups || 0);
       const funnelFirstAction = parseInt(funnelRow?.first_action || 0);
-      const funnelReturnVisit = parseInt((await pool.query(`SELECT COUNT(*) FROM (SELECT account_id, COUNT(DISTINCT DATE(created_at)) as days FROM activity_log GROUP BY account_id HAVING COUNT(DISTINCT DATE(created_at)) >= 2) sub`)).rows[0].count);
-      const funnelPowerUsers = parseInt((await pool.query(`SELECT COUNT(*) FROM (SELECT account_id FROM activity_log GROUP BY account_id HAVING COUNT(*) >= 10) sub`)).rows[0].count);
+      const funnelReturnVisit = parseInt((await pool.query(`SELECT COUNT(*) FROM (SELECT account_id, COUNT(DISTINCT DATE(created_at)) as days FROM activity_log WHERE ${excludeAccounts} GROUP BY account_id HAVING COUNT(DISTINCT DATE(created_at)) >= 2) sub`)).rows[0].count);
+      const funnelPowerUsers = parseInt((await pool.query(`SELECT COUNT(*) FROM (SELECT account_id FROM activity_log WHERE ${excludeAccounts} GROUP BY account_id HAVING COUNT(*) >= 10) sub`)).rows[0].count);
 
       const dowLabels = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
