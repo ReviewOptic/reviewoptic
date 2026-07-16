@@ -5,6 +5,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import CookieConsent from "@/components/CookieConsent";
+import { hasAnalyticsConsent, COOKIE_CONSENT_EVENT } from "@/lib/cookieConsent";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/context/AuthContext";
 import { useAuth } from "@/hooks/use-auth";
@@ -41,6 +42,13 @@ const BlogPost = lazy(() => import("@/pages/BlogPost"));
 
 function useTrackingPixels() {
   useEffect(() => {
+    function loadPixelsIfConsented() {
+      // Analytics/advertising pixels are non-essential — only load once the visitor has accepted cookies
+      if (!hasAnalyticsConsent()) return;
+      loadPixels();
+    }
+
+    function loadPixels() {
     fetch("/api/platform/tracking")
       .then(r => r.json())
       .then(({ meta_pixel_id, google_tag_id, tiktok_pixel_id }) => {
@@ -67,6 +75,11 @@ function useTrackingPixels() {
         }
       })
       .catch(() => {});
+    }
+
+    loadPixelsIfConsented();
+    window.addEventListener(COOKIE_CONSENT_EVENT, loadPixelsIfConsented);
+    return () => window.removeEventListener(COOKIE_CONSENT_EVENT, loadPixelsIfConsented);
   }, []);
 }
 

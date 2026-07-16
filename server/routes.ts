@@ -855,7 +855,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       { name: "Sophie Ward", email: "sophie.w@example.com", service: "Leak detection", status: "review_received", daysAgo: 20, rating: 5, channel: "email" },
       { name: "James Thornton", email: "james.t@example.com", service: "Boiler service", status: "review_received", daysAgo: 23, rating: 5, channel: "email" },
       { name: "Natalie Fox", email: "natalie.f@example.com", service: "Radiator fitting", status: "review_received", daysAgo: 26, rating: 5, channel: "whatsapp" },
-      { name: "Ben Morrison", email: "ben.m@example.com", service: "Power flush", status: "review_received", daysAgo: 30, rating: 3, channel: "email", privateFeedback: true },
+      { name: "Ben Morrison", email: "ben.m@example.com", service: "Power flush", status: "review_received", daysAgo: 12, rating: 3, channel: "email", privateFeedback: true },
       { name: "Hannah Brooks", email: "hannah.b@example.com", service: "Bathroom installation", status: "review_received", daysAgo: 33, rating: 5, channel: "email" },
       { name: "Oliver Grant", email: "oliver.g@example.com", service: "Boiler replacement", status: "review_received", daysAgo: 37, rating: 5, channel: "email" },
       { name: "Zoe Campbell", email: "zoe.c@example.com", service: "Emergency callout", status: "review_received", daysAgo: 40, rating: 4, channel: "sms" },
@@ -869,7 +869,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       { name: "Karen Price", email: "karen.p@example.com", service: "Boiler service", status: "review_received", daysAgo: 60, rating: 4, channel: "sms" },
       { name: "Mike Lawson", email: "mike.l@example.com", service: "Emergency repair", status: "review_received", daysAgo: 65, rating: 5, channel: "email" },
       { name: "Rachel Stone", email: "rachel.s@example.com", service: "Bathroom installation", status: "review_received", daysAgo: 70, rating: 5, channel: "email" },
-      { name: "Neil Foster", email: "neil.f@example.com", service: "Boiler replacement", status: "review_received", daysAgo: 75, rating: 3, channel: "email", privateFeedback: true },
+      { name: "Neil Foster", email: "neil.f@example.com", service: "Boiler replacement", status: "review_received", daysAgo: 19, rating: 3, channel: "email", privateFeedback: true },
       { name: "Diane Cooper", email: "diane.c@example.com", service: "Radiator repair", status: "review_received", daysAgo: 80, rating: 5, channel: "email" },
       { name: "Gary Webb", email: "gary.w@example.com", service: "Leak detection", status: "review_received", daysAgo: 85, rating: 5, channel: "sms" },
     ];
@@ -940,13 +940,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
     }
 
-    // Seed activity log
-    const activityEntries = CUSTOMERS.filter(c => c.status !== "pending_request").slice(0, 15);
+    // Seed activity log — most recent 15 by actual date, matching how the real activity feed sorts
+    const activityEntries = CUSTOMERS.filter(c => c.status !== "pending_request")
+      .sort((a, b) => a.daysAgo - b.daysAgo)
+      .slice(0, 15);
     for (const c of activityEntries) {
       const logId = randomUUID();
       const type = c.status === "review_received" ? "review_received" : "request_sent";
+      const rating = (c as any).rating;
+      const stars = rating ? "★".repeat(rating) + "☆".repeat(5 - rating) : "";
+      // Matches the real app's wording (server/routes.ts rating-submission handler) — we only
+      // know the star rating they gave us, not whether they went on to actually post on Google.
       const message = c.status === "review_received"
-        ? `${c.name} left a ${(c as any).rating}-star review on Google`
+        ? `${c.name} left a ${rating}-star rating ${stars}`
         : `Review request sent to ${c.name} via ${c.channel}`;
       await pool.query(
         `INSERT INTO activity_log (id, account_id, type, customer_name, message, created_at)

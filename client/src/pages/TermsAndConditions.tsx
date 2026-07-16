@@ -5,7 +5,7 @@ export default function TermsAndConditions() {
         <div className="mb-6 sm:mb-10">
           <img src="/logo.png" alt="ReviewOptic" className="h-16 sm:h-24 mb-4 sm:mb-6 object-contain" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-2">Terms and Conditions</h1>
-          <p className="text-muted-foreground text-sm">Last updated: 6 April 2026</p>
+          <p className="text-muted-foreground text-sm">Last updated: 16 July 2026</p>
         </div>
 
         <div className="prose prose-sm max-w-none space-y-8 text-foreground">
@@ -35,13 +35,13 @@ export default function TermsAndConditions() {
             </p>
             <ul className="list-disc pl-5 space-y-1 text-muted-foreground mb-3">
               <li>Sending review request emails, SMS, and WhatsApp messages to your customers, with automated follow-ups</li>
-              <li>Importing and displaying reviews from third-party platforms you connect (such as Google, Checkatrade, Trustpilot, TripAdvisor, and MyBuilder)</li>
-              <li>Generating shareable review card images from your imported reviews</li>
-              <li>Automatically posting review cards to your connected social media accounts (Facebook Page, Instagram)</li>
+              <li>Letting you add links to your review platforms (such as Google, Checkatrade, Trustpilot, TripAdvisor, and MyBuilder) so customers who rate you highly can be directed straight there</li>
+              <li>Generating shareable review card images from the star ratings and feedback your customers submit through ReviewOptic</li>
+              <li>Automatically posting review cards to your connected Facebook Page or Instagram account, if you choose to enable this</li>
               <li>Analytics and reporting on your review performance</li>
             </ul>
             <p className="text-muted-foreground leading-relaxed">
-              When you connect a third-party platform (such as Google Business Profile or Facebook), you authorise
+              Where you connect a third-party account (such as Facebook, to enable auto-posting), you authorise
               ReviewOptic to access that account solely to provide the features described above. You remain responsible
               for ensuring your use of those platforms complies with their own terms of service.
               We reserve the right to modify, suspend, or discontinue any part of the service at any time
@@ -209,7 +209,7 @@ export default function TermsAndConditions() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">12. Intellectual property</h2>
+            <h2 className="text-lg font-semibold mb-2">13. Intellectual property</h2>
             <p className="text-muted-foreground leading-relaxed">
               All intellectual property rights in the ReviewOptic platform, including its software, design,
               and content, belong to us. You are granted a limited, non-exclusive, non-transferable licence
@@ -219,7 +219,7 @@ export default function TermsAndConditions() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">13. No guarantees about the service</h2>
+            <h2 className="text-lg font-semibold mb-2">14. No guarantees about the service</h2>
             <p className="text-muted-foreground leading-relaxed">
               ReviewOptic is provided "as is" and "as available". We do not guarantee that the service
               will be uninterrupted, error-free, or meet your specific requirements. We make no warranty
@@ -232,7 +232,7 @@ export default function TermsAndConditions() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">14. Limitation of liability</h2>
+            <h2 className="text-lg font-semibold mb-2">15. Limitation of liability</h2>
             <p className="text-muted-foreground leading-relaxed">
               To the fullest extent permitted by law, we shall not be liable for any indirect, incidental,
               special, consequential, or punitive damages, including loss of profits, revenue, data, or
@@ -245,7 +245,7 @@ export default function TermsAndConditions() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">15. Termination</h2>
+            <h2 className="text-lg font-semibold mb-2">16. Termination</h2>
             <p className="text-muted-foreground leading-relaxed">
               If a subscription payment fails, your account will be suspended immediately — you will
               retain read-only access but will not be able to add new customers or send review requests.
@@ -257,12 +257,12 @@ export default function TermsAndConditions() {
               We may also suspend or terminate your account at any time if you breach these Terms or if
               we reasonably believe your use of the service poses a risk to us, other users, or third
               parties. Upon termination, your right to access the service ceases immediately. Sections
-              9, 10, 11, 12, 13, 14, and 16 survive termination.
+              9, 10, 11, 12, 13, 14, 15, and 17 survive termination.
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">16. Indemnification</h2>
+            <h2 className="text-lg font-semibold mb-2">17. Indemnification</h2>
             <p className="text-muted-foreground leading-relaxed">
               You agree to indemnify, defend, and hold harmless ReviewOptic Limited, its directors,
               employees, and agents from and against any claims, liabilities, damages, losses, and
@@ -274,7 +274,7 @@ export default function TermsAndConditions() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">17. Third-party services</h2>
+            <h2 className="text-lg font-semibold mb-2">18. Third-party services</h2>
             <p className="text-muted-foreground leading-relaxed">
               ReviewOptic integrates with third-party services including Stripe, Twilio, Google,
               Facebook, Instagram, OpenAI, and ElevenLabs. We have no control over these
@@ -286,7 +286,7 @@ export default function TermsAndConditions() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">18. Force majeure</h2>
+            <h2 className="text-lg font-semibold mb-2">19. Force majeure</h2>
             <p className="text-muted-foreground leading-relaxed">
               We will not be liable for any failure or delay in performing our obligations under these
               Terms where such failure or delay results from circumstances beyond our reasonable control,
@@ -296,7 +296,7 @@ export default function TermsAndConditions() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">19. Severability</h2>
+            <h2 className="text-lg font-semibold mb-2">20. Severability</h2>
             <p className="text-muted-foreground leading-relaxed">
               If any provision of these Terms is found to be void, invalid, or unenforceable by a court
               of competent jurisdiction, that provision shall be removed or limited to the minimum extent
@@ -305,7 +305,7 @@ export default function TermsAndConditions() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">20. Promotions and offers</h2>
+            <h2 className="text-lg font-semibold mb-2">21. Promotions and offers</h2>
             <p className="text-muted-foreground leading-relaxed">
               We reserve the right to cancel, amend, withdraw, or change any promotion, special offer,
               free trial, discount, or other marketing offer at any time and without prior notice, except
@@ -315,7 +315,7 @@ export default function TermsAndConditions() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">21. Referral programme</h2>
+            <h2 className="text-lg font-semibold mb-2">22. Referral programme</h2>
             <p className="text-muted-foreground leading-relaxed">
               We operate a referral programme under which existing subscribers can earn account credits
               by referring new subscribers. The following terms apply:
@@ -331,7 +331,7 @@ export default function TermsAndConditions() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">22. Governing law and disputes</h2>
+            <h2 className="text-lg font-semibold mb-2">23. Governing law and disputes</h2>
             <p className="text-muted-foreground leading-relaxed">
               These Terms are governed by the laws of England and Wales. Any dispute arising out of or
               in connection with these Terms shall be subject to the exclusive jurisdiction of the courts
@@ -341,7 +341,7 @@ export default function TermsAndConditions() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">23. Changes to these terms</h2>
+            <h2 className="text-lg font-semibold mb-2">24. Changes to these terms</h2>
             <p className="text-muted-foreground leading-relaxed">
               We may update these Terms from time to time. We will notify you of material changes by
               email or in-app notice at least 14 days before they take effect. Continued use of the
@@ -350,7 +350,7 @@ export default function TermsAndConditions() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-2">24. Contact</h2>
+            <h2 className="text-lg font-semibold mb-2">25. Contact</h2>
             <p className="text-muted-foreground leading-relaxed">
               For any questions about these Terms, contact us at:<br />
               <strong className="text-foreground">ReviewOptic Limited</strong><br />

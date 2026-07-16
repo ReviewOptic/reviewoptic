@@ -5,7 +5,7 @@ export default function PrivacyPolicy() {
         <div className="mb-6 sm:mb-10">
           <img src="/logo.png" alt="ReviewOptic" className="h-16 sm:h-24 mb-4 sm:mb-6 object-contain" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-2">Privacy Policy</h1>
-          <p className="text-muted-foreground text-sm">Last updated: 6 April 2026</p>
+          <p className="text-muted-foreground text-sm">Last updated: 16 July 2026</p>
         </div>
 
         <div className="prose prose-sm max-w-none space-y-8 text-foreground">
@@ -32,8 +32,8 @@ export default function PrivacyPolicy() {
               <li><strong className="text-foreground">Voice and video recordings:</strong> voice notes and video attachments you upload when sending review requests</li>
               <li><strong className="text-foreground">AI chat messages:</strong> messages you send to the ReviewOptic AI assistant, stored to provide the service</li>
               <li><strong className="text-foreground">Billing data:</strong> subscription and payment history (payment card details are handled directly by Stripe and never stored by us)</li>
-              <li><strong className="text-foreground">External review data:</strong> reviews and ratings imported from third-party platforms you connect (such as Google, Checkatrade, Trustpilot, TripAdvisor, and MyBuilder), stored so we can display them in your dashboard</li>
-              <li><strong className="text-foreground">Connected account tokens:</strong> access tokens for any third-party accounts you connect (such as Google Business Profile or Facebook), stored securely and used only to fetch reviews or post on your behalf</li>
+              <li><strong className="text-foreground">Review platform links:</strong> the links you add to your own review pages (such as Google, Checkatrade, Trustpilot, TripAdvisor, and MyBuilder), used to direct customers who rate you highly straight to those platforms</li>
+              <li><strong className="text-foreground">Connected account tokens:</strong> access tokens for any Facebook Page you connect, stored securely and used only to post review cards on your behalf</li>
             </ul>
             <p className="text-muted-foreground leading-relaxed mt-3">We do not access or view your customers' data in the normal operation of the service. We may access data only where necessary to resolve a technical issue at your request, or where required by law.</p>
           </section>
@@ -47,8 +47,7 @@ export default function PrivacyPolicy() {
               <li>Send you account-related emails (verification, password reset, billing, payment notifications, and subscription renewals)</li>
               <li>Notify you when a customer submits a star rating or private feedback</li>
               <li>Send you weekly or monthly performance reports and AI-generated insights about your reviews (you can opt out of these at any time from your Settings)</li>
-              <li>Import and display reviews from external platforms you connect (Google, Checkatrade, Trustpilot, TripAdvisor, MyBuilder), refreshed automatically every 6 hours</li>
-              <li>Generate shareable review card images and, if you enable it, automatically post them to your connected Facebook Page or Instagram account</li>
+              <li>Generate shareable review card images from the star ratings your customers submit through ReviewOptic, and, if you enable it, automatically post them to your connected Facebook Page or Instagram account</li>
               <li>Send you occasional emails asking you to review ReviewOptic on Google, to help us grow our business — every such email includes an unsubscribe link so you can opt out at any time</li>
               <li>Improve and develop the platform</li>
               <li>Detect and prevent fraud, abuse, and security incidents</li>
@@ -81,9 +80,8 @@ export default function PrivacyPolicy() {
               <li><strong className="text-foreground">Sentry</strong> — error monitoring to help us identify and fix technical issues</li>
               <li><strong className="text-foreground">OpenAI</strong> — powers AI features including template generation and the AI chat assistant</li>
               <li><strong className="text-foreground">ElevenLabs</strong> — powers voice cloning to personalise audio review requests</li>
-              <li><strong className="text-foreground">Google</strong> — if you connect your Google Business Profile, we access your reviews via the Google Business Profile API. We also use the Google Places API to import publicly available reviews</li>
-              <li><strong className="text-foreground">Meta (Facebook/Instagram)</strong> — if you connect your Facebook Page for auto-posting review cards or to import Facebook reviews</li>
-              <li><strong className="text-foreground">Checkatrade, Trustpilot, TripAdvisor, MyBuilder</strong> — if you add links to these platforms, we fetch your publicly available reviews from them periodically</li>
+              <li><strong className="text-foreground">Meta (Facebook/Instagram)</strong> — if you connect your Facebook Page, used to auto-post review cards on your behalf</li>
+              <li><strong className="text-foreground">Meta Pixel, Google Tag Manager, TikTok Pixel</strong> — if enabled, load on our marketing pages only after you accept cookies, to help us measure ad performance and site traffic</li>
             </ul>
             <p className="text-muted-foreground leading-relaxed mt-3">
               All third-party providers are GDPR-compliant. Where required, Data Processing Agreements are in place — either entered into directly by ReviewOptic as part of our service sign-up, or governed by each provider's standard DPA terms which form part of their service agreement.
@@ -118,8 +116,7 @@ export default function PrivacyPolicy() {
               by law — for example, billing and financial records are retained for 7 years as required under
               UK law. You can cancel your subscription or delete your account at any time through your Billing settings.
               Customer data you have uploaded (names, email addresses, phone numbers) is retained for the same period
-              and deleted alongside your account data upon account deletion. Imported external reviews are also deleted
-              when your account is deleted or when you disconnect a platform.
+              and deleted alongside your account data upon account deletion.
             </p>
           </section>
 
@@ -158,8 +155,10 @@ export default function PrivacyPolicy() {
             <h2 className="text-lg font-semibold mb-2">10. Cookies</h2>
             <p className="text-muted-foreground leading-relaxed">
               We use a session cookie to keep you logged in. This cookie is strictly necessary for the
-              service to function and does not track you across other websites. We do not use advertising
-              or analytics cookies.
+              service to function and does not track you across other websites. We may also use advertising
+              and analytics cookies (such as Meta Pixel, Google Tag Manager, or TikTok Pixel) on our marketing
+              pages to understand traffic and measure ad performance — these are non-essential and only load
+              if you accept them via the cookie banner. If you decline, or take no action, these are not loaded.
             </p>
           </section>
 

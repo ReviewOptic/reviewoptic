@@ -38,7 +38,7 @@ const FAQS = [
       },
       {
         q: "When does my monthly allowance reset on the Standard plan?",
-        a: "Your allowance resets at the beginning of each billing cycle — on the same date each month as when you first subscribed.",
+        a: "Your allowance resets on the 1st of each calendar month, regardless of the date you originally subscribed.",
       },
       {
         q: "Can I switch between Standard and Pro?",
